@@ -1,0 +1,88 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    // Check if the user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Check if the user is an admin
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' || 
+         (request.auth.token.email == "sayginsoy1978@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    // Check if the user is a technician
+    function isTechnician() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'techniker';
+    }
+
+    // Check if the user is staff (admin or technician)
+    function isStaff() {
+      return isAdmin() || isTechnician();
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    // Users Collection
+    match /users/{userId} {
+      // Anyone can read users (needed for portal dropdowns and login)
+      allow read: if true;
+      // Only admins can create/update/delete users
+      allow write: if isAdmin();
+    }
+
+    // Locations Collection
+    match /locations/{locationId} {
+      // Anyone can read locations (needed for portal dropdowns)
+      allow read: if true;
+      // Only admins can modify locations
+      allow write: if isAdmin();
+    }
+
+    // Tickets Collection
+    match /tickets/{ticketId} {
+      // Anyone can get a specific ticket by ID (for status check)
+      // Staff can list all tickets
+      allow get: if true;
+      allow list: if isStaff();
+      
+      // Anyone can create a ticket (portal)
+      allow create: if true;
+      
+      // Staff can update tickets
+      allow update: if isStaff();
+      
+      // Only admins can delete tickets
+      allow delete: if isAdmin();
+    }
+
+    // Assets Collection
+    match /assets/{assetId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // Maintenance Plans Collection
+    match /maintenancePlans/{planId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // App Data Collection (for seamless migration from Supabase)
+    match /app_data/{docId} {
+      allow read: if true;
+      allow write: if true; // In a real app, restrict this, but for now allow all to match previous behavior
+    }
+  }
+}

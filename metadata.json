@@ -1,0 +1,7 @@
+{
+  "name": "DRK Haustechnik Service",
+  "description": "A modern, redesigned dashboard for managing facility maintenance tickets with a clean Kanban-style interface.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

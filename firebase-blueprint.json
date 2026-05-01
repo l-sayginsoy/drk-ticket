@@ -1,0 +1,153 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the system (Admin or Technician)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "techniker"] },
+        "password": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "skills": { "type": "array", "items": { "type": "string" } },
+        "availability": {
+          "type": "object",
+          "properties": {
+            "status": { "type": "string", "enum": ["Verfügbar", "Abwesend"] },
+            "leaveUntil": { "type": "string", "format": "date" }
+          }
+        }
+      },
+      "required": ["id", "name", "role", "isActive", "skills", "availability"]
+    },
+    "Location": {
+      "title": "Location",
+      "description": "A location or area in the facility",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["id", "name", "isActive"]
+    },
+    "Ticket": {
+      "title": "Ticket",
+      "description": "A maintenance or repair ticket",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ticketType": { "type": "string", "enum": ["reactive", "preventive"] },
+        "title": { "type": "string" },
+        "area": { "type": "string" },
+        "location": { "type": "string" },
+        "reporter": { "type": "string" },
+        "entryDate": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["Offen", "In Arbeit", "Überfällig", "Abgeschlossen"] },
+        "technician": { "type": "string" },
+        "priority": { "type": "string", "enum": ["Hoch", "Mittel", "Niedrig"] },
+        "categoryId": { "type": "string" },
+        "assetId": { "type": "string" },
+        "completionDate": { "type": "string" },
+        "wunschTermin": { "type": "string" },
+        "photos": { "type": "array", "items": { "type": "string" } },
+        "description": { "type": "string" },
+        "notes": { "type": "array", "items": { "type": "string" } },
+        "hasNewNoteFromReporter": { "type": "boolean" },
+        "is_emergency": { "type": "boolean" },
+        "costs": {
+          "type": "object",
+          "properties": {
+            "laborHours": { "type": "number" },
+            "materials": { "type": "number" }
+          }
+        }
+      },
+      "required": ["id", "ticketType", "title", "area", "location", "reporter", "entryDate", "dueDate", "status", "technician", "priority"]
+    },
+    "Asset": {
+      "title": "Asset",
+      "description": "An asset or equipment in the facility",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "locationId": { "type": "string" },
+        "details": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string" },
+            "manufacturer": { "type": "string" },
+            "model": { "type": "string" },
+            "installDate": { "type": "string" },
+            "qrCode": { "type": "string" }
+          }
+        },
+        "maintenancePlanId": { "type": "string" },
+        "maintenanceHistory": { "type": "array" }
+      },
+      "required": ["id", "name", "locationId", "details", "maintenanceHistory"]
+    },
+    "MaintenancePlan": {
+      "title": "MaintenancePlan",
+      "description": "A plan for preventive maintenance",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "assetId": { "type": "string" },
+        "taskDescription": { "type": "string" },
+        "intervalDays": { "type": "number" },
+        "requiredSkill": { "type": "string" },
+        "ticketPriority": { "type": "string", "enum": ["Hoch", "Mittel", "Niedrig"] },
+        "lastGenerated": { "type": "string" }
+      },
+      "required": ["id", "assetId", "taskDescription", "intervalDays", "requiredSkill", "ticketPriority", "lastGenerated"]
+    },
+    "AppSettings": {
+      "title": "AppSettings",
+      "description": "Global application settings",
+      "type": "object",
+      "properties": {
+        "appName": { "type": "string" },
+        "defaultPriority": { "type": "string" },
+        "portalConfig": { "type": "object" },
+        "dueDateRules": { "type": "object" },
+        "ticketCategories": { "type": "array" },
+        "slaMatrix": { "type": "array" },
+        "routingRules": { "type": "array" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Stores user accounts"
+    },
+    "/locations/{locationId}": {
+      "schema": { "$ref": "#/entities/Location" },
+      "description": "Stores facility locations"
+    },
+    "/tickets/{ticketId}": {
+      "schema": { "$ref": "#/entities/Ticket" },
+      "description": "Stores maintenance and repair tickets"
+    },
+    "/assets/{assetId}": {
+      "schema": { "$ref": "#/entities/Asset" },
+      "description": "Stores facility assets"
+    },
+    "/maintenancePlans/{planId}": {
+      "schema": { "$ref": "#/entities/MaintenancePlan" },
+      "description": "Stores maintenance plans"
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/AppSettings" },
+      "description": "Stores application settings (e.g., 'global')"
+    },
+    "/app_data/{docId}": {
+      "schema": { "type": "object", "properties": { "value": { "type": "any" }, "updated_at": { "type": "string" } } },
+      "description": "Legacy blob storage for all app data keys"
+    }
+  }
+}
