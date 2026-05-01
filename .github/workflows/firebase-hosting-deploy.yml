@@ -20,6 +20,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check Firebase service account secret
+        shell: bash
+        run: |
+          if [ -z "$FIREBASE_SA" ]; then
+            echo "::error::GitHub Secret FIREBASE_SERVICE_ACCOUNT_DRK_FACILITY fehlt oder ist leer."
+            echo "Anlegen unter: Repo → Settings → Secrets and variables → Actions"
+            echo "Inhalt: kompletter JSON-Text des privaten Schlüssels (Firebase Console → Projekt → Projekteinstellungen → Dienstkonten → Schlüssel hinzufügen)."
+            exit 1
+          fi
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DRK_FACILITY }}
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
