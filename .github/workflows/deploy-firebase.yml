@@ -1,5 +1,6 @@
-# Nach jedem Push auf "main": Build → Firebase Hosting + Firestore-Regeln
-# Voraussetzung: GitHub Secret FIREBASE_SERVICE_ACCOUNT_DRK_FACILITY (JSON vom Dienstkonto)
+# Nach jedem Push auf "main": Build → Firebase Hosting
+# Secret: FIREBASE_SERVICE_ACCOUNT_DRK_FACILITY (Dienstkonto-JSON)
+# Nur Hosting: Firestore-Regeln brauchen extra IAM-Rechte (403 vermeiden). Regeln ggf. lokal: firebase deploy --only firestore
 
 name: Deploy to Firebase
 
@@ -44,5 +45,5 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_BREVO_API_KEY: ${{ secrets.VITE_BREVO_API_KEY }}
 
-      - name: Deploy to Firebase
-        run: npx firebase-tools@13.35.1 deploy --only hosting,firestore --project drk-facility-dashboard --non-interactive
+      - name: Deploy to Firebase (Hosting)
+        run: npx firebase-tools@13.35.1 deploy --only hosting --project drk-facility-dashboard --non-interactive
