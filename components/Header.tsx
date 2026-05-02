@@ -52,20 +52,7 @@ const Header: React.FC<HeaderProps> = ({ stats, filters, setFilters, currentView
                 .header-left {
                     display: flex;
                     align-items: center;
-                    gap: 1rem;
-                    flex-wrap: wrap;
-                }
-                .deploy-pipeline-test-badge {
-                    display: inline-block;
-                    font-size: 0.65rem;
-                    font-weight: 600;
-                    letter-spacing: 0.02em;
-                    padding: 0.2rem 0.5rem;
-                    border-radius: 6px;
-                    background: var(--bg-tertiary);
-                    color: var(--text-muted);
-                    border: 1px solid var(--border);
-                    flex-shrink: 0;
+                    gap: 1.5rem;
                 }
                 .sync-status {
                     display: flex;
@@ -197,12 +184,6 @@ const Header: React.FC<HeaderProps> = ({ stats, filters, setFilters, currentView
 
             `}</style>
             <div className="header-left">
-                <span
-                    className="deploy-pipeline-test-badge"
-                    title="Kann entfernt werden, sobald Push→Firebase getestet ist"
-                >
-                    Deploy-Test
-                </span>
                 {pageTitle && (
                     <div className="header-title-container">
                         <h1 className="header-title">{pageTitle}</h1>
