@@ -59,6 +59,11 @@ const LOCAL_STORAGE_KEY_PLANS = 'facility-management-plans';
 const LOCAL_STORAGE_KEY_SETTINGS = 'facility-management-settings';
 
 const DRK_TICKET_PORTAL_URL = 'https://www.drk-ticket.de';
+/** An Portal-Farben angelehnt (Haustechnik Service) */
+const DRK_RED = '#9d0a0e';
+const DRK_RED_DARK = '#7a080b';
+const DRK_CREAM = '#f5f0e8';
+const DRK_PAGE_BG = '#ece8e3';
 
 const escapeHtml = (s: string) =>
   s
@@ -67,55 +72,150 @@ const escapeHtml = (s: string) =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 
-/** HTML-Mail für bessere Lesbarkeit in Outlook, Gmail & Co.; `textContent` bleibt Plain-Text-Fallback. */
-const buildBrevoHtmlBody = (subjectLine: string, plainBody: string) => {
-  const blocks = plainBody
-    .split(/\n\n+/)
-    .map((b) => b.trim())
-    .filter(Boolean);
-  const bodyHtml = blocks
-    .map((block) => {
-      const lines = block.split('\n').map((l) => l.trim()).filter(Boolean);
-      if (lines.length <= 1) {
-        return `<p style="margin:0 0 14px;line-height:1.55;color:#333;font-size:15px;">${escapeHtml(block)}</p>`;
-      }
-      return `<div style="margin:0 0 16px;padding:14px 16px;background:#f8f9fa;border-left:4px solid #c8102e;border-radius:0 8px 8px 0;">
-        ${lines.map((l) => `<p style="margin:0 0 8px;line-height:1.5;color:#222;font-size:15px;">${escapeHtml(l)}</p>`).join('')}
-      </div>`;
-    })
-    .join('');
+type DrkBrevoMailPayload =
+  | { kind: 'ticket_created'; ticketId: string }
+  | { kind: 'staff_note'; ticketId: string; noteText: string }
+  | { kind: 'ticket_closed'; ticketId: string };
 
-  return `<!DOCTYPE html>
-<html lang="de">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#eef0f2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef0f2;padding:24px 12px;">
-<tr><td align="center">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08);">
-<tr><td style="background:linear-gradient(135deg,#c8102e 0%,#a30d24 100%);padding:18px 22px;">
-<p style="margin:0;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.88);">Deutsches Rotes Kreuz</p>
-<p style="margin:6px 0 0;font-size:17px;font-weight:700;color:#fff;line-height:1.25;">${escapeHtml(subjectLine)}</p>
-</td></tr>
-<tr><td style="padding:22px 22px 8px;">${bodyHtml}</td></tr>
-<tr><td style="padding:8px 22px 26px;">
-<a href="${DRK_TICKET_PORTAL_URL}" style="display:inline-block;background:#c8102e;color:#fff!important;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:600;font-size:15px;">Zum Ticket-Portal anmelden</a>
-<p style="margin:14px 0 0;font-size:12px;color:#666;line-height:1.45;">Link funktioniert nicht? Im Browser öffnen:<br><a href="${DRK_TICKET_PORTAL_URL}" style="color:#c8102e;word-break:break-all;">${DRK_TICKET_PORTAL_URL}</a></p>
-</td></tr>
-</table>
-<p style="max-width:560px;margin:16px auto 0;font-size:11px;color:#999;text-align:center;line-height:1.4;">Automatische Nachricht · bitte nicht auf diese E-Mail antworten</p>
-</td></tr></table>
-</body></html>`;
+const drkBrevoBannerTitle = (p: DrkBrevoMailPayload) => {
+  switch (p.kind) {
+    case 'ticket_created':
+      return 'Meldung erfasst';
+    case 'staff_note':
+      return 'Neuigkeit zu Ihrer Meldung';
+    case 'ticket_closed':
+      return 'Meldung abgeschlossen';
+  }
 };
 
-/** Brevo: API-Key nur aus Build (`VITE_BREVO_API_KEY`, z. B. GitHub Actions Secret beim Deploy). */
-const sendBrevoTransactionalEmail = (to: string, subject: string, textContent: string) => {
+const buildDrkBrevoPlainText = (p: DrkBrevoMailPayload) => {
+  const line = '────────────────────────────';
+  if (p.kind === 'ticket_created') {
+    return [
+      'Haustechnik Service · DRK Ticket',
+      '',
+      'Vielen Dank für Ihre Meldung.',
+      '',
+      line,
+      '  TICKETNUMMER',
+      line,
+      `  ${p.ticketId}`,
+      '',
+      'Nächster Schritt:',
+      `Melden Sie sich im Ticket-Portal an – Status prüfen oder Notiz ergänzen:`,
+      DRK_TICKET_PORTAL_URL,
+      '',
+      'Diese E-Mail wurde automatisch erzeugt. Bitte nicht antworten.',
+    ].join('\n');
+  }
+  if (p.kind === 'staff_note') {
+    return [
+      'Haustechnik Service · DRK Ticket',
+      '',
+      `Ticketnummer: ${p.ticketId}`,
+      '',
+      'Es gibt eine Neuigkeit zu Ihrer Meldung.',
+      '',
+      line,
+      '  NEUE NOTIZ',
+      line,
+      `  ${p.noteText}`,
+      '',
+      'Details & Antwort im Portal:',
+      DRK_TICKET_PORTAL_URL,
+      '',
+      'Diese E-Mail wurde automatisch erzeugt. Bitte nicht antworten.',
+    ].join('\n');
+  }
+  return [
+    'Haustechnik Service · DRK Ticket',
+    '',
+    `Ticketnummer: ${p.ticketId}`,
+    '',
+    'Ihre Meldung wurde erfolgreich abgeschlossen.',
+    '',
+    'Details einsehen oder Notiz ergänzen:',
+    DRK_TICKET_PORTAL_URL,
+    '',
+    'Diese E-Mail wurde automatisch erzeugt. Bitte nicht antworten.',
+  ].join('\n');
+};
+
+const ticketChipHtml = (ticketId: string) => `
+<table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 20px;">
+<tr><td style="background:${DRK_CREAM};border:1px solid #e0d8ce;border-radius:10px;padding:14px 18px;">
+<p style="margin:0 0 4px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#666;">Ticketnummer</p>
+<p style="margin:0;font-size:22px;font-weight:700;color:${DRK_RED};letter-spacing:.04em;">${escapeHtml(ticketId)}</p>
+</td></tr></table>`;
+
+const portalCtaHtml = () => `
+<table role="presentation" cellspacing="0" cellpadding="0" style="margin:8px 0 0;">
+<tr><td style="border-radius:10px;background:${DRK_RED};">
+<a href="${DRK_TICKET_PORTAL_URL}" style="display:inline-block;padding:14px 22px;font-size:15px;font-weight:700;color:#fff!important;text-decoration:none;">Zum Ticket-Portal</a>
+</td></tr>
+<tr><td style="padding-top:12px;">
+<p style="margin:0;font-size:12px;color:#666;line-height:1.5;">Oder Link kopieren:<br><a href="${DRK_TICKET_PORTAL_URL}" style="color:${DRK_RED};word-break:break-all;">${DRK_TICKET_PORTAL_URL}</a></p>
+</td></tr></table>`;
+
+const drkEmailShellHtml = (bannerTitle: string, innerBodyHtml: string) => `<!DOCTYPE html>
+<html lang="de">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(bannerTitle)}</title></head>
+<body style="margin:0;padding:0;background:${DRK_PAGE_BG};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${DRK_PAGE_BG};padding:20px 10px;">
+<tr><td align="center">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:580px;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.07);">
+<tr><td style="padding:18px 22px;background:${DRK_CREAM};border-bottom:3px solid ${DRK_RED};">
+<p style="margin:0;font-size:12px;font-weight:600;letter-spacing:.04em;color:#333;">Deutsches Rotes Kreuz</p>
+<p style="margin:4px 0 2px;font-size:20px;font-weight:800;color:${DRK_RED};line-height:1.2;">Haustechnik Service</p>
+<p style="margin:0;font-size:13px;color:#555;">Meldungen erfassen &amp; verfolgen</p>
+</td></tr>
+<tr><td style="background:linear-gradient(90deg,${DRK_RED} 0%,${DRK_RED_DARK} 100%);padding:16px 22px;">
+<p style="margin:0;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.85);">DRK Ticket</p>
+<p style="margin:6px 0 0;font-size:18px;font-weight:700;color:#fff;line-height:1.25;">${escapeHtml(bannerTitle)}</p>
+</td></tr>
+<tr><td style="padding:24px 22px 10px;">${innerBodyHtml}</td></tr>
+<tr><td style="padding:6px 22px 28px;background:#fafafa;border-top:1px solid #eee;">${portalCtaHtml()}</td></tr>
+</table>
+<p style="max-width:580px;margin:14px auto 0;font-size:11px;color:#888;text-align:center;line-height:1.45;">Automatische Nachricht · bitte nicht auf diese E-Mail antworten</p>
+</td></tr></table>
+</body></html>`;
+
+const buildDrkBrevoHtml = (p: DrkBrevoMailPayload) => {
+  const title = drkBrevoBannerTitle(p);
+  if (p.kind === 'ticket_created') {
+    const inner = `
+<p style="margin:0 0 16px;font-size:15px;line-height:1.55;color:#333;">Vielen Dank für Ihre Meldung. Wir haben sie erhalten und bearbeiten sie.</p>
+${ticketChipHtml(p.ticketId)}
+<p style="margin:0;font-size:14px;line-height:1.55;color:#444;">Bitte notieren Sie die Ticketnummer. Unter dem Button gelangen Sie zum Portal – dort können Sie den <strong>Status prüfen</strong> und bei Bedarf eine <strong>Notiz</strong> ergänzen.</p>`;
+    return drkEmailShellHtml(title, inner);
+  }
+  if (p.kind === 'staff_note') {
+    const inner = `
+${ticketChipHtml(p.ticketId)}
+<p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#333;">Es gibt eine <strong>Neuigkeit</strong> zu Ihrer Meldung (interne Notiz vom Team):</p>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 18px;"><tr><td style="background:#faf7f2;border-left:4px solid ${DRK_RED};border-radius:0 10px 10px 0;padding:16px 18px;">
+<p style="margin:0;font-size:15px;line-height:1.55;color:#222;white-space:pre-wrap;">${escapeHtml(p.noteText)}</p>
+</td></tr></table>
+<p style="margin:0;font-size:14px;line-height:1.55;color:#444;">Alle Details und die Möglichkeit zur Rückmeldung finden Sie im Ticket-Portal.</p>`;
+    return drkEmailShellHtml(title, inner);
+  }
+  const inner = `
+${ticketChipHtml(p.ticketId)}
+<p style="margin:0;font-size:15px;line-height:1.55;color:#333;">Ihre Meldung wurde <strong>erfolgreich abgeschlossen</strong>. Vielen Dank für Ihre Mithilfe.</p>
+<p style="margin:14px 0 0;font-size:14px;line-height:1.55;color:#444;">Im Portal können Sie die Abschlussinformationen einsehen oder bei Rückfragen eine Notiz hinterlassen.</p>`;
+  return drkEmailShellHtml(title, inner);
+};
+
+/** Brevo: strukturierte DRK-Mails (HTML + klarer Klartext). */
+const sendDrkBrevoMail = (to: string, subject: string, payload: DrkBrevoMailPayload) => {
   void (async () => {
     const apiKey = (import.meta.env.VITE_BREVO_API_KEY as string | undefined)?.trim();
     if (!apiKey) {
       console.warn('VITE_BREVO_API_KEY fehlt im Build (GitHub Secret + Deploy).');
       return;
     }
-    const htmlContent = buildBrevoHtmlBody(subject, textContent);
+    const textContent = buildDrkBrevoPlainText(payload);
+    const htmlContent = buildDrkBrevoHtml(payload);
     try {
       const res = await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
@@ -789,20 +889,19 @@ const App: React.FC = () => {
 
     if (updatedTicket.reporter_email) {
       if (statusChanged && updatedTicket.status === Status.Abgeschlossen) {
-        sendBrevoTransactionalEmail(
-          updatedTicket.reporter_email,
-          `Ihre Meldung wurde abgeschlossen – Ticket ${updatedTicket.id}`,
-          `Ihre Meldung wurde soeben erfolgreich abgeschlossen.\n\nUm weitere Details einzusehen oder selbst eine Notiz zu ergänzen, loggen Sie sich bitte unter www.drk-ticket.de ein.`
-        );
+        sendDrkBrevoMail(updatedTicket.reporter_email, `Ihre Meldung wurde abgeschlossen – Ticket ${updatedTicket.id}`, {
+          kind: 'ticket_closed',
+          ticketId: updatedTicket.id,
+        });
       } else if ((updatedTicket.notes?.length || 0) > (originalTicket.notes?.length || 0)) {
         const latestNote = updatedTicket.notes![updatedTicket.notes!.length - 1];
         const isNoteFromReporter = latestNote.includes('(Melder am ') || latestNote.includes('Ticket durch Melder wiedereröffnet');
         if (!isNoteFromReporter) {
-          sendBrevoTransactionalEmail(
-            updatedTicket.reporter_email,
-            `Neuigkeit zu Ihrem Ticket ${updatedTicket.id}`,
-            `Es gibt eine Neuigkeit zu Ihrer Meldung.\n\nDie neue Notiz lautet:\n"${latestNote}"\n\nUm weitere Details einzusehen oder selbst eine Notiz zu ergänzen, loggen Sie sich bitte unter www.drk-ticket.de ein.`
-          );
+          sendDrkBrevoMail(updatedTicket.reporter_email, `Neuigkeit zu Ihrem Ticket ${updatedTicket.id}`, {
+            kind: 'staff_note',
+            ticketId: updatedTicket.id,
+            noteText: latestNote,
+          });
         }
       }
     }
@@ -884,11 +983,10 @@ const App: React.FC = () => {
     setTickets(prevTickets => [newTicket, ...prevTickets]);
 
     if (newTicket.reporter_email) {
-      sendBrevoTransactionalEmail(
-        newTicket.reporter_email,
-        `Ihre Meldung wurde erfasst – Ticket ${newTicket.id}`,
-        `Vielen Dank für Ihre Meldung. Ihre Ticketnummer lautet: ${newTicket.id}.\n\nUm den Status zu prüfen oder eine Notiz zu ergänzen, loggen Sie sich bitte unter www.drk-ticket.de ein.`
-      );
+      sendDrkBrevoMail(newTicket.reporter_email, `Ihre Meldung wurde erfasst – Ticket ${newTicket.id}`, {
+        kind: 'ticket_created',
+        ticketId: newTicket.id,
+      });
     }
     
     if (!silent) setIsModalOpen(false);
