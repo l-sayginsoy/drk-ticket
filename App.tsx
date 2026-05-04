@@ -7,6 +7,7 @@ import {
 } from './types';
 import { MOCK_TICKETS, MOCK_USERS, MOCK_LOCATIONS, STATUSES, DEFAULT_APP_SETTINGS, MOCK_ASSETS, MOCK_MAINTENANCE_PLANS } from './constants';
 import { db } from './firebase';
+import { getBrevoApiKeyForClient } from './utils/brevoClientKey';
 import { collection, doc, setDoc, onSnapshot, getDocs } from 'firebase/firestore';
 
 import Sidebar from './components/Sidebar';
@@ -58,26 +59,36 @@ const LOCAL_STORAGE_KEY_ASSETS = 'facility-management-assets';
 const LOCAL_STORAGE_KEY_PLANS = 'facility-management-plans';
 const LOCAL_STORAGE_KEY_SETTINGS = 'facility-management-settings';
 
-/** Brevo (ehem. Sendinblue): Schlüssel nur via `VITE_BREVO_API_KEY` / GitHub Secret, nie im Quellcode. */
+/** Brevo: API-Key aus Build (`VITE_BREVO_API_KEY`) oder aus Einstellungen → Browser-Speicher (siehe `utils/brevoClientKey.ts`). */
 const sendBrevoTransactionalEmail = (to: string, subject: string, textContent: string) => {
-  const apiKey = (import.meta.env.VITE_BREVO_API_KEY as string | undefined)?.trim();
-  if (!apiKey) {
-    console.warn('VITE_BREVO_API_KEY fehlt – Transaktions-E-Mail wird nicht versendet.');
-    return;
-  }
-  fetch('https://api.brevo.com/v3/smtp/email', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'api-key': apiKey,
-    },
-    body: JSON.stringify({
-      sender: { email: 'noreply@drk-ticket.de' },
-      to: [{ email: to }],
-      subject,
-      textContent,
-    }),
-  }).catch((err) => console.error('Error sending Brevo email:', err));
+  void (async () => {
+    const apiKey = getBrevoApiKeyForClient();
+    if (!apiKey) {
+      console.warn('Kein Brevo-API-Schlüssel: Einstellungen → Abschnitt „E-Mail (Brevo)“ ausfüllen oder VITE_BREVO_API_KEY setzen.');
+      return;
+    }
+    try {
+      const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': apiKey,
+        },
+        body: JSON.stringify({
+          sender: { email: 'noreply@drk-ticket.de' },
+          to: [{ email: to }],
+          subject,
+          textContent,
+        }),
+      });
+      const bodyText = await res.text();
+      if (!res.ok) {
+        console.error('Brevo:', res.status, bodyText.slice(0, 400));
+      }
+    } catch (err) {
+      console.error('Brevo senden fehlgeschlagen:', err);
+    }
+  })();
 };
 
 const parseGermanDate = (dateStr: string | undefined): Date | null => {

@@ -47,7 +47,7 @@ const Sidebar: React.FC<SidebarProps> = ({ appSettings, isCollapsed, setCollapse
         { type: 'view', viewName: 'erledigt', icon: <CheckBadgeIcon />, label: 'Abgeschlossen', requiredRoles: [Role.Admin, Role.Technician] },
         { type: 'view', viewName: 'techniker', icon: <UserIcon />, label: 'Techniker', requiredRoles: [Role.Admin] },
         { type: 'view', viewName: 'reports', icon: <BarChartIcon />, label: 'Reports', requiredRoles: [Role.Admin] },
-        { type: 'view', viewName: 'settings', icon: <SlidersIcon />, label: 'Settings', requiredRoles: [Role.Admin] },
+        { type: 'view', viewName: 'settings', icon: <SlidersIcon />, label: 'Einstellungen', requiredRoles: [Role.Admin] },
         { type: 'action', action: 'newTicket', icon: <DocumentPlusIcon />, label: 'Neues Ticket', requiredRoles: [Role.Admin, Role.Technician], onClick: onNewTicketClick },
     ];
 

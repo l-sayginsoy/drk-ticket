@@ -19,3 +19,35 @@ View your app in AI Studio: https://ai.studio/apps/e01f0d33-f3e7-4c71-8027-b8f47
 3. Run the app:
    `npm run dev`
 # drk-ticket
+## Cursor Arbeitsregel für diese App
+
+Dies ist die interne DRK Haustechnik Service / Facility Ticket App.
+
+Wichtig:
+Bestehendes Design, bestehende Funktionen und bestehende Firebase Verbindung dürfen nicht zerstört werden.
+
+Die App hat bereits:
+- Login / Admin Bereich
+- Ticket Dashboard
+- Firebase Verbindung
+- GitHub Anbindung
+- Online Deployment
+
+Cursor soll bei Änderungen immer zuerst die vorhandene Struktur prüfen und dann gezielt ändern.
+
+Keine großen Layoutänderungen ohne Rückfrage.
+Keine bestehenden Komponenten unnötig ersetzen.
+Keine Firebase Konfiguration löschen oder neu erfinden.
+Keine funktionierenden Dateien komplett überschreiben, wenn eine kleine Änderung reicht.
+
+Design:
+Modern, klar, mobilfreundlich, bestehende Optik beibehalten.
+
+Arbeitsweise:
+Vor größeren Änderungen kurz sagen, welche Dateien betroffen sind.
+Nach Änderungen kurz prüfen, ob Build und lokale Vorschau funktionieren.
+Wichtig für Cursor:
+Bitte zuerst den gesamten Code analysieren und kurz zusammenfassen, wie die App aktuell aufgebaut ist, bevor Änderungen gemacht werden.
+
+Bei neuen Anforderungen:
+Bitte immer erst einen Vorschlag machen, bevor größere Änderungen umgesetzt werden.

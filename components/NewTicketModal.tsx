@@ -24,6 +24,7 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
   const [area, setArea] = useState(locations[0] || '');
   const [location, setLocation] = useState('');
   const [reporter, setReporter] = useState('');
+  const [reporterEmail, setReporterEmail] = useState('');
   const [dueDate, setDueDate] = useState(getFutureDateString(7)); // Default due date 7 days from now
   const [technician, setTechnician] = useState('N/A');
   const [description, setDescription] = useState('');
@@ -70,12 +71,14 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
     const [year, month, day] = dueDate.split('-');
     const formattedDueDate = `${day}.${month}.${year}`;
 
+    const emailTrim = reporterEmail.trim();
     onSave({
       ticketType: 'reactive',
       title,
       area,
       location,
       reporter,
+      ...(emailTrim ? { reporter_email: emailTrim } : {}),
       dueDate: formattedDueDate,
       technician,
       categoryId: appSettings.ticketCategories[0]?.id || '',
@@ -298,6 +301,17 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
             <div className="form-group">
                 <label htmlFor="reporter">Gemeldet von</label>
                 <input id="reporter" type="text" placeholder="Vor- und Nachname" value={reporter} onChange={e => setReporter(e.target.value)} />
+            </div>
+            <div className="form-group">
+                <label htmlFor="reporter-email">E-Mail Melder (optional, für Benachrichtigungen)</label>
+                <input
+                  id="reporter-email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="name@beispiel.de"
+                  value={reporterEmail}
+                  onChange={(e) => setReporterEmail(e.target.value)}
+                />
             </div>
             <div className="form-group">
                 <label htmlFor="dueDate">Fällig bis (wird ggf. automatisch angepasst)</label>
