@@ -38,8 +38,16 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Lint (TypeScript)
+        run: npm run lint
+
       - name: Build
-        run: npm run build
+        run: |
+          if [ -z "${VITE_BREVO_API_KEY:-}" ]; then
+            echo "::error::GitHub Secret VITE_BREVO_API_KEY ist nicht gesetzt oder leer. Ohne diesen Schlüssel baut Vite keinen Brevo-Key ein — die App sendet dann keine HTML-Mails (sendDrkBrevoMail bricht still ab)."
+            exit 1
+          fi
+          npm run build
         env:
           VITE_BREVO_API_KEY: ${{ secrets.VITE_BREVO_API_KEY }}
 
