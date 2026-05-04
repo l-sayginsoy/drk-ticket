@@ -8,12 +8,6 @@ import UserModal from './UserModal';
 import AreaModal from './AreaModal';
 import SwitchToggle from './SwitchToggle';
 import { DocumentArrowDownIcon } from './icons/DocumentArrowDownIcon';
-import {
-  clearBrevoApiKeyFromBrowser,
-  getBrevoApiKeyForClient,
-  hasBrevoKeyInBrowserStorage,
-  setBrevoApiKeyInBrowser,
-} from '../utils/brevoClientKey';
 
 const DOCUMENTATION_HTML = `
 <!DOCTYPE html>
@@ -309,9 +303,6 @@ interface SettingsViewProps {
 const SettingsView: React.FC<SettingsViewProps> = (props) => {
     const { users, setUsers, locations, setLocations, assets, setAssets, maintenancePlans, setMaintenancePlans, appSettings, setAppSettings } = props;
     const [activeTab, setActiveTab] = useState<'prozesse' | 'benutzer' | 'standorte'>('prozesse');
-    const [brevoKeyInput, setBrevoKeyInput] = useState('');
-    const [brevoBrowserSaved, setBrevoBrowserSaved] = useState(() => hasBrevoKeyInBrowserStorage());
-    const brevoFromBuild = !!(import.meta.env.VITE_BREVO_API_KEY as string | undefined)?.trim();
     
     // Modals
     const [isUserModalOpen, setUserModalOpen] = useState(false);
@@ -632,61 +623,6 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
             `}</style>
             <div className="settings-header">
                 <h1 className="settings-title">Steuerzentrale</h1>
-            </div>
-
-            <div className="settings-section" style={{ border: '2px solid var(--accent-primary)' }}>
-                <div className="settings-section-header">
-                    <h3 className="settings-section-title">E-Mail an Melder (Brevo)</h3>
-                </div>
-                <div className="settings-section-body">
-                    <p className="form-group-description" style={{ fontSize: '0.95rem' }}>
-                        Ohne Brevo-Schlüssel werden keine automatischen E-Mails verschickt. Key von Brevo einfügen, speichern – gilt in <strong>diesem Browser</strong>.
-                        {brevoFromBuild && ' (Zusätzlich ist ein Schlüssel im Server-Build hinterlegt – der hat Vorrang.)'}
-                    </p>
-                    {!brevoFromBuild && brevoBrowserSaved && (
-                        <p style={{ color: 'var(--accent-primary)', fontSize: '0.9rem', margin: 0 }}>Schlüssel in diesem Browser gespeichert.</p>
-                    )}
-                    {!brevoFromBuild && !brevoBrowserSaved && !getBrevoApiKeyForClient() && (
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>Noch kein Schlüssel hinterlegt.</p>
-                    )}
-                    <div className="form-group">
-                        <label>Brevo API-Schlüssel</label>
-                        <input
-                            type="password"
-                            autoComplete="off"
-                            className="form-group-input"
-                            placeholder="xkeysib-…"
-                            value={brevoKeyInput}
-                            onChange={(e) => setBrevoKeyInput(e.target.value)}
-                        />
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        <button
-                            type="button"
-                            className="btn btn-primary"
-                            onClick={() => {
-                                setBrevoApiKeyInBrowser(brevoKeyInput);
-                                setBrevoKeyInput('');
-                                setBrevoBrowserSaved(hasBrevoKeyInBrowserStorage());
-                                alert('Gespeichert.');
-                            }}
-                        >
-                            Speichern
-                        </button>
-                        <button
-                            type="button"
-                            className="btn btn-secondary"
-                            onClick={() => {
-                                clearBrevoApiKeyFromBrowser();
-                                setBrevoBrowserSaved(false);
-                                setBrevoKeyInput('');
-                                alert('Schlüssel entfernt.');
-                            }}
-                        >
-                            Schlüssel löschen
-                        </button>
-                    </div>
-                </div>
             </div>
 
             <div className="settings-section">

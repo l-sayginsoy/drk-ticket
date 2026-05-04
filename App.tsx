@@ -7,7 +7,6 @@ import {
 } from './types';
 import { MOCK_TICKETS, MOCK_USERS, MOCK_LOCATIONS, STATUSES, DEFAULT_APP_SETTINGS, MOCK_ASSETS, MOCK_MAINTENANCE_PLANS } from './constants';
 import { db } from './firebase';
-import { getBrevoApiKeyForClient } from './utils/brevoClientKey';
 import { collection, doc, setDoc, onSnapshot, getDocs } from 'firebase/firestore';
 
 import Sidebar from './components/Sidebar';
@@ -59,12 +58,12 @@ const LOCAL_STORAGE_KEY_ASSETS = 'facility-management-assets';
 const LOCAL_STORAGE_KEY_PLANS = 'facility-management-plans';
 const LOCAL_STORAGE_KEY_SETTINGS = 'facility-management-settings';
 
-/** Brevo: API-Key aus Build (`VITE_BREVO_API_KEY`) oder aus Einstellungen → Browser-Speicher (siehe `utils/brevoClientKey.ts`). */
+/** Brevo: API-Key nur aus Build (`VITE_BREVO_API_KEY`, z. B. GitHub Actions Secret beim Deploy). */
 const sendBrevoTransactionalEmail = (to: string, subject: string, textContent: string) => {
   void (async () => {
-    const apiKey = getBrevoApiKeyForClient();
+    const apiKey = (import.meta.env.VITE_BREVO_API_KEY as string | undefined)?.trim();
     if (!apiKey) {
-      console.warn('Kein Brevo-API-Schlüssel: Einstellungen → Abschnitt „E-Mail (Brevo)“ ausfüllen oder VITE_BREVO_API_KEY setzen.');
+      console.warn('VITE_BREVO_API_KEY fehlt im Build (GitHub Secret + Deploy).');
       return;
     }
     try {
