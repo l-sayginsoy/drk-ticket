@@ -34,6 +34,8 @@ interface PortalProps {
   onAddTicket: (newTicket: Omit<Ticket, 'id' | 'entryDate' | 'status' | 'priority'> & { priority?: Priority }) => string;
   onUpdateTicket: (ticket: Ticket) => void;
   users: User[];
+  /** true, wenn Firebase/Init abgeschlossen – für Deep-Link ?ticket= aus E-Mail */
+  dataReady: boolean;
 }
 
 const formatNote = (note: string) => {
@@ -294,7 +296,7 @@ const NewTicketForm: React.FC<{
 };
 
 
-const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, locations, onAddTicket, onUpdateTicket, users }) => {
+const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, locations, onAddTicket, onUpdateTicket, users, dataReady }) => {
   const [view, setView] = useState<PortalView>('menu');
   const [ticketIdInput, setTicketIdInput] = useState('');
   const [foundTicket, setFoundTicket] = useState<Ticket | null>(null);
@@ -305,6 +307,32 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
   const [loginAttempt, setLoginAttempt] = useState({ name: '', password: '' });
   const [loginError, setLoginError] = useState('');
   const [copied, setCopied] = useState(false);
+  const urlTicketFromQuery = useRef<string | null>(null);
+  const urlTicketDeepLinkHandled = useRef(false);
+
+  useEffect(() => {
+    if (urlTicketFromQuery.current !== null) return;
+    const raw = new URLSearchParams(window.location.search).get('ticket')?.trim();
+    if (!raw) return;
+    let t = raw.toUpperCase();
+    if (t.startsWith('M-')) t = t.substring(2);
+    urlTicketFromQuery.current = t;
+    const path = window.location.pathname || '/';
+    window.history.replaceState({}, '', path);
+  }, []);
+
+  useEffect(() => {
+    if (urlTicketDeepLinkHandled.current) return;
+    const want = urlTicketFromQuery.current;
+    if (!want || !dataReady) return;
+    const hit = tickets.find((x) => x.id.toUpperCase() === want);
+    setTicketIdInput(want);
+    setFoundTicket(hit || null);
+    setSearchError(hit ? null : `Ticket mit der ID "${want}" wurde nicht gefunden.`);
+    setNoteAdded(false);
+    setView('status-result');
+    urlTicketDeepLinkHandled.current = true;
+  }, [tickets, dataReady]);
 
   const handleCopy = (text: string | null) => {
     if (!text) return;
