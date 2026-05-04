@@ -177,6 +177,7 @@ const drkEmailShellHtml = (
 ) => `<!DOCTYPE html>
 <html lang="de">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(bannerTitle)}</title></head>
+<!-- drk-facility-dashboard-mail:v2 (nur aus dieser Web-App / Cloud Function mailToBrevo) -->
 <body style="margin:0;padding:0;background:${DRK_PAGE_BG};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${DRK_PAGE_BG};padding:24px 12px;">
 <tr><td align="center">

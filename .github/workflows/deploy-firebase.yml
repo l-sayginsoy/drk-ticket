@@ -1,5 +1,6 @@
-# Nach jedem Push auf "main": Build → Hosting → Brevo-Secret für Functions → Functions
-# Secrets: FIREBASE_SERVICE_ACCOUNT_DRK_FACILITY, VITE_BREVO_API_KEY (gleicher Brevo-Key wird als BREVO_API_KEY für Cloud Functions gesetzt)
+# Nach jedem Push auf "main": Build → Hosting → Brevo-Secret → Functions
+# Secrets: FIREBASE_SERVICE_ACCOUNT_DRK_FACILITY, VITE_BREVO_API_KEY
+# Functions-Deploy: continue-on-error (Hosting bleibt grün; Functions ggf. manuell + Secret BREVO_API_KEY)
 
 name: Deploy to Firebase
 
@@ -58,4 +59,5 @@ jobs:
           VITE_BREVO_API_KEY: ${{ secrets.VITE_BREVO_API_KEY }}
 
       - name: Deploy to Firebase (Cloud Functions)
+        continue-on-error: true
         run: npx firebase-tools@13.35.1 deploy --only functions --project drk-facility-dashboard --non-interactive
