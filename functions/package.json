@@ -2,9 +2,9 @@
   "name": "drk-ticket-functions",
   "private": true,
   "engines": {
-    "node": "18"
+    "node": "20"
   },
-  "main": "sendEmails.js",
+  "main": "index.js",
   "dependencies": {
     "firebase-admin": "^12.7.0",
     "firebase-functions": "^4.9.0"

@@ -1,6 +1,5 @@
-# Nach jedem Push auf "main": Build → Firebase Hosting + Cloud Functions
-# Secrets: FIREBASE_SERVICE_ACCOUNT_DRK_FACILITY, VITE_BREVO_API_KEY
-# Functions-Deploy schlägt ggf. fehl (IAM/Blaze) — Schritt hat continue-on-error; dann lokal: firebase deploy --only functions --project drk-facility-dashboard
+# Nach jedem Push auf "main": Build → Hosting → Brevo-Secret für Functions → Functions
+# Secrets: FIREBASE_SERVICE_ACCOUNT_DRK_FACILITY, VITE_BREVO_API_KEY (gleicher Brevo-Key wird als BREVO_API_KEY für Cloud Functions gesetzt)
 
 name: Deploy to Firebase
 
@@ -42,18 +41,21 @@ jobs:
         run: npm run lint
 
       - name: Build
-        run: |
-          if [ -z "${VITE_BREVO_API_KEY:-}" ]; then
-            echo "::error::GitHub Secret VITE_BREVO_API_KEY ist nicht gesetzt oder leer. Ohne diesen Schlüssel baut Vite keinen Brevo-Key ein — die App sendet dann keine HTML-Mails (sendDrkBrevoMail bricht still ab)."
-            exit 1
-          fi
-          npm run build
-        env:
-          VITE_BREVO_API_KEY: ${{ secrets.VITE_BREVO_API_KEY }}
+        run: npm run build
 
       - name: Deploy to Firebase (Hosting)
         run: npx firebase-tools@13.35.1 deploy --only hosting --project drk-facility-dashboard --non-interactive
 
-      - name: Deploy to Firebase (Cloud Functions)
+      - name: Brevo API Key als Functions-Secret (BREVO_API_KEY)
         continue-on-error: true
+        run: |
+          if [ -z "${VITE_BREVO_API_KEY:-}" ]; then
+            echo "::warning::VITE_BREVO_API_KEY fehlt — Cloud Function mailToBrevo kann den Brevo-Key nicht setzen."
+            exit 0
+          fi
+          printf '%s' "$VITE_BREVO_API_KEY" | npx firebase-tools@13.35.1 functions:secrets:set BREVO_API_KEY --project drk-facility-dashboard --data-file=-
+        env:
+          VITE_BREVO_API_KEY: ${{ secrets.VITE_BREVO_API_KEY }}
+
+      - name: Deploy to Firebase (Cloud Functions)
         run: npx firebase-tools@13.35.1 deploy --only functions --project drk-facility-dashboard --non-interactive
