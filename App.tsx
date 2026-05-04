@@ -235,12 +235,22 @@ ${portalOpenButtonWrappedHtml(p.ticketId, '18px 0 0')}`;
   return drkEmailShellHtml(title, inner, p.ticketId, '');
 };
 
+let brevoKeyMissingAlertShown = false;
+
 /** Brevo: strukturierte DRK-Mails (HTML + klarer Klartext). */
 const sendDrkBrevoMail = (to: string, subject: string, payload: DrkBrevoMailPayload) => {
   void (async () => {
     const apiKey = (import.meta.env.VITE_BREVO_API_KEY as string | undefined)?.trim();
     if (!apiKey) {
       console.warn('VITE_BREVO_API_KEY fehlt im Build (GitHub Secret + Deploy).');
+      if (import.meta.env.PROD && !brevoKeyMissingAlertShown) {
+        brevoKeyMissingAlertShown = true;
+        window.setTimeout(() => {
+          alert(
+            'Hinweis: Brevo API-Key fehlt im Production-Build. Es werden keine Benachrichtigungs-E-Mails aus der App gesendet.\n\nBitte im GitHub-Repository unter Settings → Secrets and variables → Actions den Secret VITE_BREVO_API_KEY setzen und neu deployen.',
+          );
+        }, 0);
+      }
       return;
     }
     const textContent = buildDrkBrevoPlainText(payload);
@@ -258,6 +268,9 @@ const sendDrkBrevoMail = (to: string, subject: string, payload: DrkBrevoMailPayl
           subject,
           textContent,
           htmlContent,
+          headers: {
+            'X-DRK-Mail-Quelle': 'webapp-brevo-rest',
+          },
         }),
       });
       const bodyText = await res.text();
