@@ -6,8 +6,7 @@ import {
   Ticket, Status, Priority, Role, GroupableKey, User, Location, AppSettings, Asset, MaintenancePlan, AvailabilityStatus, RoutingRule 
 } from './types';
 import { MOCK_TICKETS, MOCK_USERS, MOCK_LOCATIONS, STATUSES, DEFAULT_APP_SETTINGS, MOCK_ASSETS, MOCK_MAINTENANCE_PLANS } from './constants';
-import { app, db } from './firebase';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { db } from './firebase';
 import { collection, doc, setDoc, onSnapshot, getDocs } from 'firebase/firestore';
 
 import Sidebar from './components/Sidebar';
@@ -52,9 +51,6 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
     return this.props.children;
   }
 }
-
-/** Muss mit `functions/mailToBrevo.js` (region) übereinstimmen. */
-const FUNCTIONS_REGION = 'europe-west3';
 
 const LOCAL_STORAGE_KEY_TICKETS = 'facility-management-tickets';
 const LOCAL_STORAGE_KEY_USERS = 'facility-management-users';
@@ -177,7 +173,7 @@ const drkEmailShellHtml = (
 ) => `<!DOCTYPE html>
 <html lang="de">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(bannerTitle)}</title></head>
-<!-- drk-facility-dashboard-mail:v2 (nur aus dieser Web-App / Cloud Function mailToBrevo) -->
+<!-- drk-facility-dashboard-mail:v2 (HTML aus App.tsx / email-vorschau.html) -->
 <body style="margin:0;padding:0;background:${DRK_PAGE_BG};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${DRK_PAGE_BG};padding:24px 12px;">
 <tr><td align="center">
@@ -240,27 +236,34 @@ ${portalOpenButtonWrappedHtml(p.ticketId, '18px 0 0')}`;
   return drkEmailShellHtml(title, inner, p.ticketId, '');
 };
 
-/** Brevo: HTML wie oben; Versand über Cloud Function `mailToBrevo` (API-Key nur serverseitig, Brevo-IP-Regeln). */
+/** Brevo: dasselbe HTML wie in `public/email-vorschau.html` — direkt per REST (ohne Cloud Function). */
 const sendDrkBrevoMail = (to: string, subject: string, payload: DrkBrevoMailPayload) => {
   void (async () => {
+    const apiKey = (import.meta.env.VITE_BREVO_API_KEY as string | undefined)?.trim();
+    if (!apiKey) {
+      console.warn('VITE_BREVO_API_KEY fehlt im Build — keine E-Mails.');
+      return;
+    }
     const textContent = buildDrkBrevoPlainText(payload);
     const htmlContent = buildDrkBrevoHtml(payload);
     try {
-      const fn = httpsCallable(getFunctions(app, FUNCTIONS_REGION), 'mailToBrevo');
-      await fn({ to, subject, textContent, htmlContent });
-    } catch (err: unknown) {
-      console.error('E-Mail (Cloud Function mailToBrevo):', err);
-      const code =
-        err && typeof err === 'object' && 'code' in err ? String((err as { code?: string }).code) : '';
-      const msg =
-        err && typeof err === 'object' && 'message' in err ? String((err as { message?: string }).message) : String(err);
-      if (import.meta.env.PROD) {
-        window.setTimeout(() => {
-          alert(
-            `E-Mail konnte nicht gesendet werden.${code ? ` (${code})` : ''}\n\n${msg}\n\nPrüfen: Firebase Secret BREVO_API_KEY, Deploy der Functions, Region ${FUNCTIONS_REGION}.`,
-          );
-        }, 0);
+      const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'api-key': apiKey },
+        body: JSON.stringify({
+          sender: { email: 'noreply@drk-ticket.de' },
+          to: [{ email: to }],
+          subject,
+          textContent,
+          htmlContent,
+        }),
+      });
+      const bodyText = await res.text();
+      if (!res.ok) {
+        console.error('Brevo:', res.status, bodyText.slice(0, 500));
       }
+    } catch (err) {
+      console.error('Brevo senden fehlgeschlagen:', err);
     }
   })();
 };

@@ -1,6 +1,5 @@
-# Nach jedem Push auf "main": Build → Hosting → Brevo-Secret → Functions
+# Push auf main: Lint → Build (mit Brevo-Key) → Firebase Hosting
 # Secrets: FIREBASE_SERVICE_ACCOUNT_DRK_FACILITY, VITE_BREVO_API_KEY
-# Functions-Deploy: continue-on-error (Hosting bleibt grün; Functions ggf. manuell + Secret BREVO_API_KEY)
 
 name: Deploy to Firebase
 
@@ -42,22 +41,14 @@ jobs:
         run: npm run lint
 
       - name: Build
-        run: npm run build
-
-      - name: Deploy to Firebase (Hosting)
-        run: npx firebase-tools@13.35.1 deploy --only hosting --project drk-facility-dashboard --non-interactive
-
-      - name: Brevo API Key als Functions-Secret (BREVO_API_KEY)
-        continue-on-error: true
         run: |
           if [ -z "${VITE_BREVO_API_KEY:-}" ]; then
-            echo "::warning::VITE_BREVO_API_KEY fehlt — Cloud Function mailToBrevo kann den Brevo-Key nicht setzen."
-            exit 0
+            echo "::error::GitHub Secret VITE_BREVO_API_KEY fehlt — ohne Key kann die App keine Brevo-Mails senden."
+            exit 1
           fi
-          printf '%s' "$VITE_BREVO_API_KEY" | npx firebase-tools@13.35.1 functions:secrets:set BREVO_API_KEY --project drk-facility-dashboard --data-file=-
+          npm run build
         env:
           VITE_BREVO_API_KEY: ${{ secrets.VITE_BREVO_API_KEY }}
 
-      - name: Deploy to Firebase (Cloud Functions)
-        continue-on-error: true
-        run: npx firebase-tools@13.35.1 deploy --only functions --project drk-facility-dashboard --non-interactive
+      - name: Deploy to Firebase (Hosting)
+        run: npx firebase-tools@13.35.1 deploy --only hosting --project drk-facility-dashboard --non-interactive
