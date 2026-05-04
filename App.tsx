@@ -58,6 +58,55 @@ const LOCAL_STORAGE_KEY_ASSETS = 'facility-management-assets';
 const LOCAL_STORAGE_KEY_PLANS = 'facility-management-plans';
 const LOCAL_STORAGE_KEY_SETTINGS = 'facility-management-settings';
 
+const DRK_TICKET_PORTAL_URL = 'https://www.drk-ticket.de';
+
+const escapeHtml = (s: string) =>
+  s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+/** HTML-Mail für bessere Lesbarkeit in Outlook, Gmail & Co.; `textContent` bleibt Plain-Text-Fallback. */
+const buildBrevoHtmlBody = (subjectLine: string, plainBody: string) => {
+  const blocks = plainBody
+    .split(/\n\n+/)
+    .map((b) => b.trim())
+    .filter(Boolean);
+  const bodyHtml = blocks
+    .map((block) => {
+      const lines = block.split('\n').map((l) => l.trim()).filter(Boolean);
+      if (lines.length <= 1) {
+        return `<p style="margin:0 0 14px;line-height:1.55;color:#333;font-size:15px;">${escapeHtml(block)}</p>`;
+      }
+      return `<div style="margin:0 0 16px;padding:14px 16px;background:#f8f9fa;border-left:4px solid #c8102e;border-radius:0 8px 8px 0;">
+        ${lines.map((l) => `<p style="margin:0 0 8px;line-height:1.5;color:#222;font-size:15px;">${escapeHtml(l)}</p>`).join('')}
+      </div>`;
+    })
+    .join('');
+
+  return `<!DOCTYPE html>
+<html lang="de">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#eef0f2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef0f2;padding:24px 12px;">
+<tr><td align="center">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08);">
+<tr><td style="background:linear-gradient(135deg,#c8102e 0%,#a30d24 100%);padding:18px 22px;">
+<p style="margin:0;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.88);">Deutsches Rotes Kreuz</p>
+<p style="margin:6px 0 0;font-size:17px;font-weight:700;color:#fff;line-height:1.25;">${escapeHtml(subjectLine)}</p>
+</td></tr>
+<tr><td style="padding:22px 22px 8px;">${bodyHtml}</td></tr>
+<tr><td style="padding:8px 22px 26px;">
+<a href="${DRK_TICKET_PORTAL_URL}" style="display:inline-block;background:#c8102e;color:#fff!important;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:600;font-size:15px;">Zum Ticket-Portal anmelden</a>
+<p style="margin:14px 0 0;font-size:12px;color:#666;line-height:1.45;">Link funktioniert nicht? Im Browser öffnen:<br><a href="${DRK_TICKET_PORTAL_URL}" style="color:#c8102e;word-break:break-all;">${DRK_TICKET_PORTAL_URL}</a></p>
+</td></tr>
+</table>
+<p style="max-width:560px;margin:16px auto 0;font-size:11px;color:#999;text-align:center;line-height:1.4;">Automatische Nachricht · bitte nicht auf diese E-Mail antworten</p>
+</td></tr></table>
+</body></html>`;
+};
+
 /** Brevo: API-Key nur aus Build (`VITE_BREVO_API_KEY`, z. B. GitHub Actions Secret beim Deploy). */
 const sendBrevoTransactionalEmail = (to: string, subject: string, textContent: string) => {
   void (async () => {
@@ -66,6 +115,7 @@ const sendBrevoTransactionalEmail = (to: string, subject: string, textContent: s
       console.warn('VITE_BREVO_API_KEY fehlt im Build (GitHub Secret + Deploy).');
       return;
     }
+    const htmlContent = buildBrevoHtmlBody(subject, textContent);
     try {
       const res = await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
@@ -78,6 +128,7 @@ const sendBrevoTransactionalEmail = (to: string, subject: string, textContent: s
           to: [{ email: to }],
           subject,
           textContent,
+          htmlContent,
         }),
       });
       const bodyText = await res.text();
