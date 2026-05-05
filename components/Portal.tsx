@@ -315,11 +315,13 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
   const [copied, setCopied] = useState(false);
   const urlTicketFromQuery = useRef<string | null>(null);
   const urlTicketDeepLinkHandled = useRef(false);
+  const isTicketDeepLink = useRef(false);
 
   useEffect(() => {
     if (urlTicketFromQuery.current !== null) return;
     const raw = new URLSearchParams(window.location.search).get('ticket')?.trim();
     if (!raw) return;
+    isTicketDeepLink.current = true;
     let t = raw.toUpperCase();
     if (t.startsWith('M-')) t = t.substring(2);
     urlTicketFromQuery.current = t;
@@ -341,6 +343,31 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
     setView('status-result');
     urlTicketDeepLinkHandled.current = true;
   }, [tickets, dataReady]);
+
+  // Bei Deep-Link (aus E-Mail) erst rendern, wenn die Ticketdaten geladen sind.
+  // So sieht der Nutzer keinen "kaputten" Zwischenzustand.
+  if (isTicketDeepLink.current && !dataReady) {
+    return (
+      <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 18px' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: '50%',
+              border: '4px solid rgba(0,0,0,0.15)',
+              borderTopColor: 'var(--drk-red)',
+              margin: '0 auto 14px',
+              animation: 'spin 0.9s linear infinite',
+            }}
+          />
+          <div style={{ fontWeight: 800, marginBottom: 6 }}>Ticket wird geladen…</div>
+          <div style={{ color: 'rgba(0,0,0,0.65)', fontSize: 14 }}>Bitte einen Moment warten.</div>
+          <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+        </div>
+      </div>
+    );
+  }
 
   const handleCopy = (text: string | null) => {
     if (!text) return;
