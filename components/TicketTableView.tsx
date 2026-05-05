@@ -85,7 +85,6 @@ const StatusPill: React.FC<{ status: Status }> = ({ status }) => (
     <span 
         className="status-pill"
         style={{
-            color: `var(${statusColorMap[status]})`,
             backgroundColor: statusBgColorMap[status],
             borderColor: statusBorderColorMap[status],
         }}

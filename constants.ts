@@ -338,7 +338,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
 
 export const statusColorMap: Record<Status, string> = {
   [Status.Offen]: '--text-muted',
-  [Status.InArbeit]: '--accent-primary',
+  [Status.InArbeit]: '--accent-inprogress',
   [Status.Ueberfaellig]: '--accent-danger',
   [Status.Abgeschlossen]: '--accent-success',
 };
