@@ -22,8 +22,6 @@ import ErledigtTableView from './components/ErledigtTableView';
 import ReportsView from './components/ReportsView';
 import TechnicianView from './components/TechnicianView';
 import SettingsView from './components/SettingsView';
-import { buildDrkEmailHeroHalftoneSvg } from './lib/drkEmailHeroHalftoneSvg';
-
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: any}> {
   constructor(props: {children: React.ReactNode}) {
     super(props);
@@ -173,7 +171,7 @@ const drkEmailShellHtml = (
 ) => `<!DOCTYPE html>
 <html lang="de">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(bannerTitle)}</title></head>
-<!-- drk-facility-dashboard-mail:v2 (HTML aus App.tsx / email-vorschau.html) -->
+<!-- drk-facility-dashboard-mail:v3 (Banner 1:1 wie public/email-vorschau.html) -->
 <body style="margin:0;padding:0;background:${DRK_PAGE_BG};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${DRK_PAGE_BG};padding:24px 12px;">
 <tr><td align="center">
@@ -186,15 +184,8 @@ const drkEmailShellHtml = (
 </td>
 </tr></table>
 </td></tr>
-<tr><td style="background-color:${DRK_RED};padding:0;min-height:92px;">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:${DRK_RED};min-height:92px;"><tr>
-<td style="vertical-align:bottom;background-color:${DRK_RED};padding:22px 10px 26px 22px;">
+<tr><td style="background-color:#9d0a0e;background-image:linear-gradient(to top right,#9d0a0e 0%,#9d0a0e 26%,rgba(157,10,14,0.35) 44%,rgba(157,10,14,0) 62%),radial-gradient(circle,rgba(255,255,255,.14) 1px,transparent 1.6px);background-size:100% 100%,14px 14px;padding:22px 22px 26px;min-height:92px;">
 <p style="margin:0;font-size:26px;font-weight:700;color:#ffffff;line-height:1.25;">${escapeHtml(bannerTitle)}</p>
-</td>
-<td style="vertical-align:bottom;background-color:${DRK_RED};width:42%;min-width:168px;line-height:0;font-size:0;padding:0 14px 14px 0;" align="right">
-${buildDrkEmailHeroHalftoneSvg()}
-</td>
-</tr></table>
 </td></tr>
 <tr><td style="padding:24px 22px 22px;">${innerBodyHtml}</td></tr>
 ${
