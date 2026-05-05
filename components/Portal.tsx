@@ -348,8 +348,37 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
   // So sieht der Nutzer keinen "kaputten" Zwischenzustand.
   if (isTicketDeepLink.current && !dataReady) {
     return (
-      <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 18px' }}>
-        <div style={{ textAlign: 'center' }}>
+      <div className="portal-container">
+        <style>{`
+          :root {
+            --drk-red: #9d0a0e;
+            --drk-red-light: #b30a10;
+            --bg-page: #f6f7f9;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f2f3f6;
+            --text-primary: #111827;
+            --text-muted: rgba(0,0,0,0.65);
+            --border: rgba(0,0,0,0.12);
+            --shadow-lg: 0 12px 40px rgba(0,0,0,0.12);
+            --shadow-md: 0 6px 18px rgba(0,0,0,0.10);
+            --accent-success: #198754;
+            --accent-danger: #dc3545;
+          }
+          .portal-container {
+            width: 100%;
+            min-height: 100dvh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: var(--bg-page);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            color: var(--text-primary);
+            padding: 1rem;
+            box-sizing: border-box;
+          }
+          @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        `}</style>
+        <div style={{ textAlign: 'center', background: '#fff', borderRadius: 16, padding: '28px 22px', boxShadow: 'var(--shadow-lg)', border: '1px solid var(--border)', minWidth: 280 }}>
           <div
             style={{
               width: 42,
@@ -362,8 +391,7 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
             }}
           />
           <div style={{ fontWeight: 800, marginBottom: 6 }}>Ticket wird geladen…</div>
-          <div style={{ color: 'rgba(0,0,0,0.65)', fontSize: 14 }}>Bitte einen Moment warten.</div>
-          <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+          <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>Bitte einen Moment warten.</div>
         </div>
       </div>
     );
@@ -677,7 +705,22 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
     return (
         <div className="portal-container">
             <style>{`
-                :root { --portal-max-width: 550px; }
+                :root {
+                    --portal-max-width: 550px;
+                    --drk-red: #9d0a0e;
+                    --drk-red-light: #b30a10;
+                    --bg-page: #f6f7f9;
+                    --bg-secondary: #ffffff;
+                    --bg-tertiary: #f2f3f6;
+                    --text-primary: #111827;
+                    --text-secondary: rgba(0,0,0,0.75);
+                    --text-muted: rgba(0,0,0,0.62);
+                    --border: rgba(0,0,0,0.12);
+                    --shadow-lg: 0 12px 40px rgba(0,0,0,0.12);
+                    --shadow-md: 0 6px 18px rgba(0,0,0,0.10);
+                    --accent-success: #198754;
+                    --accent-danger: #dc3545;
+                }
                 .portal-container { 
                     width: 100%; 
                     min-height: 100dvh; 
@@ -916,6 +959,7 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                 .portal-menu-btn:hover { border-color: var(--drk-red); transform: translateY(-2px); box-shadow: var(--shadow-md); }
                 .btn-content { display: flex; align-items: center; gap: 1rem; }
                 .btn-icon { color: var(--drk-red); background: rgba(179, 0, 12, 0.05); width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+                .btn-icon svg { width: 26px; height: 26px; flex-shrink: 0; stroke-width: 1.8px; display: block; }
                 .btn-text { display: flex; flex-direction: column; }
                 .btn-title { font-weight: 700; font-size: 1.05rem; }
                 .btn-description { font-size: 0.85rem; color: var(--text-muted); }
