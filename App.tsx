@@ -232,7 +232,9 @@ const sendDrkBrevoMail = (to: string, subject: string, payload: DrkBrevoMailPayl
   void (async () => {
     const apiKey = (import.meta.env.VITE_BREVO_API_KEY as string | undefined)?.trim();
     if (!apiKey) {
-      console.warn('VITE_BREVO_API_KEY fehlt im Build — keine E-Mails.');
+      const msg = 'E-Mail konnte nicht gesendet werden: VITE_BREVO_API_KEY fehlt im Build.';
+      console.warn(msg);
+      window.alert(msg);
       return;
     }
     const textContent = buildDrkBrevoPlainText(payload);
@@ -251,10 +253,22 @@ const sendDrkBrevoMail = (to: string, subject: string, payload: DrkBrevoMailPayl
       });
       const bodyText = await res.text();
       if (!res.ok) {
-        console.error('Brevo:', res.status, bodyText.slice(0, 500));
+        const clipped = bodyText.slice(0, 1200);
+        console.error('Brevo Fehler:', res.status, clipped);
+        window.alert(`E-Mail konnte nicht gesendet werden (Brevo ${res.status}).\n\n${clipped}`);
+        return;
+      }
+      // Brevo liefert i.d.R. JSON mit messageId zurück – wir loggen das zur Nachverfolgung.
+      try {
+        const parsed = bodyText ? JSON.parse(bodyText) : null;
+        const messageId = parsed?.messageId ? String(parsed.messageId) : '';
+        console.info('Brevo OK', { status: res.status, messageId });
+      } catch {
+        console.info('Brevo OK', { status: res.status });
       }
     } catch (err) {
       console.error('Brevo senden fehlgeschlagen:', err);
+      window.alert(`E-Mail konnte nicht gesendet werden (Netzwerk/Browser-Block).\n\n${String(err)}`);
     }
   })();
 };
@@ -389,6 +403,13 @@ const safeJSONParse = <T,>(key: string, fallback: T): T => {
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(() => safeJSONParse('currentUser', null));
+  const [showPortalOverlay, setShowPortalOverlay] = useState<boolean>(() => {
+    try {
+      return new URLSearchParams(window.location.search).has('ticket');
+    } catch {
+      return false;
+    }
+  });
 
   // --- Main Data State ---
   const [tickets, setTickets] = useState<Ticket[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_TICKETS, MOCK_TICKETS));
@@ -1418,9 +1439,22 @@ const App: React.FC = () => {
     else if (user.role === Role.Technician) setCurrentView('tickets');
   };
   const handleLogout = () => { setCurrentUser(null); setCurrentView('dashboard'); };
+
+  const portalElement = (
+    <Portal
+      appSettings={appSettings}
+      onLogin={handleLogin}
+      tickets={tickets}
+      onAddTicket={handleAddNewTicket}
+      onUpdateTicket={handleTicketUpdate}
+      locations={activeLocations.map((a) => a.name)}
+      users={users}
+      dataReady={isInitialized}
+    />
+  );
   
   if (!currentUser) {
-    return <Portal appSettings={appSettings} onLogin={handleLogin} tickets={tickets} onAddTicket={handleAddNewTicket} onUpdateTicket={handleTicketUpdate} locations={activeLocations.map(a => a.name)} users={users} dataReady={isInitialized} />;
+    return portalElement;
   }
   
   const renderCurrentView = () => {
@@ -1449,6 +1483,39 @@ const App: React.FC = () => {
       </main>
       {isModalOpen && <NewTicketModal onClose={() => setIsModalOpen(false)} onSave={handleAddNewTicket} locations={activeLocations.map(a => a.name)} technicians={activeTechnicians} appSettings={appSettings} compressImage={compressImage}/>}
       {selectedTicket && <TicketDetailSidebar ticket={selectedTicket} onClose={() => setSelectedTicket(null)} onUpdateTicket={handleTicketUpdate} users={users} statuses={Object.values(Status)} currentUser={currentUser} appSettings={appSettings} />}
+      {showPortalOverlay && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.35)',
+            zIndex: 9999,
+            overflow: 'auto',
+            padding: '24px 12px',
+          }}
+        >
+          <div style={{ maxWidth: 980, margin: '0 auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+              <button
+                onClick={() => setShowPortalOverlay(false)}
+                style={{
+                  background: '#fff',
+                  border: '1px solid rgba(0,0,0,0.12)',
+                  borderRadius: 10,
+                  padding: '10px 14px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Zurück zum Dashboard
+              </button>
+            </div>
+            <div style={{ borderRadius: 14, overflow: 'hidden', boxShadow: '0 2px 16px rgba(0,0,0,.18)' }}>
+              {portalElement}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

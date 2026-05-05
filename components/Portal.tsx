@@ -297,7 +297,13 @@ const NewTicketForm: React.FC<{
 
 
 const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, locations, onAddTicket, onUpdateTicket, users, dataReady }) => {
-  const [view, setView] = useState<PortalView>('menu');
+  const [view, setView] = useState<PortalView>(() => {
+    try {
+      return new URLSearchParams(window.location.search).has('ticket') ? 'status-result' : 'menu';
+    } catch {
+      return 'menu';
+    }
+  });
   const [ticketIdInput, setTicketIdInput] = useState('');
   const [foundTicket, setFoundTicket] = useState<Ticket | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -317,6 +323,8 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
     let t = raw.toUpperCase();
     if (t.startsWith('M-')) t = t.substring(2);
     urlTicketFromQuery.current = t;
+    // Direkt die Status-Ansicht zeigen, damit es keinen "Flash" vom Hauptmenü gibt.
+    setView('status-result');
     const path = window.location.pathname || '/';
     window.history.replaceState({}, '', path);
   }, []);
@@ -527,7 +535,9 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                    <div className="header-spacer" />
                 </div>
                 <div style={{ overflowY: 'auto', flex: '1 1 auto', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                    {searchError ? (
+                    {!dataReady ? (
+                        <p className="search-result-text">Lade Ticketdaten…</p>
+                    ) : searchError ? (
                         <p className="search-result-text error">{searchError}</p>
                     ) : foundTicket && (
                       <>
