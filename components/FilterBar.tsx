@@ -21,6 +21,8 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
     if (currentView === 'techniker' || currentView === 'reports') {
         return null;
     }
+    
+    const isServiceTeamUser = userRole === Role.Technician || userRole === Role.Housekeeping;
 
     const handleFilterChange = (filterName: string, value: string) => {
         setFilters((prev: any) => ({ ...prev, [filterName]: value }));
@@ -29,7 +31,7 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
     const resetFilters = () => {
         setFilters({
             area: 'Alle',
-            technician: userRole === Role.Technician ? filters.technician : 'Alle',
+            technician: isServiceTeamUser ? filters.technician : 'Alle',
             priority: 'Alle',
             status: 'Alle',
             search: filters.search,
@@ -74,13 +76,14 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
     const renderFiltersForView = () => {
         switch (currentView) {
             case 'dashboard':
+            case 'tech-dashboard':
             case 'tickets':
                 return (
                     <>
                         <FilterChip label="Standort" name="area" options={locations} value={filters.area} />
                         <FilterChip label="Status" name="status" options={statuses} value={filters.status} />
                         <FilterChip label="Priorität" name="priority" options={PRIORITIES} value={filters.priority} />
-                        {userRole !== Role.Technician && <FilterChip label="Haustechniker" name="technician" options={technicians} value={filters.technician} />}
+                        {!isServiceTeamUser && <FilterChip label="Service-Team" name="technician" options={technicians} value={filters.technician} />}
                     </>
                 );
             case 'erledigt':
@@ -88,7 +91,7 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                     <>
                         <FilterChip label="Standort" name="area" options={locations} value={filters.area} />
                         <FilterChip label="Priorität" name="priority" options={PRIORITIES} value={filters.priority} />
-                        {userRole !== Role.Technician && <FilterChip label="Haustechniker" name="technician" options={technicians} value={filters.technician} />}
+                        {!isServiceTeamUser && <FilterChip label="Service-Team" name="technician" options={technicians} value={filters.technician} />}
                     </>
                 );
             default:

@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { 
-  Ticket, Status, Priority, Role, GroupableKey, User, Location, AppSettings, Asset, MaintenancePlan, AvailabilityStatus, RoutingRule 
+  Ticket, Status, Priority, Role, GroupableKey, User, Location, AppSettings, Asset, MaintenancePlan, AvailabilityStatus, RoutingRule, RoutineSchedule, WeekdayKey
 } from './types';
 import { MOCK_TICKETS, MOCK_USERS, MOCK_LOCATIONS, STATUSES, DEFAULT_APP_SETTINGS, MOCK_ASSETS, MOCK_MAINTENANCE_PLANS } from './constants';
 import { db } from './firebase';
@@ -370,7 +370,7 @@ const assignTicket = (
     if (matchedRule) {
         // Find all active and available technicians with the required skill
         const skilledTechnicians = users.filter(u => 
-            u.role === Role.Technician && 
+            (u.role === Role.Technician || u.role === Role.Housekeeping) && 
             u.isActive && 
             u.availability.status === AvailabilityStatus.Available && 
             u.skills.includes(matchedRule.skill)
@@ -402,6 +402,7 @@ const safeJSONParse = <T,>(key: string, fallback: T): T => {
 };
 
 const App: React.FC = () => {
+  const isServiceTeamRole = (role: Role) => role === Role.Technician || role === Role.Housekeeping;
   const [currentUser, setCurrentUser] = useState<User | null>(() => safeJSONParse('currentUser', null));
   const [showPortalOverlay, setShowPortalOverlay] = useState<boolean>(() => {
     try {
@@ -513,6 +514,21 @@ const App: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [selectedTicketIds, setSelectedTicketIds] = useState<string[]>([]);
+
+  // Techniker sollen nach Refresh nicht im Admin-Dashboard landen.
+  useEffect(() => {
+    if (!currentUser) return;
+    if (!isServiceTeamRole(currentUser.role)) return;
+    if (
+      currentView === 'dashboard' ||
+      currentView === 'reports' ||
+      currentView === 'techniker' ||
+      currentView === 'settings' ||
+      currentView === 'erledigt'
+    ) {
+      setCurrentView('tech-dashboard');
+    }
+  }, [currentUser, currentView]);
 
   // --- Effects to persist state ---
   useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
@@ -630,7 +646,7 @@ const App: React.FC = () => {
               let movedTotal = 0;
 
               const availableTechnicians = users.filter(u => 
-                  u.role === Role.Technician && 
+                  (u.role === Role.Technician || u.role === Role.Housekeeping) && 
                   u.isActive && 
                   u.availability && 
                   (u.availability.status === AvailabilityStatus.Available)
@@ -696,11 +712,17 @@ const App: React.FC = () => {
       // 2. Handle Return (Availability OR Activation OR New User)
       const returningTechnicians = users.filter(user => {
           const prevUser = prevUsers.find(u => u.id === user.id);
-          const isAvailable = user.role === Role.Technician && user.isActive && user.availability.status === AvailabilityStatus.Available;
+          const isAvailable =
+            (user.role === Role.Technician || user.role === Role.Housekeeping) &&
+            user.isActive &&
+            user.availability.status === AvailabilityStatus.Available;
           
           if (!prevUser) return isAvailable; // New available technician
 
-          const wasAvailable = prevUser.role === Role.Technician && prevUser.isActive && prevUser.availability.status === AvailabilityStatus.Available;
+          const wasAvailable =
+            (prevUser.role === Role.Technician || prevUser.role === Role.Housekeeping) &&
+            prevUser.isActive &&
+            prevUser.availability.status === AvailabilityStatus.Available;
           return !wasAvailable && isAvailable;
       });
 
@@ -717,7 +739,12 @@ const App: React.FC = () => {
                   ticketList.filter(t => t.technician === techName && t.status !== Status.Abgeschlossen).length;
 
               // Durchschnittliche Last berechnen
-              const activeTechs = users.filter(u => u.role === Role.Technician && u.isActive && u.availability.status === AvailabilityStatus.Available);
+              const activeTechs = users.filter(
+                u =>
+                  (u.role === Role.Technician || u.role === Role.Housekeeping) &&
+                  u.isActive &&
+                  u.availability.status === AvailabilityStatus.Available
+              );
               const totalActiveTickets = updatedTickets.filter(t => t.status !== Status.Abgeschlossen && t.technician !== 'N/A').length;
               const avgLoad = activeTechs.length > 0 ? totalActiveTickets / activeTechs.length : 0;
 
@@ -820,6 +847,110 @@ const App: React.FC = () => {
     }
   }, []); // Runs once on app load
 
+  // Routine Schedules (Serientermine) Simulation
+  useEffect(() => {
+    const today = new Date(2026, 1, 7); // Changed for Safari
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().split('T')[0];
+
+    const schedules = (appSettings.routineSchedules || []) as Array<RoutineSchedule & { recurrence?: any }>;
+    if (schedules.length === 0) return;
+
+    const weekdayKeyForDate = (d: Date): WeekdayKey => {
+      // JS: 0=So..6=Sa
+      const day = d.getDay();
+      switch (day) {
+        case 1: return 'mo';
+        case 2: return 'di';
+        case 3: return 'mi';
+        case 4: return 'do';
+        case 5: return 'fr';
+        case 6: return 'sa';
+        default: return 'so';
+      }
+    };
+
+    const isDueToday = (s: RoutineSchedule & { recurrence?: any }): boolean => {
+      if (!s.enabled) return false;
+      if (s.lastGenerated === todayStr) return false;
+      const rec = (s as any).recurrence;
+      if (!rec || rec.type === 'daily') return true;
+
+      if (rec.type === 'weekly') {
+        const intervalWeeks = Math.max(1, Number(rec.intervalWeeks || 1));
+        // Use ISO weeks since 1970-01-05 (Monday) as a stable anchor
+        const anchor = new Date(1970, 0, 5);
+        anchor.setHours(0, 0, 0, 0);
+        const diffDays = Math.floor((today.getTime() - anchor.getTime()) / (1000 * 60 * 60 * 24));
+        const weeksSince = Math.floor(diffDays / 7);
+        return weeksSince % intervalWeeks === 0;
+      }
+
+      if (rec.type === 'weekdays') {
+        const intervalWeeks = Math.max(1, Number(rec.intervalWeeks || 1));
+        const weekdays = Array.isArray(rec.weekdays) ? (rec.weekdays as WeekdayKey[]) : [];
+        if (!weekdays.includes(weekdayKeyForDate(today))) return false;
+        const anchor = new Date(1970, 0, 5);
+        anchor.setHours(0, 0, 0, 0);
+        const diffDays = Math.floor((today.getTime() - anchor.getTime()) / (1000 * 60 * 60 * 24));
+        const weeksSince = Math.floor(diffDays / 7);
+        return weeksSince % intervalWeeks === 0;
+      }
+
+      return false;
+    };
+
+    const updatedSchedules = [...schedules];
+    let changed = false;
+
+    schedules.forEach((schedule, idx) => {
+      if (!isDueToday(schedule)) return;
+
+      const eligibleUsers = users
+        .filter(u => u.isActive && u.role === schedule.targetRole)
+        .map(u => u.name)
+        .sort((a, b) => a.localeCompare(b, 'de'));
+
+      let assigned = 'N/A';
+      if (schedule.assignment?.type === 'fixed') {
+        const name = schedule.assignment.userName;
+        assigned = eligibleUsers.includes(name) ? name : 'N/A';
+      } else {
+        // rotate
+        if (eligibleUsers.length > 0) {
+          const cursor = Math.max(0, Number(schedule.rotationCursor || 0));
+          assigned = eligibleUsers[cursor % eligibleUsers.length];
+          updatedSchedules[idx] = {
+            ...updatedSchedules[idx],
+            rotationCursor: (cursor + 1) % eligibleUsers.length,
+          } as any;
+          changed = true;
+        }
+      }
+
+      const newTicket: Omit<Ticket, 'id' | 'entryDate' | 'status' | 'priority'> & { priority?: Priority } = {
+        ticketType: 'preventive',
+        title: schedule.title || 'Serientermin',
+        area: schedule.area || 'Alle',
+        location: schedule.location || '',
+        reporter: 'System',
+        dueDate: '',
+        technician: assigned,
+        priority: schedule.priority,
+        description: schedule.description,
+        categoryId: schedule.categoryId || 'cat-gebaeudetechnik',
+      };
+
+      handleAddNewTicket(newTicket, true);
+      updatedSchedules[idx] = { ...updatedSchedules[idx], lastGenerated: todayStr } as any;
+      changed = true;
+    });
+
+    if (changed) {
+      setAppSettings(prev => ({ ...prev, routineSchedules: updatedSchedules as any }));
+    }
+  }, []); // Runs once on app load
+
   // Automatically set tickets to overdue and back
   useEffect(() => {
     const today = new Date();
@@ -871,7 +1002,7 @@ const App: React.FC = () => {
             if (newTech === 'N/A' || newTech === techUser.name) {
                 // Fallback: Find any available technician with lowest load
                 const availableTechs = users.filter(u => 
-                    u.role === Role.Technician && 
+                    (u.role === Role.Technician || u.role === Role.Housekeeping) && 
                     u.isActive && 
                     u.availability.status === AvailabilityStatus.Available
                 );
@@ -1061,12 +1192,19 @@ const App: React.FC = () => {
   };
 
   const activeLocations = useMemo(() => locations.filter(a => a.isActive), [locations]);
-  const activeTechnicians = useMemo(() => users.filter(u => u.isActive && u.role === Role.Technician), [users]);
+  const activeTechnicians = useMemo(
+    () =>
+      users.filter(
+        u =>
+          u.isActive && (u.role === Role.Technician || u.role === Role.Housekeeping)
+      ),
+    [users]
+  );
 
   const filteredTickets = useMemo(() => {
     return tickets.filter(ticket => {
-        // Role-based pre-filtering: Technicians should only see tickets assigned to them.
-        if (currentUser?.role === Role.Technician && ticket.technician !== currentUser.name) {
+        // Role-based pre-filtering: Service-Team should only see tickets assigned to them.
+        if (currentUser?.role && isServiceTeamRole(currentUser.role) && ticket.technician !== currentUser.name) {
             return false;
         }
 
@@ -1087,7 +1225,7 @@ const App: React.FC = () => {
         // For dashboard & tickets views, hide completed tickets.
         if (ticket.status === Status.Abgeschlossen) return false;
         
-        if ((currentView === 'tickets' || currentView === 'dashboard') && filters.status !== 'Alle' && ticket.status !== filters.status) return false;
+        if ((currentView === 'tickets' || currentView === 'dashboard' || currentView === 'tech-dashboard') && filters.status !== 'Alle' && ticket.status !== filters.status) return false;
         
         return true;
     });
@@ -1163,13 +1301,29 @@ const App: React.FC = () => {
         doc.save(fileName);
     };
 
-  const stats = useMemo(() => ({
-      open: tickets.filter(t => t.status === Status.Offen).length,
-      inProgress: tickets.filter(t => t.status === Status.InArbeit).length,
-      overdue: tickets.filter(t => t.status === Status.Ueberfaellig).length,
-  }), [tickets]);
+  const ticketsForUser = useMemo(() => {
+    if (!currentUser) return tickets;
+    if (isServiceTeamRole(currentUser.role)) {
+      return tickets.filter((t) => t.technician === currentUser.name);
+    }
+    return tickets;
+  }, [tickets, currentUser]);
 
-  const allTechnicianNames = useMemo(() => ['N/A', ...users.filter(u => u.role === Role.Technician).map(t => t.name)], [users]);
+  const stats = useMemo(() => ({
+      open: ticketsForUser.filter(t => t.status === Status.Offen).length,
+      inProgress: ticketsForUser.filter(t => t.status === Status.InArbeit).length,
+      overdue: ticketsForUser.filter(t => t.status === Status.Ueberfaellig).length,
+  }), [ticketsForUser]);
+
+  const allTechnicianNames = useMemo(
+    () => [
+      'N/A',
+      ...users
+        .filter(u => u.role === Role.Technician || u.role === Role.Housekeeping)
+        .map(t => t.name),
+    ],
+    [users]
+  );
   
   const locationOptionsWithCounts = useMemo(() => {
     const ticketsForCounts = tickets.filter(t => currentView === 'erledigt' ? t.status === Status.Abgeschlossen : t.status !== Status.Abgeschlossen);
@@ -1182,7 +1336,7 @@ const App: React.FC = () => {
   }, [tickets, activeLocations, currentView]);
 
   const changeView = (view: string) => {
-    if (['dashboard', 'reports', 'techniker', 'settings'].includes(view) && currentUser?.role !== Role.Admin) {
+    if (['dashboard', 'reports', 'techniker', 'settings', 'erledigt'].includes(view) && currentUser?.role !== Role.Admin) {
       alert('Keine Berechtigung, auf diese Seite zuzugreifen.');
       return;
     }
@@ -1234,7 +1388,7 @@ const App: React.FC = () => {
 
           // 2. Identify available technicians
           const availableTechnicians = users.filter(u => 
-              u.role === Role.Technician && 
+              (u.role === Role.Technician || u.role === Role.Housekeeping) && 
               u.isActive && 
               (u.availability.status === AvailabilityStatus.Available) &&
               u.id !== user.id
@@ -1326,7 +1480,7 @@ const App: React.FC = () => {
       
       // 1. Identify absent users
       const absentUsers = users.filter(u => 
-          u.role === Role.Technician && 
+          (u.role === Role.Technician || u.role === Role.Housekeeping) && 
           (u.availability.status === AvailabilityStatus.OnLeave)
       );
 
@@ -1341,7 +1495,7 @@ const App: React.FC = () => {
 
       // 2. Find available technicians
       const availableTechnicians = users.filter(u => 
-          u.role === Role.Technician && 
+          (u.role === Role.Technician || u.role === Role.Housekeeping) && 
           u.isActive && 
           (u.availability.status === AvailabilityStatus.Available)
       );
@@ -1436,7 +1590,7 @@ const App: React.FC = () => {
   const handleLogin = (user: User) => {
     setCurrentUser(user);
     if (user.role === Role.Admin) setCurrentView('dashboard');
-    else if (user.role === Role.Technician) setCurrentView('tickets');
+    else if (isServiceTeamRole(user.role)) setCurrentView('tech-dashboard');
   };
   const handleLogout = () => { setCurrentUser(null); setCurrentView('dashboard'); };
 
@@ -1460,10 +1614,11 @@ const App: React.FC = () => {
   const renderCurrentView = () => {
     switch (currentView) {
         case 'dashboard': return <KanbanBoard tickets={filteredTickets} onUpdateTicket={handleTicketUpdate} onSelectTicket={setSelectedTicket} selectedTicket={selectedTicket} />;
+        case 'tech-dashboard': return <KanbanBoard tickets={filteredTickets} onUpdateTicket={handleTicketUpdate} onSelectTicket={setSelectedTicket} selectedTicket={selectedTicket} />;
         case 'tickets': return <TicketTableView tickets={filteredTickets} onUpdateTicket={handleTicketUpdate} onSelectTicket={setSelectedTicket} selectedTicketIds={selectedTicketIds} setSelectedTicketIds={setSelectedTicketIds} selectedTicket={selectedTicket} groupBy={groupBy} />;
         case 'erledigt': return <ErledigtTableView tickets={filteredTickets} onSelectTicket={setSelectedTicket} selectedTicket={selectedTicket} onDeleteTicket={handleDeleteTicket} />;
         case 'reports': return <ReportsView tickets={tickets} users={users} />;
-        case 'techniker': return <TechnicianView tickets={tickets} technicians={users.filter(u => u.role === Role.Technician)} onTechnicianSelect={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} onFilter={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} />;
+        case 'techniker': return <TechnicianView tickets={tickets} technicians={users.filter(u => u.role === Role.Technician || u.role === Role.Housekeeping)} onTechnicianSelect={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} onFilter={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} />;
         case 'settings': return <SettingsView users={users} setUsers={setUsers} locations={locations} setLocations={setLocations} assets={assets} setAssets={setAssets} maintenancePlans={maintenancePlans} setMaintenancePlans={setMaintenancePlans} appSettings={appSettings} setAppSettings={setAppSettings} />;
         default: return <KanbanBoard tickets={filteredTickets} onUpdateTicket={handleTicketUpdate} onSelectTicket={setSelectedTicket} selectedTicket={selectedTicket} />;
     }
@@ -1471,12 +1626,12 @@ const App: React.FC = () => {
 
   return (
     <div className="app-layout">
-      <Sidebar appSettings={appSettings} isCollapsed={isSidebarCollapsed} setCollapsed={setSidebarCollapsed} theme={theme} setTheme={setTheme} currentView={currentView} setCurrentView={changeView} onLogout={handleLogout} userRole={currentUser.role} userName={currentUser.name} tickets={tickets} onNewTicketClick={() => setIsModalOpen(true)} onExportPDF={handleExportPDF} onExportCSV={handleExportCSV} />
+      <Sidebar appSettings={appSettings} isCollapsed={isSidebarCollapsed} setCollapsed={setSidebarCollapsed} theme={theme} setTheme={setTheme} currentView={currentView} setCurrentView={changeView} onLogout={handleLogout} userRole={currentUser.role} userName={currentUser.name} tickets={ticketsForUser} onNewTicketClick={() => setIsModalOpen(true)} onExportPDF={handleExportPDF} onExportCSV={handleExportCSV} />
       <main>
         <Header stats={stats} filters={filters} setFilters={setFilters} currentView={currentView} isSyncing={isSyncing} lastSyncTime={lastSyncTime} appSettings={appSettings} />
         {selectedTicketIds.length > 0 && (currentView === 'tickets' || currentView === 'erledigt') ? (
              <BulkActionBar selectedCount={selectedTicketIds.length} technicians={allTechnicianNames} statuses={Object.values(Status)} onBulkUpdate={handleBulkUpdate} onBulkDelete={handleBulkDelete} onClearSelection={() => setSelectedTicketIds([])} />
-        ) : ( (currentView === 'dashboard' || currentView === 'tickets' || currentView === 'erledigt' || currentView === 'techniker') &&
+        ) : ( (currentView === 'dashboard' || currentView === 'tech-dashboard' || currentView === 'tickets' || currentView === 'erledigt' || currentView === 'techniker') &&
             <FilterBar filters={filters} setFilters={setFilters} locations={locationOptionsWithCounts} technicians={['Alle', ...activeTechnicians.map(t=>t.name)]} statuses={STATUSES} userRole={currentUser.role} groupBy={groupBy} setGroupBy={setGroupBy} currentView={currentView} />
         )}
         {renderCurrentView()}

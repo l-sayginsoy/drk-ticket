@@ -42,13 +42,20 @@ const Sidebar: React.FC<SidebarProps> = ({ appSettings, isCollapsed, setCollapse
     }, [tickets]);
     
     const navItems = [
+        // Admin
         { type: 'view', viewName: 'dashboard', icon: <LayoutDashboardIcon />, label: 'Dashboard', requiredRoles: [Role.Admin] },
-        { type: 'view', viewName: 'tickets', icon: <ClipboardIcon />, label: 'Aktuelle Tickets', requiredRoles: [Role.Admin, Role.Technician] },
-        { type: 'view', viewName: 'erledigt', icon: <CheckBadgeIcon />, label: 'Abgeschlossen', requiredRoles: [Role.Admin, Role.Technician] },
-        { type: 'view', viewName: 'techniker', icon: <UserIcon />, label: 'Techniker', requiredRoles: [Role.Admin] },
+        { type: 'view', viewName: 'tickets', icon: <ClipboardIcon />, label: 'Aktuelle Tickets', requiredRoles: [Role.Admin] },
+        { type: 'view', viewName: 'erledigt', icon: <CheckBadgeIcon />, label: 'Abgeschlossen', requiredRoles: [Role.Admin] },
+        { type: 'view', viewName: 'techniker', icon: <UserIcon />, label: 'Team', requiredRoles: [Role.Admin] },
         { type: 'view', viewName: 'reports', icon: <BarChartIcon />, label: 'Reports', requiredRoles: [Role.Admin] },
         { type: 'view', viewName: 'settings', icon: <SlidersIcon />, label: 'Einstellungen', requiredRoles: [Role.Admin] },
-        { type: 'action', action: 'newTicket', icon: <DocumentPlusIcon />, label: 'Neues Ticket', requiredRoles: [Role.Admin, Role.Technician], onClick: onNewTicketClick },
+
+        // Techniker: eigenes Dashboard + Liste (Tabelle bleibt identisch)
+        { type: 'view', viewName: 'tech-dashboard', icon: <LayoutDashboardIcon />, label: 'Dashboard', requiredRoles: [Role.Technician, Role.Housekeeping] },
+        { type: 'view', viewName: 'tickets', icon: <ClipboardIcon />, label: 'Listenansicht', requiredRoles: [Role.Technician, Role.Housekeeping] },
+
+        // Gemeinsame Aktionen
+        { type: 'action', action: 'newTicket', icon: <DocumentPlusIcon />, label: 'Neues Ticket', requiredRoles: [Role.Admin, Role.Technician, Role.Housekeeping], onClick: onNewTicketClick },
     ];
 
     const NavItem: React.FC<{viewName: string, icon: React.ReactNode, label: string}> = ({ viewName, icon, label }) => (

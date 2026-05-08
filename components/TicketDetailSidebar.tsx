@@ -55,8 +55,10 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
     const [viewingImageSrc, setViewingImageSrc] = useState<string | null>(null);
     const [newNote, setNewNote] = useState('');
 
-    // Filter technicians from users
-    const technicians = users.filter(u => u.role === Role.Technician);
+    // Filter service-team users from users
+    const technicians = users.filter(
+      u => u.role === Role.Technician || u.role === Role.Housekeeping
+    );
 
     useEffect(() => {
         // Mark note as read when opening details

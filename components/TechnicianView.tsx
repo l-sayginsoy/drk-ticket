@@ -187,7 +187,7 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ tickets, technicians, o
             `}</style>
 
             <div className="view-header">
-                <h1 className="view-title">Techniker Übersicht</h1>
+                <h1 className="view-title">Team Übersicht</h1>
                  {totalOverdue > 0 && (
                     <button className="critical-kpi-button" onClick={() => onFilter({ status: Status.Ueberfaellig })}>
                         <span className="kpi-icon"><ExclamationTriangleIcon /></span>

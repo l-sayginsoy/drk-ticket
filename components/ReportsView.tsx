@@ -80,7 +80,14 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
         area: 'Alle', status: 'Alle', technician: 'Alle'
     });
     
-    const technicians = useMemo(() => users.filter(u => u.role === Role.Technician && u.isActive), [users]);
+    const technicians = useMemo(
+      () =>
+        users.filter(
+          u =>
+            (u.role === Role.Technician || u.role === Role.Housekeeping) && u.isActive
+        ),
+      [users]
+    );
     const allTechnicianNames = useMemo(() => ['Alle', ...technicians.map(t => t.name)], [technicians]);
 
     const filteredTickets = useMemo(() => {

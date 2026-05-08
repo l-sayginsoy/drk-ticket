@@ -435,7 +435,13 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
   const handleTechnicianLogin = (e: React.FormEvent) => {
       e.preventDefault();
       setLoginError('');
-      const user = users.find(u => u.name.toLowerCase() === loginAttempt.name.toLowerCase() && u.password === loginAttempt.password && u.role === Role.Technician && u.isActive);
+      const user = users.find(
+        u =>
+          u.name.toLowerCase() === loginAttempt.name.toLowerCase() &&
+          u.password === loginAttempt.password &&
+          (u.role === Role.Technician || u.role === Role.Housekeeping) &&
+          u.isActive
+      );
       if (user) {
           onLogin(user);
       } else {
@@ -531,15 +537,21 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
             <form onSubmit={handleTechnicianLogin}>
                 <div className="portal-header condensed">
                     <button type="button" className="back-btn" onClick={resetAndGoToMenu}><ArrowLeftIcon /></button>
-                    <h2 className="portal-subtitle">Anmeldung Haustechnik</h2>
+                    <h2 className="portal-subtitle">Anmeldung Service-Team</h2>
                     <div className="header-spacer" />
                 </div>
                 <div className="portal-form">
                      <div className="form-group">
-                        <label>Techniker</label>
+                        <label>Mitarbeiter</label>
                         <select value={loginAttempt.name} onChange={e => { setLoginAttempt(p => ({...p, name: e.target.value})); setLoginError(''); }}>
                             <option value="" disabled>Namen auswählen</option>
-                            {users.filter(t => t.isActive && t.role === Role.Technician).map(tech => (
+                            {users
+                              .filter(
+                                t =>
+                                  t.isActive &&
+                                  (t.role === Role.Technician || t.role === Role.Housekeeping)
+                              )
+                              .map(tech => (
                                 <option key={tech.id} value={tech.name}>
                                     {tech.name}
                                 </option>
@@ -673,8 +685,8 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                         <div className="btn-content">
                             <div className="btn-icon"><UserIcon /></div>
                             <div className="btn-text">
-                                <span className="btn-title">Anmeldung Haustechnik</span>
-                                <span className="btn-description">Zugang für technisches Personal</span>
+                                <span className="btn-title">Anmeldung Service-Team</span>
+                                <span className="btn-description">Haustechnik &amp; Hauswirtschaft</span>
                             </div>
                         </div>
                     </button>
@@ -694,9 +706,19 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
       default:
         return (
           <ModernDashboard 
-            onReportIssue={() => setView('erfassen')}
+            onReportIssue={() => {
+                if (appSettings.portalMaintenance?.enabled) {
+                    window.alert(appSettings.portalMaintenance?.message || 'Das Portal befindet sich aktuell in Wartung.');
+                    return;
+                }
+                setView('erfassen');
+            }}
             onCheckStatus={() => setView('pruefen')}
             onAdminLogin={() => setView('login-selection')}
+            appName={appSettings.appName}
+            subtitle={appSettings.portalSubtitle}
+            maintenanceEnabled={!!appSettings.portalMaintenance?.enabled}
+            maintenanceMessage={appSettings.portalMaintenance?.message || 'Das Portal befindet sich aktuell in Wartung.'}
           />
         );
     }

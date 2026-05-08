@@ -6,6 +6,10 @@ interface ModernDashboardProps {
   onReportIssue: () => void;
   onCheckStatus: () => void;
   onAdminLogin: () => void;
+  appName: string;
+  subtitle: string;
+  maintenanceEnabled: boolean;
+  maintenanceMessage: string;
 }
 
 const ChevronRightIcon = ({ size = 24 }: { size?: number }) => (
@@ -42,7 +46,11 @@ const StatusIcon = ({ size = 66 }: { size?: number }) => (
 const ModernDashboard: React.FC<ModernDashboardProps> = ({ 
   onReportIssue, 
   onCheckStatus, 
-  onAdminLogin 
+  onAdminLogin,
+  appName,
+  subtitle,
+  maintenanceEnabled,
+  maintenanceMessage,
 }) => {
   return (
     <div className="modern-app-root">
@@ -413,13 +421,24 @@ const ModernDashboard: React.FC<ModernDashboardProps> = ({
               </svg>
             </div>
             <div style={{ position: 'relative', zIndex: 10 }}>
-              <h1 className="hero-title">Haustechnik Service</h1>
-              <p className="hero-subtitle">Meldungen schnell erfassen & verfolgen</p>
+              <h1 className="hero-title">{appName}</h1>
+              <p className="hero-subtitle">{subtitle}</p>
             </div>
           </div>
 
           <div className="actions-container">
-            <button onClick={onReportIssue} className="card-base card-red">
+            <button
+              onClick={() => {
+                if (maintenanceEnabled) {
+                  window.alert(maintenanceMessage);
+                  return;
+                }
+                onReportIssue();
+              }}
+              className="card-base card-red"
+              aria-disabled={maintenanceEnabled}
+              style={maintenanceEnabled ? { opacity: 0.6, cursor: 'not-allowed' } : undefined}
+            >
               <div className="icon-top-left">
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <MeldungIcon size={80} />
@@ -427,7 +446,7 @@ const ModernDashboard: React.FC<ModernDashboardProps> = ({
               </div>
               <div className="card-info">
                 <span className="card-main-label">Meldung erfassen</span>
-                <span className="card-sub-label">Ticket wird erstellt</span>
+                <span className="card-sub-label">{maintenanceEnabled ? 'Aktuell gesperrt (Wartung)' : 'Ticket wird erstellt'}</span>
               </div>
               <div className="card-action-icon">
                 <ChevronRightIcon size={44} />
@@ -452,7 +471,7 @@ const ModernDashboard: React.FC<ModernDashboardProps> = ({
 
           <div className="footer">
             <button onClick={onAdminLogin} className="footer-link">
-              Haustechnik & Admin &rarr; Anmelden
+              Service-Team & Admin &rarr; Anmelden
             </button>
           </div>
         </div>
@@ -465,8 +484,8 @@ const ModernDashboard: React.FC<ModernDashboardProps> = ({
 
           <div className="hero">
             <div className="hero-content">
-              <h1>Haustechnik Service</h1>
-              <p>Meldungen schnell erfassen & verfolgen</p>
+              <h1>{appName}</h1>
+              <p>{subtitle}</p>
             </div>
             <div className="hero-halftone">
               <svg width="100%" height="100%">
@@ -503,11 +522,22 @@ const ModernDashboard: React.FC<ModernDashboardProps> = ({
           </div>
 
           <div className="actions-container">
-            <button onClick={onReportIssue} className="action-card red-card">
+            <button
+              onClick={() => {
+                if (maintenanceEnabled) {
+                  window.alert(maintenanceMessage);
+                  return;
+                }
+                onReportIssue();
+              }}
+              className="action-card red-card"
+              aria-disabled={maintenanceEnabled}
+              style={maintenanceEnabled ? { opacity: 0.6, cursor: 'not-allowed' } : undefined}
+            >
               <div className="card-icon"><MeldungIcon /></div>
               <div className="card-text">
                 <h2>Meldung erfassen</h2>
-                <p>Ticket wird erstellt</p>
+                <p>{maintenanceEnabled ? 'Aktuell gesperrt (Wartung)' : 'Ticket wird erstellt'}</p>
               </div>
               <div className="card-chevron"><ChevronRightIcon /></div>
             </button>
@@ -524,7 +554,7 @@ const ModernDashboard: React.FC<ModernDashboardProps> = ({
 
           <div className="footer">
             <button onClick={onAdminLogin} className="footer-link">
-              Haustechnik & Admin &rarr; Anmelden
+              Service-Team & Admin &rarr; Anmelden
             </button>
           </div>
         </div>

@@ -14,6 +14,7 @@ export enum Priority {
 export enum Role {
   Admin = 'admin',
   Technician = 'techniker',
+  Housekeeping = 'hauswirtschaft',
 }
 
 export enum AvailabilityStatus {
@@ -59,8 +60,39 @@ export interface RoutingRule {
   skill: string;
 }
 
+export type WeekdayKey = 'mo' | 'di' | 'mi' | 'do' | 'fr' | 'sa' | 'so';
+
+export type RoutineRecurrence =
+  | { type: 'daily' }
+  | { type: 'weekly'; intervalWeeks: number }
+  | { type: 'weekdays'; intervalWeeks: number; weekdays: WeekdayKey[] };
+
+export type RoutineAssignment =
+  | { type: 'rotate' }
+  | { type: 'fixed'; userName: string };
+
+export interface RoutineSchedule {
+  id: string;
+  title: string;
+  description: string;
+  area: string;
+  location: string;
+  categoryId: string;
+  priority: Priority;
+  targetRole: Role.Technician | Role.Housekeeping;
+  assignment: RoutineAssignment;
+  enabled: boolean;
+  lastGenerated: string | null; // YYYY-MM-DD
+  rotationCursor: number; // used when assignment.type === 'rotate'
+}
+
 export interface AppSettings {
   appName: string;
+  portalSubtitle: string;
+  portalMaintenance: {
+    enabled: boolean;
+    message: string;
+  };
   defaultPriority: Priority;
   portalConfig: {
     showStatus: boolean;
@@ -71,6 +103,7 @@ export interface AppSettings {
   ticketCategories: TicketCategory[];
   slaMatrix: SLARule[];
   routingRules: RoutingRule[];
+  routineSchedules: RoutineSchedule[];
 }
 
 export interface MaintenancePlan {

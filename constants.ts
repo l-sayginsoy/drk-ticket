@@ -254,7 +254,9 @@ export const MOCK_USERS: User[] = [
     { id: 'user-4', name: 'Torsten Isselhard', role: Role.Technician, password: 'Torsten1', isActive: true, skills: ['Elektrik', 'IT', 'Schwesternruf'], availability: { status: AvailabilityStatus.Available, leaveUntil: null } },
 ];
 
-export const TECHNICIANS_DATA: User[] = MOCK_USERS.filter(u => u.role === Role.Technician);
+export const TECHNICIANS_DATA: User[] = MOCK_USERS.filter(
+  u => u.role === Role.Technician || u.role === Role.Housekeeping
+);
 
 export const LOCATION_NAMES = ["Schlosspark", "Ebertpark", "Rheinufer", "An den Seen", "Küche", "Cafeteria", "Wäscherei", "Reinigung", "Untergeschoss", "Verwaltung", "Ausbildung", "Kleiner Saal", "Außenbereich", "Terrasse", "Kreisverband", "Sozialstation", "Brandschutz", "Sicherheit", "Sonstiges"];
 export const LOCATIONS_FOR_FILTER = ['Alle', ...LOCATION_NAMES];
@@ -304,7 +306,12 @@ export const PRIORITIES = ['Alle', 'Hoch', 'Mittel', 'Niedrig'];
 export const STATUSES = ['Alle', 'Offen', 'In Arbeit', 'Überfällig', 'Abgeschlossen'];
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
-    appName: "DRK Haustechnik Service",
+    appName: "DRK Serviceportal",
+    portalSubtitle: "Meldungen schnell erfassen & verfolgen",
+    portalMaintenance: {
+        enabled: false,
+        message: "Das Portal befindet sich aktuell in Wartung. Bitte versuchen Sie es später erneut.",
+    },
     defaultPriority: Priority.Mittel,
     dueDateRules: {
         [Priority.Hoch]: 2,
@@ -334,6 +341,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
         { id: 'route-3', keyword: 'Strom,Licht,Sicherung,Steckdose', skill: 'Elektrik' },
         { id: 'route-4', keyword: 'WLAN,Netzwerk,Drucker', skill: 'IT' },
     ],
+    routineSchedules: [],
 };
 
 export const statusColorMap: Record<Status, string> = {
