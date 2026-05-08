@@ -3,6 +3,7 @@ import { Ticket, Status, Priority } from '../types';
 import { SortAscendingIcon } from './icons/SortAscendingIcon';
 import { SortDescendingIcon } from './icons/SortDescendingIcon';
 import { TrashIcon } from './icons/TrashIcon';
+import { displayNameShort } from '../utils/displayNames';
 
 interface ErledigtTableViewProps {
   tickets: Ticket[];
@@ -31,15 +32,7 @@ const PriorityPill: React.FC<{ priority: Priority }> = ({ priority }) => {
     return <span className={`priority-pill ${priorityClasses[priority]}`}>{priority}</span>;
 };
 
-const formatTechnicianName = (name: string) => {
-    if (name === 'N/A') return 'N/A';
-    const parts = name.split(' ');
-    if (parts.length > 1) {
-        return `${parts[0][0]}. ${parts[parts.length - 1]}`;
-    }
-    return name;
-};
-
+const technicianCell = (name: string) => (name === 'N/A' ? 'N/A' : displayNameShort(name));
 
 const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelectTicket, selectedTicket, onDeleteTicket }) => {
     const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>({ key: 'completionDate', direction: 'descending' });
@@ -206,7 +199,7 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelect
                         <SortableHeader sortKey="id">Ticket</SortableHeader>
                         <SortableHeader sortKey="title">Betreff</SortableHeader>
                         <SortableHeader sortKey="area">Standort</SortableHeader>
-                        <SortableHeader sortKey="technician">Techniker</SortableHeader>
+                        <SortableHeader sortKey="technician">Bearbeiter</SortableHeader>
                         <SortableHeader sortKey="priority">Priorität</SortableHeader>
                         <SortableHeader sortKey="entryDate">Eingang</SortableHeader>
                         <SortableHeader sortKey="dueDate">Fällig bis</SortableHeader>
@@ -223,7 +216,7 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelect
                                 <small style={{color: 'var(--text-muted)'}}>{ticket.location}</small>
                             </td>
                             <td>{ticket.area}</td>
-                            <td>{formatTechnicianName(ticket.technician)}</td>
+                            <td>{technicianCell(ticket.technician)}</td>
                             <td><PriorityPill priority={ticket.priority} /></td>
                             <td>{ticket.entryDate}</td>
                             <td>{ticket.dueDate}</td>

@@ -5,6 +5,7 @@ import { XIcon } from './icons/XIcon';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
 import { statusColorMap, statusBgColorMap } from '../constants';
 import { DocumentArrowDownIcon } from './icons/DocumentArrowDownIcon';
+import { displayNameShort } from '../utils/displayNames';
 
 
 const ExclamationTriangleIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
@@ -21,7 +22,8 @@ const formatNote = (note: string) => {
         const [, mainText, user, dateStr, time] = match;
         const [day, month, year] = dateStr.split('.');
         const formattedDate = `${day.padStart(2, '0')}.${month.padStart(2, '0')}.${year.slice(-2)}`;
-        const metaText = `(${user} ${formattedDate} ${time})`;
+        const userShort = displayNameShort(user);
+        const metaText = `(${userShort} ${formattedDate} ${time})`;
         return (
             <>
                 <span className="note-main-text">{mainText}</span>
@@ -30,15 +32,6 @@ const formatNote = (note: string) => {
         );
     }
     return <span className="note-main-text">{note}</span>;
-};
-
-const formatTechnicianName = (name: string) => {
-    if (name === 'N/A') return 'Zuweisen';
-    const parts = name.split(' ');
-    if (parts.length > 1) {
-        return `${parts[0][0]}. ${parts[parts.length - 1]}`;
-    }
-    return name;
 };
 
 interface TicketDetailSidebarProps {
@@ -55,10 +48,10 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
     const [viewingImageSrc, setViewingImageSrc] = useState<string | null>(null);
     const [newNote, setNewNote] = useState('');
 
-    // Filter service-team users from users
-    const technicians = users.filter(
-      u => u.role === Role.Technician || u.role === Role.Housekeeping
-    );
+    // Filter service-team users from users (alphabetisch nach gespeichertem Namen)
+    const technicians = users
+      .filter(u => u.role === Role.Technician || u.role === Role.Housekeeping)
+      .sort((a, b) => a.name.localeCompare(b.name, 'de'));
 
     useEffect(() => {
         // Mark note as read when opening details
@@ -411,14 +404,18 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                     </div>
                 </div>
                 <div className="grid-item grid-item-span-2">
-                    <p className="detail-label-compact">Techniker</p>
+                    <p className="detail-label-compact">Bearbeiter</p>
                     <div className={`editable-field-compact`}>
-                        <span>{formatTechnicianName(ticket.technician)}</span><ChevronDownIcon />
+                        <span>
+                            {ticket.technician === 'N/A' ? 'Zuweisen' : displayNameShort(ticket.technician)}
+                        </span>
+                        <ChevronDownIcon />
                         <select value={ticket.technician} onChange={(e) => handleFieldChange('technician', e.target.value)}>
                             <option value="N/A">Zuweisen</option>
                             {technicians.map(t => (
                                 <option key={t.id} value={t.name} disabled={t.availability.status === AvailabilityStatus.OnLeave}>
-                                    {t.name} {t.availability.status === AvailabilityStatus.OnLeave ? '(Abwesend)' : ''}
+                                    {displayNameShort(t.name)}{' '}
+                                    {t.availability.status === AvailabilityStatus.OnLeave ? '(Abwesend)' : ''}
                                 </option>
                             ))}
                         </select>

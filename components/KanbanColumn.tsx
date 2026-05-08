@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Ticket, Status } from '../types';
+import { Ticket, Status, User } from '../types';
 import TicketCard from './TicketCard';
 
 interface KanbanColumnProps {
   title: string;
   status: Status;
   tickets: Ticket[];
+  technicians?: User[];
   onUpdateTicket: (ticket: Ticket) => void;
   onDropTicket: (ticketId: string, newStatus: Status) => void;
   onSelectTicket: (ticket: Ticket) => void;
@@ -42,7 +43,17 @@ const emptyCopyForStatus = (status: Status) => {
     }
 };
 
-const KanbanColumn: React.FC<KanbanColumnProps> = ({ title, status, tickets, onUpdateTicket, onDropTicket, onSelectTicket, selectedTicket }) => {
+const KanbanColumn: React.FC<KanbanColumnProps> = ({
+  title,
+  status,
+  tickets,
+  technicians: techniciansProp,
+  onUpdateTicket,
+  onDropTicket,
+  onSelectTicket,
+  selectedTicket,
+}) => {
+  const technicians = techniciansProp ?? [];
     const [isDragOver, setIsDragOver] = useState(false);
     const statusKey =
         status === Status.Offen ? 'offen' : status === Status.InArbeit ? 'inarbeit' : status === Status.Ueberfaellig ? 'ueberfaellig' : 'other';
@@ -83,35 +94,44 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ title, status, tickets, onU
                 }
                 .column-header {
                     display: flex;
-                    justify-content: space-between;
-                    align-items: center;
+                    flex-wrap: wrap;
+                    justify-content: flex-start;
+                    align-items: baseline;
+                    gap: 0.55rem;
                     padding: 0 0.5rem 1rem 0.5rem;
                     border-bottom: 2px solid var(--border);
                 }
                 .column-title {
-                    font-size: 1.125rem;
-                    font-weight: 600;
-                    color: var(--text-primary);
+                    margin: 0;
+                    font-size: 15px;
+                    font-weight: 700;
+                    letter-spacing: 0.02em;
+                    color: var(--text-muted);
                 }
                 .column-count {
-                    background: var(--bg-tertiary);
+                    background: transparent;
                     color: var(--text-secondary);
-                    font-size: 0.875rem;
-                    font-weight: 600;
-                    padding: 0.25rem 0.75rem;
-                    border-radius: 20px;
+                    font-size: 15px;
+                    font-weight: 700;
+                    letter-spacing: 0.02em;
+                    padding: 0;
+                    min-width: 0;
+                    border-radius: 0;
+                    border: none;
+                    box-shadow: none;
+                    line-height: 1.2;
                     transition: var(--transition-smooth);
                 }
                 .column-count.count-offen {
-                    background: rgba(108, 117, 125, 0.14);
+                    background: transparent;
                     color: var(--text-muted);
                 }
                 .column-count.count-inarbeit {
-                    background: rgba(13, 110, 253, 0.14);
+                    background: transparent;
                     color: var(--accent-inprogress);
                 }
                 .column-count.count-ueberfaellig {
-                    background: rgba(220, 53, 69, 0.14);
+                    background: transparent;
                     color: var(--accent-danger);
                 }
                 .column-body {
@@ -171,9 +191,10 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ title, status, tickets, onU
                     </div>
                 ) : (
                     tickets.map(ticket => (
-                        <TicketCard 
-                            key={ticket.id} 
-                            ticket={ticket} 
+                        <TicketCard
+                            key={ticket.id}
+                            ticket={ticket}
+                            technicians={technicians}
                             onUpdateTicket={onUpdateTicket}
                             onSelectTicket={onSelectTicket}
                             selectedTicket={selectedTicket}

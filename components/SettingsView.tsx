@@ -97,7 +97,7 @@ const DOCUMENTATION_HTML = `
 
     <div class="intro">
         <p><strong>Einleitung: Die Philosophie der Anwendung</strong></p>
-        <p>Das Ziel dieser Anwendung ist die fundamentale Effizienzsteigerung im Facility Management. Durch eine Kombination aus benutzerfreundlichem Design und einer leistungsstarken Automatisierungs-Engine werden manuelle Arbeitsschritte drastisch reduziert, Fehlerquellen minimiert und eine durchgehende Transparenz für alle Beteiligten – vom Melder über den Techniker bis zum Management – geschaffen. Die App ist als autarke, browserbasierte Lösung konzipiert, die ihre Daten im Local Storage speichert und somit ohne komplexes Server-Backend auskommt.</p>
+        <p>Das Ziel dieser Anwendung ist die fundamentale Effizienzsteigerung im Facility Management. Durch eine Kombination aus benutzerfreundlichem Design und einer leistungsstarken Automatisierungs-Engine werden manuelle Arbeitsschritte drastisch reduziert, Fehlerquellen minimiert und eine durchgehende Transparenz für alle Beteiligten – vom Melder über den Bearbeiter bis zum Management – geschaffen. Die App ist als autarke, browserbasierte Lösung konzipiert, die ihre Daten im Local Storage speichert und somit ohne komplexes Server-Backend auskommt.</p>
     </div>
 
     <h2>Teil 1: Das Melder-Portal – Die Schnittstelle nach Außen</h2>
@@ -115,9 +115,9 @@ const DOCUMENTATION_HTML = `
         </li>
         <li><strong>Intelligente Vereinfachung:</strong>
             <ul>
-                <li>Der Melder muss <strong>keine Kategorie</strong>, <strong>keine Priorität</strong> und <strong>keinen Techniker</strong> auswählen.</li>
-                <li><strong>Logik dahinter:</strong> Um den Meldevorgang so einfach wie möglich zu gestalten, wurde das Feld "Kategorie" entfernt. Das System ordnet das Ticket im Hintergrund automatisch einer Standard-Kategorie zu. Die Priorität und Technikerzuweisung erfolgen ebenfalls vollautomatisch basierend auf intelligenten Regeln, was menschliche Fehleinschätzungen vermeidet und den Melder entlastet.</li>
-                <li><strong>Abwesenheitsschutz:</strong> Das System stellt sicher, dass niemals ein abwesender Techniker für ein neues Ticket ausgewählt wird.</li>
+                <li>Der Melder muss <strong>keine Kategorie</strong>, <strong>keine Priorität</strong> und <strong>keinen Bearbeiter</strong> auswählen.</li>
+                <li><strong>Logik dahinter:</strong> Um den Meldevorgang so einfach wie möglich zu gestalten, wurde das Feld "Kategorie" entfernt. Das System ordnet das Ticket im Hintergrund automatisch einer Standard-Kategorie zu. Die Priorität und Bearbeiterzuweisung erfolgen ebenfalls vollautomatisch basierend auf intelligenten Regeln, was menschliche Fehleinschätzungen vermeidet und den Melder entlastet.</li>
+                <li><strong>Abwesenheitsschutz:</strong> Das System stellt sicher, dass niemals ein abwesender Bearbeiter für ein neues Ticket ausgewählt wird.</li>
             </ul>
         </li>
         <li><strong>Foto-Upload (Freiwillig):</strong>
@@ -137,14 +137,14 @@ const DOCUMENTATION_HTML = `
         <li><strong>Angezeigte Informationen:</strong>
             <ul>
                 <li>Aktueller Status (z.B. "Offen", "In Arbeit").</li>
-                <li>Zugewiesener Techniker (falls bereits erfolgt).</li>
-                <li><strong>Letzte öffentliche Notizen/Updates:</strong> Eine chronologische Ansicht der letzten Kommentare, die vom Techniker oder Admin hinzugefügt wurden.</li>
+                <li>Zugewiesener Bearbeiter (falls bereits erfolgt).</li>
+                <li><strong>Letzte öffentliche Notizen/Updates:</strong> Eine chronologische Ansicht der letzten Kommentare, die vom Bearbeiter oder Admin hinzugefügt wurden.</li>
             </ul>
         </li>
         <li><strong>Rückkanal:</strong>
             <ul>
                 <li>Der Melder kann einem bestehenden Ticket eine <strong>neue Notiz</strong> hinzufügen.</li>
-                <li>Diese Aktion setzt intern das Flag <code>hasNewNoteFromReporter</code> auf <code>true</code>, was in der Hauptanwendung durch einen visuellen Indikator signalisiert wird und den Techniker über die neue Information in Kenntnis setzt.</li>
+                <li>Diese Aktion setzt intern das Flag <code>hasNewNoteFromReporter</code> auf <code>true</code>, was in der Hauptanwendung durch einen visuellen Indikator signalisiert wird und den Bearbeiter über die neue Information in Kenntnis setzt.</li>
             </ul>
         </li>
     </ul>
@@ -166,14 +166,14 @@ const DOCUMENTATION_HTML = `
                 <li>Das System berechnet daraus präzise das Fälligkeitsdatum und trägt es in das Ticket ein.</li>
             </ul>
         </li>
-        <li><strong>Automatisches Routing & Techniker-Zuweisung:</strong>
+        <li><strong>Automatisches Routing & Bearbeiter-Zuweisung:</strong>
             <ol>
                 <li>Die Engine scannt <strong>Betreff und Beschreibung</strong> des Tickets nach vordefinierten <strong>Keywords</strong> (z.B. "Heizung", "Wasserhahn", "Strom").</li>
                 <li>Findet die passende <strong>Routing-Regel</strong> und den damit verknüpften <strong>Skill</strong> (z.B. "HLK", "Sanitär", "Elektrik").</li>
-                <li>Das System filtert alle Benutzer nach aktiven und verfügbaren Technikern, die über diesen Skill verfügen.</li>
-                <li>Es berechnet die aktuelle <strong>Auslastung</strong> jedes passenden Technikers (Anzahl der ihm zugewiesenen, nicht abgeschlossenen Tickets).</li>
-                <li>Das Ticket wird automatisch dem qualifizierten Techniker mit der <strong>geringsten Auslastung</strong> zugewiesen.</li>
-                <li><strong>Fallback:</strong> Wenn kein passender Techniker gefunden wird, bleibt die Zuweisung auf "N/A", damit ein Admin manuell zuweisen kann.</li>
+                <li>Das System filtert alle Benutzer nach aktiven und verfügbaren Bearbeitern, die über diesen Skill verfügen.</li>
+                <li>Es berechnet die aktuelle <strong>Auslastung</strong> jedes passenden Bearbeiters (Anzahl der ihm zugewiesenen, nicht abgeschlossenen Tickets).</li>
+                <li>Das Ticket wird automatisch dem qualifizierten Bearbeiter mit der <strong>geringsten Auslastung</strong> zugewiesen.</li>
+                <li><strong>Fallback:</strong> Wenn kein passender Bearbeiter gefunden wird, bleibt die Zuweisung auf "N/A", damit ein Admin manuell zuweisen kann.</li>
             </ol>
         </li>
     </ul>
@@ -185,14 +185,14 @@ const DOCUMENTATION_HTML = `
         <li><strong>Wartungsplan-Generator:</strong> Das System prüft täglich die hinterlegten Wartungspläne. Ist ein Plan basierend auf seinem Intervall und dem Datum der letzten Ausführung fällig, wird automatisch ein neues, <strong>präventives Wartungsticket</strong> mit allen vordefinierten Informationen (Aufgabe, Priorität etc.) erstellt.</li>
         <li><strong>Automatische Umverteilung bei Abwesenheit:</strong>
             <ul>
-                <li><strong>Trigger:</strong> Sobald ein Admin oder das System den Verfügbarkeits-Status eines Technikers auf <strong>"Abwesend"</strong> (z.B. Krankheit, Urlaub) setzt.</li>
-                <li><strong>Logik:</strong> Das System scannt sofort alle offenen Tickets dieses Technikers. Tickets, die während der Abwesenheit fällig wären oder als kritisch (hohe Priorität) eingestuft sind, werden identifiziert.</li>
+                <li><strong>Trigger:</strong> Sobald ein Admin oder das System den Verfügbarkeits-Status eines Bearbeiters auf <strong>"Abwesend"</strong> (z.B. Krankheit, Urlaub) setzt.</li>
+                <li><strong>Logik:</strong> Das System scannt sofort alle offenen Tickets dieses Bearbeiters. Tickets, die während der Abwesenheit fällig wären oder als kritisch (hohe Priorität) eingestuft sind, werden identifiziert.</li>
                 <li><strong>Aktion:</strong> Diese Tickets werden automatisch an denjenigen verfügbaren Kollegen umverteilt, der aktuell die <strong>geringste Auslastung</strong> (wenigste offene Tickets) hat. Dies stellt sicher, dass keine Aufgaben liegen bleiben.</li>
             </ul>
         </li>
     </ul>
 
-    <h2>Teil 3: Die Hauptanwendung – Das Cockpit für Techniker & Admins</h2>
+    <h2>Teil 3: Die Hauptanwendung – Das Cockpit für Bearbeiter & Admins</h2>
     <p>Dies ist die passwortgeschützte Hauptansicht zur Verwaltung und Bearbeitung aller Tickets.</p>
 
     <h3>3.1. Rollen & Berechtigungen</h3>
@@ -220,7 +220,7 @@ const DOCUMENTATION_HTML = `
         <li><strong>Ticket-Liste (Tabellenansicht):</strong>
             <ul>
                 <li>Eine detaillierte Listenansicht, die sich hervorragend für die gezielte Analyse eignet.</li>
-                <li><strong>Funktionen:</strong> Volltextsuche, Filtern nach allen Kriterien, Sortieren jeder Spalte und <strong>Gruppieren</strong> von Tickets nach Status, Bereich oder Techniker.</li>
+                <li><strong>Funktionen:</strong> Volltextsuche, Filtern nach allen Kriterien, Sortieren jeder Spalte und <strong>Gruppieren</strong> von Tickets nach Status, Bereich oder Bearbeiter.</li>
             </ul>
         </li>
         <li><strong>Team-Übersicht:</strong>
@@ -242,7 +242,7 @@ const DOCUMENTATION_HTML = `
         <li><strong>Detail-Seitenleiste:</strong>
             <ul>
                 <li>Öffnet sich bei Klick auf ein Ticket und ist der zentrale Ort für die Bearbeitung.</li>
-                <li>Ermöglicht das Ändern aller relevanten Felder (Status, Priorität, Techniker etc.).</li>
+                <li>Ermöglicht das Ändern aller relevanten Felder (Status, Priorität, Bearbeiter etc.).</li>
                 <li>Zeigt alle Stammdaten, die Beschreibung, Fotos und die <strong>vollständige Notiz-Historie</strong>.</li>
                 <li>Ermöglicht das Hinzufügen neuer, interner Notizen.</li>
             </ul>
@@ -250,7 +250,7 @@ const DOCUMENTATION_HTML = `
         <li><strong>Massenbearbeitung (Bulk Actions):</strong>
             <ul>
                 <li>In der Tabellenansicht können mehrere Tickets per Checkbox ausgewählt werden.</li>
-                <li>Eine Aktionsleiste erscheint, die es ermöglicht, für alle ausgewählten Tickets gleichzeitig den <strong>Status zu ändern</strong>, einen <strong>Techniker zuzuweisen</strong> oder sie zu <strong>löschen</strong>.</li>
+                <li>Eine Aktionsleiste erscheint, die es ermöglicht, für alle ausgewählten Tickets gleichzeitig den <strong>Status zu ändern</strong>, einen <strong>Bearbeiter zuzuweisen</strong> oder sie zu <strong>löschen</strong>.</li>
             </ul>
         </li>
     </ul>
@@ -262,12 +262,12 @@ const DOCUMENTATION_HTML = `
     <ul>
         <li><strong>Ticket-Kategorien:</strong> Admins können die Kategorien definieren und ihnen eine Standard-Priorität zuweisen. Diese werden im Hintergrund für die automatische Priorisierung und SLA-Berechnung genutzt.</li>
         <li><strong>SLA-Matrix:</strong> Hier wird die Logik für Fälligkeiten festgelegt, indem für eine Kombination aus Kategorie und Priorität eine Reaktionszeit in Stunden definiert wird.</li>
-        <li><strong>Routing-Regeln:</strong> Definition der Keyword-Skill-Zuweisungen für die automatische Techniker-Zuweisung.</li>
+        <li><strong>Routing-Regeln:</strong> Definition der Keyword-Skill-Zuweisungen für die automatische Bearbeiter-Zuweisung.</li>
     </ul>
 
     <h3>4.2. Stammdaten-Verwaltung</h3>
     <ul>
-        <li><strong>Benutzer & Teams:</strong> Anlegen, Bearbeiten und Deaktivieren von Benutzern. Zuweisung von Rollen (Admin/Techniker) und Skills.</li>
+        <li><strong>Benutzer & Teams:</strong> Anlegen, Bearbeiten und Deaktivieren von Benutzern. Zuweisung von Rollen (Admin/Bearbeiter) und Skills.</li>
         <li><strong>Standorte & Anlagen:</strong> Verwaltung der Orte, die im Melde-Portal zur Auswahl stehen.</li>
     </ul>
 
@@ -302,7 +302,8 @@ interface SettingsViewProps {
 
 const SettingsView: React.FC<SettingsViewProps> = (props) => {
     const { users, setUsers, locations, setLocations, assets, setAssets, maintenancePlans, setMaintenancePlans, appSettings, setAppSettings } = props;
-    const [activeTab, setActiveTab] = useState<'prozesse' | 'benutzer' | 'standorte'>('prozesse');
+    const [activeTab, setActiveTab] = useState<'allgemein' | 'prozesse' | 'serientermine' | 'benutzer' | 'standorte'>('allgemein');
+    const [dragRoutineId, setDragRoutineId] = useState<string | null>(null);
     
     // Modals
     const [isUserModalOpen, setUserModalOpen] = useState(false);
@@ -349,6 +350,19 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
             .sort((a, b) => a.localeCompare(b, 'de'));
 
     const routineSchedules = appSettings.routineSchedules || [];
+
+    const reorderRoutineSchedules = (fromId: string, toId: string) => {
+        if (fromId === toId) return;
+        setAppSettings(prev => {
+            const list = [...(prev.routineSchedules || [])];
+            const fromIdx = list.findIndex((x: any) => x.id === fromId);
+            const toIdx = list.findIndex((x: any) => x.id === toId);
+            if (fromIdx === -1 || toIdx === -1) return prev;
+            const [moved] = list.splice(fromIdx, 1);
+            list.splice(toIdx, 0, moved);
+            return { ...prev, routineSchedules: list };
+        });
+    };
 
     // --- User Management ---
     const handleOpenUserModal = (user: User | null) => {
@@ -437,6 +451,402 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
     };
     
     // --- Render Functions for Tabs ---
+    const renderAllgemeinTab = () => (
+        <>
+            <div className="settings-section">
+                <div className="settings-section-header">
+                    <h3 className="settings-section-title">Allgemein</h3>
+                </div>
+                <div className="settings-section-body">
+                    <div className="form-group">
+                        <label>App Name</label>
+                        <p className="form-group-description">Der hier festgelegte Name wird im Portal angezeigt.</p>
+                        <input
+                            type="text"
+                            value={appSettings.appName}
+                            onChange={e => setAppSettings(prev => ({ ...prev, appName: e.target.value }))}
+                            className="form-group-input"
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label>Untertitel</label>
+                        <p className="form-group-description">Unter dem App-Namen im Portal (z.B. „Meldungen schnell erfassen & verfolgen“).</p>
+                        <input
+                            type="text"
+                            value={appSettings.portalSubtitle ?? ''}
+                            onChange={e => setAppSettings(prev => ({ ...prev, portalSubtitle: e.target.value }))}
+                            className="form-group-input"
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label>Wartungsmodus</label>
+                        <p className="form-group-description">Wenn aktiv, wird „Meldung erfassen“ im Portal gesperrt (Status prüfen bleibt möglich).</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                                type="checkbox"
+                                checked={!!appSettings.portalMaintenance?.enabled}
+                                onChange={e =>
+                                    setAppSettings(prev => ({
+                                        ...prev,
+                                        portalMaintenance: {
+                                            enabled: e.target.checked,
+                                            message:
+                                                prev.portalMaintenance?.message ??
+                                                'Das Portal befindet sich aktuell in Wartung. Bitte versuchen Sie es später erneut.',
+                                        },
+                                    }))
+                                }
+                            />
+                            <span style={{ fontWeight: 600 }}>{appSettings.portalMaintenance?.enabled ? 'AN' : 'AUS'}</span>
+                        </div>
+                        <textarea
+                            value={appSettings.portalMaintenance?.message ?? ''}
+                            onChange={e =>
+                                setAppSettings(prev => ({
+                                    ...prev,
+                                    portalMaintenance: {
+                                        enabled: !!prev.portalMaintenance?.enabled,
+                                        message: e.target.value,
+                                    },
+                                }))
+                            }
+                            className="form-group-input"
+                            style={{ minHeight: 90, resize: 'vertical' }}
+                            placeholder="Wartungstext (wird im Portal angezeigt)"
+                        />
+                    </div>
+                </div>
+            </div>
+        </>
+    );
+
+    const renderSerientermineTab = () => (
+        <>
+            <div className="settings-section">
+                <div className="settings-section-header">
+                    <h3 className="settings-section-title">Serientermine (wiederkehrende Aufgaben)</h3>
+                </div>
+                <div className="settings-section-body">
+                    <p className="form-group-description">
+                        Wiederkehrende Aufgaben für Service‑Team und Hauswirtschaft. Daraus werden automatisch präventive Tickets erzeugt.
+                    </p>
+
+                    {routineSchedules.length === 0 ? (
+                        <div style={{ padding: '12px 14px', border: '1px dashed var(--border)', borderRadius: 12, color: 'var(--text-muted)' }}>
+                            Noch keine Serientermine angelegt.
+                        </div>
+                    ) : (
+                        routineSchedules.map((s: any) => {
+                            const schedule = s as RoutineSchedule & { recurrence?: any };
+                            const eligible = eligibleUsersByRole(schedule.targetRole);
+                            const selectedAssignees = (schedule.assignees || []).filter(n => eligible.includes(n));
+                            const weekdays =
+                                schedule.recurrence?.type === 'weekdays'
+                                    ? (schedule.recurrence.weekdays as WeekdayKey[])
+                                    : ([] as WeekdayKey[]);
+
+                            return (
+                                <div
+                                    key={schedule.id}
+                                    style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 12, background: 'var(--bg-tertiary)' }}
+                                    onDragOver={(e) => {
+                                        if (!dragRoutineId) return;
+                                        e.preventDefault();
+                                    }}
+                                    onDrop={(e) => {
+                                        if (!dragRoutineId) return;
+                                        e.preventDefault();
+                                        reorderRoutineSchedules(dragRoutineId, schedule.id);
+                                        setDragRoutineId(null);
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 10 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <span
+                                                draggable
+                                                onDragStart={(e) => {
+                                                    setDragRoutineId(schedule.id);
+                                                    e.dataTransfer.effectAllowed = 'move';
+                                                }}
+                                                onDragEnd={() => setDragRoutineId(null)}
+                                                title="Reihenfolge ändern (ziehen)"
+                                                style={{
+                                                    width: 26,
+                                                    height: 26,
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    borderRadius: 8,
+                                                    border: '1px solid var(--border)',
+                                                    background: 'var(--bg-secondary)',
+                                                    color: 'var(--text-muted)',
+                                                    cursor: 'grab',
+                                                    userSelect: 'none',
+                                                    fontWeight: 900,
+                                                    lineHeight: 1,
+                                                }}
+                                            >
+                                                ⋮⋮
+                                            </span>
+                                            <input
+                                                type="checkbox"
+                                                checked={!!schedule.enabled}
+                                                onChange={e => handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, enabled: e.target.checked })}
+                                                title="Aktiv/Inaktiv"
+                                            />
+                                            <strong style={{ fontSize: 14 }}>{schedule.title || 'Serientermin'}</strong>
+                                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                                                {schedule.lastGenerated ? `zuletzt: ${schedule.lastGenerated}` : 'noch nie erzeugt'}
+                                            </span>
+                                        </div>
+                                        <button onClick={() => handleDeleteSetting('routineSchedules', schedule.id)} className="btn btn-danger-sm" title="Löschen">
+                                            <TrashIcon />
+                                        </button>
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 12 }}>
+                                        <div className="form-group">
+                                            <label>Aufgabe</label>
+                                            <input
+                                                className="form-group-input"
+                                                value={schedule.title}
+                                                onChange={e => handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, title: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>Bereich</label>
+                                            <select
+                                                className="form-group-select"
+                                                value={schedule.targetRole}
+                                                onChange={e =>
+                                                    handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                        ...schedule,
+                                                        targetRole: e.target.value as Role.Technician | Role.Housekeeping,
+                                                        assignees: [],
+                                                        assignment: { type: 'rotate' },
+                                                        rotationCursor: 0,
+                                                    })
+                                                }
+                                            >
+                                                <option value={Role.Technician}>Service‑Team</option>
+                                                <option value={Role.Housekeeping}>Hauswirtschaft</option>
+                                            </select>
+                                        </div>
+                                        <div className="form-group">
+                                            <label>Bereich (Pflichtfeld)</label>
+                                            <input
+                                                className="form-group-input"
+                                                value={schedule.area}
+                                                onChange={e =>
+                                                    handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                        ...schedule,
+                                                        area: e.target.value,
+                                                    })
+                                                }
+                                                placeholder="z.B. Alle Wohnbereiche / Küche / Wäscherei"
+                                                required
+                                            />
+                                            {!String(schedule.area || '').trim() && (
+                                                <p className="form-group-description" style={{ color: 'var(--accent-danger)' }}>
+                                                    Bitte einen Bereich angeben.
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                                            <label>Beschreibung</label>
+                                            <textarea
+                                                className="form-group-input"
+                                                style={{ minHeight: 80, resize: 'vertical' }}
+                                                value={schedule.description}
+                                                onChange={e => handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, description: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+                                        <div className="form-group">
+                                            <label>Wiederholung</label>
+                                            <select
+                                                className="form-group-select"
+                                                value={schedule.recurrence?.type || 'weekdays'}
+                                                onChange={e => {
+                                                    const type = e.target.value;
+                                                    const next =
+                                                        type === 'daily'
+                                                            ? { type: 'daily' }
+                                                            : type === 'weekly'
+                                                                ? { type: 'weekly', intervalWeeks: 1 }
+                                                                : { type: 'weekdays', intervalWeeks: 1, weekdays: ['mo', 'mi', 'fr'] as WeekdayKey[] };
+                                                    handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, recurrence: next as any });
+                                                }}
+                                            >
+                                                <option value="daily">Täglich</option>
+                                                <option value="weekly">Wöchentlich</option>
+                                                <option value="weekdays">Bestimmte Wochentage</option>
+                                            </select>
+
+                                            {schedule.recurrence?.type !== 'daily' && (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+                                                    <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Intervall</span>
+                                                    <input
+                                                        type="number"
+                                                        min={1}
+                                                        className="form-group-input"
+                                                        style={{ width: 110 }}
+                                                        value={schedule.recurrence?.intervalWeeks || 1}
+                                                        onChange={e => {
+                                                            const intervalWeeks = Math.max(1, parseInt(e.target.value || '1', 10));
+                                                            const rec =
+                                                                schedule.recurrence?.type === 'weekdays'
+                                                                    ? { ...schedule.recurrence, intervalWeeks }
+                                                                    : { type: 'weekly', intervalWeeks };
+                                                            handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, recurrence: rec as any });
+                                                        }}
+                                                    />
+                                                    <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Woche(n)</span>
+                                                </div>
+                                            )}
+
+                                            {schedule.recurrence?.type === 'weekdays' && (
+                                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                                                    {weekdayOptions.map(w => {
+                                                        const checked = weekdays.includes(w.key);
+                                                        return (
+                                                            <label key={w.key} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 999, border: '1px solid var(--border)', background: checked ? 'var(--bg-secondary)' : 'transparent', cursor: 'pointer' }}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={checked}
+                                                                    onChange={e => {
+                                                                        const next = e.target.checked
+                                                                            ? Array.from(new Set([...weekdays, w.key]))
+                                                                            : weekdays.filter(x => x !== w.key);
+                                                                        handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                                            ...schedule,
+                                                                            recurrence: { type: 'weekdays', intervalWeeks: schedule.recurrence?.intervalWeeks || 1, weekdays: next },
+                                                                        } as any);
+                                                                    }}
+                                                                />
+                                                                <span style={{ fontSize: 12 }}>{w.label}</span>
+                                                            </label>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="form-group">
+                                            <label>Zuordnung</label>
+                                            <select
+                                                className="form-group-select"
+                                                value={schedule.assignment?.type || 'rotate'}
+                                                onChange={e => {
+                                                    const type = e.target.value as 'rotate' | 'fixed';
+                                                    const next =
+                                                        type === 'rotate'
+                                                            ? ({ type: 'rotate' } as const)
+                                                            : ({ type: 'fixed', userName: selectedAssignees[0] || '' } as const);
+                                                    handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, assignment: next as any, rotationCursor: 0 });
+                                                }}
+                                            >
+                                                <option value="rotate">Automatisch rotieren</option>
+                                                <option value="fixed">Feste Person</option>
+                                            </select>
+
+                                            {schedule.assignment?.type === 'fixed' && (
+                                                <select
+                                                    className="form-group-select"
+                                                    style={{ marginTop: 8 }}
+                                                    value={schedule.assignment.userName}
+                                                    onChange={e =>
+                                                        handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                            ...schedule,
+                                                            assignment: { type: 'fixed', userName: e.target.value } as any,
+                                                        })
+                                                    }
+                                                >
+                                                    {selectedAssignees.length === 0 ? (
+                                                        <option value="">(Keine aktiven Nutzer)</option>
+                                                    ) : (
+                                                        selectedAssignees.map(n => <option key={n} value={n}>{n}</option>)
+                                                    )}
+                                                </select>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="form-group" style={{ marginTop: 12 }}>
+                                        <label>Zuständige Mitarbeiter (für Rotation)</label>
+                                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                            {eligible.length === 0 ? (
+                                                <span style={{ color: 'var(--text-muted)' }}>(Keine aktiven Nutzer in diesem Bereich)</span>
+                                            ) : (
+                                                eligible.map(name => {
+                                                    const checked = (schedule.assignees || []).includes(name);
+                                                    return (
+                                                        <label
+                                                            key={name}
+                                                            style={{
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: 6,
+                                                                padding: '6px 10px',
+                                                                borderRadius: 999,
+                                                                border: '1px solid var(--border)',
+                                                                background: checked ? 'var(--bg-secondary)' : 'transparent',
+                                                                cursor: 'pointer',
+                                                            }}
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={checked}
+                                                                onChange={e => {
+                                                                    const current = schedule.assignees || [];
+                                                                    const next = e.target.checked
+                                                                        ? Array.from(new Set([...current, name]))
+                                                                        : current.filter(n => n !== name);
+                                                                    handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, assignees: next, rotationCursor: 0 });
+                                                                }}
+                                                            />
+                                                            <span style={{ fontSize: 12 }}>{name}</span>
+                                                        </label>
+                                                    );
+                                                })
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+
+                    <button
+                        onClick={() => {
+                            const id = `routine-${Date.now()}`;
+                            const defaultRole: Role.Technician | Role.Housekeeping = Role.Technician;
+                            const newItem: RoutineSchedule & { recurrence?: any } = {
+                                id,
+                                title: 'Neue Aufgabe',
+                                description: '',
+                                area: '',
+                                location: '',
+                                targetRole: defaultRole,
+                                assignees: [],
+                                assignment: { type: 'rotate' },
+                                enabled: true,
+                                lastGenerated: null,
+                                rotationCursor: 0,
+                                recurrence: { type: 'weekdays', intervalWeeks: 1, weekdays: ['mo', 'mi', 'fr'] as WeekdayKey[] },
+                            };
+                            setAppSettings(prev => ({ ...prev, routineSchedules: [...(prev.routineSchedules || []), newItem] }));
+                        }}
+                        className="btn btn-secondary btn-full-width"
+                    >
+                        <PlusIcon /> Serientermin hinzufügen
+                    </button>
+                </div>
+            </div>
+        </>
+    );
     const renderProzesseTab = () => (
         <>
             <div className="settings-section">
@@ -456,15 +866,55 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                         routineSchedules.map((s: any) => {
                             const schedule = s as RoutineSchedule & { recurrence?: any };
                             const eligible = eligibleUsersByRole(schedule.targetRole);
+                            const selectedAssignees = (schedule.assignees || []).filter(n => eligible.includes(n));
                             const weekdays =
                                 schedule.recurrence?.type === 'weekdays'
                                     ? (schedule.recurrence.weekdays as WeekdayKey[])
                                     : ([] as WeekdayKey[]);
 
                             return (
-                                <div key={schedule.id} style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 12, background: 'var(--bg-tertiary)' }}>
+                                <div
+                                    key={schedule.id}
+                                    style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 12, background: 'var(--bg-tertiary)' }}
+                                    onDragOver={(e) => {
+                                        if (!dragRoutineId) return;
+                                        e.preventDefault();
+                                    }}
+                                    onDrop={(e) => {
+                                        if (!dragRoutineId) return;
+                                        e.preventDefault();
+                                        reorderRoutineSchedules(dragRoutineId, schedule.id);
+                                        setDragRoutineId(null);
+                                    }}
+                                >
                                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 10 }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <span
+                                                draggable
+                                                onDragStart={(e) => {
+                                                    setDragRoutineId(schedule.id);
+                                                    e.dataTransfer.effectAllowed = 'move';
+                                                }}
+                                                onDragEnd={() => setDragRoutineId(null)}
+                                                title="Reihenfolge ändern (ziehen)"
+                                                style={{
+                                                    width: 26,
+                                                    height: 26,
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    borderRadius: 8,
+                                                    border: '1px solid var(--border)',
+                                                    background: 'var(--bg-secondary)',
+                                                    color: 'var(--text-muted)',
+                                                    cursor: 'grab',
+                                                    userSelect: 'none',
+                                                    fontWeight: 900,
+                                                    lineHeight: 1,
+                                                }}
+                                            >
+                                                ⋮⋮
+                                            </span>
                                             <input
                                                 type="checkbox"
                                                 checked={!!schedule.enabled}
@@ -483,7 +933,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
 
                                     <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 12 }}>
                                         <div className="form-group">
-                                            <label>Titel</label>
+                                            <label>Aufgabe</label>
                                             <input
                                                 className="form-group-input"
                                                 value={schedule.title}
@@ -499,6 +949,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                                     handleUpdateSetting<RoutineSchedule>('routineSchedules', {
                                                         ...schedule,
                                                         targetRole: e.target.value as Role.Technician | Role.Housekeeping,
+                                                        assignees: [],
                                                         assignment: { type: 'rotate' },
                                                         rotationCursor: 0,
                                                     })
@@ -509,47 +960,24 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                             </select>
                                         </div>
                                         <div className="form-group">
-                                            <label>Standort</label>
-                                            <select
-                                                className="form-group-select"
-                                                value={schedule.area}
-                                                onChange={e => handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, area: e.target.value })}
-                                            >
-                                                <option value="Alle">Alle</option>
-                                                {locations.filter(l => l.isActive).map(l => (
-                                                    <option key={l.id} value={l.name}>{l.name}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div className="form-group">
-                                            <label>Ort / Bereich</label>
+                                            <label>Bereich (Pflichtfeld)</label>
                                             <input
                                                 className="form-group-input"
-                                                value={schedule.location}
-                                                onChange={e => handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, location: e.target.value })}
+                                                value={schedule.area}
+                                                onChange={e =>
+                                                    handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                        ...schedule,
+                                                        area: e.target.value,
+                                                    })
+                                                }
+                                                placeholder="z.B. Alle Wohnbereiche / Küche / Wäscherei"
+                                                required
                                             />
-                                        </div>
-                                        <div className="form-group">
-                                            <label>Kategorie</label>
-                                            <select
-                                                className="form-group-select"
-                                                value={schedule.categoryId}
-                                                onChange={e => handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, categoryId: e.target.value })}
-                                            >
-                                                {appSettings.ticketCategories.map(c => (
-                                                    <option key={c.id} value={c.id}>{c.name}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div className="form-group">
-                                            <label>Priorität</label>
-                                            <select
-                                                className="form-group-select"
-                                                value={schedule.priority}
-                                                onChange={e => handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, priority: e.target.value as Priority })}
-                                            >
-                                                {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
-                                            </select>
+                                            {!String(schedule.area || '').trim() && (
+                                                <p className="form-group-description" style={{ color: 'var(--accent-danger)' }}>
+                                                    Bitte einen Bereich angeben.
+                                                </p>
+                                            )}
                                         </div>
                                         <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                                             <label>Beschreibung</label>
@@ -663,14 +1091,58 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                                         })
                                                     }
                                                 >
-                                                    {eligible.length === 0 ? (
+                                                    {selectedAssignees.length === 0 ? (
                                                         <option value="">(Keine aktiven Nutzer)</option>
                                                     ) : (
-                                                        eligible.map(n => <option key={n} value={n}>{n}</option>)
+                                                        selectedAssignees.map(n => <option key={n} value={n}>{n}</option>)
                                                     )}
                                                 </select>
                                             )}
                                         </div>
+                                    </div>
+
+                                    <div className="form-group" style={{ marginTop: 12 }}>
+                                        <label>Zuständige Mitarbeiter (für Rotation)</label>
+                                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                            {eligible.length === 0 ? (
+                                                <span style={{ color: 'var(--text-muted)' }}>(Keine aktiven Nutzer in diesem Bereich)</span>
+                                            ) : (
+                                                eligible.map(name => {
+                                                    const checked = (schedule.assignees || []).includes(name);
+                                                    return (
+                                                        <label
+                                                            key={name}
+                                                            style={{
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: 6,
+                                                                padding: '6px 10px',
+                                                                borderRadius: 999,
+                                                                border: '1px solid var(--border)',
+                                                                background: checked ? 'var(--bg-secondary)' : 'transparent',
+                                                                cursor: 'pointer',
+                                                            }}
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={checked}
+                                                                onChange={e => {
+                                                                    const current = schedule.assignees || [];
+                                                                    const next = e.target.checked
+                                                                        ? Array.from(new Set([...current, name]))
+                                                                        : current.filter(n => n !== name);
+                                                                    handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, assignees: next, rotationCursor: 0 });
+                                                                }}
+                                                            />
+                                                            <span style={{ fontSize: 12 }}>{name}</span>
+                                                        </label>
+                                                    );
+                                                })
+                                            )}
+                                        </div>
+                                        <p className="form-group-description" style={{ marginTop: 6 }}>
+                                            Tipp: Wähle hier die Personen aus, die sich abwechseln sollen.
+                                        </p>
                                     </div>
                                 </div>
                             );
@@ -685,11 +1157,10 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                 id,
                                 title: 'Neue Aufgabe',
                                 description: '',
-                                area: locations.find(l => l.isActive)?.name || 'Alle',
+                                area: '',
                                 location: '',
-                                categoryId: appSettings.ticketCategories[0]?.id || 'cat-gebaeudetechnik',
-                                priority: Priority.Mittel,
                                 targetRole: defaultRole,
+                                assignees: [],
                                 assignment: { type: 'rotate' },
                                 enabled: true,
                                 lastGenerated: null,
@@ -705,65 +1176,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                 </div>
             </div>
 
-            <div className="settings-section">
-                <div className="settings-section-header">
-                    <h3 className="settings-section-title">Allgemein</h3>
-                </div>
-                <div className="settings-section-body">
-                    <div className="form-group">
-                        <label>App Name</label>
-                         <p className="form-group-description">Der hier festgelegte Name wird im Portal angezeigt.</p>
-                        <input type="text" value={appSettings.appName} onChange={e => setAppSettings(prev => ({...prev, appName: e.target.value}))} className="form-group-input" />
-                    </div>
-                    <div className="form-group">
-                        <label>Untertitel</label>
-                        <p className="form-group-description">Unter dem App-Namen im Portal (z.B. „Meldungen schnell erfassen & verfolgen“).</p>
-                        <input
-                            type="text"
-                            value={appSettings.portalSubtitle ?? ''}
-                            onChange={e => setAppSettings(prev => ({...prev, portalSubtitle: e.target.value}))}
-                            className="form-group-input"
-                        />
-                    </div>
-                    <div className="form-group">
-                        <label>Wartungsmodus</label>
-                        <p className="form-group-description">Wenn aktiv, wird „Meldung erfassen“ im Portal gesperrt (Status prüfen bleibt möglich).</p>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <input
-                                type="checkbox"
-                                checked={!!appSettings.portalMaintenance?.enabled}
-                                onChange={e =>
-                                    setAppSettings(prev => ({
-                                        ...prev,
-                                        portalMaintenance: {
-                                            enabled: e.target.checked,
-                                            message:
-                                                prev.portalMaintenance?.message ??
-                                                'Das Portal befindet sich aktuell in Wartung. Bitte versuchen Sie es später erneut.',
-                                        },
-                                    }))
-                                }
-                            />
-                            <span style={{ fontWeight: 600 }}>{appSettings.portalMaintenance?.enabled ? 'AN' : 'AUS'}</span>
-                        </div>
-                        <textarea
-                            value={appSettings.portalMaintenance?.message ?? ''}
-                            onChange={e =>
-                                setAppSettings(prev => ({
-                                    ...prev,
-                                    portalMaintenance: {
-                                        enabled: !!prev.portalMaintenance?.enabled,
-                                        message: e.target.value,
-                                    },
-                                }))
-                            }
-                            className="form-group-input"
-                            style={{ minHeight: 90, resize: 'vertical' }}
-                            placeholder="Wartungstext (wird im Portal angezeigt)"
-                        />
-                    </div>
-                </div>
-            </div>
+            {/* Allgemein ist eigener Tab */}
             <div className="settings-section">
                 <div className="settings-section-header"><h3 className="settings-section-title">Ticket-Kategorien</h3></div>
                 <div className="settings-section-body">
@@ -901,8 +1314,6 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
             <style>{`
                 /* General Styles */
                 .settings-view { padding-top: 1.5rem; max-width: 1200px; margin: 0 auto; }
-                .settings-header { margin-bottom: 2rem; }
-                .settings-title { font-size: 1.75rem; font-weight: 700; color: var(--text-primary); }
                 .settings-tabs { display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border); margin-bottom: 2rem; flex-wrap: wrap; }
                 .tab-btn { background: none; border: none; padding: 0.75rem 1.5rem; font-size: 1rem; font-weight: 500; cursor: pointer; color: var(--text-secondary); border-bottom: 2px solid transparent; transition: var(--transition-smooth); }
                 .tab-btn.active { color: var(--text-primary); border-bottom-color: var(--accent-primary); }
@@ -952,10 +1363,6 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                 .skills-container { display: flex; flex-wrap: wrap; gap: 0.25rem; }
                 .skill-tag { background-color: var(--bg-tertiary); color: var(--text-secondary); padding: 0.1rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 500; }
             `}</style>
-            <div className="settings-header">
-                <h1 className="settings-title">Steuerzentrale</h1>
-            </div>
-
             <div className="settings-section">
                 <div className="settings-section-header">
                     <h3 className="settings-section-title">Dokumentation</h3>
@@ -976,12 +1383,16 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
             </div>
 
             <div className="settings-tabs">
+                <button className={`tab-btn ${activeTab === 'allgemein' ? 'active' : ''}`} onClick={() => setActiveTab('allgemein')}>Allgemein</button>
                 <button className={`tab-btn ${activeTab === 'prozesse' ? 'active' : ''}`} onClick={() => setActiveTab('prozesse')}>Prozesse & Logik</button>
+                <button className={`tab-btn ${activeTab === 'serientermine' ? 'active' : ''}`} onClick={() => setActiveTab('serientermine')}>Serientermine</button>
                 <button className={`tab-btn ${activeTab === 'benutzer' ? 'active' : ''}`} onClick={() => setActiveTab('benutzer')}>Benutzer & Teams</button>
                 <button className={`tab-btn ${activeTab === 'standorte' ? 'active' : ''}`} onClick={() => setActiveTab('standorte')}>Standorte & Anlagen</button>
             </div>
             <div className="tab-content">
+                {activeTab === 'allgemein' && renderAllgemeinTab()}
                 {activeTab === 'prozesse' && renderProzesseTab()}
+                {activeTab === 'serientermine' && renderSerientermineTab()}
                 {activeTab === 'benutzer' && renderBenutzerTab()}
                 {activeTab === 'standorte' && renderStandorteTab()}
             </div>

@@ -77,13 +77,20 @@ export interface RoutineSchedule {
   description: string;
   area: string;
   location: string;
-  categoryId: string;
-  priority: Priority;
   targetRole: Role.Technician | Role.Housekeeping;
+  assignees: string[]; // only these names are used for rotation/fixed selection
   assignment: RoutineAssignment;
   enabled: boolean;
   lastGenerated: string | null; // YYYY-MM-DD
   rotationCursor: number; // used when assignment.type === 'rotate'
+}
+
+/** Tagesabschluss eines Serienauftrags (Dashboard „Erledigt“) */
+export interface RoutineDayCompletion {
+  scheduleId: string;
+  date: string; // YYYY-MM-DD (lokal)
+  completedBy: string;
+  completedAt: string; // ISO
 }
 
 export interface AppSettings {
@@ -104,6 +111,7 @@ export interface AppSettings {
   slaMatrix: SLARule[];
   routingRules: RoutingRule[];
   routineSchedules: RoutineSchedule[];
+  routineDayCompletions?: RoutineDayCompletion[];
 }
 
 export interface MaintenancePlan {
@@ -150,6 +158,8 @@ export type TicketType = 'reactive' | 'preventive';
 export interface Ticket {
   id: string;
   ticketType: TicketType;
+  origin?: 'manual' | 'maintenance' | 'routine';
+  routineScheduleId?: string;
   title: string;
   area: string; // Corresponds to Location name
   location: string;

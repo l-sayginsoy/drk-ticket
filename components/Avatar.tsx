@@ -2,20 +2,23 @@ import React from 'react';
 
 interface AvatarProps {
     name: string;
+    /** Initialen aus vollem Namen (z. B. Login-Name), wenn die sichtbare Bezeichnung gekürzt ist */
+    initialsFrom?: string;
 }
 
-export const Avatar: React.FC<AvatarProps> = ({ name }) => {
-    const getInitials = (name: string) => {
-        const names = name.split(' ');
+export const Avatar: React.FC<AvatarProps> = ({ name, initialsFrom }) => {
+    const source = (initialsFrom ?? name).trim();
+    const getInitials = (n: string) => {
+        const names = n.split(/\s+/).filter(Boolean);
         if (names.length > 1) {
             return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
         }
-        return name.substring(0, 2).toUpperCase();
-    }
-    
+        return n.substring(0, 2).toUpperCase();
+    };
+
     return (
         <div className="avatar">
-            {getInitials(name)}
+            {getInitials(source)}
              <style>{`
                 .avatar {
                     width: 28px;

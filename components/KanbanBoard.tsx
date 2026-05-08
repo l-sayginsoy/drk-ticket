@@ -1,9 +1,10 @@
 import React from 'react';
-import { Ticket, Status } from '../types';
+import { Ticket, Status, User } from '../types';
 import KanbanColumn from './KanbanColumn';
 
 interface KanbanBoardProps {
   tickets: Ticket[];
+  technicians?: User[];
   onUpdateTicket: (ticket: Ticket) => void;
   onSelectTicket: (ticket: Ticket) => void;
   selectedTicket: Ticket | null;
@@ -16,7 +17,14 @@ const getTicketSortPriority = (ticket: Ticket): number => {
 };
 
 
-const KanbanBoard: React.FC<KanbanBoardProps> = ({ tickets, onUpdateTicket, onSelectTicket, selectedTicket }) => {
+const KanbanBoard: React.FC<KanbanBoardProps> = ({
+  tickets,
+  technicians: techniciansProp,
+  onUpdateTicket,
+  onSelectTicket,
+  selectedTicket,
+}) => {
+  const technicians = techniciansProp ?? [];
   const columns: { title: string; status: Status }[] = [
     { title: Status.Offen, status: Status.Offen },
     { title: Status.InArbeit, status: Status.InArbeit },
@@ -78,6 +86,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ tickets, onUpdateTicket, onSe
             title={column.title}
             status={column.status}
             tickets={getTicketsForColumn(column.status)}
+            technicians={technicians}
             onUpdateTicket={onUpdateTicket}
             onDropTicket={handleDropTicket}
             onSelectTicket={onSelectTicket}

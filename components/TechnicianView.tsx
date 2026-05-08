@@ -5,6 +5,7 @@ import { Avatar } from './Avatar';
 import { ArrowUpIcon } from './icons/ArrowUpIcon';
 import { ArrowDownIcon } from './icons/ArrowDownIcon';
 import { ExclamationTriangleIcon } from './icons/ExclamationTriangleIcon';
+import { displayNameShort } from '../utils/displayNames';
 
 interface TechnicianViewProps {
     tickets: Ticket[];
@@ -98,13 +99,9 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ tickets, technicians, o
                 /* New Simplified Header */
                 .view-header {
                     display: flex;
-                    justify-content: space-between;
+                    justify-content: flex-end;
                     align-items: center;
-                    padding: 0 0 1.5rem 0; /* Match original header padding-bottom */
-                }
-                .view-title {
-                    font-size: 1.75rem;
-                    font-weight: 700;
+                    padding: 0 0 1.5rem 0;
                 }
                 .critical-kpi-button {
                     background-color: transparent;
@@ -186,16 +183,15 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ tickets, technicians, o
                 .ranking-value { font-size: 0.9rem; font-weight: 600; color: var(--text-primary); }
             `}</style>
 
-            <div className="view-header">
-                <h1 className="view-title">Team Übersicht</h1>
-                 {totalOverdue > 0 && (
+            {totalOverdue > 0 ? (
+                <div className="view-header">
                     <button className="critical-kpi-button" onClick={() => onFilter({ status: Status.Ueberfaellig })}>
                         <span className="kpi-icon"><ExclamationTriangleIcon /></span>
                         <span className="kpi-value">{totalOverdue}</span>
                         <span className="kpi-label">Kritische Tickets</span>
                     </button>
-                )}
-            </div>
+                </div>
+            ) : null}
 
             <div className="technician-grid">
                 {sortedTechnicians.map(tech => {
@@ -205,11 +201,16 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ tickets, technicians, o
                     const overdueSegmentWidth = tech.activeTicketsCount > 0 ? (tech.overdueTicketsCount / tech.activeTicketsCount) * 100 : 0;
 
                     return (
-                        <div key={tech.name} className="technician-card" onClick={() => onTechnicianSelect({technician: tech.name, status: 'Alle'})}>
+                        <div
+                            key={tech.name}
+                            className="technician-card"
+                            title={tech.name}
+                            onClick={() => onTechnicianSelect({ technician: tech.name, status: 'Alle' })}
+                        >
                             <div className="card-header">
                                 <div className="technician-info">
-                                    <Avatar name={tech.name} />
-                                    <span className="technician-name">{tech.name}</span>
+                                    <Avatar name={displayNameShort(tech.name)} initialsFrom={tech.name} />
+                                    <span className="technician-name">{displayNameShort(tech.name)}</span>
                                 </div>
                             </div>
                             <div className="kpi-row">
@@ -250,8 +251,8 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ tickets, technicians, o
                         const maxCompleted = Math.max(...performanceRanking.map(t => t.completed), 1);
                         const barWidth = (tech.completed / maxCompleted) * 100;
                         return (
-                            <div className="ranking-item" key={tech.name}>
-                                <div className="ranking-name">{tech.name}</div>
+                            <div className="ranking-item" key={tech.name} title={tech.name}>
+                                <div className="ranking-name">{displayNameShort(tech.name)}</div>
                                 <div className="ranking-bar-track">
                                     <div className="ranking-bar-fill" style={{ width: `${barWidth}%` }}></div>
                                 </div>

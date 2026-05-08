@@ -613,7 +613,7 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                         <div className="status-details-box">
                             <div className="status-detail-item"><strong>Status:</strong> <span className="status-detail-value">{foundTicket.status}</span></div>
                             <div className="status-detail-item"><strong>Betreff:</strong> <span className="status-detail-value">{foundTicket.title}</span></div>
-                            <div className="status-detail-item"><strong>Techniker:</strong> <span className="status-detail-value">{foundTicket.technician === 'N/A' ? 'Noch nicht zugewiesen' : foundTicket.technician}</span></div>
+                            <div className="status-detail-item"><strong>Bearbeiter:</strong> <span className="status-detail-value">{foundTicket.technician === 'N/A' ? 'Noch nicht zugewiesen' : foundTicket.technician}</span></div>
                             <div className="portal-notes-container">
                                 <p className="notes-title"><strong>Letzte Notizen:</strong></p>
                                 {foundTicket.notes && foundTicket.notes.length > 0 ? (

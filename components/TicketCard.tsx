@@ -1,13 +1,16 @@
-import React from 'react';
-import { Ticket, Priority, Status } from '../types';
-import { TECHNICIANS_DATA, statusColorMap } from '../constants';
+import React, { useMemo } from 'react';
+import { Ticket, Priority, Status, User, AvailabilityStatus } from '../types';
+import { statusColorMap } from '../constants';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
 import { CheckIcon } from './icons/CheckIcon';
 import { ClockIcon } from './icons/ClockIcon';
 import { RefreshIcon } from './icons/RefreshIcon';
+import { displayNameShort } from '../utils/displayNames';
 
 interface TicketCardProps {
   ticket: Ticket;
+  /** Aktive Service-Team-Mitarbeitende (wie in Einstellungen / NewTicketModal) */
+  technicians?: User[];
   onUpdateTicket: (ticket: Ticket) => void;
   onSelectTicket: (ticket: Ticket) => void;
   selectedTicket: Ticket | null;
@@ -59,15 +62,14 @@ const isStagnating = (ticket: Ticket): boolean => {
 };
 
 
-const formatTechnicianName = (name: string) => {
-    const parts = name.split(' ');
-    if (parts.length > 1) {
-        return `${parts[0][0]}. ${parts[parts.length - 1]}`;
-    }
-    return name;
-};
-
-const TicketCard: React.FC<TicketCardProps> = ({ ticket, onUpdateTicket, onSelectTicket, selectedTicket }) => {
+const TicketCard: React.FC<TicketCardProps> = ({
+    ticket,
+    technicians: techniciansProp,
+    onUpdateTicket,
+    onSelectTicket,
+    selectedTicket,
+}) => {
+    const technicians = techniciansProp ?? [];
 
     const priorityClasses = {
         [Priority.Hoch]: 'priority-high',
@@ -112,7 +114,15 @@ const TicketCard: React.FC<TicketCardProps> = ({ ticket, onUpdateTicket, onSelec
         onUpdateTicket({ ...ticket, dueDate: fromInputDate(e.target.value) });
     };
 
-    const technicianOptions = ['N/A', ...TECHNICIANS_DATA.map(t => t.name)];
+    const technicianOptions = useMemo(() => {
+        const techNames = [...technicians.map((t) => t.name)].sort((a, b) => a.localeCompare(b, 'de'));
+        const set = new Set(techNames);
+        if (ticket.technician && ticket.technician !== 'N/A' && !set.has(ticket.technician)) {
+            techNames.push(ticket.technician);
+            techNames.sort((a, b) => a.localeCompare(b, 'de'));
+        }
+        return ['N/A', ...techNames] as const;
+    }, [technicians, ticket.technician]);
     
     const isEmergency = !!ticket.is_emergency;
     const isTicketStagnating = isStagnating(ticket);
@@ -176,13 +186,27 @@ const TicketCard: React.FC<TicketCardProps> = ({ ticket, onUpdateTicket, onSelec
                 .card-actions-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; margin-top: 1rem; }
                 .action-item { font-size: 0.8rem; position: relative; }
                 .action-label { color: var(--text-muted); margin-bottom: 0.25rem; font-size: 0.75rem; text-align: center; }
-                .action-value-box, .details-btn, .custom-dropdown, .date-input-wrapper {
-                    background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.25rem 0.75rem;
-                    font-size: 0.85rem; font-weight: 500; color: var(--text-secondary); width: 100%; text-align: center;
-                    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
-                    height: 29px; display: flex; align-items: center; justify-content: center;
+                /* Einheitliche Pill-Form wie in der Listenansicht (alle Raster-Felder) */
+                .action-value-box,
+                .details-btn,
+                .custom-dropdown,
+                .date-input-wrapper {
+                    padding: 0.25rem 0.75rem;
+                    border-radius: 6px;
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                    color: var(--text-secondary);
+                    background: var(--bg-tertiary);
+                    border: 1px solid transparent;
+                    width: 100%;
+                    text-align: center;
+                    min-height: 29px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
                 }
-                .action-value-box.emergency { background-color: var(--accent-danger); color: white; border-color: var(--accent-danger); font-weight: 600; }
+                .action-value-box.emergency { background-color: rgba(220, 53, 69, 0.1); color: #c82333; border-color: rgba(220, 53, 69, 0.3); font-weight: 600; }
                 .date-input-wrapper { position: relative; }
                 .date-input-wrapper input[type="date"] { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
                 .date-input-wrapper input[type="date"]::-webkit-calendar-picker-indicator { width: 100%; height: 100%; cursor: pointer; }
@@ -193,11 +217,19 @@ const TicketCard: React.FC<TicketCardProps> = ({ ticket, onUpdateTicket, onSelec
                 .custom-dropdown span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
                 .custom-dropdown select { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
                 .custom-dropdown svg { width: 14px; height: 14px; flex-shrink: 0; }
-                .details-btn { cursor: pointer; color: var(--text-muted); }
-                .details-btn:hover, .custom-dropdown:hover, .date-input-wrapper:hover {
-                    background: var(--border); border-color: var(--accent-primary); color: var(--text-primary);
-                    box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.1);
+                .details-btn { cursor: pointer; }
+                .details-btn:hover, .date-input-wrapper:hover {
+                    background: var(--border);
+                    border-color: rgba(13, 110, 253, 0.22);
+                    color: var(--text-primary);
                 }
+                .custom-dropdown:hover {
+                    filter: brightness(0.96);
+                    border-color: rgba(13, 110, 253, 0.22);
+                }
+                .custom-dropdown.priority-high:hover { filter: none; background-color: rgba(220, 53, 69, 0.16); border-color: rgba(220, 53, 69, 0.45); color: #c82333; }
+                .custom-dropdown.priority-medium:hover { filter: none; background-color: rgba(255, 193, 7, 0.18); border-color: rgba(255, 193, 7, 0.45); color: #d97706; }
+                .custom-dropdown.priority-low:hover { filter: none; background-color: rgba(25, 135, 84, 0.14); border-color: rgba(25, 135, 84, 0.4); color: var(--accent-success); }
             `}</style>
             
             <div className="card-header">
@@ -237,11 +269,30 @@ const TicketCard: React.FC<TicketCardProps> = ({ ticket, onUpdateTicket, onSelec
                     <Dropdown options={Object.values(Status).filter(s => s !== Status.Ueberfaellig)} selected={ticket.status} onChange={handleStatusChange} />
                 </div>
                  <div className="action-item">
-                    <div className="action-label">Haustechniker</div>
+                    <div className="action-label">Bearbeiter</div>
                     <div className="custom-dropdown">
-                        <span>{ticket.technician === 'N/A' ? 'Zuweisen' : formatTechnicianName(ticket.technician)}</span> <ChevronDownIcon />
+                        <span>
+                            {ticket.technician === 'N/A' ? 'Zuweisen' : displayNameShort(ticket.technician)}
+                        </span>{' '}
+                        <ChevronDownIcon />
                         <select value={ticket.technician} onChange={handleTechnicianSelectChange}>
-                             {technicianOptions.map(opt => <option key={opt} value={opt}>{opt === 'N/A' ? 'Nicht zugewiesen' : opt}</option>)}
+                             {technicianOptions.map((opt) => {
+                                 if (opt === 'N/A') {
+                                     return (
+                                         <option key={opt} value={opt}>
+                                             Nicht zugewiesen
+                                         </option>
+                                     );
+                                 }
+                                 const u = technicians.find((t) => t.name === opt);
+                                 const absent = u?.availability.status === AvailabilityStatus.OnLeave;
+                                 return (
+                                     <option key={opt} value={opt} disabled={!!absent}>
+                                         {displayNameShort(opt)}
+                                         {absent ? ' (Abwesend)' : ''}
+                                     </option>
+                                 );
+                             })}
                         </select>
                     </div>
                 </div>

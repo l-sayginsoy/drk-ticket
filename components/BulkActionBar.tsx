@@ -4,6 +4,7 @@ import { XIcon } from './icons/XIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { PencilSquareIcon } from './icons/PencilSquareIcon';
 import { UserGroupIcon } from './icons/UserGroupIcon';
+import { displayNameShort } from '../utils/displayNames';
 
 interface BulkActionBarProps {
   selectedCount: number;
@@ -48,7 +49,15 @@ const BulkActionBar: React.FC<BulkActionBarProps> = ({
             {icon}
             <select onChange={onChange} value="">
                 <option value="" disabled>{label}</option>
-                {options.map(opt => <option key={opt} value={opt}>{opt === Status.Abgeschlossen ? 'Abschließen' : opt}</option>)}
+                {options.map(opt => (
+                    <option key={opt} value={opt}>
+                        {label === 'Bearbeiter zuweisen...'
+                            ? displayNameShort(opt)
+                            : opt === Status.Abgeschlossen
+                              ? 'Abschließen'
+                              : opt}
+                    </option>
+                ))}
             </select>
         </div>
     );
@@ -169,7 +178,7 @@ const BulkActionBar: React.FC<BulkActionBarProps> = ({
                 />
                  <ActionSelect 
                     icon={<UserGroupIcon />}
-                    label="Techniker zuweisen..."
+                    label="Bearbeiter zuweisen..."
                     defaultValue=""
                     options={technicians}
                     onChange={handleTechnicianChange}

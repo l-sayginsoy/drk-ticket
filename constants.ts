@@ -16,8 +16,8 @@ export const MOCK_TICKETS: Ticket[] = [
     categoryId: 'cat-gebaeudetechnik',
     assetId: 'asset-heizung-a',
     is_emergency: true,
-    description: "Kompletter Heizungsausfall im Wohnhaus A. Bewohner frieren. Benötigen sofortige Entsendung eines Technikers. Höchste Priorität!",
-    notes: ["Sofortige Eskalation an alle verfügbaren Techniker. (Admin am 06.02.2026, 08:15)"]
+    description: "Kompletter Heizungsausfall im Wohnhaus A. Bewohner frieren. Benötigen sofortige Entsendung eines Bearbeiters. Höchste Priorität!",
+    notes: ["Sofortige Eskalation an alle verfügbaren Bearbeiter. (Admin am 06.02.2026, 08:15)"]
   },
   {
     id: '31002',
@@ -342,6 +342,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
         { id: 'route-4', keyword: 'WLAN,Netzwerk,Drucker', skill: 'IT' },
     ],
     routineSchedules: [],
+    routineDayCompletions: [],
 };
 
 export const statusColorMap: Record<Status, string> = {

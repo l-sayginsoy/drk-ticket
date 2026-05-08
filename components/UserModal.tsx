@@ -122,7 +122,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, allSkills, onClose, onSave 
           <div className="form-group">
             <label htmlFor="role">Rolle</label>
             <select id="role" name="role" value={formData.role} onChange={handleChange}>
-              <option value={Role.Technician}>Techniker</option>
+              <option value={Role.Technician}>Bearbeiter</option>
               <option value={Role.Housekeeping}>Hauswirtschaft</option>
               <option value={Role.Admin}>Admin</option>
             </select>

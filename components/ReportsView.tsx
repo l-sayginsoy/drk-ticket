@@ -3,8 +3,8 @@ import { Ticket, Status, User, Role } from '../types';
 import { STATUSES, LOCATIONS_FOR_FILTER } from '../constants';
 import { DocumentIcon } from './icons/DocumentIcon';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
-import { RefreshIcon } from './icons/RefreshIcon';
 import { ClockIcon } from './icons/ClockIcon';
+import { displayNameShort } from '../utils/displayNames';
 
 interface ReportsViewProps {
   tickets: Ticket[];
@@ -51,7 +51,9 @@ const StatCard: React.FC<{ title: string; value: string | number; description?: 
     </div>
 );
 
-const HorizontalBarChart: React.FC<{ title: string; data: { label: string; value: number; color?: string }[]; barColor?: string; valueSuffix?: string; }> = ({ title, data, barColor, valueSuffix = '' }) => {
+type HBarDatum = { label: string; value: number; color?: string; barCaption?: string; barTitle?: string };
+
+const HorizontalBarChart: React.FC<{ title: string; data: HBarDatum[]; barColor?: string; valueSuffix?: string; }> = ({ title, data, barColor, valueSuffix = '' }) => {
     const maxValue = Math.max(...data.map(d => d.value), 1);
     return (
         <div className="chart-container">
@@ -60,7 +62,7 @@ const HorizontalBarChart: React.FC<{ title: string; data: { label: string; value
                 <div className="h-bar-chart">
                     {data.map((item, index) => (
                         <div className="h-bar-row" key={item.label} style={{ animationDelay: `${index * 50}ms` }}>
-                            <span className="h-bar-label" title={item.label}>{item.label}</span>
+                            <span className="h-bar-label" title={item.barTitle ?? item.label}>{item.barCaption ?? item.label}</span>
                             <div className="h-bar-wrapper">
                                 <div className="h-bar" style={{ '--bar-width': `${(item.value / maxValue) * 100}%`, '--bar-color': item.color || barColor } as React.CSSProperties}></div>
                             </div>
@@ -88,7 +90,13 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
         ),
       [users]
     );
-    const allTechnicianNames = useMemo(() => ['Alle', ...technicians.map(t => t.name)], [technicians]);
+    const allTechnicianNames = useMemo(
+      () => [
+        'Alle',
+        ...technicians.map(t => t.name).sort((a, b) => a.localeCompare(b, 'de')),
+      ],
+      [technicians]
+    );
 
     const filteredTickets = useMemo(() => {
         return tickets.filter(ticket => {
@@ -153,7 +161,12 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
         const sorted = Object.entries(counts).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
         
         const colors = ['#0d6efd', '#6f42c1', '#dc3545', '#fd7e14', '#198754', '#6c757d', '#343a40', '#adb5bd'];
-        return sorted.map((item, index) => ({...item, color: colors[index % colors.length]}));
+        return sorted.map((item, index) => ({
+            ...item,
+            barCaption: displayNameShort(item.label),
+            barTitle: item.label,
+            color: colors[index % colors.length],
+        }));
     }, [filteredTickets, technicians]);
 
     const technicianWorkload = useMemo(() => {
@@ -173,9 +186,11 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
         });
 
         return Object.entries(counts)
-            .map(([label, value]) => ({ 
-                label, 
-                value: totalActiveTickets > 0 ? (value / totalActiveTickets) * 100 : 0 
+            .map(([label, value]) => ({
+                label,
+                barCaption: displayNameShort(label),
+                barTitle: label,
+                value: totalActiveTickets > 0 ? (value / totalActiveTickets) * 100 : 0,
             }))
             .sort((a, b) => b.value - a.value);
 
@@ -185,7 +200,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
         const resolvedTickets = filteredTickets.filter(t => t.status === Status.Abgeschlossen && t.completionDate && t.entryDate && t.technician !== 'N/A');
         const techData: Record<string, { totalTime: number, count: number }> = {};
 
-        // Initialisiere alle Techniker mit 0
+        // Initialisiere alle Bearbeiter mit 0
         technicians.forEach(tech => {
             techData[tech.name] = { totalTime: 0, count: 0 };
         });
@@ -203,7 +218,9 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
         return Object.entries(techData)
             .map(([label, data]) => ({
                 label,
-                value: data.count > 0 ? data.totalTime / data.count : 0
+                barCaption: displayNameShort(label),
+                barTitle: label,
+                value: data.count > 0 ? data.totalTime / data.count : 0,
             }))
             .sort((a, b) => b.value - a.value);
     }, [filteredTickets, technicians]);
@@ -211,12 +228,25 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
     const handleFilterChange = (filterName: string, value: string) => setReportFilters(prev => ({ ...prev, [filterName]: value as any }));
     const resetFilters = () => setReportFilters({ timeRange: '30d', area: 'Alle', status: 'Alle', technician: 'Alle' });
 
-    const FilterChip: React.FC<{label: string, name: string, options: string[], value: string}> = ({label, name, options, value}) => (
+    const FilterChip: React.FC<{ label: string; name: string; options: string[]; value: string }> = ({
+        label,
+        name,
+        options,
+        value,
+    }) => (
         <div className={`custom-select filter-chip ${value !== 'Alle' && name !== 'timeRange' ? 'active' : ''}`}>
             <span>{label}</span>
-            {value !== 'Alle' && name !== 'timeRange' && <span className="filter-badge">{value}</span>}
+            {value !== 'Alle' && name !== 'timeRange' && (
+                <span className="filter-badge">
+                    {name === 'technician' ? displayNameShort(value) : value}
+                </span>
+            )}
             <select value={value} onChange={(e) => handleFilterChange(name, e.target.value)}>
-                {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                {options.map((opt) => (
+                    <option key={opt} value={opt}>
+                        {name === 'technician' && opt !== 'Alle' ? displayNameShort(opt) : opt}
+                    </option>
+                ))}
             </select>
             <ChevronDownIcon />
         </div>
@@ -227,9 +257,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
         <div className="reports-view">
             <style>{`
                 /* General */
-                .reports-view { padding-top: 0; }
-                .reports-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-                .reports-title { font-size: 1.75rem; font-weight: 700; }
+                .reports-view { padding-top: 1.5rem; }
                 .no-data-placeholder { height: 100%; min-height: 200px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
                 
                 /* Filters */
@@ -240,6 +268,16 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
                 .custom-select svg { position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); pointer-events: none; width: 16px; height: 16px; color: var(--text-muted); }
                 .action-btn { background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-secondary); font-size: 0.9rem; padding: 0.5rem 1rem; border-radius: 6px; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; transition: var(--transition-smooth); font-weight: 500; margin-left: auto; }
                 .action-btn:hover { background: var(--border); }
+                .action-btn .ti {
+                    font-size: 16px;
+                    width: 16px;
+                    height: 16px;
+                    line-height: 16px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex-shrink: 0;
+                }
 
                 /* Stats Grid */
                 .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem; }
@@ -279,10 +317,6 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
                 .legend-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
                 .legend-color-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
             `}</style>
-            <div className="reports-header">
-                <h1 className="reports-title">Reports & Analysen</h1>
-            </div>
-
             <div className="reports-filter-bar">
                 <div className="custom-select">
                     <span>{timeRangeOptions[reportFilters.timeRange]}</span>
@@ -293,8 +327,11 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
                 </div>
                 <FilterChip label="Standort" name="area" options={LOCATIONS_FOR_FILTER} value={reportFilters.area} />
                 <FilterChip label="Status" name="status" options={STATUSES} value={reportFilters.status} />
-                <FilterChip label="Techniker" name="technician" options={allTechnicianNames} value={reportFilters.technician} />
-                <button className="action-btn" onClick={resetFilters}><RefreshIcon />Zurücksetzen</button>
+                <FilterChip label="Bearbeiter" name="technician" options={allTechnicianNames} value={reportFilters.technician} />
+                <button className="action-btn" onClick={resetFilters}>
+                    <i className="ti ti-rotate" aria-hidden />
+                    Zurücksetzen
+                </button>
             </div>
             
             <div className="stats-grid">
@@ -307,12 +344,12 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
             <div className="charts-grid">
                 <HorizontalBarChart title="Top 8 Standorte nach Ticketaufkommen" data={ticketsByArea} barColor="linear-gradient(90deg, #fd7e14, #dc3545)" />
                 <div className="technician-charts-stack">
-                    <HorizontalBarChart title="Ticket-Verteilung pro Techniker" data={ticketsByTechnician} />
+                    <HorizontalBarChart title="Ticket-Verteilung pro Bearbeiter" data={ticketsByTechnician} />
                     <HorizontalBarChart title="Prozentuale Auslastung (Aktive Tickets)" data={technicianWorkload} barColor="linear-gradient(90deg, #198754, #0d6efd)" valueSuffix="%" />
                 </div>
                 <div className="chart-container full-width">
                     <HorizontalBarChart 
-                        title="Durchschnittliche Bearbeitungszeit pro Techniker (Tage)" 
+                        title="Durchschnittliche Bearbeitungszeit pro Bearbeiter (Tage)" 
                         data={avgProcessingTimePerTechnician} 
                         barColor="var(--accent-primary)"
                         valueSuffix=" Tage"

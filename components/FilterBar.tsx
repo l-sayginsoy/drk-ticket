@@ -1,8 +1,8 @@
 import React from 'react';
 import { PRIORITIES } from '../constants';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
-import { RefreshIcon } from './icons/RefreshIcon';
 import { Role, GroupableKey } from '../types';
+import { displayNameShort } from '../utils/displayNames';
 
 interface FilterBarProps {
     filters: any;
@@ -18,7 +18,7 @@ interface FilterBarProps {
 
 const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, technicians, statuses, groupBy, setGroupBy, currentView, userRole }) => {
     
-    if (currentView === 'techniker' || currentView === 'reports') {
+    if (currentView === 'techniker' || currentView === 'reports' || currentView === 'routines' || currentView === 'routine-nachweis') {
         return null;
     }
     
@@ -42,15 +42,27 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
     const groupByOptions = [
         { value: 'status', label: 'Status' },
         { value: 'area', label: 'Standort' },
-        { value: 'technician', label: 'Techniker' },
+        { value: 'technician', label: 'Bearbeiter' },
     ];
     
-    const getDisplayValue = (val: string) => val === 'N/A' ? 'Nicht zugewiesen' : val;
+    const getDisplayValue = (val: string, shortenPeople: boolean) => {
+        if (val === 'N/A') return 'Nicht zugewiesen';
+        if (shortenPeople && val !== 'Alle') return displayNameShort(val);
+        return val;
+    };
 
-    const FilterChip: React.FC<{label: string, name: string, options: Array<{ name: string; count: number } | string>, value: string}> = ({label, name, options, value}) => (
+    const FilterChip: React.FC<{
+        label: string;
+        name: string;
+        options: Array<{ name: string; count: number } | string>;
+        value: string;
+        shortenPersonNames?: boolean;
+    }> = ({ label, name, options, value, shortenPersonNames }) => (
         <div className={`custom-select filter-chip ${value !== 'Alle' ? 'active' : ''}`}>
             <span>{label}</span>
-            {value !== 'Alle' && <span className="filter-badge">{getDisplayValue(value)}</span>}
+            {value !== 'Alle' && (
+                <span className="filter-badge">{getDisplayValue(value, !!shortenPersonNames)}</span>
+            )}
             <select value={value} onChange={(e) => handleFilterChange(name, e.target.value)}>
                 {options.map(opt => {
                     if (typeof opt === 'object' && opt !== null && 'name' in opt) {
@@ -66,11 +78,27 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                         );
                     }
                     const strOpt = String(opt);
-                    return <option key={strOpt} value={strOpt}>{getDisplayValue(strOpt)}</option>;
+                    return (
+                        <option key={strOpt} value={strOpt}>
+                            {getDisplayValue(strOpt, !!shortenPersonNames)}
+                        </option>
+                    );
                 })}
             </select>
             <ChevronDownIcon />
         </div>
+    );
+
+    const resetButton = (
+        <button
+            type="button"
+            className="action-btn action-btn--icon-only"
+            onClick={resetFilters}
+            aria-label="Filter zurücksetzen"
+            title="Zurücksetzen"
+        >
+            <i className="ti ti-refresh" aria-hidden />
+        </button>
     );
 
     const renderFiltersForView = () => {
@@ -83,7 +111,20 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                         <FilterChip label="Standort" name="area" options={locations} value={filters.area} />
                         <FilterChip label="Status" name="status" options={statuses} value={filters.status} />
                         <FilterChip label="Priorität" name="priority" options={PRIORITIES} value={filters.priority} />
-                        {!isServiceTeamUser && <FilterChip label="Service-Team" name="technician" options={technicians} value={filters.technician} />}
+                        {!isServiceTeamUser ? (
+                            <div className="filter-bearbeiter-reset">
+                                <FilterChip
+                                    label="Bearbeiter"
+                                    name="technician"
+                                    options={technicians}
+                                    value={filters.technician}
+                                    shortenPersonNames
+                                />
+                                {resetButton}
+                            </div>
+                        ) : (
+                            resetButton
+                        )}
                     </>
                 );
             case 'erledigt':
@@ -91,7 +132,20 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                     <>
                         <FilterChip label="Standort" name="area" options={locations} value={filters.area} />
                         <FilterChip label="Priorität" name="priority" options={PRIORITIES} value={filters.priority} />
-                        {!isServiceTeamUser && <FilterChip label="Service-Team" name="technician" options={technicians} value={filters.technician} />}
+                        {!isServiceTeamUser ? (
+                            <div className="filter-bearbeiter-reset">
+                                <FilterChip
+                                    label="Bearbeiter"
+                                    name="technician"
+                                    options={technicians}
+                                    value={filters.technician}
+                                    shortenPersonNames
+                                />
+                                {resetButton}
+                            </div>
+                        ) : (
+                            resetButton
+                        )}
                     </>
                 );
             default:
@@ -102,8 +156,23 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
     return (
         <div className="filter-bar">
             <style>{`
-                .filter-bar { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.5rem; display: flex; align-items: center; gap: 1rem; transition: var(--transition-smooth); flex-wrap: wrap; }
+                .filter-bar {
+                    max-width: 1800px;
+                    width: 100%;
+                    box-sizing: border-box;
+                    margin-top: 1.25rem;
+                    background: var(--bg-secondary);
+                    border: 1px solid var(--border);
+                    border-radius: 8px;
+                    padding: 14px 16px;
+                    display: flex;
+                    align-items: center;
+                    gap: 1rem;
+                    transition: var(--transition-smooth);
+                    flex-wrap: wrap;
+                }
                 .filter-controls { display: flex; gap: 1rem; flex-wrap: wrap; flex-grow: 1; align-items: center; }
+                .filter-bearbeiter-reset { display: flex; align-items: center; gap: 0.75rem; flex-wrap: nowrap; }
                 
                 .view-toggle { display: flex; background: var(--bg-tertiary); padding: 4px; border-radius: 6px; }
                 .view-toggle .toggle-btn { background: transparent; border: none; padding: 0.35rem 0.75rem; border-radius: 4px; cursor: pointer; font-weight: 500; font-size: 0.9rem; color: var(--text-muted); transition: all 0.2s ease; }
@@ -112,10 +181,24 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                 .custom-select { position: relative; border: 1px solid var(--border); border-radius: 6px; padding-right: 2rem; font-size: 0.9rem; min-width: 120px; cursor: pointer; color: var(--text-secondary); height: 38px; display: flex; align-items: center; transition: var(--transition-smooth); }
                 .custom-select:hover { border-color: var(--border-active); background-color: var(--bg-tertiary); }
                 .custom-select.group-by-select { background-color: var(--bg-tertiary); padding-left: 0.75rem; }
-                .custom-select.filter-chip { background-color: var(--bg-tertiary); padding-left: 0.75rem; }
-                .custom-select.filter-chip.active {
-                    border-color: var(--text-secondary);
+                .custom-select.filter-chip {
+                    background-color: var(--bg-tertiary);
+                    padding-left: 0.75rem;
+                    border-radius: 6px;
+                    border: 1px solid var(--border);
+                    box-shadow: none;
                 }
+                .custom-select.filter-chip:hover {
+                    background-color: var(--bg-tertiary);
+                    border-color: var(--border-active);
+                    box-shadow: none;
+                }
+                .custom-select.filter-chip.active {
+                    background-color: var(--bg-secondary);
+                    border-color: var(--text-secondary);
+                    box-shadow: none;
+                }
+                .custom-select select:focus { outline: none; }
                 .filter-badge {
                     font-size: 0.8rem;
                     font-weight: 600;
@@ -130,10 +213,25 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                 .custom-select select { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
                 .custom-select svg { position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); pointer-events: none; width: 16px; height: 16px; color: var(--text-muted); }
                 
-                .filter-actions { margin-left: auto; display: flex; gap: 1rem; flex-shrink: 0; }
-                .action-btn { background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-secondary); font-size: 0.9rem; padding: 0.5rem 1rem; border-radius: 6px; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; transition: var(--transition-smooth); font-weight: 500; }
+                .action-btn { background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-secondary); font-size: 0.9rem; padding: 0.5rem 1rem; border-radius: 6px; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; transition: var(--transition-smooth); font-weight: 500; flex-shrink: 0; height: 38px; box-sizing: border-box; }
                 .action-btn:hover { background: var(--border); }
                 .action-btn svg { width: 16px; height: 16px; }
+                .action-btn .ti {
+                    font-size: 16px;
+                    width: 16px;
+                    height: 16px;
+                    line-height: 16px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex-shrink: 0;
+                }
+                .action-btn--icon-only {
+                    width: 38px;
+                    padding: 0;
+                    justify-content: center;
+                    gap: 0;
+                }
                 
                 .divider { width: 1px; height: 24px; background-color: var(--border); }
             `}</style>
@@ -157,9 +255,6 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                     </>
                 )}
                 {renderFiltersForView()}
-            </div>
-            <div className="filter-actions">
-                <button className="action-btn" onClick={resetFilters}><RefreshIcon />Zurücksetzen</button>
             </div>
         </div>
     );

@@ -5,6 +5,7 @@ import { SortDescendingIcon } from './icons/SortDescendingIcon';
 import { statusColorMap, statusBgColorMap, statusBorderColorMap } from '../constants';
 import { ClockIcon } from './icons/ClockIcon';
 import { RefreshIcon } from './icons/RefreshIcon';
+import { displayNameShort } from '../utils/displayNames';
 
 interface TicketTableViewProps {
   tickets: Ticket[];
@@ -14,6 +15,7 @@ interface TicketTableViewProps {
   setSelectedTicketIds: (ids: string[]) => void;
   selectedTicket: Ticket | null;
   groupBy: GroupableKey | 'none';
+  showRoutineSection?: boolean;
 }
 
 type SortableKeys = keyof Ticket | 'entryDate' | 'dueDate';
@@ -104,23 +106,19 @@ const PriorityPill: React.FC<{ priority: Priority }> = ({ priority }) => {
     return <span className={`priority-pill ${priorityClasses[priority]}`}>{priority}</span>;
 };
 
-const formatTechnicianName = (name: string) => {
-    if (name === 'N/A') return 'N/A';
-    const parts = name.split(' ');
-    if (parts.length > 1) {
-        return `${parts[0][0]}. ${parts[parts.length - 1]}`;
-    }
-    return name;
-};
+const technicianCell = (name: string) => (name === 'N/A' ? 'N/A' : displayNameShort(name));
 
 
-const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTicket, selectedTicketIds, setSelectedTicketIds, selectedTicket, groupBy }) => {
+const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTicket, selectedTicketIds, setSelectedTicketIds, selectedTicket, groupBy, showRoutineSection = false }) => {
     const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>({ key: 'entryDate', direction: 'descending' });
     const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
+    const routineTickets = useMemo(() => tickets.filter(t => t.origin === 'routine'), [tickets]);
+    const mainTickets = useMemo(() => tickets.filter(t => t.origin !== 'routine'), [tickets]);
+    const showingOnlyRoutineTickets = tickets.length > 0 && routineTickets.length === tickets.length;
 
     useEffect(() => {
         const numSelected = selectedTicketIds.length;
-        const numTickets = tickets.length;
+        const numTickets = mainTickets.length;
         if (selectAllCheckboxRef.current) {
             if (numSelected === 0) {
                 selectAllCheckboxRef.current.checked = false;
@@ -133,10 +131,10 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
                 selectAllCheckboxRef.current.indeterminate = true;
             }
         }
-    }, [selectedTicketIds, tickets]);
+    }, [selectedTicketIds, mainTickets]);
 
     const processedTickets: ProcessedTickets = useMemo(() => {
-        let sortableItems = [...tickets];
+        let sortableItems = [...mainTickets];
         
         if (sortConfig !== null) {
             sortableItems.sort((a, b) => {
@@ -185,7 +183,7 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
         });
 
         return { type: 'grouped', data: sortedGroups };
-    }, [tickets, sortConfig, groupBy]);
+    }, [mainTickets, sortConfig, groupBy]);
 
 
     const requestSort = (key: SortableKeys) => {
@@ -204,7 +202,7 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
 
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.checked) {
-            setSelectedTicketIds(tickets.map(t => t.id));
+            setSelectedTicketIds(mainTickets.map(t => t.id));
         } else {
             setSelectedTicketIds([]);
         }
@@ -221,11 +219,12 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
     const getGroupHeaderLabel = (key: GroupableKey, groupName: string) => {
         const labels: Record<string, string> = {
             status: 'Status',
-            technician: 'Techniker',
+            technician: 'Bearbeiter',
             priority: 'Priorität',
             area: 'Standort',
         };
-        const displayName = groupName === 'N/A' ? 'Nicht zugewiesen' : groupName;
+        const displayName =
+            groupName === 'N/A' ? 'Nicht zugewiesen' : key === 'technician' ? displayNameShort(groupName) : groupName;
         return `${labels[key] || 'Gruppe'}: ${displayName}`;
     };
 
@@ -277,7 +276,7 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
                         <span>{ticket.area}</span>
                     </div>
                 </td>
-                <td>{formatTechnicianName(ticket.technician)}</td>
+                <td>{technicianCell(ticket.technician)}</td>
                 <td><StatusPill status={ticket.status} /></td>
                 <td>
                     {isEmergency ? (
@@ -333,7 +332,24 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
         }
     };
 
+    const renderRoutineTableBody = () => {
+        if (routineTickets.length === 0) {
+            return (
+                <tbody>
+                    <tr>
+                        <td colSpan={10} style={{textAlign: 'center', padding: '1.25rem', color: 'var(--text-muted)'}}>
+                            Keine Serienaufträge für die aktuellen Filter gefunden.
+                        </td>
+                    </tr>
+                </tbody>
+            );
+        }
+        return <tbody>{routineTickets.map(renderTicketRow)}</tbody>;
+    };
+
     return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {!showRoutineSection && !showingOnlyRoutineTickets && (
         <div className="table-view-container">
             <style>{`
                  @keyframes pulse-border {
@@ -556,7 +572,7 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
                     <th className="icons-header-cell"></th>
                     <SortableHeader sortKey="title">Betreff</SortableHeader>
                     <SortableHeader sortKey="area">Standort</SortableHeader>
-                    <SortableHeader sortKey="technician">Techniker</SortableHeader>
+                    <SortableHeader sortKey="technician">Bearbeiter</SortableHeader>
                     <SortableHeader sortKey="status">Status</SortableHeader>
                     <SortableHeader sortKey="priority">Priorität</SortableHeader>
                     <SortableHeader sortKey="entryDate">Eingang</SortableHeader>
@@ -565,6 +581,36 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
                 </thead>
                 {renderTableBody()}
             </table>
+        </div>
+        )}
+
+        {showRoutineSection && (
+            <div className="table-view-container">
+                <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <strong>Serienaufträge</strong>
+                    <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+                        {routineTickets.length} Eintrag{routineTickets.length !== 1 ? 'e' : ''}
+                    </span>
+                </div>
+                <table className="ticket-table">
+                    <thead>
+                        <tr>
+                            <th className="checkbox-cell"></th>
+                            <th>ID</th>
+                            <th className="icons-header-cell"></th>
+                            <th><SortableHeader sortKey="title">Titel</SortableHeader></th>
+                            <th><SortableHeader sortKey="area">Standort</SortableHeader></th>
+                            <th><SortableHeader sortKey="technician">Zugewiesen</SortableHeader></th>
+                            <th><SortableHeader sortKey="status">Status</SortableHeader></th>
+                            <th><SortableHeader sortKey="priority">Prio</SortableHeader></th>
+                            <th><SortableHeader sortKey="entryDate">Eingang</SortableHeader></th>
+                            <th><SortableHeader sortKey="dueDate">Fällig</SortableHeader></th>
+                        </tr>
+                    </thead>
+                    {renderRoutineTableBody()}
+                </table>
+            </div>
+        )}
         </div>
     );
 };

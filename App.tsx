@@ -22,6 +22,11 @@ import ErledigtTableView from './components/ErledigtTableView';
 import ReportsView from './components/ReportsView';
 import TechnicianView from './components/TechnicianView';
 import SettingsView from './components/SettingsView';
+import RoutineSchedulesView from './components/RoutineSchedulesView';
+import RoutineNachweisView from './components/RoutineNachweisView';
+import DashboardRoutineLinkBar from './components/DashboardRoutineLinkBar';
+import { localISODate } from './utils/routineHelpers';
+import { displayNameShort } from './utils/displayNames';
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: any}> {
   constructor(props: {children: React.ReactNode}) {
     super(props);
@@ -401,6 +406,35 @@ const safeJSONParse = <T,>(key: string, fallback: T): T => {
     }
 };
 
+/** Firestore liefert manchmal kein Array — verhindert .map/.filter-Crashes in der UI */
+const asUserArray = (value: unknown): User[] => (Array.isArray(value) ? (value as User[]) : MOCK_USERS);
+const asTicketArray = (value: unknown): Ticket[] => (Array.isArray(value) ? (value as Ticket[]) : MOCK_TICKETS);
+const asLocationArray = (value: unknown): Location[] =>
+  Array.isArray(value) ? (value as Location[]) : MOCK_LOCATIONS;
+const asAssetArray = (value: unknown): Asset[] => (Array.isArray(value) ? (value as Asset[]) : MOCK_ASSETS);
+const asPlanArray = (value: unknown): MaintenancePlan[] =>
+  Array.isArray(value) ? (value as MaintenancePlan[]) : MOCK_MAINTENANCE_PLANS;
+
+const mergeAppSettingsRemote = (value: unknown, prev: AppSettings): AppSettings => {
+  if (!value || typeof value !== 'object') return prev;
+  const v = value as Partial<AppSettings>;
+  return {
+    ...DEFAULT_APP_SETTINGS,
+    ...prev,
+    ...v,
+    ticketCategories: Array.isArray(v.ticketCategories) ? v.ticketCategories : prev.ticketCategories,
+    slaMatrix: Array.isArray(v.slaMatrix) ? v.slaMatrix : prev.slaMatrix,
+    routingRules: Array.isArray(v.routingRules) ? v.routingRules : prev.routingRules,
+    routineSchedules: Array.isArray(v.routineSchedules) ? v.routineSchedules : prev.routineSchedules ?? [],
+    routineDayCompletions: Array.isArray(v.routineDayCompletions)
+      ? v.routineDayCompletions
+      : prev.routineDayCompletions ?? [],
+    portalMaintenance: v.portalMaintenance ?? prev.portalMaintenance,
+    portalConfig: { ...DEFAULT_APP_SETTINGS.portalConfig, ...prev.portalConfig, ...v.portalConfig },
+    dueDateRules: v.dueDateRules ?? prev.dueDateRules,
+  };
+};
+
 const App: React.FC = () => {
   const isServiceTeamRole = (role: Role) => role === Role.Technician || role === Role.Housekeeping;
   const [currentUser, setCurrentUser] = useState<User | null>(() => safeJSONParse('currentUser', null));
@@ -437,12 +471,24 @@ const App: React.FC = () => {
             const key = doc.id;
             const value = doc.data().value;
             switch (key) {
-              case LOCAL_STORAGE_KEY_TICKETS: setTickets(value); break;
-              case LOCAL_STORAGE_KEY_USERS: setUsers(value); break;
-              case LOCAL_STORAGE_KEY_LOCATIONS: setLocations(value); break;
-              case LOCAL_STORAGE_KEY_ASSETS: setAssets(value); break;
-              case LOCAL_STORAGE_KEY_PLANS: setMaintenancePlans(value); break;
-              case LOCAL_STORAGE_KEY_SETTINGS: setAppSettings(value); break;
+              case LOCAL_STORAGE_KEY_TICKETS:
+                setTickets(asTicketArray(value));
+                break;
+              case LOCAL_STORAGE_KEY_USERS:
+                setUsers(asUserArray(value));
+                break;
+              case LOCAL_STORAGE_KEY_LOCATIONS:
+                setLocations(asLocationArray(value));
+                break;
+              case LOCAL_STORAGE_KEY_ASSETS:
+                setAssets(asAssetArray(value));
+                break;
+              case LOCAL_STORAGE_KEY_PLANS:
+                setMaintenancePlans(asPlanArray(value));
+                break;
+              case LOCAL_STORAGE_KEY_SETTINGS:
+                setAppSettings((prev) => mergeAppSettingsRemote(value, prev));
+                break;
             }
           });
           setLastSyncTime(new Date());
@@ -470,12 +516,24 @@ const App: React.FC = () => {
           const key = change.doc.id;
           const value = change.doc.data().value;
           switch (key) {
-            case LOCAL_STORAGE_KEY_TICKETS: setTickets(value); break;
-            case LOCAL_STORAGE_KEY_USERS: setUsers(value); break;
-            case LOCAL_STORAGE_KEY_LOCATIONS: setLocations(value); break;
-            case LOCAL_STORAGE_KEY_ASSETS: setAssets(value); break;
-            case LOCAL_STORAGE_KEY_PLANS: setMaintenancePlans(value); break;
-            case LOCAL_STORAGE_KEY_SETTINGS: setAppSettings(value); break;
+            case LOCAL_STORAGE_KEY_TICKETS:
+              setTickets(asTicketArray(value));
+              break;
+            case LOCAL_STORAGE_KEY_USERS:
+              setUsers(asUserArray(value));
+              break;
+            case LOCAL_STORAGE_KEY_LOCATIONS:
+              setLocations(asLocationArray(value));
+              break;
+            case LOCAL_STORAGE_KEY_ASSETS:
+              setAssets(asAssetArray(value));
+              break;
+            case LOCAL_STORAGE_KEY_PLANS:
+              setMaintenancePlans(asPlanArray(value));
+              break;
+            case LOCAL_STORAGE_KEY_SETTINGS:
+              setAppSettings((prev) => mergeAppSettingsRemote(value, prev));
+              break;
           }
         }
       });
@@ -515,7 +573,7 @@ const App: React.FC = () => {
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [selectedTicketIds, setSelectedTicketIds] = useState<string[]>([]);
 
-  // Techniker sollen nach Refresh nicht im Admin-Dashboard landen.
+  // Bearbeiter sollen nach Refresh nicht im Admin-Dashboard landen.
   useEffect(() => {
     if (!currentUser) return;
     if (!isServiceTeamRole(currentUser.role)) return;
@@ -654,7 +712,7 @@ const App: React.FC = () => {
 
               if (availableTechnicians.length === 0) {
                   console.warn("No available technicians for redistribution.");
-                  alert("Warnung: Ein Techniker ist jetzt abwesend, aber es gibt keine verfügbaren Kollegen für die Umverteilung!");
+                  alert("Warnung: Ein Bearbeiter ist jetzt abwesend, aber es gibt keine verfügbaren Kollegen für die Umverteilung!");
                   return currentTickets; 
               }
 
@@ -789,7 +847,7 @@ const App: React.FC = () => {
 
               if (ticketsUpdated) {
                   console.log(`RÜCKKEHR LOGIK: ${reassignedCount} Tickets neu zugewiesen.`);
-                  alert(`Willkommen zurück! ${returningTechnicians.map(u => u.name).join(', ')} ist wieder verfügbar. ${reassignedCount} offene Tickets wurden zur Lastverteilung automatisch zugewiesen.`);
+                  alert(`Willkommen zurück! ${returningTechnicians.map((u) => displayNameShort(u.name)).join(', ')} ist wieder verfügbar. ${reassignedCount} offene Tickets wurden zur Lastverteilung automatisch zugewiesen.`);
                   return updatedTickets;
               }
               return currentTickets;
@@ -826,6 +884,7 @@ const App: React.FC = () => {
 // FIX: Changed type annotation of newTicket to match function parameter and added missing categoryId.
             const newTicket: Omit<Ticket, 'id' | 'entryDate' | 'status' | 'priority'> & { priority?: Priority } = {
                 ticketType: 'preventive',
+                origin: 'maintenance',
                 title: `Wartung: ${asset.name}`,
                 area: location?.name || 'Unbekannt',
                 location: asset.details.type,
@@ -849,9 +908,9 @@ const App: React.FC = () => {
 
   // Routine Schedules (Serientermine) Simulation
   useEffect(() => {
-    const today = new Date(2026, 1, 7); // Changed for Safari
+    const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = localISODate(today);
 
     const schedules = (appSettings.routineSchedules || []) as Array<RoutineSchedule & { recurrence?: any }>;
     if (schedules.length === 0) return;
@@ -872,6 +931,7 @@ const App: React.FC = () => {
 
     const isDueToday = (s: RoutineSchedule & { recurrence?: any }): boolean => {
       if (!s.enabled) return false;
+      if (!String((s as any).area || '').trim()) return false;
       if (s.lastGenerated === todayStr) return false;
       const rec = (s as any).recurrence;
       if (!rec || rec.type === 'daily') return true;
@@ -911,18 +971,23 @@ const App: React.FC = () => {
         .map(u => u.name)
         .sort((a, b) => a.localeCompare(b, 'de'));
 
+      const pool =
+        Array.isArray((schedule as any).assignees) && (schedule as any).assignees.length > 0
+          ? eligibleUsers.filter(n => (schedule as any).assignees.includes(n))
+          : eligibleUsers;
+
       let assigned = 'N/A';
       if (schedule.assignment?.type === 'fixed') {
         const name = schedule.assignment.userName;
-        assigned = eligibleUsers.includes(name) ? name : 'N/A';
+        assigned = pool.includes(name) ? name : 'N/A';
       } else {
         // rotate
-        if (eligibleUsers.length > 0) {
+        if (pool.length > 0) {
           const cursor = Math.max(0, Number(schedule.rotationCursor || 0));
-          assigned = eligibleUsers[cursor % eligibleUsers.length];
+          assigned = pool[cursor % pool.length];
           updatedSchedules[idx] = {
             ...updatedSchedules[idx],
-            rotationCursor: (cursor + 1) % eligibleUsers.length,
+            rotationCursor: (cursor + 1) % pool.length,
           } as any;
           changed = true;
         }
@@ -930,15 +995,17 @@ const App: React.FC = () => {
 
       const newTicket: Omit<Ticket, 'id' | 'entryDate' | 'status' | 'priority'> & { priority?: Priority } = {
         ticketType: 'preventive',
+        origin: 'routine',
+        routineScheduleId: schedule.id,
         title: schedule.title || 'Serientermin',
         area: schedule.area || 'Alle',
         location: schedule.location || '',
         reporter: 'System',
         dueDate: '',
         technician: assigned,
-        priority: schedule.priority,
+        priority: Priority.Mittel,
         description: schedule.description,
-        categoryId: schedule.categoryId || 'cat-gebaeudetechnik',
+        categoryId: 'cat-gebaeudetechnik',
       };
 
       handleAddNewTicket(newTicket, true);
@@ -984,6 +1051,34 @@ const App: React.FC = () => {
     }
   }, [tickets]); // Reruns whenever tickets change
 
+  const handleRoutineDayComplete = (scheduleId: string) => {
+    if (!currentUser) return;
+    const ymd = localISODate(new Date());
+    setAppSettings((prev) => {
+      const rest = (prev.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd));
+      return {
+        ...prev,
+        routineDayCompletions: [
+          ...rest,
+          {
+            scheduleId,
+            date: ymd,
+            completedBy: currentUser.name,
+            completedAt: new Date().toISOString(),
+          },
+        ],
+      };
+    });
+  };
+
+  const handleRoutineDayUncomplete = (scheduleId: string) => {
+    const ymd = localISODate(new Date());
+    setAppSettings((prev) => ({
+      ...prev,
+      routineDayCompletions: (prev.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd)),
+    }));
+  };
+
   const handleTicketUpdate = (updatedTicket: Ticket) => {
     const originalTicket = tickets.find(t => t.id === updatedTicket.id);
     if (!originalTicket) return;
@@ -1020,14 +1115,14 @@ const App: React.FC = () => {
             }
 
             if (newTech !== 'N/A' && newTech !== techUser.name) {
-                alert(`Hinweis: ${techUser.name} ist derzeit abwesend. Das Ticket wurde automatisch an ${newTech} umgeleitet.`);
+                alert(`Hinweis: ${displayNameShort(techUser.name)} ist derzeit abwesend. Das Ticket wurde automatisch an ${displayNameShort(newTech)} umgeleitet.`);
                 updatedTicket.technician = newTech;
                 updatedTicket.notes = [
                     ...(updatedTicket.notes || []), 
-                    `AUTO-KORREKTUR: Ursprünglich zugewiesen an abwesenden Techniker ${techUser.name}. Automatisch zugewiesen an ${newTech}.`
+                    `AUTO-KORREKTUR: Ursprünglich zugewiesen an abwesenden Bearbeiter ${techUser.name}. Automatisch zugewiesen an ${newTech}.`
                 ];
             } else {
-                alert(`Warnung: ${techUser.name} ist abwesend, aber es konnte kein verfügbarer Ersatz gefunden werden.`);
+                alert(`Warnung: ${displayNameShort(techUser.name)} ist abwesend, aber es konnte kein verfügbarer Ersatz gefunden werden.`);
                 // We leave it as is, or set to N/A? User said "should not be allowed".
                 // But if no one else is there, maybe N/A is better.
                 updatedTicket.technician = 'N/A';
@@ -1103,19 +1198,19 @@ const App: React.FC = () => {
     let assignedTechnician = newTicketData.technician || 'N/A';
     let autoCorrectionNote = '';
 
-    // Wenn ein Techniker manuell gewählt wurde, prüfen ob er abwesend ist
+    // Wenn ein Bearbeiter manuell gewählt wurde, prüfen ob er abwesend ist
     if (assignedTechnician !== 'N/A') {
         const selectedTech = users.find(u => u.name === assignedTechnician);
         if (selectedTech && selectedTech.availability.status === AvailabilityStatus.OnLeave) {
             // Wenn abwesend, automatisch neu zuweisen
             const autoTech = assignTicket({ title: newTicketData.title, description: newTicketData.description }, users, tickets, appSettings.routingRules);
             if (autoTech !== 'N/A' && autoTech !== selectedTech.name) {
-                autoCorrectionNote = `HINWEIS: Gewählter Techniker ${selectedTech.name} ist abwesend. Automatisch zugewiesen an ${autoTech}.`;
+                autoCorrectionNote = `HINWEIS: Gewählter Bearbeiter ${selectedTech.name} ist abwesend. Automatisch zugewiesen an ${autoTech}.`;
                 assignedTechnician = autoTech;
                 alert(autoCorrectionNote);
             } else {
                 assignedTechnician = 'N/A';
-                alert(`Warnung: ${selectedTech.name} ist abwesend. Ticket wurde auf 'Nicht zugewiesen' gesetzt.`);
+                alert(`Warnung: ${displayNameShort(selectedTech.name)} ist abwesend. Ticket wurde auf 'Nicht zugewiesen' gesetzt.`);
             }
         }
     } else {
@@ -1192,14 +1287,14 @@ const App: React.FC = () => {
   };
 
   const activeLocations = useMemo(() => locations.filter(a => a.isActive), [locations]);
-  const activeTechnicians = useMemo(
-    () =>
-      users.filter(
-        u =>
-          u.isActive && (u.role === Role.Technician || u.role === Role.Housekeeping)
-      ),
-    [users]
-  );
+  const activeTechnicians = useMemo(() => {
+    const list = Array.isArray(users) ? users : MOCK_USERS;
+    return list
+      .filter(
+        (u) => u.isActive && (u.role === Role.Technician || u.role === Role.Housekeeping)
+      )
+      .sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  }, [users]);
 
   const filteredTickets = useMemo(() => {
     return tickets.filter(ticket => {
@@ -1224,6 +1319,11 @@ const App: React.FC = () => {
         
         // For dashboard & tickets views, hide completed tickets.
         if (ticket.status === Status.Abgeschlossen) return false;
+
+        // Serienaufträge nicht im Kanban (nur in Listenansicht anzeigen)
+        if ((currentView === 'dashboard' || currentView === 'tech-dashboard') && ticket.origin === 'routine') {
+            return false;
+        }
         
         if ((currentView === 'tickets' || currentView === 'dashboard' || currentView === 'tech-dashboard') && filters.status !== 'Alle' && ticket.status !== filters.status) return false;
         
@@ -1236,7 +1336,7 @@ const App: React.FC = () => {
             alert("Keine Tickets zum Exportieren vorhanden.");
             return;
         }
-        const headers = ["ID", "Titel", "Standort", "Raum / Bereich", "Gemeldet von", "Eingang", "Fällig bis", "Status", "Techniker", "Priorität", "Abgeschlossen am"];
+        const headers = ["ID", "Titel", "Standort", "Raum / Bereich", "Gemeldet von", "Eingang", "Fällig bis", "Status", "Bearbeiter", "Priorität", "Abgeschlossen am"];
         const escapeCsv = (str: string | undefined) => {
             if (!str) return '""';
             const escaped = str.replace(/"/g, '""');
@@ -1271,9 +1371,9 @@ const App: React.FC = () => {
         doc.text(title, 14, 22);
         doc.setFontSize(11);
         doc.setTextColor(100);
-        doc.text(`Exportiert am: ${date} | Standort: ${filters.area}, Techniker: ${filters.technician}`, 14, 30);
+        doc.text(`Exportiert am: ${date} | Standort: ${filters.area}, Bearbeiter: ${filters.technician}`, 14, 30);
 
-        const head = [['ID', 'Priorität', 'Titel', 'Standort / Raum', 'Fällig', 'Techniker']];
+        const head = [['ID', 'Priorität', 'Titel', 'Standort / Raum', 'Fällig', 'Bearbeiter']];
         const body = filteredTickets.map(t => [
             t.id,
             t.priority,
@@ -1309,18 +1409,13 @@ const App: React.FC = () => {
     return tickets;
   }, [tickets, currentUser]);
 
-  const stats = useMemo(() => ({
-      open: ticketsForUser.filter(t => t.status === Status.Offen).length,
-      inProgress: ticketsForUser.filter(t => t.status === Status.InArbeit).length,
-      overdue: ticketsForUser.filter(t => t.status === Status.Ueberfaellig).length,
-  }), [ticketsForUser]);
-
   const allTechnicianNames = useMemo(
     () => [
       'N/A',
       ...users
         .filter(u => u.role === Role.Technician || u.role === Role.Housekeeping)
-        .map(t => t.name),
+        .map(t => t.name)
+        .sort((a, b) => a.localeCompare(b, 'de')),
     ],
     [users]
   );
@@ -1355,7 +1450,7 @@ const App: React.FC = () => {
           const userTickets = tickets.filter(t => t.technician === user.name && t.status !== Status.Abgeschlossen);
           
           if (userTickets.length === 0) {
-              alert(`Info: Techniker ${user.name} hat aktuell keine offenen Tickets. Keine Umverteilung nötig.`);
+              alert(`Info: Bearbeiter ${displayNameShort(user.name)} hat aktuell keine offenen Tickets. Keine Umverteilung nötig.`);
               return;
           }
 
@@ -1382,7 +1477,7 @@ const App: React.FC = () => {
           });
 
           if (ticketsToMove.length === 0) {
-              alert(`Info: ${user.name} hat ${userTickets.length} offene Tickets, aber keines davon fällt in den Abwesenheitszeitraum (bis ${user.availability.leaveUntil}) oder ist kritisch.`);
+              alert(`Info: ${displayNameShort(user.name)} hat ${userTickets.length} offene Tickets, aber keines davon fällt in den Abwesenheitszeitraum (bis ${user.availability.leaveUntil}) oder ist kritisch.`);
               return;
           }
 
@@ -1395,7 +1490,7 @@ const App: React.FC = () => {
           );
 
           if (availableTechnicians.length === 0) {
-              alert(`KRITISCH: Es wurden ${ticketsToMove.length} Tickets zur Umverteilung identifiziert, aber es gibt KEINE verfügbaren Techniker (Status 'Verfügbar').\n\nBitte setzen Sie einen anderen Techniker auf 'Verfügbar'.`);
+              alert(`KRITISCH: Es wurden ${ticketsToMove.length} Tickets zur Umverteilung identifiziert, aber es gibt KEINE verfügbaren Bearbeiter (Status 'Verfügbar').\n\nBitte setzen Sie einen anderen Bearbeiter auf 'Verfügbar'.`);
               return;
           }
 
@@ -1470,7 +1565,7 @@ const App: React.FC = () => {
 
           if (movedCount > 0) {
               setTickets(ticketsToUpdate);
-              alert(`ERFOLG: ${movedCount} Tickets von ${user.name} wurden automatisch auf ${availableTechnicians.length} verfügbare Kollegen verteilt.`);
+              alert(`ERFOLG: ${movedCount} Tickets von ${displayNameShort(user.name)} wurden automatisch auf ${availableTechnicians.length} verfügbare Kollegen verteilt.`);
           }
       }
   };
@@ -1485,7 +1580,7 @@ const App: React.FC = () => {
       );
 
       if (absentUsers.length === 0) {
-          alert("Info: Es gibt aktuell keine abwesenden Techniker.");
+          alert("Info: Es gibt aktuell keine abwesenden Bearbeiter.");
           return;
       }
 
@@ -1501,7 +1596,7 @@ const App: React.FC = () => {
       );
 
       if (availableTechnicians.length === 0) {
-          alert("Warnung: Es gibt abwesende Techniker, aber KEINE verfügbaren Kollegen für eine Umverteilung!");
+          alert("Warnung: Es gibt abwesende Bearbeiter, aber KEINE verfügbaren Kollegen für eine Umverteilung!");
           return;
       }
 
@@ -1613,22 +1708,81 @@ const App: React.FC = () => {
   
   const renderCurrentView = () => {
     switch (currentView) {
-        case 'dashboard': return <KanbanBoard tickets={filteredTickets} onUpdateTicket={handleTicketUpdate} onSelectTicket={setSelectedTicket} selectedTicket={selectedTicket} />;
-        case 'tech-dashboard': return <KanbanBoard tickets={filteredTickets} onUpdateTicket={handleTicketUpdate} onSelectTicket={setSelectedTicket} selectedTicket={selectedTicket} />;
-        case 'tickets': return <TicketTableView tickets={filteredTickets} onUpdateTicket={handleTicketUpdate} onSelectTicket={setSelectedTicket} selectedTicketIds={selectedTicketIds} setSelectedTicketIds={setSelectedTicketIds} selectedTicket={selectedTicket} groupBy={groupBy} />;
+        case 'dashboard':
+        case 'tech-dashboard':
+          return (
+            <KanbanBoard
+              tickets={filteredTickets}
+              technicians={activeTechnicians}
+              onUpdateTicket={handleTicketUpdate}
+              onSelectTicket={setSelectedTicket}
+              selectedTicket={selectedTicket}
+            />
+          );
+        case 'tickets': return <TicketTableView tickets={filteredTickets} onUpdateTicket={handleTicketUpdate} onSelectTicket={setSelectedTicket} selectedTicketIds={selectedTicketIds} setSelectedTicketIds={setSelectedTicketIds} selectedTicket={selectedTicket} groupBy={groupBy} showRoutineSection={false} />;
+        case 'routines': return (
+          <RoutineSchedulesView
+            userRole={currentUser.role}
+            userName={currentUser.name}
+            schedules={appSettings.routineSchedules as any}
+            users={users}
+            completions={appSettings.routineDayCompletions || []}
+            onComplete={handleRoutineDayComplete}
+            onUncomplete={handleRoutineDayUncomplete}
+            onReorder={(fromId, toId) => {
+              setAppSettings(prev => {
+                const list = [...(prev.routineSchedules || [])] as any[];
+                const fromIdx = list.findIndex(x => x.id === fromId);
+                const toIdx = list.findIndex(x => x.id === toId);
+                if (fromIdx === -1 || toIdx === -1) return prev;
+                const [moved] = list.splice(fromIdx, 1);
+                list.splice(toIdx, 0, moved);
+                return { ...prev, routineSchedules: list as any };
+              });
+            }}
+          />
+        );
+        case 'routine-nachweis':
+          return (
+            <RoutineNachweisView
+              schedules={appSettings.routineSchedules as any}
+              completions={appSettings.routineDayCompletions || []}
+              users={users}
+              userRole={currentUser.role}
+              userName={currentUser.name}
+            />
+          );
         case 'erledigt': return <ErledigtTableView tickets={filteredTickets} onSelectTicket={setSelectedTicket} selectedTicket={selectedTicket} onDeleteTicket={handleDeleteTicket} />;
         case 'reports': return <ReportsView tickets={tickets} users={users} />;
         case 'techniker': return <TechnicianView tickets={tickets} technicians={users.filter(u => u.role === Role.Technician || u.role === Role.Housekeeping)} onTechnicianSelect={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} onFilter={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} />;
         case 'settings': return <SettingsView users={users} setUsers={setUsers} locations={locations} setLocations={setLocations} assets={assets} setAssets={setAssets} maintenancePlans={maintenancePlans} setMaintenancePlans={setMaintenancePlans} appSettings={appSettings} setAppSettings={setAppSettings} />;
-        default: return <KanbanBoard tickets={filteredTickets} onUpdateTicket={handleTicketUpdate} onSelectTicket={setSelectedTicket} selectedTicket={selectedTicket} />;
+        default: return (
+          <KanbanBoard
+            tickets={filteredTickets}
+            technicians={activeTechnicians}
+            onUpdateTicket={handleTicketUpdate}
+            onSelectTicket={setSelectedTicket}
+            selectedTicket={selectedTicket}
+          />
+        );
     }
   }
 
   return (
     <div className="app-layout">
-      <Sidebar appSettings={appSettings} isCollapsed={isSidebarCollapsed} setCollapsed={setSidebarCollapsed} theme={theme} setTheme={setTheme} currentView={currentView} setCurrentView={changeView} onLogout={handleLogout} userRole={currentUser.role} userName={currentUser.name} tickets={ticketsForUser} onNewTicketClick={() => setIsModalOpen(true)} onExportPDF={handleExportPDF} onExportCSV={handleExportCSV} />
+      <Sidebar appSettings={appSettings} isCollapsed={isSidebarCollapsed} setCollapsed={setSidebarCollapsed} theme={theme} setTheme={setTheme} currentView={currentView} setCurrentView={changeView} onLogout={handleLogout} userRole={currentUser.role} userName={displayNameShort(currentUser.name)} userNameFull={currentUser.name} tickets={ticketsForUser} onNewTicketClick={() => setIsModalOpen(true)} onExportPDF={handleExportPDF} onExportCSV={handleExportCSV} isSyncing={isSyncing} lastSyncTime={lastSyncTime} />
       <main>
-        <Header stats={stats} filters={filters} setFilters={setFilters} currentView={currentView} isSyncing={isSyncing} lastSyncTime={lastSyncTime} appSettings={appSettings} />
+        <Header filters={filters} setFilters={setFilters} currentView={currentView} />
+        {(currentView === 'dashboard' || currentView === 'tech-dashboard') && (
+          <DashboardRoutineLinkBar
+            schedules={appSettings.routineSchedules as any}
+            users={users}
+            userRole={currentUser.role}
+            userName={currentUser.name}
+            completions={appSettings.routineDayCompletions || []}
+            onOpenRoutines={() => changeView('routines')}
+          />
+        )}
         {selectedTicketIds.length > 0 && (currentView === 'tickets' || currentView === 'erledigt') ? (
              <BulkActionBar selectedCount={selectedTicketIds.length} technicians={allTechnicianNames} statuses={Object.values(Status)} onBulkUpdate={handleBulkUpdate} onBulkDelete={handleBulkDelete} onClearSelection={() => setSelectedTicketIds([])} />
         ) : ( (currentView === 'dashboard' || currentView === 'tech-dashboard' || currentView === 'tickets' || currentView === 'erledigt' || currentView === 'techniker') &&

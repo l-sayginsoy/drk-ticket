@@ -1,19 +1,14 @@
 import React, { useMemo, useState } from 'react';
 import { LayoutDashboardIcon } from './icons/LayoutDashboardIcon';
-import { UserIcon } from './icons/UserIcon';
 import { SlidersIcon } from './icons/SlidersIcon';
-import { LogoutIcon } from './icons/LogoutIcon';
-import { CheckBadgeIcon } from './icons/CheckBadgeIcon';
 import { Avatar } from './Avatar';
 import ThemeToggle from './ThemeToggle';
 import { ChevronsLeftRightIcon } from './icons/ChevronsLeftRightIcon';
 import { Role, Ticket, Status, AppSettings } from '../types';
 import { DocumentPlusIcon } from './icons/DocumentPlusIcon';
-import { DocumentArrowDownIcon } from './icons/DocumentArrowDownIcon';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
-import { ClipboardIcon } from './icons/ClipboardIcon';
-import { PlusIcon } from './icons/PlusIcon';
 import { BarChartIcon } from './icons/BarChartIcon';
+import { CalendarIcon } from './icons/CalendarIcon';
 
 
 interface SidebarProps {
@@ -26,39 +21,74 @@ interface SidebarProps {
     setCurrentView: (view: string) => void;
     onLogout: () => void;
     userRole: Role | null;
+    /** Kurzname in der Fußzeile (Vorname bzw. ein Wort wie angelegt) */
     userName: string | null;
+    /** Voller gespeicherter Name für Initialen/Tooltip */
+    userNameFull?: string | null;
     tickets: Ticket[];
     onNewTicketClick: () => void;
     onExportPDF: () => void;
     onExportCSV: () => void;
+    isSyncing?: boolean;
+    lastSyncTime?: Date | null;
 }
 
 
-const Sidebar: React.FC<SidebarProps> = ({ appSettings, isCollapsed, setCollapsed, theme, setTheme, currentView, setCurrentView, onLogout, userRole, userName, tickets, onNewTicketClick, onExportPDF, onExportCSV }) => {
+const Sidebar: React.FC<SidebarProps> = ({ appSettings, isCollapsed, setCollapsed, theme, setTheme, currentView, setCurrentView, onLogout, userRole, userName, userNameFull, tickets, onNewTicketClick, onExportPDF, onExportCSV, isSyncing, lastSyncTime }) => {
     
     const [isExportOpen, setExportOpen] = useState(false);
     const newNotesCount = useMemo(() => {
         return tickets.filter(t => t.hasNewNoteFromReporter && t.status !== Status.Abgeschlossen).length;
     }, [tickets]);
     
-    const navItems = [
-        // Admin
-        { type: 'view', viewName: 'dashboard', icon: <LayoutDashboardIcon />, label: 'Dashboard', requiredRoles: [Role.Admin] },
-        { type: 'view', viewName: 'tickets', icon: <ClipboardIcon />, label: 'Aktuelle Tickets', requiredRoles: [Role.Admin] },
-        { type: 'view', viewName: 'erledigt', icon: <CheckBadgeIcon />, label: 'Abgeschlossen', requiredRoles: [Role.Admin] },
-        { type: 'view', viewName: 'techniker', icon: <UserIcon />, label: 'Team', requiredRoles: [Role.Admin] },
-        { type: 'view', viewName: 'reports', icon: <BarChartIcon />, label: 'Reports', requiredRoles: [Role.Admin] },
-        { type: 'view', viewName: 'settings', icon: <SlidersIcon />, label: 'Einstellungen', requiredRoles: [Role.Admin] },
+    /** Drei Blöcke wie in der Nav-Skizze: Übersicht → Verwaltung → Aktionen (Menü-Labels unverändert). */
+    type NavSection = 'uebersicht' | 'verwaltung' | 'aktionen';
 
-        // Techniker: eigenes Dashboard + Liste (Tabelle bleibt identisch)
-        { type: 'view', viewName: 'tech-dashboard', icon: <LayoutDashboardIcon />, label: 'Dashboard', requiredRoles: [Role.Technician, Role.Housekeeping] },
-        { type: 'view', viewName: 'tickets', icon: <ClipboardIcon />, label: 'Listenansicht', requiredRoles: [Role.Technician, Role.Housekeeping] },
+    type NavItemDef =
+        | { type: 'view'; viewName: string; icon: React.ReactNode; label: string; requiredRoles: Role[]; section: NavSection }
+        | { type: 'action'; action: string; icon: React.ReactNode; label: string; requiredRoles: Role[]; section: NavSection; onClick: () => void };
 
-        // Gemeinsame Aktionen
-        { type: 'action', action: 'newTicket', icon: <DocumentPlusIcon />, label: 'Neues Ticket', requiredRoles: [Role.Admin, Role.Technician, Role.Housekeeping], onClick: onNewTicketClick },
+    const navItems: NavItemDef[] = [
+        // Admin — Übersicht
+        { type: 'view', viewName: 'dashboard', icon: <LayoutDashboardIcon />, label: 'Dashboard', requiredRoles: [Role.Admin], section: 'uebersicht' },
+        { type: 'view', viewName: 'tickets', icon: <i className="ti ti-menu-2" aria-hidden />, label: 'Listenansicht', requiredRoles: [Role.Admin], section: 'uebersicht' },
+        { type: 'view', viewName: 'erledigt', icon: <i className="ti ti-clock" aria-hidden />, label: 'Abgeschlossen', requiredRoles: [Role.Admin], section: 'uebersicht' },
+        { type: 'view', viewName: 'routines', icon: <i className="ti ti-repeat" aria-hidden />, label: 'Serienaufträge', requiredRoles: [Role.Admin], section: 'uebersicht' },
+        { type: 'view', viewName: 'routine-nachweis', icon: <CalendarIcon />, label: 'Serien‑Nachweis', requiredRoles: [Role.Admin], section: 'uebersicht' },
+        // Admin — Verwaltung
+        { type: 'view', viewName: 'techniker', icon: <i className="ti ti-users" aria-hidden />, label: 'Team', requiredRoles: [Role.Admin], section: 'verwaltung' },
+        { type: 'view', viewName: 'reports', icon: <BarChartIcon />, label: 'Reports', requiredRoles: [Role.Admin], section: 'verwaltung' },
+        { type: 'view', viewName: 'settings', icon: <SlidersIcon />, label: 'Einstellungen', requiredRoles: [Role.Admin], section: 'verwaltung' },
+
+        // Bearbeiter — Übersicht
+        { type: 'view', viewName: 'tech-dashboard', icon: <LayoutDashboardIcon />, label: 'Dashboard', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
+        { type: 'view', viewName: 'tickets', icon: <i className="ti ti-menu-2" aria-hidden />, label: 'Listenansicht', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
+        { type: 'view', viewName: 'routines', icon: <i className="ti ti-repeat" aria-hidden />, label: 'Serienaufträge', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
+        { type: 'view', viewName: 'routine-nachweis', icon: <CalendarIcon />, label: 'Serien‑Nachweis', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
+
+        // Aktionen (alle Rollen)
+        { type: 'action', action: 'newTicket', icon: <DocumentPlusIcon />, label: 'Neues Ticket', requiredRoles: [Role.Admin, Role.Technician, Role.Housekeeping], section: 'aktionen', onClick: onNewTicketClick },
     ];
 
-    const NavItem: React.FC<{viewName: string, icon: React.ReactNode, label: string}> = ({ viewName, icon, label }) => (
+    const SECTION_HEADING: Record<NavSection, string> = {
+        uebersicht: 'Übersicht',
+        verwaltung: 'Verwaltung',
+        aktionen: 'Aktionen',
+    };
+
+    const visibleNavItems = navItems.filter((item) => userRole && item.requiredRoles.includes(userRole));
+
+    const navGroups: { section: NavSection; items: NavItemDef[] }[] = [];
+    for (const item of visibleNavItems) {
+        const tail = navGroups[navGroups.length - 1];
+        if (tail && tail.section === item.section) {
+            tail.items.push(item);
+        } else {
+            navGroups.push({ section: item.section, items: [item] });
+        }
+    }
+
+    const NavItem: React.FC<{ viewName: string; icon: React.ReactNode; label: string }> = ({ viewName, icon, label }) => (
         <button 
             className={`nav-item ${currentView === viewName ? 'active' : ''}`}
             onClick={() => setCurrentView(viewName)}
@@ -69,19 +99,6 @@ const Sidebar: React.FC<SidebarProps> = ({ appSettings, isCollapsed, setCollapse
             {viewName === 'tickets' && newNotesCount > 0 && (
                 <span className="nav-badge">{newNotesCount}</span>
             )}
-            <span className="nav-tooltip">{label}</span>
-        </button>
-    );
-
-     const DisabledNavItem: React.FC<{icon: React.ReactNode, label: string}> = ({ icon, label }) => (
-        <button 
-            className="nav-item" 
-            disabled 
-            style={{cursor: 'not-allowed', opacity: 0.5}}
-            title={isCollapsed ? label : ''}
-        >
-            {icon}
-            <span className="nav-label">{label}</span>
             <span className="nav-tooltip">{label}</span>
         </button>
     );
@@ -165,19 +182,102 @@ const Sidebar: React.FC<SidebarProps> = ({ appSettings, isCollapsed, setCollapse
                     object-fit: contain;
                     display: block;
                 }
+                .sidebar-sync {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    font-size: 0.75rem;
+                    color: var(--text-muted);
+                    background: transparent;
+                    border: none;
+                    outline: none;
+                    box-shadow: none;
+                    padding: 0.5rem 1rem 0.75rem;
+                    border-radius: 0;
+                    margin: 0;
+                    width: 100%;
+                    flex-shrink: 0;
+                }
+                .sidebar.collapsed .sidebar-sync {
+                    justify-content: center;
+                    padding: 0.5rem 0.25rem 0.65rem;
+                }
+                .sidebar-sync-dot {
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 50%;
+                    background-color: var(--accent-success);
+                }
+                .sidebar-sync-dot.syncing {
+                    background-color: var(--accent-warning);
+                    animation: sidebarPulse 1.5s infinite;
+                }
+                @keyframes sidebarPulse {
+                    0% { opacity: 1; }
+                    50% { opacity: 0.4; }
+                    100% { opacity: 1; }
+                }
                 
                 .sidebar-toggle-container {
                     display: flex;
                     justify-content: flex-end;
                     padding: 0;
+                    margin-top: -0.45rem;
                     margin-bottom: 0.5rem;
                 }
                 .sidebar.collapsed .sidebar-toggle-container {
                     justify-content: center;
+                    margin-top: -0.45rem;
                     margin-bottom: 0.5rem;
                     padding: 0;
                 }
                 
+                .nav-group {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.2rem;
+                    margin-top: 0;
+                    padding-top: 0;
+                }
+                .nav-menu > .nav-group:not(:first-child) .nav-group-heading {
+                    margin-top: 0.85rem;
+                    padding-top: 0;
+                }
+                .sidebar.collapsed .nav-menu > .nav-group:not(:first-child) {
+                    margin-top: 0.65rem;
+                    padding-top: 0;
+                }
+                .nav-group-heading {
+                    display: flex;
+                    flex-direction: row;
+                    align-items: center;
+                    gap: 0.55rem;
+                    margin-bottom: 0.45rem;
+                    padding-left: 1rem;
+                    padding-right: 1rem;
+                }
+                .sidebar.collapsed .nav-group-heading {
+                    display: none;
+                }
+                .nav-group-title {
+                    flex-shrink: 0;
+                    font-size: 0.65rem;
+                    font-weight: 700;
+                    letter-spacing: 0.07em;
+                    text-transform: uppercase;
+                    color: var(--text-muted);
+                    line-height: 1.2;
+                }
+                .nav-group-rule {
+                    flex: 1 1 auto;
+                    min-width: 0;
+                    height: 1px;
+                    margin: 0;
+                    border: none;
+                    background: var(--border);
+                    align-self: center;
+                    opacity: 0.95;
+                }
                 .nav-menu {
                     flex-grow: 1;
                     overflow-y: auto;
@@ -191,11 +291,11 @@ const Sidebar: React.FC<SidebarProps> = ({ appSettings, isCollapsed, setCollapse
                     display: flex;
                     align-items: center;
                     gap: 1rem;
-                    padding: 0.75rem 1rem;
+                    padding: 0.65rem 1rem;
                     border-radius: var(--radius-md);
                     color: var(--text-secondary);
                     text-decoration: none;
-                    margin: 0.125rem 0;
+                    margin: 0.05rem 0;
                     transition: background-color 0.2s ease, color 0.2s ease;
                     font-weight: 500;
                     width: 100%;
@@ -245,6 +345,16 @@ const Sidebar: React.FC<SidebarProps> = ({ appSettings, isCollapsed, setCollapse
                     width: 20px;
                     height: 20px;
                     flex-shrink: 0;
+                }
+                .nav-item .ti {
+                    font-size: 20px;
+                    width: 20px;
+                    height: 20px;
+                    line-height: 20px;
+                    flex-shrink: 0;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
                 }
                 .nav-label {
                     white-space: nowrap;
@@ -308,7 +418,7 @@ const Sidebar: React.FC<SidebarProps> = ({ appSettings, isCollapsed, setCollapse
                 }
 
                 .nav-item-dropdown-container { 
-                    margin: 0.5rem 0; 
+                    margin: 0.125rem 0 0;
                     position: relative;
                 }
                 .dropdown-chevron { margin-left: auto; transition: transform 0.2s ease; }
@@ -368,13 +478,13 @@ const Sidebar: React.FC<SidebarProps> = ({ appSettings, isCollapsed, setCollapse
                     background-color: var(--bg-tertiary);
                 }
 
-
                 .sidebar-footer {
-                    padding-top: 1.5rem;
+                    flex-shrink: 0;
+                    padding-top: 1rem;
                     border-top: 1px solid var(--border);
                     display: flex;
                     flex-direction: column;
-                    gap: 0.75rem;
+                    gap: 0.65rem;
                 }
                  .sidebar.collapsed .sidebar-footer {
                     align-items: center;
@@ -429,65 +539,80 @@ const Sidebar: React.FC<SidebarProps> = ({ appSettings, isCollapsed, setCollapse
                     <ChevronsLeftRightIcon />
                 </button>
             </div>
-            <nav className="nav-menu">
-                {navItems.map(item => {
-                    if (!userRole || !item.requiredRoles.includes(userRole)) {
-                        return null;
-                    }
-
-                    if (item.type === 'action') {
-                        return (
-                             <button 
-                                key={item.action}
-                                className="nav-item"
-                                onClick={item.onClick}
-                                title={isCollapsed ? item.label : ''}
-                            >
-                                {item.icon}
-                                <span className="nav-label">{item.label}</span>
-                                <span className="nav-tooltip">{item.label}</span>
-                            </button>
-                        );
-                    }
-
-                    if (item.type === 'view') {
-                        return (
-                            <NavItem
-                                key={item.viewName}
-                                viewName={item.viewName}
-                                icon={item.icon}
-                                label={item.label}
-                            />
-                        );
-                    }
-                    return null;
+            <nav className="nav-menu" aria-label="Hauptnavigation">
+                {navGroups.map((group) => {
+                    const heading = SECTION_HEADING[group.section];
+                    return (
+                        <div key={group.section} className="nav-group">
+                            {!isCollapsed ? (
+                                <div className="nav-group-heading">
+                                    <span className="nav-group-title">{heading}</span>
+                                    <span className="nav-group-rule" aria-hidden="true" />
+                                </div>
+                            ) : null}
+                            {group.items.map((item) =>
+                                item.type === 'action' ? (
+                                    <button
+                                        key={item.action}
+                                        className="nav-item"
+                                        onClick={item.onClick}
+                                        title={isCollapsed ? item.label : ''}
+                                    >
+                                        {item.icon}
+                                        <span className="nav-label">{item.label}</span>
+                                        <span className="nav-tooltip">{item.label}</span>
+                                    </button>
+                                ) : (
+                                    <NavItem key={item.viewName} viewName={item.viewName} icon={item.icon} label={item.label} />
+                                ),
+                            )}
+                            {group.section === 'aktionen' ? (
+                                <div className="nav-item-dropdown-container">
+                                    <button
+                                        className={`nav-item ${isExportOpen ? 'active' : ''}`}
+                                        onClick={() => setExportOpen(!isExportOpen)}
+                                        title={isCollapsed ? 'Exportieren' : ''}
+                                    >
+                                        <i className="ti ti-download" aria-hidden />
+                                        <span className="nav-label">Exportieren</span>
+                                        <ChevronDownIcon className={`dropdown-chevron ${isExportOpen ? 'open' : ''}`} />
+                                        <span className="nav-tooltip">Exportieren</span>
+                                    </button>
+                                    <div className={`dropdown-menu ${isExportOpen ? 'open' : ''}`}>
+                                        <button type="button" className="dropdown-item" onClick={onExportPDF}>
+                                            als PDF
+                                        </button>
+                                        <button type="button" className="dropdown-item" onClick={onExportCSV}>
+                                            als CSV
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : null}
+                        </div>
+                    );
                 })}
-                <div className="nav-item-dropdown-container">
-                    <button 
-                        className={`nav-item ${isExportOpen ? 'active' : ''}`}
-                        onClick={() => setExportOpen(!isExportOpen)}
-                        title={isCollapsed ? "Exportieren" : ''}
-                    >
-                        <DocumentArrowDownIcon />
-                        <span className="nav-label">Exportieren</span>
-                        <ChevronDownIcon className={`dropdown-chevron ${isExportOpen ? 'open' : ''}`} />
-                        <span className="nav-tooltip">Exportieren</span>
-                    </button>
-                    <div className={`dropdown-menu ${isExportOpen ? 'open' : ''}`}>
-                        <button className="dropdown-item" onClick={onExportPDF}>als PDF</button>
-                        <button className="dropdown-item" onClick={onExportCSV}>als CSV</button>
-                    </div>
-                </div>
             </nav>
+            {lastSyncTime ? (
+                <div
+                    className="sidebar-sync"
+                    title={`Zuletzt synchronisiert: ${lastSyncTime.toLocaleTimeString()}`}
+                >
+                    <div className={`sidebar-sync-dot ${isSyncing ? 'syncing' : ''}`}></div>
+                    {!isCollapsed && <span>{isSyncing ? 'Synchronisiere...' : 'Synchronisiert'}</span>}
+                </div>
+            ) : null}
             <div className="sidebar-footer">
                 <ThemeToggle theme={theme} setTheme={setTheme} isCollapsed={isCollapsed} />
-                <button className="nav-item" title={isCollapsed ? (userName ?? '') : ''}>
-                     <Avatar name={userName ?? 'Benutzer'} />
+                <button
+                    className="nav-item"
+                    title={isCollapsed ? (userNameFull ?? userName ?? '') : (userNameFull ?? userName ?? '')}
+                >
+                     <Avatar name={userName ?? 'Benutzer'} initialsFrom={userNameFull ?? userName ?? undefined} />
                      <span className="nav-label">{userName ?? 'Benutzer'}</span>
-                     <span className="nav-tooltip">{userName ?? 'Benutzer'}</span>
+                     <span className="nav-tooltip">{userNameFull ?? userName ?? 'Benutzer'}</span>
                 </button>
                  <button className="nav-item" title={isCollapsed ? "Abmelden" : ''} onClick={onLogout}>
-                    <LogoutIcon />
+                    <i className="ti ti-logout" aria-hidden />
                     <span className="nav-label">Abmelden</span>
                     <span className="nav-tooltip">Abmelden</span>
                 </button>

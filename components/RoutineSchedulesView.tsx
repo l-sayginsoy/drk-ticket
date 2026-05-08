@@ -1,0 +1,470 @@
+import React, { useMemo, useState } from 'react';
+import { Role, RoutineDayCompletion, RoutineSchedule, User, WeekdayKey } from '../types';
+import {
+  getRoutineAssigneeDisplayName,
+  getRoutinePool,
+  isRoutineDueOnCalendarDay,
+  localISODate,
+  ymdForWeekdayInWeekContaining,
+} from '../utils/routineHelpers';
+import { ROUTINE_TEAL } from '../utils/routineUiPalette';
+import { displayNameShort } from '../utils/displayNames';
+import { CheckIcon } from './icons/CheckIcon';
+
+interface RoutineSchedulesViewProps {
+  userRole: Role;
+  userName: string;
+  schedules: Array<RoutineSchedule & { recurrence?: any }>;
+  users: User[];
+  onReorder: (fromId: string, toId: string) => void;
+  completions: RoutineDayCompletion[];
+  onComplete: (scheduleId: string) => void;
+  onUncomplete: (scheduleId: string) => void;
+}
+
+const weekdayLabel: Record<WeekdayKey, string> = {
+  mo: 'Mo',
+  di: 'Di',
+  mi: 'Mi',
+  do: 'Do',
+  fr: 'Fr',
+  sa: 'Sa',
+  so: 'So',
+};
+
+function formatInterval(schedule: RoutineSchedule & { recurrence?: any }): string {
+  const rec = (schedule as any).recurrence;
+  if (!rec || rec.type === 'daily') return 'Täglich';
+  if (rec.type === 'weekly') {
+    const n = Math.max(1, Number(rec.intervalWeeks || 1));
+    return n === 1 ? 'Wöchentlich' : `Alle ${n} Wochen`;
+  }
+  if (rec.type === 'weekdays') {
+    const n = Math.max(1, Number(rec.intervalWeeks || 1));
+    const days: WeekdayKey[] = Array.isArray(rec.weekdays) ? rec.weekdays : [];
+    const dayStr = days.map(d => weekdayLabel[d] || d).join(', ');
+    const prefix = n === 1 ? '' : `Alle ${n} Wochen: `;
+    return `${prefix}${dayStr || '—'}`;
+  }
+  return '—';
+}
+
+export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
+  const { userRole, userName, schedules, users, onReorder, completions, onComplete, onUncomplete } = props;
+  const [dragId, setDragId] = useState<string | null>(null);
+  const todayYmd = useMemo(() => localISODate(new Date()), []);
+
+  const activeUsersByRole = useMemo(() => {
+    const map = new Map<string, string[]>();
+    const serviceTeam = users
+      .filter(u => u.isActive && u.role === Role.Technician)
+      .map(u => u.name)
+      .sort((a, b) => a.localeCompare(b, 'de'));
+    const housekeeping = users
+      .filter(u => u.isActive && u.role === Role.Housekeeping)
+      .map(u => u.name)
+      .sort((a, b) => a.localeCompare(b, 'de'));
+    map.set(Role.Technician, serviceTeam);
+    map.set(Role.Housekeeping, housekeeping);
+    return map;
+  }, [users]);
+
+  const visible = useMemo(() => {
+    const enabled = schedules.filter(s => s.enabled);
+
+    // Admin: alles sehen
+    if (userRole === Role.Admin) return enabled;
+
+    // Mitarbeiter: nur ihren Bereich + nur wenn sie in der Zuständigkeitsliste sind (oder Liste leer => alle im Bereich)
+    return enabled.filter(s => {
+      if (s.targetRole !== userRole) return false;
+      const poolAll = activeUsersByRole.get(s.targetRole) || [];
+      const assignees = (s as any).assignees as string[] | undefined;
+      if (!assignees || assignees.length === 0) return true;
+      return assignees.includes(userName) && poolAll.includes(userName);
+    });
+  }, [schedules, userRole, userName, activeUsersByRole]);
+
+  const renderInterval = (s: RoutineSchedule & { recurrence?: any }) => {
+    const rec = (s as any).recurrence;
+    if (!rec || rec.type === 'daily') {
+      return (
+        <span className="routine-chip">Täglich</span>
+      );
+    }
+    if (rec.type === 'weekly') {
+      const n = Math.max(1, Number(rec.intervalWeeks || 1));
+      return (
+        <>
+          <div className="routine-interval-label">Wöchentlich</div>
+          {n !== 1 && <div className="routine-sub">{`alle ${n} Wochen`}</div>}
+        </>
+      );
+    }
+    if (rec.type === 'weekdays') {
+      const n = Math.max(1, Number(rec.intervalWeeks || 1));
+      const days: WeekdayKey[] = Array.isArray(rec.weekdays) ? rec.weekdays : [];
+      return (
+        <>
+          <div className="routine-interval-label">
+            {n === 1 ? 'Wöchentlich' : `Alle ${n} Wochen`}
+          </div>
+          <div className="routine-chips">
+            {days.length === 0 ? (
+              <span style={{ color: 'var(--text-muted)' }}>—</span>
+            ) : (
+              days.map((d: WeekdayKey) => {
+                const chipYmd = ymdForWeekdayInWeekContaining(d, new Date());
+                const doneThisDay = (completions || []).some(
+                  (c) => c.scheduleId === s.id && c.date === chipYmd
+                );
+                return (
+                  <span key={d} className={`routine-chip${doneThisDay ? ' routine-chip-past' : ''}`}>
+                    {weekdayLabel[d] || d}
+                  </span>
+                );
+              })
+            )}
+          </div>
+        </>
+      );
+    }
+    return <span>{formatInterval(s)}</span>;
+  };
+
+  return (
+    <div style={{ paddingTop: '1.5rem', maxWidth: 1800 }}>
+      <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+        <style>{`
+          .routine-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            text-align: left;
+            table-layout: fixed;
+          }
+          .routine-th {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 700;
+          }
+          .routine-td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+          }
+          .routine-table thead .routine-th:last-child,
+          .routine-table tbody td.routine-td:last-child {
+            text-align: center;
+          }
+          .routine-title, .routine-area {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            line-height: 1.25;
+          }
+          .routine-sub {
+            color: var(--text-muted);
+            font-size: 12px;
+            margin-top: 6px;
+            line-height: 1.35;
+          }
+          .routine-interval {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+          }
+          .routine-interval-label {
+            font-size: 12px;
+            font-weight: 800;
+            color: var(--text-secondary);
+            line-height: 1.2;
+          }
+          .routine-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+          }
+          .routine-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: var(--bg-tertiary);
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            line-height: 1.2;
+          }
+          .routine-chip-past {
+            opacity: 0.55;
+            color: var(--text-muted) !important;
+            text-decoration: line-through;
+            font-weight: 600;
+            border-color: var(--border) !important;
+            background: var(--bg-secondary) !important;
+          }
+          .routine-current {
+            display: inline;
+            padding: 0;
+            border-radius: 0;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            background: transparent;
+            color: rgb(25, 135, 84);
+            max-width: 100%;
+          }
+          .routine-rotation {
+            color: var(--text-muted);
+            font-size: 12px;
+            line-height: 1.35;
+            margin-top: 8px;
+            word-break: break-word;
+          }
+          .routine-rotation strong { font-weight: 700; }
+          .routine-drag {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-secondary);
+            color: var(--text-muted);
+            cursor: grab;
+            user-select: none;
+            margin-right: 10px;
+          }
+          .routine-drag:active { cursor: grabbing; }
+          .routine-today-stack {
+            display: inline-flex;
+            flex-direction: column;
+            gap: 4px;
+            align-items: center;
+            text-align: center;
+            max-width: 100%;
+          }
+          .routine-today-circle {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            flex-shrink: 0;
+            cursor: pointer;
+            border: 2px solid transparent;
+            background: var(--bg-secondary);
+            color: var(--text-muted);
+            font-family: inherit;
+            line-height: 0;
+            box-sizing: border-box;
+          }
+          .routine-today-circle--off {
+            border-color: var(--border);
+            background: var(--bg-tertiary);
+          }
+          .routine-today-circle--off:hover {
+            border-color: var(--border-active);
+            background: var(--bg-secondary);
+          }
+          .routine-today-circle--on {
+            border-color: ${ROUTINE_TEAL.border};
+            background: ${ROUTINE_TEAL.bg};
+            color: ${ROUTINE_TEAL.dark};
+          }
+          button.routine-today-circle--on:hover {
+            filter: brightness(0.96);
+          }
+          span.routine-today-circle--on {
+            cursor: default;
+          }
+          .routine-today-by-under {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-muted);
+            line-height: 1.15;
+            width: auto;
+            max-width: 100%;
+            text-align: center;
+          }
+        `}</style>
+        <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <strong>Serienaufträge</strong>
+          <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+            {visible.length} Eintrag{visible.length !== 1 ? 'e' : ''}
+          </span>
+        </div>
+
+        <div style={{ overflowX: 'auto' }}>
+          <table className="routine-table">
+            <thead>
+              <tr>
+                <th className="routine-th" style={{ width: '26%' }}>Aufgabe</th>
+                <th className="routine-th" style={{ width: '18%' }}>Bereich</th>
+                <th className="routine-th" style={{ width: '18%' }}>Intervall</th>
+                <th className="routine-th" style={{ width: '22%' }}>Zuständig</th>
+                <th className="routine-th" style={{ width: '16%' }}>Heute</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="routine-td" style={{ color: 'var(--text-muted)' }}>
+                    Keine Serienaufträge vorhanden.
+                  </td>
+                </tr>
+              ) : (
+                visible.map(s => (
+                  <tr
+                    key={s.id}
+                    onDragOver={(e) => {
+                      if (!dragId) return;
+                      e.preventDefault();
+                    }}
+                    onDrop={(e) => {
+                      if (!dragId) return;
+                      e.preventDefault();
+                      onReorder(dragId, s.id);
+                      setDragId(null);
+                    }}
+                  >
+                    <td className="routine-td">
+                      <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                        <span
+                          className="routine-drag"
+                          draggable
+                          onDragStart={(e) => {
+                            setDragId(s.id);
+                            e.dataTransfer.effectAllowed = 'move';
+                          }}
+                          onDragEnd={() => setDragId(null)}
+                          title="Reihenfolge ändern (ziehen)"
+                        >
+                          ⋮⋮
+                        </span>
+                        <div>
+                          <div className="routine-title">{s.title || '—'}</div>
+                          {s.description ? <div className="routine-sub">{s.description}</div> : null}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="routine-td">
+                      <div className="routine-area">{String(s.area || '').trim() || '—'}</div>
+                    </td>
+                    <td className="routine-td">
+                      <div className="routine-interval">{renderInterval(s)}</div>
+                    </td>
+                    <td className="routine-td">
+                      {(() => {
+                        const pool = getRoutinePool(s, users);
+                        const current = getRoutineAssigneeDisplayName(s, pool, todayYmd);
+                        const hasPool = pool.length > 0;
+                        return (
+                          <>
+                            <span className="routine-current" style={{ fontWeight: 600 }} title={current}>
+                              {displayNameShort(current)}
+                            </span>
+                            <div className="routine-rotation">
+                              <strong>Rotation:</strong>{' '}
+                              {hasPool ? pool.map((n) => displayNameShort(n)).join(', ') : '—'}
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </td>
+                    <td className="routine-td">
+                      {(() => {
+                        const due = isRoutineDueOnCalendarDay(s, new Date());
+                        if (!due) {
+                          return (
+                            <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
+                          );
+                        }
+                        const pool = getRoutinePool(s, users);
+                        const assignee = getRoutineAssigneeDisplayName(s, pool, todayYmd);
+                        const completed = (completions || []).some(
+                          (c) => c.scheduleId === s.id && c.date === todayYmd
+                        );
+                        const completion = (completions || []).find(
+                          (c) => c.scheduleId === s.id && c.date === todayYmd
+                        );
+                        const canComplete =
+                          !completed &&
+                          (userRole === Role.Admin || assignee === userName);
+                        const canUncomplete =
+                          completed &&
+                          (userRole === Role.Admin ||
+                            assignee === userName ||
+                            completion?.completedBy === userName);
+
+                        const nameUnder =
+                          completed && completion?.completedBy ? (
+                            <div className="routine-today-by-under" title={completion.completedBy}>
+                              {displayNameShort(completion.completedBy)}
+                            </div>
+                          ) : null;
+
+                        const checkMark = <CheckIcon width={14} height={14} strokeWidth={2.5} aria-hidden />;
+
+                        return (
+                          <div className="routine-today-stack">
+                            {!completed && canComplete ? (
+                              <button
+                                type="button"
+                                className="routine-today-circle routine-today-circle--off"
+                                title="Heute als erledigt markieren"
+                                aria-label="Heute als erledigt markieren"
+                                onClick={() => onComplete(s.id)}
+                              />
+                            ) : null}
+                            {!completed && !canComplete ? (
+                              <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
+                            ) : null}
+                            {completed && canUncomplete ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className="routine-today-circle routine-today-circle--on"
+                                  title="Erledigt – Klick zum Zurücknehmen"
+                                  aria-label="Erledigt, Klick zum Zurücknehmen"
+                                  onClick={() => onUncomplete(s.id)}
+                                >
+                                  {checkMark}
+                                </button>
+                                {nameUnder}
+                              </>
+                            ) : null}
+                            {completed && !canUncomplete ? (
+                              <>
+                                <span
+                                  className="routine-today-circle routine-today-circle--on"
+                                  title="Erledigt (Zurücknehmen nicht möglich)"
+                                  aria-label="Erledigt"
+                                >
+                                  {checkMark}
+                                </span>
+                                {nameUnder}
+                              </>
+                            ) : null}
+                          </div>
+                        );
+                      })()}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+

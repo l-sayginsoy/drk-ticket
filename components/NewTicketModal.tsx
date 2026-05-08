@@ -1,6 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { Ticket, Priority, User, AppSettings, AvailabilityStatus } from '../types';
 import { CameraIcon } from './icons/CameraIcon';
+import { displayNameShort } from '../utils/displayNames';
 import { XIcon } from './icons/XIcon';
 
 interface NewTicketModalProps {
@@ -20,6 +21,11 @@ const getFutureDateString = (days: number): string => {
 };
 
 const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locations, technicians, appSettings, compressImage }) => {
+  const techniciansSorted = useMemo(
+    () => [...technicians].sort((a, b) => a.name.localeCompare(b.name, 'de')),
+    [technicians]
+  );
+
   const [title, setTitle] = useState('');
   const [area, setArea] = useState(locations[0] || '');
   const [location, setLocation] = useState('');
@@ -154,6 +160,12 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
                 min-height: 1.5rem;
                 display: flex;
                 align-items: flex-start;
+            }
+            /* Eine Zeile: „Gemeldet von“ + „E-Mail“ in derselben Grid-Zeile, Inputs bündig */
+            .form-group.form-group--pair label {
+                white-space: nowrap;
+                min-height: 1.35rem;
+                align-items: center;
             }
             .form-group input,
             .form-group select,
@@ -298,12 +310,14 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
                     )}
                 </div>
             </div>
-            <div className="form-group">
+            <div className="form-group form-group--pair">
                 <label htmlFor="reporter">Gemeldet von</label>
                 <input id="reporter" type="text" placeholder="Vor- und Nachname" value={reporter} onChange={e => setReporter(e.target.value)} />
             </div>
-            <div className="form-group">
-                <label htmlFor="reporter-email">E-Mail Melder (optional, für Benachrichtigungen)</label>
+            <div className="form-group form-group--pair">
+                <label htmlFor="reporter-email" title="Optional, für Benachrichtigungen">
+                  E-Mail
+                </label>
                 <input
                   id="reporter-email"
                   type="email"
@@ -311,6 +325,7 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
                   placeholder="name@beispiel.de"
                   value={reporterEmail}
                   onChange={(e) => setReporterEmail(e.target.value)}
+                  title="Optional, für Benachrichtigungen"
                 />
             </div>
             <div className="form-group">
@@ -345,13 +360,19 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
                     )}
                 </div>
             </div>
-            <div className="form-group full-width">
-                <label htmlFor="technician">Techniker (wird ggf. automatisch zugewiesen)</label>
+            <div className="form-group">
+                <label htmlFor="technician">Bearbeiter (wird ggf. automatisch zugewiesen)</label>
                 <select id="technician" value={technician} onChange={e => setTechnician(e.target.value)}>
                     <option value="N/A">Nicht zugewiesen</option>
-                    {technicians.map(t => (
-                        <option key={t.name} value={t.name} disabled={t.availability.status === AvailabilityStatus.OnLeave}>
-                            {t.name} {t.availability.status === AvailabilityStatus.OnLeave ? '(Abwesend)' : ''}
+                    {techniciansSorted.map(t => (
+                        <option
+                            key={t.name}
+                            value={t.name}
+                            title={t.name}
+                            disabled={t.availability.status === AvailabilityStatus.OnLeave}
+                        >
+                            {displayNameShort(t.name)}{' '}
+                            {t.availability.status === AvailabilityStatus.OnLeave ? '(Abwesend)' : ''}
                         </option>
                     ))}
                 </select>

@@ -86,7 +86,7 @@
 
     <div class="intro">
         <p><strong>Einleitung: Die Philosophie der Anwendung</strong></p>
-        <p>Das Ziel dieser Anwendung ist die fundamentale Effizienzsteigerung im Facility Management. Durch eine Kombination aus benutzerfreundlichem Design und einer leistungsstarken Automatisierungs-Engine werden manuelle Arbeitsschritte drastisch reduziert, Fehlerquellen minimiert und eine durchgehende Transparenz für alle Beteiligten – vom Melder über den Techniker bis zum Management – geschaffen. Die App ist als autarke, browserbasierte Lösung konzipiert, die ihre Daten im Local Storage speichert und somit ohne komplexes Server-Backend auskommt.</p>
+        <p>Das Ziel dieser Anwendung ist die fundamentale Effizienzsteigerung im Facility Management. Durch eine Kombination aus benutzerfreundlichem Design und einer leistungsstarken Automatisierungs-Engine werden manuelle Arbeitsschritte drastisch reduziert, Fehlerquellen minimiert und eine durchgehende Transparenz für alle Beteiligten – vom Melder über den Bearbeiter bis zum Management – geschaffen. Die App ist als autarke, browserbasierte Lösung konzipiert, die ihre Daten im Local Storage speichert und somit ohne komplexes Server-Backend auskommt.</p>
     </div>
 
     <h2>Teil 1: Das Melder-Portal – Die Schnittstelle nach Außen</h2>
@@ -104,9 +104,9 @@
         </li>
         <li><strong>Intelligente Vereinfachung:</strong>
             <ul>
-                <li>Der Melder muss <strong>keine Kategorie</strong>, <strong>keine Priorität</strong> und <strong>keinen Techniker</strong> auswählen.</li>
-                <li><strong>Logik dahinter:</strong> Um den Meldevorgang so einfach wie möglich zu gestalten, wurde das Feld "Kategorie" entfernt. Das System ordnet das Ticket im Hintergrund automatisch einer Standard-Kategorie zu. Die Priorität und Technikerzuweisung erfolgen ebenfalls vollautomatisch basierend auf intelligenten Regeln, was menschliche Fehleinschätzungen vermeidet und den Melder entlastet.</li>
-                <li><strong>Abwesenheitsschutz:</strong> Das System stellt sicher, dass niemals ein abwesender Techniker für ein neues Ticket ausgewählt wird.</li>
+                <li>Der Melder muss <strong>keine Kategorie</strong>, <strong>keine Priorität</strong> und <strong>keinen Bearbeiter</strong> auswählen.</li>
+                <li><strong>Logik dahinter:</strong> Um den Meldevorgang so einfach wie möglich zu gestalten, wurde das Feld "Kategorie" entfernt. Das System ordnet das Ticket im Hintergrund automatisch einer Standard-Kategorie zu. Die Priorität und Bearbeiterzuweisung erfolgen ebenfalls vollautomatisch basierend auf intelligenten Regeln, was menschliche Fehleinschätzungen vermeidet und den Melder entlastet.</li>
+                <li><strong>Abwesenheitsschutz:</strong> Das System stellt sicher, dass niemals ein abwesender Bearbeiter für ein neues Ticket ausgewählt wird.</li>
             </ul>
         </li>
         <li><strong>Foto-Upload (Freiwillig):</strong>
@@ -126,14 +126,14 @@
         <li><strong>Angezeigte Informationen:</strong>
             <ul>
                 <li>Aktueller Status (z.B. "Offen", "In Arbeit").</li>
-                <li>Zugewiesener Techniker (falls bereits erfolgt).</li>
-                <li><strong>Letzte öffentliche Notizen/Updates:</strong> Eine chronologische Ansicht der letzten Kommentare, die vom Techniker oder Admin hinzugefügt wurden.</li>
+                <li>Zugewiesener Bearbeiter (falls bereits erfolgt).</li>
+                <li><strong>Letzte öffentliche Notizen/Updates:</strong> Eine chronologische Ansicht der letzten Kommentare, die vom Bearbeiter oder Admin hinzugefügt wurden.</li>
             </ul>
         </li>
         <li><strong>Rückkanal:</strong>
             <ul>
                 <li>Der Melder kann einem bestehenden Ticket eine <strong>neue Notiz</strong> hinzufügen.</li>
-                <li>Diese Aktion setzt intern das Flag <code>hasNewNoteFromReporter</code> auf <code>true</code>, was in der Hauptanwendung durch einen visuellen Indikator signalisiert wird und den Techniker über die neue Information in Kenntnis setzt.</li>
+                <li>Diese Aktion setzt intern das Flag <code>hasNewNoteFromReporter</code> auf <code>true</code>, was in der Hauptanwendung durch einen visuellen Indikator signalisiert wird und den Bearbeiter über die neue Information in Kenntnis setzt.</li>
             </ul>
         </li>
     </ul>
@@ -155,14 +155,14 @@
                 <li>Das System berechnet daraus präzise das Fälligkeitsdatum und trägt es in das Ticket ein.</li>
             </ul>
         </li>
-        <li><strong>Automatisches Routing & Techniker-Zuweisung:</strong>
+        <li><strong>Automatisches Routing & Bearbeiter-Zuweisung:</strong>
             <ol>
                 <li>Die Engine scannt <strong>Betreff und Beschreibung</strong> des Tickets nach vordefinierten <strong>Keywords</strong> (z.B. "Heizung", "Wasserhahn", "Strom").</li>
                 <li>Findet die passende <strong>Routing-Regel</strong> und den damit verknüpften <strong>Skill</strong> (z.B. "HLK", "Sanitär", "Elektrik").</li>
-                <li>Das System filtert alle Benutzer nach aktiven und verfügbaren Technikern, die über diesen Skill verfügen.</li>
-                <li>Es berechnet die aktuelle <strong>Auslastung</strong> jedes passenden Technikers (Anzahl der ihm zugewiesenen, nicht abgeschlossenen Tickets).</li>
-                <li>Das Ticket wird automatisch dem qualifizierten Techniker mit der <strong>geringsten Auslastung</strong> zugewiesen.</li>
-                <li><strong>Fallback:</strong> Wenn kein passender Techniker gefunden wird, bleibt die Zuweisung auf "N/A", damit ein Admin manuell zuweisen kann.</li>
+                <li>Das System filtert alle Benutzer nach aktiven und verfügbaren Bearbeitern, die über diesen Skill verfügen.</li>
+                <li>Es berechnet die aktuelle <strong>Auslastung</strong> jedes passenden Bearbeiters (Anzahl der ihm zugewiesenen, nicht abgeschlossenen Tickets).</li>
+                <li>Das Ticket wird automatisch dem qualifizierten Bearbeiter mit der <strong>geringsten Auslastung</strong> zugewiesen.</li>
+                <li><strong>Fallback:</strong> Wenn kein passender Bearbeiter gefunden wird, bleibt die Zuweisung auf "N/A", damit ein Admin manuell zuweisen kann.</li>
             </ol>
         </li>
     </ul>
@@ -174,14 +174,14 @@
         <li><strong>Wartungsplan-Generator:</strong> Das System prüft täglich die hinterlegten Wartungspläne. Ist ein Plan basierend auf seinem Intervall und dem Datum der letzten Ausführung fällig, wird automatisch ein neues, <strong>präventives Wartungsticket</strong> mit allen vordefinierten Informationen (Aufgabe, Priorität etc.) erstellt.</li>
         <li><strong>Automatische Umverteilung bei Abwesenheit:</strong>
             <ul>
-                <li><strong>Trigger:</strong> Sobald ein Admin oder das System den Verfügbarkeits-Status eines Technikers auf <strong>"Abwesend"</strong> (z.B. Krankheit, Urlaub) setzt.</li>
-                <li><strong>Logik:</strong> Das System scannt sofort alle offenen Tickets dieses Technikers. Tickets, die während der Abwesenheit fällig wären oder als kritisch (hohe Priorität) eingestuft sind, werden identifiziert.</li>
+                <li><strong>Trigger:</strong> Sobald ein Admin oder das System den Verfügbarkeits-Status eines Bearbeiters auf <strong>"Abwesend"</strong> (z.B. Krankheit, Urlaub) setzt.</li>
+                <li><strong>Logik:</strong> Das System scannt sofort alle offenen Tickets dieses Bearbeiters. Tickets, die während der Abwesenheit fällig wären oder als kritisch (hohe Priorität) eingestuft sind, werden identifiziert.</li>
                 <li><strong>Aktion:</strong> Diese Tickets werden automatisch an denjenigen verfügbaren Kollegen umverteilt, der aktuell die <strong>geringste Auslastung</strong> (wenigste offene Tickets) hat. Dies stellt sicher, dass keine Aufgaben liegen bleiben.</li>
             </ul>
         </li>
         <li><strong>Intelligente Rückkehr-Logik & Lastverteilung:</strong>
             <ul>
-                <li><strong>Trigger:</strong> Sobald der Status eines Technikers von "Abwesend" auf <strong>"Verfügbar"</strong> zurückgesetzt wird.</li>
+                <li><strong>Trigger:</strong> Sobald der Status eines Bearbeiters von "Abwesend" auf <strong>"Verfügbar"</strong> zurückgesetzt wird.</li>
                 <li><strong>Logik:</strong> Das System analysiert alle offenen Tickets im System. Es weist dem Rückkehrer gezielt Aufgaben zu, wenn dieser laut Routing-Regeln (Skills) am besten passt oder wenn seine aktuelle <strong>Arbeitslast unter dem Team-Durchschnitt</strong> liegt.</li>
                 <li><strong>Ziel:</strong> Sofortige Entlastung der Kollegen und Wiederherstellung einer fairen Arbeitsverteilung im Team.</li>
                 <li><strong>Transparenz:</strong> Jede automatische Umverteilung wird durch eine automatisierte <strong>System-Notiz</strong> im Ticket-Verlauf ("AUTO-ZUWIESUNG") dokumentiert.</li>
@@ -189,7 +189,7 @@
         </li>
     </ul>
 
-    <h2>Teil 3: Die Hauptanwendung – Das Cockpit für Techniker & Admins</h2>
+    <h2>Teil 3: Die Hauptanwendung – Das Cockpit für Bearbeiter & Admins</h2>
     <p>Dies ist die passwortgeschützte Hauptansicht zur Verwaltung und Bearbeitung aller Tickets.</p>
 
     <h3>3.1. Rollen & Berechtigungen</h3>
@@ -217,7 +217,7 @@
         <li><strong>Ticket-Liste (Tabellenansicht):</strong>
             <ul>
                 <li>Eine detaillierte Listenansicht, die sich hervorragend für die gezielte Analyse eignet.</li>
-                <li><strong>Funktionen:</strong> Volltextsuche, Filtern nach allen Kriterien, Sortieren jeder Spalte und <strong>Gruppieren</strong> von Tickets nach Status, Bereich oder Techniker.</li>
+                <li><strong>Funktionen:</strong> Volltextsuche, Filtern nach allen Kriterien, Sortieren jeder Spalte und <strong>Gruppieren</strong> von Tickets nach Status, Bereich oder Bearbeiter.</li>
             </ul>
         </li>
         <li><strong>Team-Übersicht:</strong>
@@ -239,8 +239,8 @@
         <li><strong>Detail-Seitenleiste:</strong>
             <ul>
                 <li>Öffnet sich bei Klick auf ein Ticket und ist der zentrale Ort für die Bearbeitung.</li>
-                <li>Ermöglicht das Ändern aller relevanten Felder (Status, Priorität, Techniker etc.).</li>
-                <li><strong>Zuweisungs-Schutz:</strong> Abwesende Techniker sind in der Auswahl deaktiviert und als "(Abwesend)" markiert, um Fehlzuweisungen zu verhindern.</li>
+                <li>Ermöglicht das Ändern aller relevanten Felder (Status, Priorität, Bearbeiter etc.).</li>
+                <li><strong>Zuweisungs-Schutz:</strong> Abwesende Bearbeiter sind in der Auswahl deaktiviert und als "(Abwesend)" markiert, um Fehlzuweisungen zu verhindern.</li>
                 <li>Zeigt alle Stammdaten, die Beschreibung, Fotos und die <strong>vollständige Notiz-Historie</strong>.</li>
                 <li>Ermöglicht das Hinzufügen neuer, interner Notizen.</li>
             </ul>
@@ -248,7 +248,7 @@
         <li><strong>Massenbearbeitung (Bulk Actions):</strong>
             <ul>
                 <li>In der Tabellenansicht können mehrere Tickets per Checkbox ausgewählt werden.</li>
-                <li>Eine Aktionsleiste erscheint, die es ermöglicht, für alle ausgewählten Tickets gleichzeitig den <strong>Status zu ändern</strong>, einen <strong>Techniker zuzuweisen</strong> oder sie zu <strong>löschen</strong>.</li>
+                <li>Eine Aktionsleiste erscheint, die es ermöglicht, für alle ausgewählten Tickets gleichzeitig den <strong>Status zu ändern</strong>, einen <strong>Bearbeiter zuzuweisen</strong> oder sie zu <strong>löschen</strong>.</li>
             </ul>
         </li>
     </ul>
@@ -260,12 +260,12 @@
     <ul>
         <li><strong>Ticket-Kategorien:</strong> Admins können die Kategorien definieren und ihnen eine Standard-Priorität zuweisen. Diese werden im Hintergrund für die automatische Priorisierung und SLA-Berechnung genutzt.</li>
         <li><strong>SLA-Matrix:</strong> Hier wird die Logik für Fälligkeiten festgelegt, indem für eine Kombination aus Kategorie und Priorität eine Reaktionszeit in Stunden definiert wird.</li>
-        <li><strong>Routing-Regeln:</strong> Definition der Keyword-Skill-Zuweisungen für die automatische Techniker-Zuweisung.</li>
+        <li><strong>Routing-Regeln:</strong> Definition der Keyword-Skill-Zuweisungen für die automatische Bearbeiter-Zuweisung.</li>
     </ul>
 
     <h3>4.2. Stammdaten-Verwaltung</h3>
     <ul>
-        <li><strong>Benutzer & Teams:</strong> Anlegen, Bearbeiten und Deaktivieren von Benutzern. Zuweisung von Rollen (Admin/Techniker) und Skills.</li>
+        <li><strong>Benutzer & Teams:</strong> Anlegen, Bearbeiten und Deaktivieren von Benutzern. Zuweisung von Rollen (Admin/Bearbeiter) und Skills.</li>
         <li><strong>Standorte & Anlagen:</strong> Verwaltung der Orte, die im Melde-Portal zur Auswahl stehen.</li>
     </ul>
 
@@ -285,8 +285,8 @@
         <p>Hier werden die neuesten Funktionserweiterungen dokumentiert, die das System noch intelligenter machen.</p>
     </div>
     <ul>
-        <li><strong>Optimierte Rückkehr-Logik (Februar 2026):</strong> Techniker, die aus dem Urlaub oder Krankheitsstand zurückkehren, werden nun proaktiv in die Arbeitsverteilung einbezogen. Das System erkennt die Rückkehr und verteilt offene Tickets um, um eine Überlastung der anderen Teammitglieder sofort zu reduzieren.</li>
-        <li><strong>Strikter Abwesenheitsschutz:</strong> Es ist nun systemseitig unmöglich, abwesenden Technikern versehentlich Aufträge zuzuweisen. Die Auswahlfelder sind gesperrt, und die Automatisierung korrigiert etwaige Fehlzuweisungen in Echtzeit.</li>
+        <li><strong>Optimierte Rückkehr-Logik (Februar 2026):</strong> Bearbeiter, die aus dem Urlaub oder Krankheitsstand zurückkehren, werden nun proaktiv in die Arbeitsverteilung einbezogen. Das System erkennt die Rückkehr und verteilt offene Tickets um, um eine Überlastung der anderen Teammitglieder sofort zu reduzieren.</li>
+        <li><strong>Strikter Abwesenheitsschutz:</strong> Es ist nun systemseitig unmöglich, abwesenden Bearbeitern versehentlich Aufträge zuzuweisen. Die Auswahlfelder sind gesperrt, und die Automatisierung korrigiert etwaige Fehlzuweisungen in Echtzeit.</li>
         <li><strong>Vereinfachter Meldevorgang:</strong> Das Feld "Kategorie" wurde aus dem Melder-Portal entfernt, um die Hürde für neue Meldungen zu senken. Die Kategorisierung erfolgt nun automatisch im Hintergrund.</li>
         <li><strong>Automatisierte Prozess-Dokumentation:</strong> Alle vom System getroffenen Entscheidungen (wie Umverteilungen) werden automatisch als Notiz im Ticket hinterlegt. Dies sorgt für 100% Nachvollziehbarkeit ohne manuellen Aufwand.</li>
         <li><strong>SLA-Matrix Integration:</strong> Die Berechnung von Fälligkeiten erfolgt nun dynamisch basierend auf der Wichtigkeit der Kategorie und der Priorität, was eine präzisere Zeitplanung ermöglicht.</li>
