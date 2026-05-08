@@ -80,6 +80,7 @@ export interface RoutineSchedule {
   targetRole: Role.Technician | Role.Housekeeping;
   assignees: string[]; // only these names are used for rotation/fixed selection
   assignment: RoutineAssignment;
+  recurrence?: RoutineRecurrence;
   enabled: boolean;
   lastGenerated: string | null; // YYYY-MM-DD
   rotationCursor: number; // used when assignment.type === 'rotate'
