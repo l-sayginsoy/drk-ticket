@@ -1323,7 +1323,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                 /* Section Styles */
                 .settings-section { background-color: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 2rem; }
                 .settings-section-header { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); }
-                .settings-section-title { font-size: 1.1rem; font-weight: 600; }
+                .settings-section-title { font-size: 1.2rem; font-weight: 700; letter-spacing: 0.02em; color: var(--text-primary); }
                 .settings-section-body { padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
 
                 /* Form & List Styles */
@@ -1352,7 +1352,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                 
                 /* Table Styles for User/Area list */
                 .content-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-                .content-title { font-size: 1.25rem; font-weight: 600; }
+                .content-title { font-size: 1.35rem; font-weight: 700; letter-spacing: 0.02em; color: var(--text-primary); }
                 .settings-table { width: 100%; border-collapse: collapse; }
                 .settings-table th, .settings-table td { text-align: left; padding: 1rem; border-bottom: 1px solid var(--border); }
                 .settings-table th { font-size: 0.8rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; }

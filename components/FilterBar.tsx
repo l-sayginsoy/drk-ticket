@@ -14,9 +14,11 @@ interface FilterBarProps {
     setGroupBy: (value: GroupableKey | 'none') => void;
     currentView: string;
     userRole: Role | null;
+    /** Oben in gemeinsamer Karte mit Kanban: gleiche Fläche, nur dezente Linie nach unten */
+    panelEmbed?: boolean;
 }
 
-const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, technicians, statuses, groupBy, setGroupBy, currentView, userRole }) => {
+const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, technicians, statuses, groupBy, setGroupBy, currentView, userRole, panelEmbed = false }) => {
     
     if (currentView === 'techniker' || currentView === 'reports' || currentView === 'routines' || currentView === 'routine-nachweis') {
         return null;
@@ -154,14 +156,14 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
     };
 
     return (
-        <div className="filter-bar">
+        <div className={`filter-bar${panelEmbed ? ' filter-bar--panel-embed' : ''}`}>
             <style>{`
                 .filter-bar {
                     max-width: 1800px;
                     width: 100%;
                     box-sizing: border-box;
                     margin-top: 1.25rem;
-                    background: var(--bg-secondary);
+                    background: var(--bg-primary);
                     border: 1px solid var(--border);
                     border-radius: 8px;
                     padding: 14px 16px;
@@ -170,6 +172,19 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                     gap: 1rem;
                     transition: var(--transition-smooth);
                     flex-wrap: wrap;
+                    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+                }
+                [data-theme="dark"] .filter-bar {
+                    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
+                }
+                .filter-bar--panel-embed {
+                    max-width: none;
+                    margin-top: 0;
+                    background: var(--bg-primary);
+                    border: none;
+                    border-radius: 0;
+                    box-shadow: none;
+                    border-bottom: 1px solid var(--border);
                 }
                 .filter-controls { display: flex; gap: 1rem; flex-wrap: wrap; flex-grow: 1; align-items: center; }
                 .filter-bearbeiter-reset { display: flex; align-items: center; gap: 0.75rem; flex-wrap: nowrap; }

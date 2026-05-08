@@ -112,18 +112,31 @@ export default function RoutineNachweisView({
   }, [visibleSchedules, year]);
 
   return (
-    <div style={{ paddingTop: '1.5rem', maxWidth: 1800 }}>
+    <div style={{ maxWidth: 1800 }}>
+      <div className="nachweis-view-shell">
       <style>{`
+        .nachweis-view-shell {
+          background-color: var(--bg-secondary);
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          margin-top: 1.5rem;
+          overflow: hidden;
+        }
         .nachweis-toolbar {
           display: flex;
           flex-wrap: wrap;
           gap: 12px;
           align-items: flex-end;
-          margin-bottom: 20px;
+          margin-bottom: 0;
           padding: 14px 16px;
+          background: var(--bg-primary);
+          border: none;
+          border-bottom: 1px solid var(--border);
+          border-radius: 0;
+        }
+        .nachweis-view-body {
+          padding: 1rem 1.25rem 1.5rem;
           background: var(--bg-secondary);
-          border: 1px solid var(--border);
-          border-radius: 10px;
         }
         .nachweis-field label {
           display: block;
@@ -150,15 +163,15 @@ export default function RoutineNachweisView({
         }
         .nachweis-month {
           border: 1px solid var(--border);
-          border-radius: 10px;
+          border-radius: 8px;
           padding: 12px;
-          background: var(--bg-secondary);
+          background: var(--bg-tertiary);
         }
         .nachweis-month h4 {
           margin: 0 0 10px;
-          font-size: 13px;
-          font-weight: 800;
-          color: var(--text-secondary);
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: var(--text-muted);
         }
         .nachweis-chips {
           display: flex;
@@ -220,13 +233,14 @@ export default function RoutineNachweisView({
         </div>
       </div>
 
+      <div className="nachweis-view-body">
       <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.45 }}>
         Pro Aufgabe: alle <strong>fälligen</strong> Tage im Jahr. <strong>✓</strong> = erledigt (laut Filter),{' '}
         <strong>!</strong> = vergangen aber ohne passenden Eintrag, hell = noch ausstehend.
       </p>
 
       {visibleSchedules.length === 0 ? (
-        <div style={{ color: 'var(--text-muted)', padding: 24 }}>Keine Serienaufträge sichtbar.</div>
+        <div style={{ color: 'var(--text-muted)', padding: '1rem 0', textAlign: 'center' }}>Keine Serienaufträge sichtbar.</div>
       ) : (
         visibleSchedules.map((sch) => {
           const dueList = dueByScheduleId.get(sch.id) || [];
@@ -240,20 +254,27 @@ export default function RoutineNachweisView({
             <section
               key={sch.id}
               style={{
-                marginBottom: 28,
-                padding: '16px 18px',
-                background: 'var(--bg-secondary)',
+                marginBottom: 16,
                 border: '1px solid var(--border)',
-                borderRadius: 12,
+                borderRadius: 8,
+                overflow: 'hidden',
+                background: 'var(--bg-secondary)',
               }}
             >
-              <div style={{ marginBottom: 14 }}>
-                <h2 style={{ margin: '0 0 6px', fontSize: 17, fontWeight: 800, color: 'var(--text-primary)' }}>
+              <div
+                style={{
+                  padding: '12px 16px',
+                  background: 'var(--bg-primary)',
+                  borderBottom: '1px solid var(--border)',
+                }}
+              >
+                <h2 className="app-page-heading" style={{ margin: '0 0 6px' }}>
                   {sch.title || '—'}
                 </h2>
                 <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
                   {String(sch.area || '').trim() || '—'} · Fällige Termine {year}:{' '}
-                  <strong>{dueList.length}</strong> · Erledigt (Filter): <strong>{doneCount}</strong>
+                  <strong style={{ color: 'var(--text-secondary)' }}>{dueList.length}</strong> · Erledigt (Filter):{' '}
+                  <strong style={{ color: 'var(--text-secondary)' }}>{doneCount}</strong>
                   {missedPast > 0 ? (
                     <span style={{ color: '#b02a37', fontWeight: 700 }}>
                       {' '}
@@ -263,7 +284,7 @@ export default function RoutineNachweisView({
                 </div>
               </div>
 
-              <div className="nachweis-month-grid">
+              <div className="nachweis-month-grid" style={{ padding: '14px 16px' }}>
                 {MONTHS_DE.map((monthName, mi) => {
                   const days = byMonth.get(mi) || [];
                   return (
@@ -319,6 +340,8 @@ export default function RoutineNachweisView({
           );
         })
       )}
+      </div>
+      </div>
     </div>
   );
 }

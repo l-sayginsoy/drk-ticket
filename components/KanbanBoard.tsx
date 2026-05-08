@@ -8,6 +8,7 @@ interface KanbanBoardProps {
   onUpdateTicket: (ticket: Ticket) => void;
   onSelectTicket: (ticket: Ticket) => void;
   selectedTicket: Ticket | null;
+  panelEmbed?: boolean;
 }
 
 const getTicketSortPriority = (ticket: Ticket): number => {
@@ -23,6 +24,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   onUpdateTicket,
   onSelectTicket,
   selectedTicket,
+  panelEmbed = false,
 }) => {
   const technicians = techniciansProp ?? [];
   const columns: { title: string; status: Status }[] = [
@@ -55,16 +57,27 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   };
 
   return (
-    <div className="kanban-board-container">
+    <div className={`kanban-board-container${panelEmbed ? ' kanban-board-container--embed' : ''}`}>
         <style>{`
             .kanban-board-container {
                 max-width: 1800px;
+            }
+            .kanban-board-container--embed {
+                max-width: none;
+                width: 100%;
+                box-sizing: border-box;
+                background: var(--bg-secondary);
+                padding: 0 16px 20px;
             }
             .kanban-board {
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(325px, 1fr));
                 gap: 1.5rem;
                 padding-top: 1.5rem;
+            }
+            .kanban-board-container--embed .kanban-board {
+                padding-top: 1.125rem;
+                gap: 1.25rem;
             }
              @media (min-width: 1200px) {
                 .kanban-board {
@@ -91,6 +104,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
             onDropTicket={handleDropTicket}
             onSelectTicket={onSelectTicket}
             selectedTicket={selectedTicket}
+            panelEmbed={panelEmbed}
           />
         ))}
       </div>

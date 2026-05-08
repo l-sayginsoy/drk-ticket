@@ -162,13 +162,20 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
                 }
                 .ticket-card {
-                    background: var(--bg-secondary); border-radius: var(--radius-md); margin-bottom: 1.5rem;
-                    box-shadow: var(--shadow-md); border-left: 5px solid transparent;
-                    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out, background-color 0.2s ease-in-out;
-                    padding: 1rem 1.25rem; position: relative;
+                    background: var(--bg-secondary);
+                    border-radius: var(--radius-md);
+                    margin-bottom: 1.5rem;
+                    border: 1px solid var(--border);
+                    border-left-width: 5px;
+                    border-left-style: solid;
+                    border-left-color: transparent;
+                    box-shadow: var(--shadow-sm);
+                    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out, background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+                    padding: 1rem 1.25rem;
+                    position: relative;
                 }
                 .ticket-card.urgent-alert { animation: pulse-border 1.5s infinite; border-color: var(--accent-danger) !important; }
-                .ticket-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+                .ticket-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
                 .ticket-card.dragging { opacity: 0.5; transform: rotate(3deg); }
                 .ticket-card.selected { background-color: var(--border); box-shadow: 0 0 0 2px var(--accent-primary), var(--shadow-lg); }
                 

@@ -1712,6 +1712,7 @@ const App: React.FC = () => {
         case 'tech-dashboard':
           return (
             <KanbanBoard
+              panelEmbed
               tickets={filteredTickets}
               technicians={activeTechnicians}
               onUpdateTicket={handleTicketUpdate}
@@ -1768,6 +1769,8 @@ const App: React.FC = () => {
     }
   }
 
+  const isKanbanWorkbench = currentView === 'dashboard' || currentView === 'tech-dashboard';
+
   return (
     <div className="app-layout">
       <Sidebar appSettings={appSettings} isCollapsed={isSidebarCollapsed} setCollapsed={setSidebarCollapsed} theme={theme} setTheme={setTheme} currentView={currentView} setCurrentView={changeView} onLogout={handleLogout} userRole={currentUser.role} userName={displayNameShort(currentUser.name)} userNameFull={currentUser.name} tickets={ticketsForUser} onNewTicketClick={() => setIsModalOpen(true)} onExportPDF={handleExportPDF} onExportCSV={handleExportCSV} isSyncing={isSyncing} lastSyncTime={lastSyncTime} />
@@ -1783,12 +1786,50 @@ const App: React.FC = () => {
             onOpenRoutines={() => changeView('routines')}
           />
         )}
-        {selectedTicketIds.length > 0 && (currentView === 'tickets' || currentView === 'erledigt') ? (
-             <BulkActionBar selectedCount={selectedTicketIds.length} technicians={allTechnicianNames} statuses={Object.values(Status)} onBulkUpdate={handleBulkUpdate} onBulkDelete={handleBulkDelete} onClearSelection={() => setSelectedTicketIds([])} />
-        ) : ( (currentView === 'dashboard' || currentView === 'tech-dashboard' || currentView === 'tickets' || currentView === 'erledigt' || currentView === 'techniker') &&
-            <FilterBar filters={filters} setFilters={setFilters} locations={locationOptionsWithCounts} technicians={['Alle', ...activeTechnicians.map(t=>t.name)]} statuses={STATUSES} userRole={currentUser.role} groupBy={groupBy} setGroupBy={setGroupBy} currentView={currentView} />
+        {isKanbanWorkbench ? (
+          <div className="kanban-workbench">
+            <style>{`
+              .kanban-workbench {
+                max-width: 1800px;
+                width: 100%;
+                margin-top: 1.25rem;
+                box-sizing: border-box;
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                overflow: hidden;
+                background: var(--bg-secondary);
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+              }
+              [data-theme="dark"] .kanban-workbench {
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+              }
+            `}</style>
+            <FilterBar
+              filters={filters}
+              setFilters={setFilters}
+              locations={locationOptionsWithCounts}
+              technicians={['Alle', ...activeTechnicians.map((t) => t.name)]}
+              statuses={STATUSES}
+              userRole={currentUser.role}
+              groupBy={groupBy}
+              setGroupBy={setGroupBy}
+              currentView={currentView}
+              panelEmbed
+            />
+            {renderCurrentView()}
+          </div>
+        ) : (
+          <>
+            {selectedTicketIds.length > 0 && (currentView === 'tickets' || currentView === 'erledigt') ? (
+              <BulkActionBar selectedCount={selectedTicketIds.length} technicians={allTechnicianNames} statuses={Object.values(Status)} onBulkUpdate={handleBulkUpdate} onBulkDelete={handleBulkDelete} onClearSelection={() => setSelectedTicketIds([])} />
+            ) : (
+              (currentView === 'tickets' || currentView === 'erledigt' || currentView === 'techniker') && (
+                <FilterBar filters={filters} setFilters={setFilters} locations={locationOptionsWithCounts} technicians={['Alle', ...activeTechnicians.map((t) => t.name)]} statuses={STATUSES} userRole={currentUser.role} groupBy={groupBy} setGroupBy={setGroupBy} currentView={currentView} />
+              )
+            )}
+            {renderCurrentView()}
+          </>
         )}
-        {renderCurrentView()}
       </main>
       {isModalOpen && <NewTicketModal onClose={() => setIsModalOpen(false)} onSave={handleAddNewTicket} locations={activeLocations.map(a => a.name)} technicians={activeTechnicians} appSettings={appSettings} compressImage={compressImage}/>}
       {selectedTicket && <TicketDetailSidebar ticket={selectedTicket} onClose={() => setSelectedTicket(null)} onUpdateTicket={handleTicketUpdate} users={users} statuses={Object.values(Status)} currentUser={currentUser} appSettings={appSettings} />}

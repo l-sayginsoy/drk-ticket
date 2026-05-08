@@ -11,6 +11,7 @@ interface KanbanColumnProps {
   onDropTicket: (ticketId: string, newStatus: Status) => void;
   onSelectTicket: (ticket: Ticket) => void;
   selectedTicket: Ticket | null;
+  panelEmbed?: boolean;
 }
 
 const EmptyStateIcon: React.FC<{ kind: 'ok' | 'idle' }> = ({ kind }) => {
@@ -52,6 +53,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
   onDropTicket,
   onSelectTicket,
   selectedTicket,
+  panelEmbed = false,
 }) => {
   const technicians = techniciansProp ?? [];
     const [isDragOver, setIsDragOver] = useState(false);
@@ -78,19 +80,35 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
 
     return (
         <div 
-            className={`board-column ${isDragOver ? 'drag-over' : ''}`}
+            className={`board-column ${panelEmbed ? 'board-column--in-panel' : ''} ${isDragOver ? 'drag-over' : ''}`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
         >
              <style>{`
                 .board-column {
-                    background-color: transparent;
-                    border-radius: 8px;
-                    transition: background-color 0.2s ease-in-out;
+                    background-color: var(--bg-primary);
+                    border: 1px solid var(--border);
+                    border-radius: 10px;
+                    padding: 12px 10px 16px;
+                    box-sizing: border-box;
+                    transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+                    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
+                }
+                [data-theme="dark"] .board-column {
+                    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04);
+                }
+                .board-column--in-panel {
+                    background: var(--bg-primary);
+                    box-shadow: none;
+                }
+                .board-column--in-panel .column-header {
+                    border-bottom: none;
+                    padding-bottom: 8px;
                 }
                 .board-column.drag-over {
                     background-color: var(--bg-tertiary);
+                    border-color: var(--border-active);
                 }
                 .column-header {
                     display: flex;
@@ -98,15 +116,15 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
                     justify-content: flex-start;
                     align-items: baseline;
                     gap: 0.55rem;
-                    padding: 0 0.5rem 1rem 0.5rem;
-                    border-bottom: 2px solid var(--border);
+                    padding: 0 6px 12px 6px;
+                    border-bottom: 1px solid var(--border);
                 }
                 .column-title {
                     margin: 0;
-                    font-size: 15px;
+                    font-size: 1.0625rem;
                     font-weight: 700;
                     letter-spacing: 0.02em;
-                    color: var(--text-muted);
+                    color: var(--text-primary);
                 }
                 .column-count {
                     background: transparent;
@@ -135,7 +153,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
                     color: var(--accent-danger);
                 }
                 .column-body {
-                    padding-top: 1.5rem;
+                    padding-top: 1rem;
                     height: calc(100vh - 250px);
                     overflow-y: auto;
                 }

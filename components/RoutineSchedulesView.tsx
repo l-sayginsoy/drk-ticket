@@ -133,27 +133,48 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
   };
 
   return (
-    <div style={{ paddingTop: '1.5rem', maxWidth: 1800 }}>
-      <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+    <div style={{ maxWidth: 1800 }}>
+      <div className="routine-view-container">
         <style>{`
+          .routine-view-container {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-top: 1.5rem;
+            overflow: hidden;
+          }
+          .routine-table-wrap {
+            overflow-x: auto;
+          }
           .routine-table {
             width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
+            border-collapse: collapse;
             text-align: left;
             table-layout: fixed;
           }
           .routine-th {
-            padding: 12px 16px;
+            padding: 1rem 1rem;
             border-bottom: 1px solid var(--border);
             color: var(--text-muted);
-            font-size: 12px;
-            font-weight: 700;
+            font-size: 0.875rem;
+            font-weight: 500;
+            background-color: var(--bg-primary);
           }
           .routine-td {
-            padding: 14px 16px;
+            padding: 1rem 1rem;
             border-bottom: 1px solid var(--border);
             vertical-align: top;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+          }
+          .routine-table tbody tr {
+            transition: background-color 0.2s ease;
+          }
+          .routine-table tbody tr:hover {
+            background-color: var(--bg-tertiary);
+          }
+          .routine-table tbody tr:last-child td {
+            border-bottom: none;
           }
           .routine-table thead .routine-th:last-child,
           .routine-table tbody td.routine-td:last-child {
@@ -295,14 +316,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
             text-align: center;
           }
         `}</style>
-        <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <strong>Serienaufträge</strong>
-          <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
-            {visible.length} Eintrag{visible.length !== 1 ? 'e' : ''}
-          </span>
-        </div>
-
-        <div style={{ overflowX: 'auto' }}>
+        <div className="routine-table-wrap">
           <table className="routine-table">
             <thead>
               <tr>

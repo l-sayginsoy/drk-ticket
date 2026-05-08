@@ -294,7 +294,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
                 @media (min-width: 992px) { .charts-grid { grid-template-columns: 3fr 2fr; } }
                 .chart-container { background-color: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; display: flex; flex-direction: column; }
                 .chart-container.full-width { grid-column: 1 / -1; }
-                .chart-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 1.5rem; flex-shrink: 0; }
+                .chart-title { font-size: 1.2rem; font-weight: 700; letter-spacing: 0.02em; color: var(--text-primary); margin-bottom: 1.5rem; flex-shrink: 0; }
                 
                 .technician-charts-stack { display: flex; flex-direction: column; gap: 2rem; }
 
