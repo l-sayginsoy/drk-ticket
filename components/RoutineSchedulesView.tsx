@@ -53,6 +53,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
   const { userRole, userName, schedules, users, onReorder, completions, onComplete, onUncomplete } = props;
   const [dragId, setDragId] = useState<string | null>(null);
   const todayYmd = useMemo(() => localISODate(new Date()), []);
+
   const activeUsersByRole = useMemo(() => {
     const map = new Map<string, string[]>();
     const serviceTeam = users
@@ -144,8 +145,6 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
           }
           .routine-table-wrap {
             overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            overscroll-behavior-x: contain;
           }
           .routine-table {
             width: 100%;

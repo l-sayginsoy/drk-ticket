@@ -91,9 +91,7 @@ const Sidebar: React.FC<SidebarProps> = ({ appSettings, isCollapsed, setCollapse
     const NavItem: React.FC<{ viewName: string; icon: React.ReactNode; label: string }> = ({ viewName, icon, label }) => (
         <button 
             className={`nav-item ${currentView === viewName ? 'active' : ''}`}
-            onClick={() => {
-                setCurrentView(viewName);
-            }}
+            onClick={() => setCurrentView(viewName)}
             title={isCollapsed ? label : ''}
         >
             {icon}
@@ -115,7 +113,6 @@ const Sidebar: React.FC<SidebarProps> = ({ appSettings, isCollapsed, setCollapse
                     display: flex;
                     flex-direction: column;
                     padding: 0.75rem;
-                    padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
                     transition: width 0.3s ease, background-color 0.3s ease, padding 0.3s ease;
                     flex-shrink: 0;
                     overflow-y: auto;
@@ -124,15 +121,6 @@ const Sidebar: React.FC<SidebarProps> = ({ appSettings, isCollapsed, setCollapse
                 .sidebar.collapsed {
                     width: 70px;
                     padding: 0.75rem 0.5rem;
-                }
-                /* Schmale Geräte: Sidebar bleibt im Layout (kein Overlay), etwas schmaler */
-                @media (max-width: 768px) {
-                    .sidebar {
-                        width: min(200px, 34vw);
-                    }
-                    .sidebar.collapsed {
-                        width: 70px;
-                    }
                 }
                 .sidebar-header {
                     display: flex;

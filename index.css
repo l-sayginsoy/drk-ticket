@@ -99,22 +99,13 @@ input, select, textarea, button {
 main {
     flex-grow: 1;
     padding: 2rem;
-    padding-top: max(2rem, env(safe-area-inset-top, 0px));
-    padding-left: max(2rem, env(safe-area-inset-left, 0px));
-    padding-right: max(2rem, env(safe-area-inset-right, 0px));
-    padding-bottom: max(2rem, env(safe-area-inset-bottom, 0px));
     height: 100%;
     overflow-y: auto;
     position: relative;
-    -webkit-overflow-scrolling: touch;
 }
-@media (max-width: 768px) {
+ @media (max-width: 768px) {
     main {
         padding: 1rem;
-        padding-left: max(1rem, env(safe-area-inset-left, 0px));
-        padding-right: max(1rem, env(safe-area-inset-right, 0px));
-        padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
-        padding-top: max(1rem, env(safe-area-inset-top, 0px));
     }
 }
 
