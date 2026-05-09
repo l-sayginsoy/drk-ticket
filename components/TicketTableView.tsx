@@ -349,6 +349,7 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <>
         {!showRoutineSection && !showingOnlyRoutineTickets && (
         <div className="table-view-container">
             <style>{`
@@ -363,6 +364,8 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
                   border-radius: 8px;
                   margin-top: 1.5rem;
                   overflow-x: auto;
+                  -webkit-overflow-scrolling: touch;
+                  overscroll-behavior-x: contain;
                 }
                 .ticket-table {
                   width: 100%;
@@ -611,6 +614,7 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
                 </table>
             </div>
         )}
+        </>
         </div>
     );
 };
