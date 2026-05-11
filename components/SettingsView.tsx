@@ -925,8 +925,15 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                                                             : weekdays.filter(x => x !== w.key);
                                                                         commit( {
                                                                             ...schedule,
-                                                                            recurrence: { type: 'weekdays', intervalWeeks: schedule.recurrence?.intervalWeeks || 1, weekdays: next },
-                                                                        } as any);
+                                                                            recurrence: {
+                                                                                type: 'weekdays',
+                                                                                intervalWeeks:
+                                                                                    schedule.recurrence?.type === 'weekdays'
+                                                                                        ? schedule.recurrence.intervalWeeks || 1
+                                                                                        : 1,
+                                                                                weekdays: next,
+                                                                            },
+                                                                        } as RoutineSchedule);
                                                                     }}
                                                                 />
                                                                 <span style={{ fontSize: 12 }}>{w.label}</span>

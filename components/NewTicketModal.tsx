@@ -79,6 +79,7 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
       description,
       photos,
       notes: [],
+      dueDate: '',
     });
   };
 
