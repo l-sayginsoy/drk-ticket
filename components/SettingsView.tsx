@@ -303,8 +303,10 @@ interface SettingsViewProps {
 
 const SettingsView: React.FC<SettingsViewProps> = (props) => {
     const { users, setUsers, locations, setLocations, assets, setAssets, maintenancePlans, setMaintenancePlans, appSettings, setAppSettings } = props;
-    const [activeTab, setActiveTab] = useState<'allgemein' | 'prozesse' | 'serientermine' | 'benutzer' | 'standorte'>('allgemein');
+    type SettingsTab = 'allgemein' | 'prozesse' | 'serientermine' | 'benutzer' | 'standorte';
+    const [activeTab, setActiveTab] = useState<SettingsTab>('allgemein');
     const [dragRoutineId, setDragRoutineId] = useState<string | null>(null);
+    const [routineSchedulesDraft, setRoutineSchedulesDraft] = useState<RoutineSchedule[]>([]);
     
     // Modals
     const [isUserModalOpen, setUserModalOpen] = useState(false);
@@ -350,19 +352,56 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
             .map(u => u.name)
             .sort((a, b) => a.localeCompare(b, 'de'));
 
-    const routineSchedules = appSettings.routineSchedules || [];
+    const savedRoutineSchedules = appSettings.routineSchedules || [];
+    const routinesDirty = useMemo(
+        () => JSON.stringify(routineSchedulesDraft) !== JSON.stringify(savedRoutineSchedules),
+        [routineSchedulesDraft, savedRoutineSchedules]
+    );
 
-    const reorderRoutineSchedules = (fromId: string, toId: string) => {
+    const requestTab = (next: SettingsTab) => {
+        if (activeTab === 'serientermine' && next !== 'serientermine' && routinesDirty) {
+            if (
+                !window.confirm(
+                    'Serientermine: Es gibt nicht gespeicherte Änderungen. Trotzdem den Tab wechseln?'
+                )
+            ) {
+                return;
+            }
+        }
+        if (next === 'serientermine' && activeTab !== 'serientermine') {
+            setRoutineSchedulesDraft(JSON.parse(JSON.stringify(savedRoutineSchedules)) as RoutineSchedule[]);
+        }
+        setActiveTab(next);
+    };
+
+    const updateRoutineDraft = (updated: RoutineSchedule) => {
+        setRoutineSchedulesDraft(prev => prev.map(item => (item.id === updated.id ? updated : item)));
+    };
+
+    const deleteRoutineFromDraft = (id: string) => {
+        if (!window.confirm('Sind Sie sicher, dass Sie diesen Eintrag löschen möchten?')) return;
+        setRoutineSchedulesDraft(prev => prev.filter(item => item.id !== id));
+    };
+
+    const reorderRoutineDraft = (fromId: string, toId: string) => {
         if (fromId === toId) return;
-        setAppSettings(prev => {
-            const list = [...(prev.routineSchedules || [])];
+        setRoutineSchedulesDraft(prev => {
+            const list = [...prev];
             const fromIdx = list.findIndex((x: any) => x.id === fromId);
             const toIdx = list.findIndex((x: any) => x.id === toId);
             if (fromIdx === -1 || toIdx === -1) return prev;
             const [moved] = list.splice(fromIdx, 1);
             list.splice(toIdx, 0, moved);
-            return { ...prev, routineSchedules: list };
+            return list;
         });
+    };
+
+    const saveRoutineSchedulesDraft = () => {
+        setAppSettings(prev => ({ ...prev, routineSchedules: routineSchedulesDraft }));
+    };
+
+    const discardRoutineSchedulesDraft = () => {
+        setRoutineSchedulesDraft(JSON.parse(JSON.stringify(savedRoutineSchedules)) as RoutineSchedule[]);
     };
 
     // --- User Management ---

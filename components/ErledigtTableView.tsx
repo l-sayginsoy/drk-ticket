@@ -4,6 +4,7 @@ import { SortAscendingIcon } from './icons/SortAscendingIcon';
 import { SortDescendingIcon } from './icons/SortDescendingIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { displayNameShort } from '../utils/displayNames';
+import DeleteTicketDialog from './DeleteTicketDialog';
 
 interface ErledigtTableViewProps {
   tickets: Ticket[];
@@ -48,10 +49,10 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelect
   });
   const currentCalendarYear = new Date().getFullYear();
   const [yearFilter, setYearFilter] = useState<YearFilter>(() => currentCalendarYear);
-  const [deleteArmId, setDeleteArmId] = useState<string | null>(null);
+  const [deleteDialogTicket, setDeleteDialogTicket] = useState<Ticket | null>(null);
 
   useEffect(() => {
-    setDeleteArmId(null);
+    setDeleteDialogTicket(null);
   }, [yearFilter, tickets]);
 
   /** Jahre mit Daten + laufendes Jahr + aktuell gewähltes Jahr (bleibt im Dropdown gültig). */
@@ -123,20 +124,19 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelect
     </th>
   );
 
-  const handleDeleteClick = (e: React.MouseEvent, ticketId: string) => {
+  const handleDeleteClick = (e: React.MouseEvent, ticket: Ticket) => {
     e.stopPropagation();
-    if (deleteArmId !== ticketId) {
-      setDeleteArmId(ticketId);
-      return;
-    }
-    if (
-      window.confirm(
-        `Ticket ${ticketId} wirklich endgültig löschen? Dieser Vorgang kann nicht rückgängig gemacht werden.`
-      )
-    ) {
-      onDeleteTicket(ticketId);
-      setDeleteArmId(null);
-    }
+    setDeleteDialogTicket(ticket);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (!deleteDialogTicket) return;
+    onDeleteTicket(deleteDialogTicket.id);
+    setDeleteDialogTicket(null);
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogTicket(null);
   };
 
   const yearDescription =
@@ -148,6 +148,13 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelect
 
   return (
     <div className="erledigt-page">
+      <DeleteTicketDialog
+        open={!!deleteDialogTicket}
+        ticketId={deleteDialogTicket?.id ?? ''}
+        ticketTitle={deleteDialogTicket?.title ?? ''}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+      />
       <style>{`
                 .erledigt-header {
                     background-color: var(--bg-secondary);
@@ -174,10 +181,6 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelect
                     font-size: 0.9rem;
                     color: var(--text-secondary);
                     line-height: 1.45;
-                }
-                .erledigt-hint {
-                    font-size: 0.8rem;
-                    color: var(--text-muted);
                 }
                 .year-select-wrap {
                     display: flex;
@@ -219,15 +222,36 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelect
                 .sortable-header { display: flex; align-items: center; gap: 0.5rem; }
                 .sort-icon svg { width: 14px; height: 14px; color: var(--text-primary); }
                 .ticket-table td { color: var(--text-secondary); font-size: 0.9rem; }
+                .ticket-table td.completion-cell {
+                    white-space: normal;
+                    vertical-align: top;
+                    text-align: left;
+                }
+                .completion-stack {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: flex-start;
+                    text-align: left;
+                }
+                .completion-date-line {
+                    font-weight: 500;
+                    color: var(--text-primary);
+                    text-align: left;
+                }
+                .completion-time-line {
+                    display: block;
+                    font-size: 0.72rem;
+                    font-weight: 400;
+                    color: var(--text-muted);
+                    margin-top: 0.25rem;
+                    letter-spacing: 0.02em;
+                    text-align: left;
+                }
                 .ticket-table tbody tr:last-child td { border-bottom: none; }
                 .ticket-table tbody tr { cursor: pointer; transition: background-color 0.2s ease; }
                 .ticket-table tbody tr.selected { background-color: var(--border); }
                 .ticket-table tbody tr.selected:hover { background-color: var(--border-active); }
                 .ticket-table tbody tr:not(.selected):hover { background-color: var(--bg-tertiary); }
-                .ticket-table tbody tr.row-delete-armed {
-                    box-shadow: inset 0 0 0 2px var(--accent-warning);
-                    background-color: rgba(255, 193, 7, 0.06);
-                }
                 .ticket-title { font-weight: 500; color: var(--text-primary); }
                 .priority-pill { padding: 0.25rem 0.75rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; display: inline-block; border: 1px solid transparent; min-width: 100px; text-align: center; }
                 .priority-pill.priority-high { background-color: rgba(220, 53, 69, 0.1); color: #c82333; border-color: rgba(220, 53, 69, 0.3); }
@@ -250,10 +274,6 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelect
                     color: var(--accent-danger);
                     background-color: rgba(220, 53, 69, 0.1);
                 }
-                .btn-delete.armed {
-                    color: var(--accent-warning);
-                    background-color: rgba(255, 193, 7, 0.15);
-                }
                 .btn-delete svg {
                     width: 18px;
                     height: 18px;
@@ -262,9 +282,6 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelect
       <div className="erledigt-header">
         <div className="erledigt-header-left">
           <p className="erledigt-info">{yearDescription}</p>
-          <p className="erledigt-hint">
-            Löschen: Papierkorb einmal anklicken (markiert die Zeile), erneut klicken und im Dialog bestätigen.
-          </p>
         </div>
         <div className="year-select-wrap">
           <label htmlFor="erledigt-year">Zeitraum</label>
@@ -307,9 +324,7 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelect
                 <tr
                   key={ticket.id}
                   onClick={() => onSelectTicket(ticket)}
-                  className={[selectedTicket?.id === ticket.id ? 'selected' : '', deleteArmId === ticket.id ? 'row-delete-armed' : '']
-                    .filter(Boolean)
-                    .join(' ')}
+                  className={selectedTicket?.id === ticket.id ? 'selected' : ''}
                 >
                   <td>{ticket.id}</td>
                   <td>
@@ -323,17 +338,20 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelect
                   </td>
                   <td>{ticket.entryDate}</td>
                   <td>{ticket.dueDate}</td>
-                  <td>{ticket.completionDate || 'N/A'}</td>
+                  <td className="completion-cell">
+                    <div className="completion-stack">
+                      <span className="completion-date-line">{ticket.completionDate || 'N/A'}</span>
+                      {ticket.completionTime ? (
+                        <span className="completion-time-line">{ticket.completionTime}</span>
+                      ) : null}
+                    </div>
+                  </td>
                   <td className="actions-cell" onClick={(e) => e.stopPropagation()}>
                     <button
                       type="button"
-                      className={`btn-delete ${deleteArmId === ticket.id ? 'armed' : ''}`}
-                      title={
-                        deleteArmId === ticket.id
-                          ? 'Erneut klicken und im Dialog bestätigen'
-                          : 'Zum Löschen zweimal anklicken (danach Bestätigung)'
-                      }
-                      onClick={(e) => handleDeleteClick(e, ticket.id)}
+                      className="btn-delete"
+                      title="Abgeschlossenen Auftrag löschen"
+                      onClick={(e) => handleDeleteClick(e, ticket)}
                     >
                       <TrashIcon />
                     </button>

@@ -178,6 +178,8 @@ export interface Ticket {
   categoryId?: string;
   assetId?: string;
   completionDate?: string; // DD.MM.YYYY
+  /** Uhrzeit des Abschlusses (HH:MM), optional für ältere Daten */
+  completionTime?: string;
   wunschTermin?: string; // DD.MM.YYYY
   photos?: string[];
   description?: string;

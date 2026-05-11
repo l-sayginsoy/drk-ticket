@@ -433,7 +433,28 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                     </div>
                 </div>
                 {ticket.wunschTermin && <div className="grid-item"><p className="detail-label-compact">Wunsch-Termin</p><p className="detail-value-compact">{ticket.wunschTermin}</p></div>}
-                {ticket.completionDate && <div className="grid-item"><p className="detail-label-compact">Abgeschlossen am</p><p className="detail-value-compact">{ticket.completionDate}</p></div>}
+                {ticket.completionDate && (
+                  <div className="grid-item">
+                    <p className="detail-label-compact">Abgeschlossen am</p>
+                    <p className="detail-value-compact">
+                      {ticket.completionDate}
+                      {ticket.completionTime ? (
+                        <span
+                          style={{
+                            display: 'block',
+                            fontSize: '0.72rem',
+                            fontWeight: 400,
+                            color: 'var(--text-muted)',
+                            marginTop: '0.2rem',
+                            textAlign: 'left',
+                          }}
+                        >
+                          {ticket.completionTime}
+                        </span>
+                      ) : null}
+                    </p>
+                  </div>
+                )}
             </div>
 
             {ticket.description && ticket.description.trim() && (

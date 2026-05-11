@@ -227,6 +227,7 @@ export const MOCK_TICKETS: Ticket[] = [
     priority: Priority.Niedrig,
     categoryId: 'cat-komfort',
     completionDate: '04.02.2026',
+    completionTime: '16:30',
     notes: ["Farbe wurde geliefert. (HS am 01.02.2026, 14:00)", "Arbeiten abgeschlossen. (HS am 04.02.2026, 16:30)"]
   },
   {
@@ -243,6 +244,7 @@ export const MOCK_TICKETS: Ticket[] = [
     priority: Priority.Hoch,
     categoryId: 'cat-sicherheit',
     completionDate: '29.01.2026',
+    completionTime: '09:45',
     notes: ["Ersatzteil bestellt. (TI am 28.01.2026, 11:00)", "Anlage funktioniert wieder einwandfrei. (TI am 29.01.2026, 09:45)"]
   }
 ];

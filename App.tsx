@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { 
-  Ticket, Status, Priority, Role, GroupableKey, User, Location, AppSettings, Asset, MaintenancePlan, AvailabilityStatus, RoutingRule, RoutineSchedule
+  Ticket, Status, Priority, Role, GroupableKey, User, Location, AppSettings, Asset, MaintenancePlan, AvailabilityStatus, RoutingRule, RoutineSchedule, SLARule
 } from './types';
 import { MOCK_TICKETS, MOCK_USERS, MOCK_LOCATIONS, STATUSES, DEFAULT_APP_SETTINGS, MOCK_ASSETS, MOCK_MAINTENANCE_PLANS } from './constants';
 import { db } from './firebase';
@@ -24,6 +24,7 @@ import TechnicianView from './components/TechnicianView';
 import SettingsView from './components/SettingsView';
 import RoutineSchedulesView from './components/RoutineSchedulesView';
 import RoutineNachweisView from './components/RoutineNachweisView';
+import CompleteOrderDialog from './components/CompleteOrderDialog';
 import DashboardRoutineLinkBar from './components/DashboardRoutineLinkBar';
 import { localISODate, isRoutineDueOnCalendarDay } from './utils/routineHelpers';
 import { fetchRpHolidays } from './utils/rpHolidays';
@@ -421,16 +422,46 @@ const safeJSONParse = <T,>(key: string, fallback: T): T => {
 
 /** Firestore liefert manchmal kein Array — verhindert .map/.filter-Crashes in der UI */
 const asUserArray = (value: unknown): User[] => (Array.isArray(value) ? (value as User[]) : MOCK_USERS);
+const completionStampNow = () => {
+  const d = new Date();
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return {
+    completionDate: d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+    completionTime: `${hh}:${mm}`,
+  };
+};
+
+/** Reaktive Meldungen ohne Wunschtermin: Vorlauf in Kalendertagen nach Eingang. */
+const REACTIVE_DEFAULT_LEAD_DAYS = 5;
+
+/** Strengste SLA-Regel pro Kategorie (kürzeste Antwortzeit) → deren Priorität; sonst null. */
+const inferStrictestSlaPriorityForCategory = (categoryId: string | undefined, slaMatrix: SLARule[]): Priority | null => {
+  if (!categoryId || !Array.isArray(slaMatrix) || slaMatrix.length === 0) return null;
+  const rules = slaMatrix.filter((r) => r.categoryId === categoryId);
+  if (rules.length === 0) return null;
+  return [...rules].sort((a, b) => a.responseTimeHours - b.responseTimeHours)[0].priority;
+};
+
 const normalizeTicket = (t: Ticket): Ticket => {
   const techRaw = typeof t.technician === 'string' ? t.technician : 'N/A';
   const technician = techRaw.trim() || 'N/A';
-  return {
+  const completionTimeRaw = t.completionTime;
+  const completionTimeNorm =
+    typeof completionTimeRaw === 'string' && completionTimeRaw.trim() ? completionTimeRaw.trim() : undefined;
+  const base: Ticket = {
     ...t,
     technician,
     area: typeof t.area === 'string' ? t.area.trim() : t.area,
     location: typeof t.location === 'string' ? t.location.trim() : t.location,
     reporter: typeof t.reporter === 'string' ? t.reporter.trim() : t.reporter,
   };
+  if (completionTimeNorm !== undefined) {
+    base.completionTime = completionTimeNorm;
+  } else {
+    delete (base as Partial<Ticket>).completionTime;
+  }
+  return base;
 };
 const asTicketArray = (value: unknown): Ticket[] =>
   Array.isArray(value) ? (value as Ticket[]).map(normalizeTicket) : MOCK_TICKETS.map(normalizeTicket);
@@ -492,10 +523,6 @@ const App: React.FC = () => {
   const [brevoMailLastChecked, setBrevoMailLastChecked] = useState<Date | null>(null);
   const isRemoteUpdate = useRef(false);
   const prevUsersRef = useRef<User[]>(users);
-  /** Einmaliger Hinweis: gleiches Ticket erneut auf „Abschließen“ setzen, dann wird abgeschlossen. */
-  const pendingCompletionConfirmRef = useRef<Set<string>>(new Set());
-  /** Massenabschluss: gleiche Auswahl zweimal „Abschließen“ wählen. */
-  const pendingBulkCompleteKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     const load = () => {
@@ -678,6 +705,8 @@ const App: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [selectedTicketIds, setSelectedTicketIds] = useState<string[]>([]);
+  /** Offener Bestätigungsdialog vor Abschluss (Entwurf mit Status „Abgeschlossen“). */
+  const [completeOrderDialog, setCompleteOrderDialog] = useState<{ draft: Ticket } | null>(null);
 
   // Bearbeiter sollen nach Refresh nicht im Admin-Dashboard landen.
   useEffect(() => {
@@ -1146,126 +1175,133 @@ const App: React.FC = () => {
     }));
   };
 
-  const handleTicketUpdate = (updatedTicket: Ticket) => {
-    const originalTicket = tickets.find(t => t.id === updatedTicket.id);
-    if (!originalTicket) return;
+  const commitTicketUpdate = (updatedTicket: Ticket, originalTicket: Ticket) => {
+    const ut: Ticket = { ...updatedTicket };
+    const statusChanged = originalTicket.status !== ut.status;
 
-    const statusChanged = originalTicket.status !== updatedTicket.status;
-
-    if (statusChanged && updatedTicket.status !== Status.Abgeschlossen) {
-      pendingCompletionConfirmRef.current.delete(updatedTicket.id);
-    }
-
-    if (
-      statusChanged &&
-      updatedTicket.status === Status.Abgeschlossen &&
-      originalTicket.status !== Status.Abgeschlossen
-    ) {
-      if (!pendingCompletionConfirmRef.current.has(updatedTicket.id)) {
-        pendingCompletionConfirmRef.current.add(updatedTicket.id);
-        alert(
-          'Zum endgültigen Abschluss wählen Sie bitte „Abschließen“ ein zweites Mal. So wird ein versehentlicher Abschluss vermieden.'
+    // --- Prevent assignment to absent technicians ---
+    if (ut.technician !== 'N/A' && (ut.technician !== originalTicket.technician || originalTicket.technician === 'N/A')) {
+      const techUser = users.find((u) => u.name === ut.technician);
+      if (techUser && techUser.availability.status === AvailabilityStatus.OnLeave) {
+        let newTech = assignTicket(
+          { title: ut.title, description: ut.description },
+          users,
+          tickets,
+          appSettings.routingRules
         );
-        return;
+
+        if (newTech === 'N/A' || newTech === techUser.name) {
+          const availableTechs = users.filter(
+            (u) =>
+              (u.role === Role.Technician || u.role === Role.Housekeeping) &&
+              u.isActive &&
+              u.availability.status === AvailabilityStatus.Available
+          );
+
+          if (availableTechs.length > 0) {
+            const techsWithLoad = availableTechs.map((tech) => ({
+              ...tech,
+              load: tickets.filter((t) => t.technician === tech.name && t.status !== Status.Abgeschlossen).length,
+            }));
+            techsWithLoad.sort((a, b) => a.load - b.load);
+            newTech = techsWithLoad[0].name;
+          } else {
+            newTech = 'N/A';
+          }
+        }
+
+        if (newTech !== 'N/A' && newTech !== techUser.name) {
+          alert(
+            `Hinweis: ${displayNameShort(techUser.name)} ist derzeit abwesend. Das Ticket wurde automatisch an ${displayNameShort(newTech)} umgeleitet.`
+          );
+          ut.technician = newTech;
+          ut.notes = [
+            ...(ut.notes || []),
+            `AUTO-KORREKTUR: Ursprünglich zugewiesen an abwesenden Bearbeiter ${techUser.name}. Automatisch zugewiesen an ${newTech}.`,
+          ];
+        } else {
+          alert(`Warnung: ${displayNameShort(techUser.name)} ist abwesend, aber es konnte kein verfügbarer Ersatz gefunden werden.`);
+          ut.technician = 'N/A';
+        }
       }
-      pendingCompletionConfirmRef.current.delete(updatedTicket.id);
     }
 
-    // --- NEW: Prevent assignment to absent technicians ---
-    if (updatedTicket.technician !== 'N/A' && (updatedTicket.technician !== originalTicket.technician || originalTicket.technician === 'N/A')) {
-        const techUser = users.find(u => u.name === updatedTicket.technician);
-        if (techUser && techUser.availability.status === AvailabilityStatus.OnLeave) {
-            
-            // Attempt to find a substitute
-            let newTech = assignTicket({ title: updatedTicket.title, description: updatedTicket.description }, users, tickets, appSettings.routingRules);
-            
-            // If standard routing returns N/A or the SAME absent person (unlikely if users list is correct), try fallback
-            if (newTech === 'N/A' || newTech === techUser.name) {
-                // Fallback: Find any available technician with lowest load
-                const availableTechs = users.filter(u => 
-                    (u.role === Role.Technician || u.role === Role.Housekeeping) && 
-                    u.isActive && 
-                    u.availability.status === AvailabilityStatus.Available
-                );
-
-                if (availableTechs.length > 0) {
-                    const techsWithLoad = availableTechs.map(tech => ({
-                        ...tech,
-                        load: tickets.filter(t => t.technician === tech.name && t.status !== Status.Abgeschlossen).length
-                    }));
-                    techsWithLoad.sort((a, b) => a.load - b.load);
-                    newTech = techsWithLoad[0].name;
-                } else {
-                    newTech = 'N/A';
-                }
-            }
-
-            if (newTech !== 'N/A' && newTech !== techUser.name) {
-                alert(`Hinweis: ${displayNameShort(techUser.name)} ist derzeit abwesend. Das Ticket wurde automatisch an ${displayNameShort(newTech)} umgeleitet.`);
-                updatedTicket.technician = newTech;
-                updatedTicket.notes = [
-                    ...(updatedTicket.notes || []), 
-                    `AUTO-KORREKTUR: Ursprünglich zugewiesen an abwesenden Bearbeiter ${techUser.name}. Automatisch zugewiesen an ${newTech}.`
-                ];
-            } else {
-                alert(`Warnung: ${displayNameShort(techUser.name)} ist abwesend, aber es konnte kein verfügbarer Ersatz gefunden werden.`);
-                // We leave it as is, or set to N/A? User said "should not be allowed".
-                // But if no one else is there, maybe N/A is better.
-                updatedTicket.technician = 'N/A';
-            }
-        }
+    if (ut.status === Status.Abgeschlossen && originalTicket.status !== Status.Abgeschlossen) {
+      const stamp = completionStampNow();
+      ut.completionDate = stamp.completionDate;
+      ut.completionTime = stamp.completionTime;
     }
 
-    // If ticket is being completed, set completion date
-    if (updatedTicket.status === Status.Abgeschlossen && originalTicket.status !== Status.Abgeschlossen) {
-        updatedTicket.completionDate = new Date().toLocaleDateString('de-DE', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-        });
-    }
-
-    // Auto-update due date when moving out of 'Overdue' status
     if (originalTicket.status === Status.Ueberfaellig) {
-        if (updatedTicket.status === Status.Offen) {
-            updatedTicket.dueDate = getFutureDateStringForUpdate(3);
-        } else if (updatedTicket.status === Status.InArbeit) {
-            updatedTicket.dueDate = getFutureDateStringForUpdate(2);
-        }
+      if (ut.status === Status.Offen) {
+        ut.dueDate = getFutureDateStringForUpdate(3);
+      } else if (ut.status === Status.InArbeit) {
+        ut.dueDate = getFutureDateStringForUpdate(2);
+      }
     }
 
-    if (statusChanged && updatedTicket.status === Status.Abgeschlossen) {
-        updatedTicket.is_reopened = false;
+    if (statusChanged && ut.status === Status.Abgeschlossen) {
+      ut.is_reopened = false;
     }
 
-    if (updatedTicket.reporter_email) {
-      if (statusChanged && updatedTicket.status === Status.Abgeschlossen) {
-        sendDrkBrevoMail(updatedTicket.reporter_email, `Ihre Meldung wurde abgeschlossen – Ticket ${updatedTicket.id}`, {
+    if (ut.reporter_email) {
+      if (statusChanged && ut.status === Status.Abgeschlossen) {
+        sendDrkBrevoMail(ut.reporter_email, `Ihre Meldung wurde abgeschlossen – Ticket ${ut.id}`, {
           kind: 'ticket_closed',
-          ticketId: updatedTicket.id,
+          ticketId: ut.id,
         });
-      } else if ((updatedTicket.notes?.length || 0) > (originalTicket.notes?.length || 0)) {
-        const latestNote = updatedTicket.notes![updatedTicket.notes!.length - 1];
-        const isNoteFromReporter = latestNote.includes('(Melder am ') || latestNote.includes('Ticket durch Melder wiedereröffnet');
+      } else if ((ut.notes?.length || 0) > (originalTicket.notes?.length || 0)) {
+        const latestNote = ut.notes![ut.notes!.length - 1];
+        const isNoteFromReporter =
+          latestNote.includes('(Melder am ') || latestNote.includes('Ticket durch Melder wiedereröffnet');
         if (!isNoteFromReporter) {
-          sendDrkBrevoMail(updatedTicket.reporter_email, `Neuigkeit zu Ihrem Ticket ${updatedTicket.id}`, {
+          sendDrkBrevoMail(ut.reporter_email, `Neuigkeit zu Ihrem Ticket ${ut.id}`, {
             kind: 'staff_note',
-            ticketId: updatedTicket.id,
+            ticketId: ut.id,
             noteText: latestNote,
           });
         }
       }
     }
 
-    setTickets(prev => prev.map(t => (t.id === updatedTicket.id ? updatedTicket : t)));
-    
-    if (selectedTicket && selectedTicket.id === updatedTicket.id) {
-        setSelectedTicket(updatedTicket);
+    setTickets((prev) => prev.map((t) => (t.id === ut.id ? ut : t)));
+
+    if (selectedTicket && selectedTicket.id === ut.id) {
+      setSelectedTicket(ut);
     }
   };
 
+  const handleTicketUpdate = (updatedTicket: Ticket) => {
+    const originalTicket = tickets.find((t) => t.id === updatedTicket.id);
+    if (!originalTicket) return;
+
+    const statusChanged = originalTicket.status !== updatedTicket.status;
+    if (
+      statusChanged &&
+      updatedTicket.status === Status.Abgeschlossen &&
+      originalTicket.status !== Status.Abgeschlossen
+    ) {
+      setCompleteOrderDialog({ draft: { ...updatedTicket } });
+      return;
+    }
+
+    commitTicketUpdate(updatedTicket, originalTicket);
+  };
+
+  const handleCompleteOrderConfirm = () => {
+    if (!completeOrderDialog) return;
+    const draft = completeOrderDialog.draft;
+    setCompleteOrderDialog(null);
+    const originalTicket = tickets.find((t) => t.id === draft.id);
+    if (!originalTicket) return;
+    commitTicketUpdate(draft, originalTicket);
+  };
+
+  const handleCompleteOrderCancel = () => {
+    setCompleteOrderDialog(null);
+  };
+
   const handleDeleteTicket = (ticketId: string) => {
-    pendingCompletionConfirmRef.current.delete(ticketId);
     setTickets((prev) => prev.filter((ticket) => ticket.id !== ticketId));
     if (selectedTicket && selectedTicket.id === ticketId) {
       setSelectedTicket(null);
@@ -1275,9 +1311,15 @@ const App: React.FC = () => {
   const handleAddNewTicket = (newTicketData: Omit<Ticket, 'id' | 'entryDate' | 'status' | 'priority'> & { priority?: Priority }, silent = false): string => {
     // --- INTELLIGENT AUTOMATION LOGIC ---
 
-    // 1. Smart Priority: Determine priority based on category
     const category = appSettings.ticketCategories.find(c => c.id === newTicketData.categoryId);
-    const determinedPriority = newTicketData.priority || category?.default_priority || appSettings.defaultPriority;
+    const isReactive = newTicketData.ticketType === 'reactive';
+    const slaStrictPriority = inferStrictestSlaPriorityForCategory(newTicketData.categoryId, appSettings.slaMatrix);
+
+    // Reaktive Meldungen: Prio „Niedrig“, außer die SLA-Matrix liefert für die Kategorie eine strengere Regel (kürzeste Frist).
+    // Präventiv / System: unverändert Kategorie-Default bzw. mitgegebene Prio.
+    const determinedPriority = isReactive
+      ? (newTicketData.priority ?? slaStrictPriority ?? Priority.Niedrig)
+      : (newTicketData.priority || category?.default_priority || appSettings.defaultPriority);
 
     // 2. Load-Balancing Technician Assignment
     let assignedTechnician = newTicketData.technician || 'N/A';
@@ -1313,15 +1355,38 @@ const App: React.FC = () => {
         }
     }
 
-    // 3. SLA-based Due Date Calculation
-    const slaRule = appSettings.slaMatrix.find(r => r.categoryId === newTicketData.categoryId && r.priority === determinedPriority);
-    const dueDate = new Date();
-    if (slaRule) {
-        dueDate.setHours(dueDate.getHours() + slaRule.responseTimeHours);
+    // 3. Fälligkeit: reaktiv — mit Wunschtermin = Fälligkeit am Wunschdatum; sonst SLA-Stunden wenn Regel passt; sonst Eingang + 5 Kalendertage.
+    let formattedDueDate: string;
+    if (isReactive) {
+      const wunsch = newTicketData.wunschTermin?.trim();
+      if (wunsch) {
+        formattedDueDate = wunsch;
+      } else {
+        const slaRule = appSettings.slaMatrix.find(
+          (r) => r.categoryId === newTicketData.categoryId && r.priority === determinedPriority
+        );
+        if (slaRule) {
+          const dueDate = new Date();
+          dueDate.setHours(dueDate.getHours() + slaRule.responseTimeHours);
+          formattedDueDate = dueDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        } else {
+          const dueDate = new Date();
+          dueDate.setDate(dueDate.getDate() + REACTIVE_DEFAULT_LEAD_DAYS);
+          formattedDueDate = dueDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        }
+      }
     } else {
+      const slaRule = appSettings.slaMatrix.find(
+        (r) => r.categoryId === newTicketData.categoryId && r.priority === determinedPriority
+      );
+      const dueDate = new Date();
+      if (slaRule) {
+        dueDate.setHours(dueDate.getHours() + slaRule.responseTimeHours);
+      } else {
         dueDate.setDate(dueDate.getDate() + (appSettings.dueDateRules[determinedPriority] || 7));
+      }
+      formattedDueDate = dueDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
     }
-    const formattedDueDate = dueDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
     const sanitizedTicketData = Object.fromEntries(
       Object.entries(newTicketData).filter(([_, v]) => v !== undefined)
@@ -1356,18 +1421,11 @@ const App: React.FC = () => {
   // FIX: Implement bulk action handlers to replace placeholder functions and resolve prop type errors.
   const handleBulkUpdate = (property: keyof Ticket, value: any) => {
     if (property === 'status' && value === Status.Abgeschlossen) {
-      const key = [...selectedTicketIds].sort().join('|');
-      if (!key) return;
-      if (pendingBulkCompleteKeyRef.current !== key) {
-        pendingBulkCompleteKeyRef.current = key;
-        alert(
-          'Zum Abschluss aller ausgewählten Aufträge wählen Sie bitte „Abschließen“ ein zweites Mal (Auswahl unverändert lassen).'
-        );
+      const n = selectedTicketIds.length;
+      if (n === 0) return;
+      if (!window.confirm(`Alle ${n} ausgewählten Aufträge wirklich abschließen?`)) {
         return;
       }
-      pendingBulkCompleteKeyRef.current = null;
-    } else {
-      pendingBulkCompleteKeyRef.current = null;
     }
 
     setTickets((prevTickets) =>
@@ -1375,18 +1433,15 @@ const App: React.FC = () => {
         if (selectedTicketIds.includes(ticket.id)) {
           const updatedTicket = { ...ticket, [property]: value };
           if (property === 'status' && value === Status.Abgeschlossen && !ticket.completionDate) {
-            updatedTicket.completionDate = new Date().toLocaleDateString('de-DE', {
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric',
-            });
+            const stamp = completionStampNow();
+            updatedTicket.completionDate = stamp.completionDate;
+            updatedTicket.completionTime = stamp.completionTime;
           }
           return updatedTicket;
         }
         return ticket;
       })
     );
-    selectedTicketIds.forEach((id) => pendingCompletionConfirmRef.current.delete(id));
     setSelectedTicketIds([]);
   };
 
@@ -1463,7 +1518,7 @@ const App: React.FC = () => {
             alert("Keine Tickets zum Exportieren vorhanden.");
             return;
         }
-        const headers = ["ID", "Titel", "Standort", "Raum / Bereich", "Gemeldet von", "Eingang", "Fällig bis", "Status", "Bearbeiter", "Priorität", "Abgeschlossen am"];
+        const headers = ["ID", "Titel", "Standort", "Raum / Bereich", "Gemeldet von", "Eingang", "Fällig bis", "Status", "Bearbeiter", "Priorität", "Abgeschlossen am", "Abgeschlossen (Uhrzeit)"];
         const escapeCsv = (str: string | undefined) => {
             if (!str) return '""';
             const escaped = str.replace(/"/g, '""');
@@ -1473,7 +1528,7 @@ const App: React.FC = () => {
             escapeCsv(t.id), escapeCsv(t.title), escapeCsv(t.area), escapeCsv(t.location),
             escapeCsv(t.reporter), escapeCsv(t.entryDate), escapeCsv(t.dueDate),
             escapeCsv(t.status), escapeCsv(t.technician), escapeCsv(t.priority),
-            escapeCsv(t.completionDate)
+            escapeCsv(t.completionDate), escapeCsv(t.completionTime)
         ].join(','));
         const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n");
         const encodedUri = encodeURI(csvContent);
@@ -1564,7 +1619,6 @@ const App: React.FC = () => {
     }
     setFilters(prev => ({ ...prev, status: 'Alle', search: '' }));
     setGroupBy('none');
-    pendingBulkCompleteKeyRef.current = null;
     setSelectedTicketIds([]);
     setCurrentView(view);
   };
@@ -2014,7 +2068,7 @@ const App: React.FC = () => {
         ) : (
           <>
             {selectedTicketIds.length > 0 && (currentView === 'tickets' || currentView === 'erledigt') ? (
-              <BulkActionBar selectedCount={selectedTicketIds.length} technicians={allTechnicianNames} statuses={Object.values(Status)} onBulkUpdate={handleBulkUpdate} onBulkDelete={handleBulkDelete} onClearSelection={() => { pendingBulkCompleteKeyRef.current = null; setSelectedTicketIds([]); }} />
+              <BulkActionBar selectedCount={selectedTicketIds.length} technicians={allTechnicianNames} statuses={Object.values(Status)} onBulkUpdate={handleBulkUpdate} onBulkDelete={handleBulkDelete} onClearSelection={() => setSelectedTicketIds([])} />
             ) : (
               (currentView === 'tickets' || currentView === 'erledigt' || currentView === 'techniker') && (
                 <FilterBar filters={filters} setFilters={setFilters} locations={locationOptionsWithCounts} technicians={['Alle', ...activeTechnicians.map((t) => t.name)]} statuses={STATUSES} userRole={currentUser.role} groupBy={groupBy} setGroupBy={setGroupBy} currentView={currentView} />
@@ -2025,6 +2079,13 @@ const App: React.FC = () => {
         )}
       </main>
       {isModalOpen && <NewTicketModal onClose={() => setIsModalOpen(false)} onSave={handleAddNewTicket} locations={activeLocations.map(a => a.name)} technicians={activeTechnicians} appSettings={appSettings} compressImage={compressImage}/>}
+      <CompleteOrderDialog
+        open={!!completeOrderDialog}
+        ticketId={completeOrderDialog?.draft.id ?? ''}
+        ticketTitle={completeOrderDialog?.draft.title ?? ''}
+        onConfirm={handleCompleteOrderConfirm}
+        onCancel={handleCompleteOrderCancel}
+      />
       {selectedTicket && <TicketDetailSidebar ticket={selectedTicket} onClose={() => setSelectedTicket(null)} onUpdateTicket={handleTicketUpdate} users={users} statuses={Object.values(Status)} currentUser={currentUser} appSettings={appSettings} />}
       {showPortalOverlay && (
         <div

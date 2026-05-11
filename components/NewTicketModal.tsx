@@ -13,13 +13,6 @@ interface NewTicketModalProps {
   compressImage: (file: File) => Promise<string>;
 }
 
-// Helper function to format date for input type="date" (YYYY-MM-DD)
-const getFutureDateString = (days: number): string => {
-    const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + days);
-    return futureDate.toISOString().split('T')[0];
-};
-
 const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locations, technicians, appSettings, compressImage }) => {
   const techniciansSorted = useMemo(
     () => [...technicians].sort((a, b) => a.name.localeCompare(b.name, 'de')),
@@ -31,7 +24,6 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
   const [location, setLocation] = useState('');
   const [reporter, setReporter] = useState('');
   const [reporterEmail, setReporterEmail] = useState('');
-  const [dueDate, setDueDate] = useState(getFutureDateString(7)); // Default due date 7 days from now
   const [technician, setTechnician] = useState('N/A');
   const [description, setDescription] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
@@ -69,13 +61,10 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !dueDate) {
-        alert('Bitte Titel und Fälligkeitsdatum ausfüllen.');
+    if (!title.trim()) {
+        alert('Bitte einen Titel angeben.');
         return;
     }
-
-    const [year, month, day] = dueDate.split('-');
-    const formattedDueDate = `${day}.${month}.${year}`;
 
     const emailTrim = reporterEmail.trim();
     onSave({
@@ -85,7 +74,6 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
       location,
       reporter,
       ...(emailTrim ? { reporter_email: emailTrim } : {}),
-      dueDate: formattedDueDate,
       technician,
       categoryId: appSettings.ticketCategories[0]?.id || '',
       description,
@@ -329,36 +317,22 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
                 />
             </div>
             <div className="form-group">
-                <label htmlFor="dueDate">Fällig bis (wird ggf. automatisch angepasst)</label>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                    <input 
-                        id="dueDate" 
-                        type="date" 
-                        style={{ paddingRight: '2.5rem' }}
-                        value={dueDate} 
-                        onChange={e => setDueDate(e.target.value)} 
-                        required 
-                    />
-                    {dueDate && (
-                        <button 
-                            type="button" 
-                            onClick={() => setDueDate('')}
-                            style={{
-                                position: 'absolute',
-                                right: '35px',
-                                background: 'none',
-                                border: 'none',
-                                color: 'var(--text-muted)',
-                                cursor: 'pointer',
-                                padding: '5px',
-                                display: 'flex',
-                                alignItems: 'center'
-                            }}
-                        >
-                            <XIcon style={{ width: '16px', height: '16px' }} />
-                        </button>
-                    )}
-                </div>
+                <p
+                    style={{
+                        margin: 0,
+                        fontSize: '0.88rem',
+                        color: 'var(--text-secondary)',
+                        lineHeight: 1.45,
+                        padding: '0.65rem 0.75rem',
+                        background: 'var(--bg-tertiary)',
+                        borderRadius: 8,
+                        border: '1px solid var(--border)',
+                    }}
+                >
+                    <strong>Fälligkeit</strong> wird automatisch gesetzt: ohne Wunschtermin{' '}
+                    <strong>5 Kalendertage nach Eingang</strong>, sofern für die Kategorie keine kürzere Frist aus der{' '}
+                    <strong>SLA-Matrix</strong> gilt.
+                </p>
             </div>
             <div className="form-group">
                 <label htmlFor="technician">Zugewiesen (Standard: nicht zugewiesen; optional einen Bearbeiter wählen)</label>
