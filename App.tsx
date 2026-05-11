@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { 
@@ -88,7 +88,16 @@ const escapeHtml = (s: string) =>
 type DrkBrevoMailPayload =
   | { kind: 'ticket_created'; ticketId: string }
   | { kind: 'staff_note'; ticketId: string; noteText: string }
-  | { kind: 'ticket_closed'; ticketId: string };
+  | { kind: 'ticket_closed'; ticketId: string }
+  | {
+      kind: 'ticket_update';
+      ticketId: string;
+      status: string;
+      dueDate: string;
+      technician: string;
+      priority: string;
+      title: string;
+    };
 
 const drkBrevoBannerTitle = (p: DrkBrevoMailPayload) => {
   switch (p.kind) {
@@ -98,6 +107,8 @@ const drkBrevoBannerTitle = (p: DrkBrevoMailPayload) => {
       return 'Neuigkeit zu Ihrer Meldung';
     case 'ticket_closed':
       return 'Meldung abgeschlossen';
+    case 'ticket_update':
+      return 'Stand Ihrer Meldung';
   }
 };
 
@@ -134,6 +145,26 @@ const buildDrkBrevoPlainText = (p: DrkBrevoMailPayload) => {
       '  NEUE NOTIZ',
       line,
       `  ${p.noteText}`,
+      '',
+      'Direktlink zu Ihrem Ticket:',
+      `${DRK_TICKET_PORTAL_URL}/?ticket=${encodeURIComponent(p.ticketId)}`,
+      '',
+      'Diese E-Mail wurde automatisch erzeugt. Bitte nicht antworten.',
+    ].join('\n');
+  }
+  if (p.kind === 'ticket_update') {
+    return [
+      'Haustechnik Service · DRK Ticket',
+      '',
+      `Ticketnummer: ${p.ticketId}`,
+      '',
+      'Es gibt eine Aktualisierung zu Ihrer Meldung (aktueller Stand):',
+      '',
+      `  Status:     ${p.status}`,
+      `  Fälligkeit: ${p.dueDate}`,
+      `  Bearbeiter: ${p.technician}`,
+      `  Priorität:  ${p.priority}`,
+      `  Betreff:    ${p.title}`,
       '',
       'Direktlink zu Ihrem Ticket:',
       `${DRK_TICKET_PORTAL_URL}/?ticket=${encodeURIComponent(p.ticketId)}`,
@@ -223,6 +254,21 @@ ${portalOpenButtonWrappedHtml(p.ticketId, '0 0 18px')}
 <p style="margin:0;font-size:14px;line-height:1.55;color:#444;">Mit diesem Button öffnen Sie das Meldeportal. Ihre Ticketnummer ist im Link bereits enthalten – Sie müssen sie <strong>nicht erneut eingeben</strong>.</p>`;
     return drkEmailShellHtml(title, inner, p.ticketId, '');
   }
+  if (p.kind === 'ticket_update') {
+    const inner = `
+<p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#333;"><strong>Ticketnummer: ${escapeHtml(p.ticketId)}</strong></p>
+<p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:#333;">Ihre Meldung wurde bearbeitet. <strong>Aktueller Stand:</strong></p>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 18px;border-collapse:collapse;">
+<tr><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#555;">Status</td><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#222;font-weight:600;">${escapeHtml(p.status)}</td></tr>
+<tr><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#555;">Fälligkeit</td><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#222;">${escapeHtml(p.dueDate)}</td></tr>
+<tr><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#555;">Bearbeiter</td><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#222;">${escapeHtml(p.technician)}</td></tr>
+<tr><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#555;">Priorität</td><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#222;">${escapeHtml(p.priority)}</td></tr>
+<tr><td style="padding:8px 0;font-size:14px;color:#555;vertical-align:top;">Betreff</td><td style="padding:8px 0;font-size:14px;color:#222;">${escapeHtml(p.title)}</td></tr>
+</table>
+<p style="margin:0;font-size:14px;line-height:1.55;color:#444;">Details im Portal – Ihre Ticketnummer ist im Link bereits hinterlegt.</p>
+${portalOpenButtonWrappedHtml(p.ticketId, '18px 0 0')}`;
+    return drkEmailShellHtml(title, inner, p.ticketId, '');
+  }
   if (p.kind === 'staff_note') {
     const inner = `
 <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#333;"><strong>Ticketnummer: ${escapeHtml(p.ticketId)}</strong></p>
@@ -241,76 +287,89 @@ ${portalOpenButtonWrappedHtml(p.ticketId, '18px 0 0')}`;
   return drkEmailShellHtml(title, inner, p.ticketId, '');
 };
 
+type SendDrkBrevoMailOpts = { silent?: boolean };
+
 /** Brevo: dasselbe HTML wie in `public/email-vorschau.html` — direkt per REST (ohne Cloud Function). */
-const sendDrkBrevoMail = (to: string, subject: string, payload: DrkBrevoMailPayload) => {
-  void (async () => {
-    const recipient = String(to || '').trim();
-    if (!recipient) {
-      console.warn('Brevo: kein Empfänger (leere E-Mail-Adresse).');
-      return;
-    }
-    const apiKey = (import.meta.env.VITE_BREVO_API_KEY as string | undefined)?.trim();
-    if (!apiKey) {
-      const msg = 'E-Mail konnte nicht gesendet werden: VITE_BREVO_API_KEY fehlt im Build.';
-      console.warn(msg);
-      emitBrevoMailStatus({ ok: false, status: 0, message: msg });
-      window.alert(msg);
-      return;
-    }
-    const senderEmail =
-      (import.meta.env.VITE_BREVO_SENDER_EMAIL as string | undefined)?.trim() || 'noreply@drk-ticket.de';
-    const senderName =
-      (import.meta.env.VITE_BREVO_SENDER_NAME as string | undefined)?.trim() || 'DRK Haustechnik Service';
-    const textContent = buildDrkBrevoPlainText(payload);
-    const htmlContent = buildDrkBrevoHtml(payload);
-    try {
-      const res = await fetch('https://api.brevo.com/v3/smtp/email', {
-        method: 'POST',
-        mode: 'cors',
-        credentials: 'omit',
-        headers: { 'Content-Type': 'application/json', 'api-key': apiKey },
-        body: JSON.stringify({
-          sender: { email: senderEmail, name: senderName },
-          to: [{ email: recipient }],
-          subject,
-          textContent,
-          htmlContent,
-        }),
-      });
-      const bodyText = await res.text();
-      if (!res.ok) {
-        let detail = bodyText.slice(0, 1200);
-        try {
-          const j = JSON.parse(bodyText) as { message?: string; code?: string };
-          if (j?.message) detail = `${j.message}${j.code ? ` (${j.code})` : ''}`;
-        } catch {
-          /* Roh-Text behalten */
-        }
-        console.error('Brevo Fehler:', res.status, detail);
-        emitBrevoMailStatus({ ok: false, status: res.status, message: detail });
+const sendDrkBrevoMailAsync = async (
+  to: string,
+  subject: string,
+  payload: DrkBrevoMailPayload,
+  opts?: SendDrkBrevoMailOpts
+): Promise<boolean> => {
+  const silent = !!opts?.silent;
+  const recipient = String(to || '').trim();
+  if (!recipient) {
+    console.warn('Brevo: kein Empfänger (leere E-Mail-Adresse).');
+    return false;
+  }
+  const apiKey = (import.meta.env.VITE_BREVO_API_KEY as string | undefined)?.trim();
+  if (!apiKey) {
+    const msg = 'E-Mail konnte nicht gesendet werden: VITE_BREVO_API_KEY fehlt im Build.';
+    console.warn(msg);
+    emitBrevoMailStatus({ ok: false, status: 0, message: msg });
+    if (!silent) window.alert(msg);
+    return false;
+  }
+  const senderEmail =
+    (import.meta.env.VITE_BREVO_SENDER_EMAIL as string | undefined)?.trim() || 'noreply@drk-ticket.de';
+  const senderName =
+    (import.meta.env.VITE_BREVO_SENDER_NAME as string | undefined)?.trim() || 'DRK Haustechnik Service';
+  const textContent = buildDrkBrevoPlainText(payload);
+  const htmlContent = buildDrkBrevoHtml(payload);
+  try {
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      mode: 'cors',
+      credentials: 'omit',
+      headers: { 'Content-Type': 'application/json', 'api-key': apiKey },
+      body: JSON.stringify({
+        sender: { email: senderEmail, name: senderName },
+        to: [{ email: recipient }],
+        subject,
+        textContent,
+        htmlContent,
+      }),
+    });
+    const bodyText = await res.text();
+    if (!res.ok) {
+      let detail = bodyText.slice(0, 1200);
+      try {
+        const j = JSON.parse(bodyText) as { message?: string; code?: string };
+        if (j?.message) detail = `${j.message}${j.code ? ` (${j.code})` : ''}`;
+      } catch {
+        /* Roh-Text behalten */
+      }
+      console.error('Brevo Fehler:', res.status, detail);
+      emitBrevoMailStatus({ ok: false, status: res.status, message: detail });
+      if (!silent) {
         window.alert(
           `E-Mail konnte nicht gesendet werden (Brevo HTTP ${res.status}).\n\n` +
             `Absender muss in Brevo unter „Senders & IPs“ verifiziert sein (aktuell: ${senderEmail}).\n\n` +
             detail
         );
-        return;
       }
-      // Brevo liefert i.d.R. JSON mit messageId zurück – wir loggen das zur Nachverfolgung.
-      try {
-        const parsed = bodyText ? JSON.parse(bodyText) : null;
-        const messageId = parsed?.messageId ? String(parsed.messageId) : '';
-        console.info('Brevo OK', { status: res.status, messageId });
-      } catch {
-        console.info('Brevo OK', { status: res.status });
-      }
-      emitBrevoMailStatus({ ok: true });
-    } catch (err) {
-      console.error('Brevo senden fehlgeschlagen:', err);
-      const m = String(err);
-      emitBrevoMailStatus({ ok: false, status: 0, message: m });
-      window.alert(`E-Mail konnte nicht gesendet werden (Netzwerk/Browser-Block).\n\n${m}`);
+      return false;
     }
-  })();
+    try {
+      const parsed = bodyText ? JSON.parse(bodyText) : null;
+      const messageId = parsed?.messageId ? String(parsed.messageId) : '';
+      console.info('Brevo OK', { status: res.status, messageId });
+    } catch {
+      console.info('Brevo OK', { status: res.status });
+    }
+    emitBrevoMailStatus({ ok: true });
+    return true;
+  } catch (err) {
+    console.error('Brevo senden fehlgeschlagen:', err);
+    const m = String(err);
+    emitBrevoMailStatus({ ok: false, status: 0, message: m });
+    if (!silent) window.alert(`E-Mail konnte nicht gesendet werden (Netzwerk/Browser-Block).\n\n${m}`);
+    return false;
+  }
+};
+
+const sendDrkBrevoMail = (to: string, subject: string, payload: DrkBrevoMailPayload, opts?: SendDrkBrevoMailOpts) => {
+  void sendDrkBrevoMailAsync(to, subject, payload, opts);
 };
 
 const parseGermanDate = (dateStr: string | undefined): Date | null => {
@@ -320,6 +379,15 @@ const parseGermanDate = (dateStr: string | undefined): Date | null => {
         return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
     }
     return null;
+};
+
+/** Reaktiv ohne Wunschtermin: Kalender-Fälligkeit = Eingangstag (TT.MM.JJJJ) + n Kalendertage (Mittag als Anker). */
+const reactiveDueDateAfterCalendarDaysFromEntry = (entryDateDE: string, calendarDays: number): Date => {
+    const parsed = parseGermanDate(entryDateDE);
+    const base = parsed ?? new Date();
+    const d = new Date(base.getFullYear(), base.getMonth(), base.getDate(), 12, 0, 0, 0);
+    d.setDate(d.getDate() + calendarDays);
+    return d;
 };
 
 // ADD THIS HELPER for Safari compatibility
@@ -462,6 +530,26 @@ const inferStrictestSlaPriorityForCategory = (categoryId: string | undefined, sl
   const rules = slaMatrix.filter((r) => r.categoryId === categoryId);
   if (rules.length === 0) return null;
   return [...rules].sort((a, b) => a.responseTimeHours - b.responseTimeHours)[0].priority;
+};
+
+/** Reaktiv ohne Wunschtermin: Eingang (Kalender) + 5 Tage vs. kürzeste SLA-Frist — gleiche Logik wie bei Neuanlage. */
+const computeReactiveDueDateWithoutWunsch = (
+  entryDateDE: string,
+  categoryId: string | undefined,
+  slaMatrix: SLARule[]
+): string => {
+  const deadlineCal = reactiveDueDateAfterCalendarDaysFromEntry(entryDateDE, REACTIVE_DEFAULT_LEAD_DAYS);
+  const rulesForCat = slaMatrix.filter((r) => r.categoryId === categoryId);
+  let deadlineSla: Date | null = null;
+  if (rulesForCat.length > 0) {
+    const minHours = Math.min(...rulesForCat.map((r) => r.responseTimeHours));
+    const d = new Date();
+    d.setHours(d.getHours() + minHours);
+    deadlineSla = d;
+  }
+  const chosen =
+    deadlineSla !== null && deadlineSla.getTime() < deadlineCal.getTime() ? deadlineSla : deadlineCal;
+  return chosen.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
 const normalizeTicket = (t: Ticket): Ticket => {
@@ -1259,11 +1347,32 @@ const App: React.FC = () => {
       ut.completionTime = stamp.completionTime;
     }
 
+    let skipReactiveAutoDue = false;
     if (originalTicket.status === Status.Ueberfaellig) {
       if (ut.status === Status.Offen) {
         ut.dueDate = getFutureDateStringForUpdate(3);
+        skipReactiveAutoDue = true;
       } else if (ut.status === Status.InArbeit) {
         ut.dueDate = getFutureDateStringForUpdate(2);
+        skipReactiveAutoDue = true;
+      }
+    }
+
+    if (ut.ticketType === 'reactive' && !skipReactiveAutoDue) {
+      const w = ut.wunschTermin?.trim();
+      const w0 = originalTicket.wunschTermin?.trim();
+      if (w) {
+        ut.dueDate = w;
+      } else {
+        const wunschCleared = !!w0 && !w;
+        const catChanged = ut.categoryId !== originalTicket.categoryId;
+        if (wunschCleared || catChanged) {
+          ut.dueDate = computeReactiveDueDateWithoutWunsch(ut.entryDate, ut.categoryId, appSettings.slaMatrix);
+        }
+        if (catChanged) {
+          const slaP = inferStrictestSlaPriorityForCategory(ut.categoryId, appSettings.slaMatrix);
+          ut.priority = slaP ?? Priority.Niedrig;
+        }
       }
     }
 
@@ -1272,12 +1381,14 @@ const App: React.FC = () => {
     }
 
     const reporterMailTo = ut.reporter_email?.trim();
+    let reporterMailSent = false;
     if (reporterMailTo) {
       if (statusChanged && ut.status === Status.Abgeschlossen) {
         sendDrkBrevoMail(reporterMailTo, `Ihre Meldung wurde abgeschlossen – Ticket ${ut.id}`, {
           kind: 'ticket_closed',
           ticketId: ut.id,
         });
+        reporterMailSent = true;
       } else if ((ut.notes?.length || 0) > (originalTicket.notes?.length || 0)) {
         const latestNote = ut.notes![ut.notes!.length - 1];
         const isNoteFromReporter =
@@ -1288,7 +1399,28 @@ const App: React.FC = () => {
             ticketId: ut.id,
             noteText: latestNote,
           });
+          reporterMailSent = true;
         }
+      }
+    }
+    if (reporterMailTo && !reporterMailSent) {
+      const statusDiff = ut.status !== originalTicket.status;
+      const dueDiff = ut.dueDate !== originalTicket.dueDate;
+      const techDiff = ut.technician !== originalTicket.technician;
+      const prioDiff = ut.priority !== originalTicket.priority;
+      const titleDiff = ut.title !== originalTicket.title;
+      const descDiff = (ut.description || '') !== (originalTicket.description || '');
+      const wunschDiff = (ut.wunschTermin || '') !== (originalTicket.wunschTermin || '');
+      if (statusDiff || dueDiff || techDiff || prioDiff || titleDiff || descDiff || wunschDiff) {
+        sendDrkBrevoMail(reporterMailTo, `Aktualisierung zu Ihrem Ticket ${ut.id}`, {
+          kind: 'ticket_update',
+          ticketId: ut.id,
+          status: String(ut.status),
+          dueDate: ut.dueDate || '—',
+          technician: ut.technician || 'N/A',
+          priority: String(ut.priority),
+          title: ut.title || '—',
+        });
       }
     }
 
@@ -1336,18 +1468,57 @@ const App: React.FC = () => {
     }
   };
 
+  /** Nachhol-Bestätigungen (z. B. nach Brevo-Ausfall): gleiche Vorlage wie bei Meldung erfassen. */
+  const handleResendConfirmationMailsForEntryDate = useCallback(async (entryDateDE: string) => {
+    const d = entryDateDE.trim();
+    if (!d) {
+      window.alert('Bitte ein Eingangsdatum im Format TT.MM.JJJJ angeben.');
+      return { ok: 0, fail: 0 };
+    }
+    const list = tickets.filter((t) => t.entryDate === d && t.reporter_email?.trim());
+    if (list.length === 0) {
+      window.alert(`Keine Tickets mit Melder-E-Mail für das Eingangsdatum ${d}.`);
+      return { ok: 0, fail: 0 };
+    }
+    if (
+      !window.confirm(
+        `${list.length} Bestätigungsmail(s) an Melder senden (Eingang ${d})?\n\n` +
+          'Es wird dieselbe Vorlage wie bei „Meldung erfasst“ verwendet. Zwischen den Mails liegt eine kurze Pause (Brevo).'
+      )
+    ) {
+      return { ok: 0, fail: 0 };
+    }
+    let ok = 0;
+    let fail = 0;
+    for (const t of list) {
+      const to = t.reporter_email!.trim();
+      const success = await sendDrkBrevoMailAsync(
+        to,
+        `Ihre Meldung wurde erfasst – Ticket ${t.id}`,
+        { kind: 'ticket_created', ticketId: t.id },
+        { silent: true }
+      );
+      if (success) ok += 1;
+      else fail += 1;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    window.alert(`Versand beendet: ${ok} erfolgreich, ${fail} fehlgeschlagen (von ${list.length}).`);
+    return { ok, fail };
+  }, [tickets]);
+
   const handleAddNewTicket = (newTicketData: Omit<Ticket, 'id' | 'entryDate' | 'status' | 'priority'> & { priority?: Priority }, silent = false): string => {
     // --- INTELLIGENT AUTOMATION LOGIC ---
     const reporterEmail =
       typeof newTicketData.reporter_email === 'string' ? newTicketData.reporter_email.trim() : '';
+    /** Eingang = Kalendertag der Erfassung (gleiches Datum wie Fälligkeits-Basis ohne Wunschtermin). */
+    const entryDateStr = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
     const category = appSettings.ticketCategories.find(c => c.id === newTicketData.categoryId);
     const isReactive = newTicketData.ticketType === 'reactive';
     const slaStrictPriority = inferStrictestSlaPriorityForCategory(newTicketData.categoryId, appSettings.slaMatrix);
 
-    // Reaktive Meldungen: Prio „Niedrig“, außer die SLA-Matrix liefert für die Kategorie eine strengere Regel (kürzeste Frist).
-    // Präventiv / System: unverändert Kategorie-Default bzw. mitgegebene Prio.
-    // Reaktiv: Priorität aus der strengsten SLA-Regel der Kategorie, sonst Niedrig (kein stiller Kategorie-Default).
+    // Reaktiv: immer Priorität „Niedrig“, außer die SLA-Matrix (kürzeste Frist je Kategorie) legt eine andere Prio fest.
+    // Keine Kategorie-Defaults, keine mitgeschickte priority aus Formularen.
     const determinedPriority = isReactive
       ? (slaStrictPriority ?? Priority.Niedrig)
       : (newTicketData.priority || category?.default_priority || appSettings.defaultPriority);
@@ -1386,27 +1557,19 @@ const App: React.FC = () => {
         }
     }
 
-    // 3. Fälligkeit: reaktiv — mit Wunschtermin = Wunschdatum; sonst früheres Datum aus (Eingang + 5 Kalendertage) und kürzester SLA-Frist der Kategorie.
+    // 3. Fälligkeit: reaktiv — mit Wunschtermin = Wunschdatum; sonst Kalender „Eingang + 5 Tage“ (z. B. 11.05. → 16.05.)
+    //    oder falls die SLA-Matrix für die Kategorie eine frühere Frist liefert: das frühere Datum.
     let formattedDueDate: string;
     if (isReactive) {
       const wunsch = newTicketData.wunschTermin?.trim();
       if (wunsch) {
         formattedDueDate = wunsch;
       } else {
-        const now = new Date();
-        const deadlineCal = new Date(now);
-        deadlineCal.setDate(deadlineCal.getDate() + REACTIVE_DEFAULT_LEAD_DAYS);
-        const rulesForCat = appSettings.slaMatrix.filter((r) => r.categoryId === newTicketData.categoryId);
-        let deadlineSla: Date | null = null;
-        if (rulesForCat.length > 0) {
-          const minHours = Math.min(...rulesForCat.map((r) => r.responseTimeHours));
-          const d = new Date(now);
-          d.setHours(d.getHours() + minHours);
-          deadlineSla = d;
-        }
-        const chosen =
-          deadlineSla !== null && deadlineSla.getTime() < deadlineCal.getTime() ? deadlineSla : deadlineCal;
-        formattedDueDate = chosen.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        formattedDueDate = computeReactiveDueDateWithoutWunsch(
+          entryDateStr,
+          newTicketData.categoryId,
+          appSettings.slaMatrix
+        );
       }
     } else {
       const slaRule = appSettings.slaMatrix.find(
@@ -1422,13 +1585,17 @@ const App: React.FC = () => {
     }
 
     const sanitizedTicketData = Object.fromEntries(
-      Object.entries(newTicketData).filter(([_, v]) => v !== undefined)
+      Object.entries(newTicketData).filter(([key, v]) => {
+        if (v === undefined) return false;
+        if (isReactive && key === 'priority') return false;
+        return true;
+      })
     );
 
     const newTicket: Ticket = {
       ...(sanitizedTicketData as Omit<Ticket, 'id' | 'entryDate' | 'status'>),
       id: `${Math.floor(Math.random() * 10000) + 30000}`,
-      entryDate: new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+      entryDate: entryDateStr,
       status: Status.Offen,
       priority: determinedPriority,
       technician: assignedTechnician,
@@ -1984,7 +2151,7 @@ const App: React.FC = () => {
           return <ReportsView activeTickets={activeTickets} completedTickets={completedTickets} users={users} />;
         }
         case 'techniker': return <TechnicianView tickets={listenBenchTickets} technicians={users.filter(u => (u.role === Role.Technician || u.role === Role.Housekeeping) && u.isActive)} onTechnicianSelect={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} onFilter={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} />;
-        case 'settings': return <SettingsView users={users} setUsers={setUsers} locations={locations} setLocations={setLocations} assets={assets} setAssets={setAssets} maintenancePlans={maintenancePlans} setMaintenancePlans={setMaintenancePlans} appSettings={appSettings} setAppSettings={setAppSettings} />;
+        case 'settings': return <SettingsView users={users} setUsers={setUsers} locations={locations} setLocations={setLocations} assets={assets} setAssets={setAssets} maintenancePlans={maintenancePlans} setMaintenancePlans={setMaintenancePlans} appSettings={appSettings} setAppSettings={setAppSettings} onResendConfirmationMailsForEntryDate={handleResendConfirmationMailsForEntryDate} />;
         default: return (
           <KanbanBoard
             tickets={filteredTickets}

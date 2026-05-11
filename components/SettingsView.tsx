@@ -299,10 +299,24 @@ interface SettingsViewProps {
     setMaintenancePlans: React.Dispatch<React.SetStateAction<MaintenancePlan[]>>;
     appSettings: AppSettings;
     setAppSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
+    /** Bestätigungsmails (Vorlage „Meldung erfasst“) für alle Tickets mit Melder-E-Mail zu diesem Eingangsdatum nachholen. */
+    onResendConfirmationMailsForEntryDate?: (entryDateDE: string) => Promise<{ ok: number; fail: number }>;
 }
 
 const SettingsView: React.FC<SettingsViewProps> = (props) => {
-    const { users, setUsers, locations, setLocations, assets, setAssets, maintenancePlans, setMaintenancePlans, appSettings, setAppSettings } = props;
+    const {
+        users,
+        setUsers,
+        locations,
+        setLocations,
+        assets,
+        setAssets,
+        maintenancePlans,
+        setMaintenancePlans,
+        appSettings,
+        setAppSettings,
+        onResendConfirmationMailsForEntryDate,
+    } = props;
     type SettingsTab = 'allgemein' | 'prozesse' | 'serientermine' | 'benutzer' | 'standorte';
     const [activeTab, setActiveTab] = useState<SettingsTab>('allgemein');
     const [dragRoutineId, setDragRoutineId] = useState<string | null>(null);
@@ -310,6 +324,8 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
     const [pendingNewRoutines, setPendingNewRoutines] = useState<RoutineSchedule[]>([]);
     /** Karten auf-/zuklappen: gespeicherte standardmäßig zu, neue standardmäßig auf. */
     const [routineCardExpanded, setRoutineCardExpanded] = useState<Record<string, boolean>>({});
+    const [resendConfirmEntryDate, setResendConfirmEntryDate] = useState('11.05.2026');
+    const [resendConfirmBusy, setResendConfirmBusy] = useState(false);
     
     // Modals
     const [isUserModalOpen, setUserModalOpen] = useState(false);
@@ -543,6 +559,41 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                             placeholder="Wartungstext (wird im Portal angezeigt)"
                         />
                     </div>
+                    {onResendConfirmationMailsForEntryDate && (
+                        <div className="form-group" style={{ borderTop: '1px solid var(--border)', paddingTop: 14, marginTop: 8 }}>
+                            <label>E-Mail: Bestätigungen nachholen</label>
+                            <p className="form-group-description">
+                                Sendet die gleiche Bestätigungsmail wie bei neuer Meldung an alle Tickets mit Melder-E-Mail zu
+                                einem gewählten <strong>Eingangsdatum</strong> (z. B. nach einem Brevo-Ausfall).
+                            </p>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+                                <input
+                                    type="text"
+                                    className="form-group-input"
+                                    style={{ maxWidth: 160 }}
+                                    value={resendConfirmEntryDate}
+                                    onChange={(e) => setResendConfirmEntryDate(e.target.value)}
+                                    placeholder="TT.MM.JJJJ"
+                                    disabled={resendConfirmBusy}
+                                />
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    disabled={resendConfirmBusy}
+                                    onClick={async () => {
+                                        setResendConfirmBusy(true);
+                                        try {
+                                            await onResendConfirmationMailsForEntryDate(resendConfirmEntryDate);
+                                        } finally {
+                                            setResendConfirmBusy(false);
+                                        }
+                                    }}
+                                >
+                                    {resendConfirmBusy ? 'Sende…' : 'Bestätigungen senden'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </>
