@@ -34,7 +34,7 @@ import {
   readStoredBrevoMailError,
   type BrevoMailStatusDetail,
 } from './utils/brevoHealth';
-import { displayNameShort } from './utils/displayNames';
+import { displayNameShort, normalizePersonName } from './utils/displayNames';
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: any}> {
   constructor(props: {children: React.ReactNode}) {
     super(props);
@@ -421,7 +421,19 @@ const safeJSONParse = <T,>(key: string, fallback: T): T => {
 
 /** Firestore liefert manchmal kein Array — verhindert .map/.filter-Crashes in der UI */
 const asUserArray = (value: unknown): User[] => (Array.isArray(value) ? (value as User[]) : MOCK_USERS);
-const asTicketArray = (value: unknown): Ticket[] => (Array.isArray(value) ? (value as Ticket[]) : MOCK_TICKETS);
+const normalizeTicket = (t: Ticket): Ticket => {
+  const techRaw = typeof t.technician === 'string' ? t.technician : 'N/A';
+  const technician = techRaw.trim() || 'N/A';
+  return {
+    ...t,
+    technician,
+    area: typeof t.area === 'string' ? t.area.trim() : t.area,
+    location: typeof t.location === 'string' ? t.location.trim() : t.location,
+    reporter: typeof t.reporter === 'string' ? t.reporter.trim() : t.reporter,
+  };
+};
+const asTicketArray = (value: unknown): Ticket[] =>
+  Array.isArray(value) ? (value as Ticket[]).map(normalizeTicket) : MOCK_TICKETS.map(normalizeTicket);
 const asLocationArray = (value: unknown): Location[] =>
   Array.isArray(value) ? (value as Location[]) : MOCK_LOCATIONS;
 const asAssetArray = (value: unknown): Asset[] => (Array.isArray(value) ? (value as Asset[]) : MOCK_ASSETS);
@@ -460,7 +472,9 @@ const App: React.FC = () => {
   });
 
   // --- Main Data State ---
-  const [tickets, setTickets] = useState<Ticket[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_TICKETS, MOCK_TICKETS));
+  const [tickets, setTickets] = useState<Ticket[]>(() =>
+    safeJSONParse<Ticket[]>(LOCAL_STORAGE_KEY_TICKETS, MOCK_TICKETS).map(normalizeTicket)
+  );
   const [users, setUsers] = useState<User[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_USERS, MOCK_USERS));
   const [locations, setLocations] = useState<Location[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_LOCATIONS, MOCK_LOCATIONS));
   const [assets, setAssets] = useState<Asset[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_ASSETS, MOCK_ASSETS));
@@ -478,6 +492,10 @@ const App: React.FC = () => {
   const [brevoMailLastChecked, setBrevoMailLastChecked] = useState<Date | null>(null);
   const isRemoteUpdate = useRef(false);
   const prevUsersRef = useRef<User[]>(users);
+  /** Einmaliger Hinweis: gleiches Ticket erneut auf „Abschließen“ setzen, dann wird abgeschlossen. */
+  const pendingCompletionConfirmRef = useRef<Set<string>>(new Set());
+  /** Massenabschluss: gleiche Auswahl zweimal „Abschließen“ wählen. */
+  const pendingBulkCompleteKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     const load = () => {
@@ -1134,6 +1152,25 @@ const App: React.FC = () => {
 
     const statusChanged = originalTicket.status !== updatedTicket.status;
 
+    if (statusChanged && updatedTicket.status !== Status.Abgeschlossen) {
+      pendingCompletionConfirmRef.current.delete(updatedTicket.id);
+    }
+
+    if (
+      statusChanged &&
+      updatedTicket.status === Status.Abgeschlossen &&
+      originalTicket.status !== Status.Abgeschlossen
+    ) {
+      if (!pendingCompletionConfirmRef.current.has(updatedTicket.id)) {
+        pendingCompletionConfirmRef.current.add(updatedTicket.id);
+        alert(
+          'Zum endgültigen Abschluss wählen Sie bitte „Abschließen“ ein zweites Mal. So wird ein versehentlicher Abschluss vermieden.'
+        );
+        return;
+      }
+      pendingCompletionConfirmRef.current.delete(updatedTicket.id);
+    }
+
     // --- NEW: Prevent assignment to absent technicians ---
     if (updatedTicket.technician !== 'N/A' && (updatedTicket.technician !== originalTicket.technician || originalTicket.technician === 'N/A')) {
         const techUser = users.find(u => u.name === updatedTicket.technician);
@@ -1228,12 +1265,11 @@ const App: React.FC = () => {
   };
 
   const handleDeleteTicket = (ticketId: string) => {
-      if (window.confirm('Sind Sie sicher, dass Sie dieses Ticket endgültig löschen möchten? Dieser Vorgang kann nicht rückgängig gemacht werden.')) {
-          setTickets(prev => prev.filter(ticket => ticket.id !== ticketId));
-          if (selectedTicket && selectedTicket.id === ticketId) {
-              setSelectedTicket(null);
-          }
-      }
+    pendingCompletionConfirmRef.current.delete(ticketId);
+    setTickets((prev) => prev.filter((ticket) => ticket.id !== ticketId));
+    if (selectedTicket && selectedTicket.id === ticketId) {
+      setSelectedTicket(null);
+    }
   };
 
   const handleAddNewTicket = (newTicketData: Omit<Ticket, 'id' | 'entryDate' | 'status' | 'priority'> & { priority?: Priority }, silent = false): string => {
@@ -1319,8 +1355,23 @@ const App: React.FC = () => {
   
   // FIX: Implement bulk action handlers to replace placeholder functions and resolve prop type errors.
   const handleBulkUpdate = (property: keyof Ticket, value: any) => {
-    setTickets(prevTickets =>
-      prevTickets.map(ticket => {
+    if (property === 'status' && value === Status.Abgeschlossen) {
+      const key = [...selectedTicketIds].sort().join('|');
+      if (!key) return;
+      if (pendingBulkCompleteKeyRef.current !== key) {
+        pendingBulkCompleteKeyRef.current = key;
+        alert(
+          'Zum Abschluss aller ausgewählten Aufträge wählen Sie bitte „Abschließen“ ein zweites Mal (Auswahl unverändert lassen).'
+        );
+        return;
+      }
+      pendingBulkCompleteKeyRef.current = null;
+    } else {
+      pendingBulkCompleteKeyRef.current = null;
+    }
+
+    setTickets((prevTickets) =>
+      prevTickets.map((ticket) => {
         if (selectedTicketIds.includes(ticket.id)) {
           const updatedTicket = { ...ticket, [property]: value };
           if (property === 'status' && value === Status.Abgeschlossen && !ticket.completionDate) {
@@ -1335,6 +1386,7 @@ const App: React.FC = () => {
         return ticket;
       })
     );
+    selectedTicketIds.forEach((id) => pendingCompletionConfirmRef.current.delete(id));
     setSelectedTicketIds([]);
   };
 
@@ -1355,6 +1407,17 @@ const App: React.FC = () => {
       .sort((a, b) => a.name.localeCompare(b.name, 'de'));
   }, [users]);
 
+  /** Gleiche Grundmenge wie die Haupttabelle der Listenansicht: keine Serienaufträge (origin routine). */
+  const listenBenchTickets = useMemo(() => {
+    return tickets.filter((ticket) => {
+      if (currentUser?.role && isServiceTeamRole(currentUser.role) && ticket.technician !== currentUser.name) {
+        return false;
+      }
+      if (ticket.origin === 'routine') return false;
+      return true;
+    });
+  }, [tickets, currentUser]);
+
   const filteredTickets = useMemo(() => {
     return tickets.filter(ticket => {
         // Role-based pre-filtering: Service-Team should only see tickets assigned to them.
@@ -1367,7 +1430,12 @@ const App: React.FC = () => {
         
         if (filters.area !== 'Alle' && ticket.area !== filters.area) return false;
         
-        if (filters.technician !== 'Alle' && ticket.technician !== filters.technician) return false;
+        if (
+          filters.technician !== 'Alle' &&
+          normalizePersonName(ticket.technician) !== normalizePersonName(filters.technician)
+        ) {
+          return false;
+        }
         
         if (filters.priority !== 'Alle' && ticket.priority !== filters.priority) return false;
         
@@ -1495,7 +1563,10 @@ const App: React.FC = () => {
       return;
     }
     setFilters(prev => ({ ...prev, status: 'Alle', search: '' }));
-    setGroupBy('none'); setSelectedTicketIds([]); setCurrentView(view);
+    setGroupBy('none');
+    pendingBulkCompleteKeyRef.current = null;
+    setSelectedTicketIds([]);
+    setCurrentView(view);
   };
   
   const handleUserUpdated = (user: User) => {
@@ -1815,8 +1886,12 @@ const App: React.FC = () => {
             />
           );
         case 'erledigt': return <ErledigtTableView tickets={filteredTickets} onSelectTicket={setSelectedTicket} selectedTicket={selectedTicket} onDeleteTicket={handleDeleteTicket} />;
-        case 'reports': return <ReportsView tickets={tickets} users={users} />;
-        case 'techniker': return <TechnicianView tickets={tickets} technicians={users.filter(u => (u.role === Role.Technician || u.role === Role.Housekeeping) && u.isActive)} onTechnicianSelect={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} onFilter={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} />;
+        case 'reports': {
+          const activeTickets = listenBenchTickets.filter((t) => t.status !== Status.Abgeschlossen);
+          const completedTickets = listenBenchTickets.filter((t) => t.status === Status.Abgeschlossen);
+          return <ReportsView activeTickets={activeTickets} completedTickets={completedTickets} users={users} />;
+        }
+        case 'techniker': return <TechnicianView tickets={listenBenchTickets} technicians={users.filter(u => (u.role === Role.Technician || u.role === Role.Housekeeping) && u.isActive)} onTechnicianSelect={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} onFilter={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} />;
         case 'settings': return <SettingsView users={users} setUsers={setUsers} locations={locations} setLocations={setLocations} assets={assets} setAssets={setAssets} maintenancePlans={maintenancePlans} setMaintenancePlans={setMaintenancePlans} appSettings={appSettings} setAppSettings={setAppSettings} />;
         default: return (
           <KanbanBoard
@@ -1939,7 +2014,7 @@ const App: React.FC = () => {
         ) : (
           <>
             {selectedTicketIds.length > 0 && (currentView === 'tickets' || currentView === 'erledigt') ? (
-              <BulkActionBar selectedCount={selectedTicketIds.length} technicians={allTechnicianNames} statuses={Object.values(Status)} onBulkUpdate={handleBulkUpdate} onBulkDelete={handleBulkDelete} onClearSelection={() => setSelectedTicketIds([])} />
+              <BulkActionBar selectedCount={selectedTicketIds.length} technicians={allTechnicianNames} statuses={Object.values(Status)} onBulkUpdate={handleBulkUpdate} onBulkDelete={handleBulkDelete} onClearSelection={() => { pendingBulkCompleteKeyRef.current = null; setSelectedTicketIds([]); }} />
             ) : (
               (currentView === 'tickets' || currentView === 'erledigt' || currentView === 'techniker') && (
                 <FilterBar filters={filters} setFilters={setFilters} locations={locationOptionsWithCounts} technicians={['Alle', ...activeTechnicians.map((t) => t.name)]} statuses={STATUSES} userRole={currentUser.role} groupBy={groupBy} setGroupBy={setGroupBy} currentView={currentView} />

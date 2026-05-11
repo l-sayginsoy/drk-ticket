@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Ticket, Status, Priority } from '../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Ticket, Priority } from '../types';
 import { SortAscendingIcon } from './icons/SortAscendingIcon';
 import { SortDescendingIcon } from './icons/SortDescendingIcon';
 import { TrashIcon } from './icons/TrashIcon';
@@ -14,99 +14,141 @@ interface ErledigtTableViewProps {
 
 type SortableKeys = keyof Ticket | 'entryDate' | 'dueDate' | 'completionDate';
 
+type YearFilter = number | 'all';
+
 const parseGermanDate = (dateStr: string | undefined): Date | null => {
-    if (!dateStr || dateStr === 'N/A') return null;
-    const parts = dateStr.split('.');
-    if (parts.length === 3) {
-        return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
-    }
-    return null;
+  if (!dateStr || dateStr === 'N/A') return null;
+  const parts = dateStr.split('.');
+  if (parts.length === 3) {
+    return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+  }
+  return null;
+};
+
+const completionYear = (ticket: Ticket): number | null => {
+  const d = parseGermanDate(ticket.completionDate);
+  return d ? d.getFullYear() : null;
 };
 
 const PriorityPill: React.FC<{ priority: Priority }> = ({ priority }) => {
-    const priorityClasses = {
-        [Priority.Hoch]: 'priority-high',
-        [Priority.Mittel]: 'priority-medium',
-        [Priority.Niedrig]: 'priority-low',
-    };
-    return <span className={`priority-pill ${priorityClasses[priority]}`}>{priority}</span>;
+  const priorityClasses = {
+    [Priority.Hoch]: 'priority-high',
+    [Priority.Mittel]: 'priority-medium',
+    [Priority.Niedrig]: 'priority-low',
+  };
+  return <span className={`priority-pill ${priorityClasses[priority]}`}>{priority}</span>;
 };
 
 const technicianCell = (name: string) => (name === 'N/A' ? 'N/A' : displayNameShort(name));
 
 const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelectTicket, selectedTicket, onDeleteTicket }) => {
-    const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>({ key: 'completionDate', direction: 'descending' });
-    const [showArchive, setShowArchive] = useState(false);
+  const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>({
+    key: 'completionDate',
+    direction: 'descending',
+  });
+  const currentCalendarYear = new Date().getFullYear();
+  const [yearFilter, setYearFilter] = useState<YearFilter>(() => currentCalendarYear);
+  const [deleteArmId, setDeleteArmId] = useState<string | null>(null);
 
-    const displayedTickets = useMemo(() => {
-        if (showArchive) {
-            return tickets;
+  useEffect(() => {
+    setDeleteArmId(null);
+  }, [yearFilter, tickets]);
+
+  /** Jahre mit Daten + laufendes Jahr + aktuell gewähltes Jahr (bleibt im Dropdown gültig). */
+  const yearDropdownYears = useMemo(() => {
+    const ys = new Set<number>();
+    tickets.forEach((t) => {
+      const y = completionYear(t);
+      if (y != null) ys.add(y);
+    });
+    ys.add(currentCalendarYear);
+    if (typeof yearFilter === 'number') ys.add(yearFilter);
+    return [...ys].sort((a, b) => b - a);
+  }, [tickets, currentCalendarYear, yearFilter]);
+
+  const displayedTickets = useMemo(() => {
+    if (yearFilter === 'all') return tickets;
+    return tickets.filter((t) => completionYear(t) === yearFilter);
+  }, [tickets, yearFilter]);
+
+  const sortedTickets = useMemo(() => {
+    const sortableItems = [...displayedTickets];
+    if (sortConfig !== null) {
+      sortableItems.sort((a, b) => {
+        const aValue = a[sortConfig.key];
+        const bValue = b[sortConfig.key];
+
+        if (sortConfig.key === 'entryDate' || sortConfig.key === 'dueDate' || sortConfig.key === 'completionDate') {
+          const dateAStr = aValue as string | undefined;
+          const dateBStr = bValue as string | undefined;
+
+          if (!dateAStr) return 1;
+          if (!dateBStr) return -1;
+
+          const dateA = dateAStr.split('.').reverse().join('-');
+          const dateB = dateBStr.split('.').reverse().join('-');
+          if (dateA < dateB) return sortConfig.direction === 'ascending' ? -1 : 1;
+          if (dateA > dateB) return sortConfig.direction === 'ascending' ? 1 : -1;
+          return 0;
         }
-        const today = new Date();
-        const thirtyDaysAgo = new Date(today);
-        thirtyDaysAgo.setDate(today.getDate() - 30);
 
-        return tickets.filter(ticket => {
-            const completionDate = parseGermanDate(ticket.completionDate);
-            return completionDate && completionDate >= thirtyDaysAgo;
-        });
-    }, [tickets, showArchive]);
+        if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [displayedTickets, sortConfig]);
 
-    const sortedTickets = useMemo(() => {
-        let sortableItems = [...displayedTickets];
-        if (sortConfig !== null) {
-            sortableItems.sort((a, b) => {
-                const aValue = a[sortConfig.key];
-                const bValue = b[sortConfig.key];
+  const requestSort = (key: SortableKeys) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
 
-                if (sortConfig.key === 'entryDate' || sortConfig.key === 'dueDate' || sortConfig.key === 'completionDate') {
-                    const dateAStr = aValue as string | undefined;
-                    const dateBStr = bValue as string | undefined;
+  const getSortIcon = (key: SortableKeys) => {
+    if (!sortConfig || sortConfig.key !== key) return null;
+    if (sortConfig.direction === 'ascending') return <SortAscendingIcon />;
+    return <SortDescendingIcon />;
+  };
 
-                    if (!dateAStr) return 1;
-                    if (!dateBStr) return -1;
+  const SortableHeader: React.FC<{ sortKey: SortableKeys; children: React.ReactNode }> = ({ sortKey, children }) => (
+    <th onClick={() => requestSort(sortKey)}>
+      <div className="sortable-header">
+        {children}
+        <span className="sort-icon">{getSortIcon(sortKey)}</span>
+      </div>
+    </th>
+  );
 
-                    const dateA = dateAStr.split('.').reverse().join('-');
-                    const dateB = dateBStr.split('.').reverse().join('-');
-                    if (dateA < dateB) return sortConfig.direction === 'ascending' ? -1 : 1;
-                    if (dateA > dateB) return sortConfig.direction === 'ascending' ? 1 : -1;
-                    return 0;
-                }
+  const handleDeleteClick = (e: React.MouseEvent, ticketId: string) => {
+    e.stopPropagation();
+    if (deleteArmId !== ticketId) {
+      setDeleteArmId(ticketId);
+      return;
+    }
+    if (
+      window.confirm(
+        `Ticket ${ticketId} wirklich endgültig löschen? Dieser Vorgang kann nicht rückgängig gemacht werden.`
+      )
+    ) {
+      onDeleteTicket(ticketId);
+      setDeleteArmId(null);
+    }
+  };
 
-                if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
-                if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
-                return 0;
-            });
-        }
-        return sortableItems;
-    }, [displayedTickets, sortConfig]);
+  const yearDescription =
+    yearFilter === 'all'
+      ? 'Alle abgeschlossenen Aufträge (alle Jahre).'
+      : yearFilter === currentCalendarYear
+        ? `Abgeschlossene Aufträge im Kalenderjahr ${yearFilter} (laufendes Jahr). Vorjahre finden Sie unter „Archiv …“.`
+        : `Archiv: Kalenderjahr ${yearFilter}.`;
 
-    const requestSort = (key: SortableKeys) => {
-        let direction: 'ascending' | 'descending' = 'ascending';
-        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
-            direction = 'descending';
-        }
-        setSortConfig({ key, direction });
-    };
-
-    const getSortIcon = (key: SortableKeys) => {
-        if (!sortConfig || sortConfig.key !== key) return null;
-        if (sortConfig.direction === 'ascending') return <SortAscendingIcon />;
-        return <SortDescendingIcon />;
-    };
-
-    const SortableHeader: React.FC<{ sortKey: SortableKeys; children: React.ReactNode }> = ({ sortKey, children }) => (
-        <th onClick={() => requestSort(sortKey)}>
-            <div className="sortable-header">
-                {children}
-                <span className="sort-icon">{getSortIcon(sortKey)}</span>
-            </div>
-        </th>
-    );
-
-    return (
-        <div className="table-view-container">
-            <style>{`
+  return (
+    <div className="erledigt-page">
+      <style>{`
                 .erledigt-header {
                     background-color: var(--bg-secondary);
                     padding: 1rem 1.5rem;
@@ -114,28 +156,53 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelect
                     border-bottom: none;
                     border-top-left-radius: 8px;
                     border-top-right-radius: 8px;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
                     margin-top: 1.5rem;
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 1rem 1.5rem;
+                    align-items: center;
+                    justify-content: space-between;
+                }
+                .erledigt-header-left {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.35rem;
+                    min-width: 0;
+                    flex: 1;
                 }
                 .erledigt-info {
                     font-size: 0.9rem;
                     color: var(--text-secondary);
+                    line-height: 1.45;
                 }
-                .archive-btn {
+                .erledigt-hint {
+                    font-size: 0.8rem;
+                    color: var(--text-muted);
+                }
+                .year-select-wrap {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    flex-shrink: 0;
+                }
+                .year-select-wrap label {
+                    font-size: 0.85rem;
+                    color: var(--text-muted);
+                    white-space: nowrap;
+                }
+                .year-select {
                     background-color: var(--bg-tertiary);
                     border: 1px solid var(--border);
-                    color: var(--text-secondary);
+                    color: var(--text-primary);
                     font-size: 0.9rem;
-                    padding: 0.5rem 1rem;
+                    padding: 0.5rem 0.75rem;
                     border-radius: 6px;
                     cursor: pointer;
-                    transition: var(--transition-smooth);
-                    font-weight: 500;
+                    min-width: 200px;
                 }
-                .archive-btn:hover {
-                    background: var(--border);
+                .erledigt-page {
+                  display: flex;
+                  flex-direction: column;
                 }
                 .table-view-container {
                   background-color: var(--bg-secondary);
@@ -153,10 +220,14 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelect
                 .sort-icon svg { width: 14px; height: 14px; color: var(--text-primary); }
                 .ticket-table td { color: var(--text-secondary); font-size: 0.9rem; }
                 .ticket-table tbody tr:last-child td { border-bottom: none; }
-                .ticket-table tbody tr { cursor: pointer; transition: background-color: 0.2s ease; }
+                .ticket-table tbody tr { cursor: pointer; transition: background-color 0.2s ease; }
                 .ticket-table tbody tr.selected { background-color: var(--border); }
                 .ticket-table tbody tr.selected:hover { background-color: var(--border-active); }
                 .ticket-table tbody tr:not(.selected):hover { background-color: var(--bg-tertiary); }
+                .ticket-table tbody tr.row-delete-armed {
+                    box-shadow: inset 0 0 0 2px var(--accent-warning);
+                    background-color: rgba(255, 193, 7, 0.06);
+                }
                 .ticket-title { font-weight: 500; color: var(--text-primary); }
                 .priority-pill { padding: 0.25rem 0.75rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; display: inline-block; border: 1px solid transparent; min-width: 100px; text-align: center; }
                 .priority-pill.priority-high { background-color: rgba(220, 53, 69, 0.1); color: #c82333; border-color: rgba(220, 53, 69, 0.3); }
@@ -179,70 +250,110 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelect
                     color: var(--accent-danger);
                     background-color: rgba(220, 53, 69, 0.1);
                 }
+                .btn-delete.armed {
+                    color: var(--accent-warning);
+                    background-color: rgba(255, 193, 7, 0.15);
+                }
                 .btn-delete svg {
                     width: 18px;
                     height: 18px;
                 }
             `}</style>
-            <div className="erledigt-header">
-                <p className="erledigt-info">
-                    {showArchive ? 'Zeigt alle abgeschlossenen Tickets.' : 'Zeigt abgeschlossene Tickets der letzten 30 Tage.'}
-                </p>
-                <button className="archive-btn" onClick={() => setShowArchive(!showArchive)}>
-                    {showArchive ? 'Nur letzte 30 Tage anzeigen' : 'Ganzes Archiv anzeigen'}
-                </button>
-            </div>
-            <div className="table-view-container">
-                <table className="ticket-table">
-                    <thead>
-                    <tr>
-                        <SortableHeader sortKey="id">Ticket</SortableHeader>
-                        <SortableHeader sortKey="title">Betreff</SortableHeader>
-                        <SortableHeader sortKey="area">Standort</SortableHeader>
-                        <SortableHeader sortKey="technician">Bearbeiter</SortableHeader>
-                        <SortableHeader sortKey="priority">Priorität</SortableHeader>
-                        <SortableHeader sortKey="entryDate">Eingang</SortableHeader>
-                        <SortableHeader sortKey="dueDate">Fällig bis</SortableHeader>
-                        <SortableHeader sortKey="completionDate">Abgeschlossen am</SortableHeader>
-                        <th></th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    {sortedTickets.length > 0 ? sortedTickets.map(ticket => (
-                        <tr key={ticket.id} onClick={() => onSelectTicket(ticket)} className={selectedTicket?.id === ticket.id ? 'selected' : ''}>
-                            <td>{ticket.id}</td>
-                            <td>
-                                <div className="ticket-title">{ticket.title}</div>
-                                <small style={{color: 'var(--text-muted)'}}>{ticket.location}</small>
-                            </td>
-                            <td>{ticket.area}</td>
-                            <td>{technicianCell(ticket.technician)}</td>
-                            <td><PriorityPill priority={ticket.priority} /></td>
-                            <td>{ticket.entryDate}</td>
-                            <td>{ticket.dueDate}</td>
-                            <td>{ticket.completionDate || 'N/A'}</td>
-                            <td className="actions-cell" onClick={e => e.stopPropagation()}>
-                                <button
-                                    className="btn-delete"
-                                    title="Ticket endgültig löschen"
-                                    onClick={() => onDeleteTicket(ticket.id)}
-                                >
-                                    <TrashIcon />
-                                </button>
-                            </td>
-                        </tr>
-                    )) : (
-                        <tr>
-                            <td colSpan={9} style={{textAlign: 'center', padding: '2rem', color: 'var(--text-muted)'}}>
-                                {showArchive ? 'Keine Tickets im Archiv gefunden.' : 'Keine Tickets in den letzten 30 Tagen abgeschlossen.'}
-                            </td>
-                        </tr>
-                    )}
-                    </tbody>
-                </table>
-            </div>
+      <div className="erledigt-header">
+        <div className="erledigt-header-left">
+          <p className="erledigt-info">{yearDescription}</p>
+          <p className="erledigt-hint">
+            Löschen: Papierkorb einmal anklicken (markiert die Zeile), erneut klicken und im Dialog bestätigen.
+          </p>
         </div>
-    );
+        <div className="year-select-wrap">
+          <label htmlFor="erledigt-year">Zeitraum</label>
+          <select
+            id="erledigt-year"
+            className="year-select"
+            value={yearFilter === 'all' ? 'all' : String(yearFilter)}
+            onChange={(e) => {
+              const v = e.target.value;
+              setYearFilter(v === 'all' ? 'all' : parseInt(v, 10));
+            }}
+          >
+            {yearDropdownYears.map((y) => (
+              <option key={y} value={y}>
+                {y === currentCalendarYear ? `Jahr ${y} (aktuell)` : `Archiv ${y}`}
+              </option>
+            ))}
+            <option value="all">Alle Jahre</option>
+          </select>
+        </div>
+      </div>
+      <div className="table-view-container">
+        <table className="ticket-table">
+          <thead>
+            <tr>
+              <SortableHeader sortKey="id">Ticket</SortableHeader>
+              <SortableHeader sortKey="title">Betreff</SortableHeader>
+              <SortableHeader sortKey="area">Standort</SortableHeader>
+              <SortableHeader sortKey="technician">Bearbeiter</SortableHeader>
+              <SortableHeader sortKey="priority">Priorität</SortableHeader>
+              <SortableHeader sortKey="entryDate">Eingang</SortableHeader>
+              <SortableHeader sortKey="dueDate">Fällig bis</SortableHeader>
+              <SortableHeader sortKey="completionDate">Abgeschlossen am</SortableHeader>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedTickets.length > 0 ? (
+              sortedTickets.map((ticket) => (
+                <tr
+                  key={ticket.id}
+                  onClick={() => onSelectTicket(ticket)}
+                  className={[selectedTicket?.id === ticket.id ? 'selected' : '', deleteArmId === ticket.id ? 'row-delete-armed' : '']
+                    .filter(Boolean)
+                    .join(' ')}
+                >
+                  <td>{ticket.id}</td>
+                  <td>
+                    <div className="ticket-title">{ticket.title}</div>
+                    <small style={{ color: 'var(--text-muted)' }}>{ticket.location}</small>
+                  </td>
+                  <td>{ticket.area}</td>
+                  <td>{technicianCell(ticket.technician)}</td>
+                  <td>
+                    <PriorityPill priority={ticket.priority} />
+                  </td>
+                  <td>{ticket.entryDate}</td>
+                  <td>{ticket.dueDate}</td>
+                  <td>{ticket.completionDate || 'N/A'}</td>
+                  <td className="actions-cell" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      className={`btn-delete ${deleteArmId === ticket.id ? 'armed' : ''}`}
+                      title={
+                        deleteArmId === ticket.id
+                          ? 'Erneut klicken und im Dialog bestätigen'
+                          : 'Zum Löschen zweimal anklicken (danach Bestätigung)'
+                      }
+                      onClick={(e) => handleDeleteClick(e, ticket.id)}
+                    >
+                      <TrashIcon />
+                    </button>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={9} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                  {yearFilter === 'all'
+                    ? 'Keine abgeschlossenen Aufträge.'
+                    : `Keine abgeschlossenen Aufträge ${yearFilter === currentCalendarYear ? `im Jahr ${yearFilter}` : `im Archiv ${yearFilter}`}.`}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 };
 
 export default ErledigtTableView;

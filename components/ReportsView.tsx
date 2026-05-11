@@ -4,10 +4,13 @@ import { STATUSES, LOCATIONS_FOR_FILTER } from '../constants';
 import { DocumentIcon } from './icons/DocumentIcon';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
 import { ClockIcon } from './icons/ClockIcon';
-import { displayNameShort } from '../utils/displayNames';
+import { displayNameShort, normalizePersonName } from '../utils/displayNames';
 
 interface ReportsViewProps {
-  tickets: Ticket[];
+  /** Wie Listenansicht-Haupttabelle: aktiv, ohne Serienaufträge (origin routine), ohne Abgeschlossen */
+  activeTickets: Ticket[];
+  /** Wie oben, nur Status Abgeschlossen (ohne Serienaufträge) */
+  completedTickets: Ticket[];
   users: User[];
 }
 
@@ -76,10 +79,9 @@ const HorizontalBarChart: React.FC<{ title: string; data: HBarDatum[]; barColor?
 };
 
 // --- MAIN COMPONENT ---
-const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
+const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTickets, users }) => {
     const [reportFilters, setReportFilters] = useState({
-        timeRange: '30d' as '7d' | '30d' | '90d' | 'all',
-        area: 'Alle', status: 'Alle', technician: 'Alle'
+        area: 'Alle', technician: 'Alle'
     });
     
     const technicians = useMemo(
@@ -98,29 +100,27 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
       [technicians]
     );
 
-    const filteredTickets = useMemo(() => {
-        return tickets.filter(ticket => {
-            const today = new Date(); today.setHours(0, 0, 0, 0);
-            if (reportFilters.timeRange !== 'all') {
-                const entryDate = parseGermanDate(ticket.entryDate);
-                if (!entryDate) return false;
-                const days = { '7d': 7, '30d': 30, '90d': 90 };
-                const cutOffDate = new Date(today); cutOffDate.setDate(today.getDate() - days[reportFilters.timeRange]);
-// FIX: Use .getTime() for robust date comparison to resolve arithmetic operation error.
-                if (entryDate.getTime() < cutOffDate.getTime()) return false;
-            }
+    const filteredActiveTickets = useMemo(() => {
+        return activeTickets.filter(ticket => {
             if (reportFilters.area !== 'Alle' && ticket.area !== reportFilters.area) return false;
-            if (reportFilters.status !== 'Alle' && ticket.status !== reportFilters.status) return false;
-            if (reportFilters.technician !== 'Alle' && ticket.technician !== reportFilters.technician) return false;
+            if (reportFilters.technician !== 'Alle' && normalizePersonName(ticket.technician) !== normalizePersonName(reportFilters.technician)) return false;
             return true;
         });
-    }, [tickets, reportFilters]);
+    }, [activeTickets, reportFilters]);
+
+    const filteredCompletedTickets = useMemo(() => {
+        return completedTickets.filter(ticket => {
+            if (reportFilters.area !== 'Alle' && ticket.area !== reportFilters.area) return false;
+            if (reportFilters.technician !== 'Alle' && normalizePersonName(ticket.technician) !== normalizePersonName(reportFilters.technician)) return false;
+            return true;
+        });
+    }, [completedTickets, reportFilters]);
 
     const stats = useMemo(() => {
-        const total = filteredTickets.length;
-        const abgeschlossene = filteredTickets.filter(t => t.status === Status.Abgeschlossen).length;
-        const ueberfaellige = filteredTickets.filter(t => t.status === Status.Ueberfaellig).length;
-        const resolvedTickets = filteredTickets.filter(t => t.status === Status.Abgeschlossen && t.completionDate && t.entryDate);
+        const totalActive = filteredActiveTickets.length;
+        const totalCompleted = filteredCompletedTickets.length;
+        const ueberfaellige = filteredActiveTickets.filter(t => t.status === Status.Ueberfaellig).length;
+        const resolvedTickets = filteredCompletedTickets.filter(t => t.completionDate && t.entryDate);
         let avgProcessingTime = 0;
         if (resolvedTickets.length > 0) {
             const totalTime = resolvedTickets.reduce((acc: number, t) => {
@@ -133,20 +133,20 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
             }, 0);
             avgProcessingTime = totalTime / resolvedTickets.length / (1000 * 60 * 60 * 24);
         }
-        return { total, abgeschlossene, ueberfaellige, avgProcessingTime: avgProcessingTime.toFixed(1) };
-    }, [filteredTickets]);
+        return { totalActive, totalCompleted, ueberfaellige, avgProcessingTime: avgProcessingTime.toFixed(1) };
+    }, [filteredActiveTickets, filteredCompletedTickets]);
 
     const ticketsByArea = useMemo(() => {
-        const counts = filteredTickets.reduce((acc: Record<string, number>, ticket) => {
+        const counts = filteredActiveTickets.reduce((acc: Record<string, number>, ticket) => {
             acc[ticket.area] = (acc[ticket.area] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
         return Object.entries(counts).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, 8);
-    }, [filteredTickets]);
+    }, [filteredActiveTickets]);
 
     const ticketsByTechnician = useMemo(() => {
         const counts: Record<string, number> = {};
-        filteredTickets.forEach(ticket => {
+        filteredActiveTickets.forEach(ticket => {
             if (ticket.technician && ticket.technician !== 'N/A') {
                 counts[ticket.technician] = (counts[ticket.technician] || 0) + 1;
             }
@@ -165,15 +165,14 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
             barTitle: item.label,
             color: colors[index % colors.length],
         }));
-    }, [filteredTickets, technicians]);
+    }, [filteredActiveTickets, technicians]);
 
     const technicianWorkload = useMemo(() => {
-        const activeTickets = filteredTickets.filter(t => t.status !== Status.Abgeschlossen);
-        const totalActiveTickets = activeTickets.length;
+        const totalActiveTickets = filteredActiveTickets.length;
         
         const counts: Record<string, number> = {};
 
-        activeTickets.forEach(ticket => {
+        filteredActiveTickets.forEach(ticket => {
              if (ticket.technician && ticket.technician !== 'N/A') {
                 counts[ticket.technician] = (counts[ticket.technician] || 0) + 1;
              }
@@ -189,10 +188,10 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
             .filter((x) => x.value > 0)
             .sort((a, b) => b.value - a.value);
 
-    }, [filteredTickets, technicians]);
+    }, [filteredActiveTickets, technicians]);
     
     const avgProcessingTimePerTechnician = useMemo(() => {
-        const resolvedTickets = filteredTickets.filter(t => t.status === Status.Abgeschlossen && t.completionDate && t.entryDate && t.technician !== 'N/A');
+        const resolvedTickets = filteredCompletedTickets.filter(t => t.completionDate && t.entryDate && t.technician !== 'N/A');
         const techData: Record<string, { totalTime: number, count: number }> = {};
 
         resolvedTickets.forEach(t => {
@@ -215,10 +214,10 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
             }))
             .filter((x) => x.value > 0)
             .sort((a, b) => b.value - a.value);
-    }, [filteredTickets, technicians]);
+    }, [filteredCompletedTickets, technicians]);
 
     const handleFilterChange = (filterName: string, value: string) => setReportFilters(prev => ({ ...prev, [filterName]: value as any }));
-    const resetFilters = () => setReportFilters({ timeRange: '30d', area: 'Alle', status: 'Alle', technician: 'Alle' });
+    const resetFilters = () => setReportFilters({ area: 'Alle', technician: 'Alle' });
 
     const FilterChip: React.FC<{ label: string; name: string; options: string[]; value: string }> = ({
         label,
@@ -243,8 +242,6 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
             <ChevronDownIcon />
         </div>
     );
-    const timeRangeOptions = {'7d': 'Letzte 7 Tage', '30d': 'Letzte 30 Tage', '90d': 'Letzte 90 Tage', 'all': 'Gesamter Zeitraum'};
-
     return (
         <div className="reports-view">
             <style>{`
@@ -310,15 +307,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
                 .legend-color-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
             `}</style>
             <div className="reports-filter-bar">
-                <div className="custom-select">
-                    <span>{timeRangeOptions[reportFilters.timeRange]}</span>
-                    <select value={reportFilters.timeRange} onChange={(e) => handleFilterChange('timeRange', e.target.value)}>
-                        {Object.entries(timeRangeOptions).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-                    </select>
-                    <ChevronDownIcon/>
-                </div>
                 <FilterChip label="Standort" name="area" options={LOCATIONS_FOR_FILTER} value={reportFilters.area} />
-                <FilterChip label="Status" name="status" options={STATUSES} value={reportFilters.status} />
                 <FilterChip label="Bearbeiter" name="technician" options={allTechnicianNames} value={reportFilters.technician} />
                 <button className="action-btn" onClick={resetFilters}>
                     <i className="ti ti-rotate" aria-hidden />
@@ -327,10 +316,10 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
             </div>
             
             <div className="stats-grid">
-                <StatCard title="Gesamte Tickets" value={stats.total} description="Im ausgewählten Zeitraum" icon={<DocumentIcon />} iconBgColor="rgba(0, 123, 255, 0.1)" />
-                <StatCard title="Abgeschlossen" value={stats.abgeschlossene} description="Im ausgewählten Zeitraum" icon={<CheckCircleIcon />} iconBgColor="rgba(40, 167, 69, 0.1)" />
-                <StatCard title="Überfällig" value={stats.ueberfaellige} description="Aktuell überfällige Tickets" icon={<ExclamationTriangleIcon />} iconBgColor="rgba(220, 53, 69, 0.1)" />
-                <StatCard title="Bearbeitungszeit (Ø)" value={`${stats.avgProcessingTime} Tage`} description="Für abgeschlossene Tickets" icon={<BoltIcon />} iconBgColor="rgba(255, 193, 7, 0.1)" />
+                <StatCard title="Aktive Tickets" value={stats.totalActive} description="Wie Dashboard/Listenansicht" icon={<DocumentIcon />} iconBgColor="rgba(0, 123, 255, 0.1)" />
+                <StatCard title="Abgeschlossen" value={stats.totalCompleted} description="Wie Abgeschlossen-Ansicht" icon={<CheckCircleIcon />} iconBgColor="rgba(40, 167, 69, 0.1)" />
+                <StatCard title="Überfällig (aktiv)" value={stats.ueberfaellige} description="Aktuell überfällige Tickets" icon={<ExclamationTriangleIcon />} iconBgColor="rgba(220, 53, 69, 0.1)" />
+                <StatCard title="Bearbeitungszeit (Ø)" value={`${stats.avgProcessingTime} Tage`} description="Für vorhandene abgeschlossene Tickets" icon={<BoltIcon />} iconBgColor="rgba(255, 193, 7, 0.1)" />
             </div>
             
             <div className="charts-grid">
