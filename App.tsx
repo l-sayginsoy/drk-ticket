@@ -244,6 +244,11 @@ ${portalOpenButtonWrappedHtml(p.ticketId, '18px 0 0')}`;
 /** Brevo: dasselbe HTML wie in `public/email-vorschau.html` — direkt per REST (ohne Cloud Function). */
 const sendDrkBrevoMail = (to: string, subject: string, payload: DrkBrevoMailPayload) => {
   void (async () => {
+    const recipient = String(to || '').trim();
+    if (!recipient) {
+      console.warn('Brevo: kein Empfänger (leere E-Mail-Adresse).');
+      return;
+    }
     const apiKey = (import.meta.env.VITE_BREVO_API_KEY as string | undefined)?.trim();
     if (!apiKey) {
       const msg = 'E-Mail konnte nicht gesendet werden: VITE_BREVO_API_KEY fehlt im Build.';
@@ -252,15 +257,21 @@ const sendDrkBrevoMail = (to: string, subject: string, payload: DrkBrevoMailPayl
       window.alert(msg);
       return;
     }
+    const senderEmail =
+      (import.meta.env.VITE_BREVO_SENDER_EMAIL as string | undefined)?.trim() || 'noreply@drk-ticket.de';
+    const senderName =
+      (import.meta.env.VITE_BREVO_SENDER_NAME as string | undefined)?.trim() || 'DRK Haustechnik Service';
     const textContent = buildDrkBrevoPlainText(payload);
     const htmlContent = buildDrkBrevoHtml(payload);
     try {
       const res = await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
+        mode: 'cors',
+        credentials: 'omit',
         headers: { 'Content-Type': 'application/json', 'api-key': apiKey },
         body: JSON.stringify({
-          sender: { email: 'noreply@drk-ticket.de' },
-          to: [{ email: to }],
+          sender: { email: senderEmail, name: senderName },
+          to: [{ email: recipient }],
           subject,
           textContent,
           htmlContent,
@@ -268,10 +279,20 @@ const sendDrkBrevoMail = (to: string, subject: string, payload: DrkBrevoMailPayl
       });
       const bodyText = await res.text();
       if (!res.ok) {
-        const clipped = bodyText.slice(0, 1200);
-        console.error('Brevo Fehler:', res.status, clipped);
-        emitBrevoMailStatus({ ok: false, status: res.status, message: clipped });
-        window.alert(`E-Mail konnte nicht gesendet werden (Brevo ${res.status}).\n\n${clipped}`);
+        let detail = bodyText.slice(0, 1200);
+        try {
+          const j = JSON.parse(bodyText) as { message?: string; code?: string };
+          if (j?.message) detail = `${j.message}${j.code ? ` (${j.code})` : ''}`;
+        } catch {
+          /* Roh-Text behalten */
+        }
+        console.error('Brevo Fehler:', res.status, detail);
+        emitBrevoMailStatus({ ok: false, status: res.status, message: detail });
+        window.alert(
+          `E-Mail konnte nicht gesendet werden (Brevo HTTP ${res.status}).\n\n` +
+            `Absender muss in Brevo unter „Senders & IPs“ verifiziert sein (aktuell: ${senderEmail}).\n\n` +
+            detail
+        );
         return;
       }
       // Brevo liefert i.d.R. JSON mit messageId zurück – wir loggen das zur Nachverfolgung.
@@ -449,6 +470,7 @@ const normalizeTicket = (t: Ticket): Ticket => {
   const completionTimeRaw = t.completionTime;
   const completionTimeNorm =
     typeof completionTimeRaw === 'string' && completionTimeRaw.trim() ? completionTimeRaw.trim() : undefined;
+  const reporterEmailRaw = typeof t.reporter_email === 'string' ? t.reporter_email.trim() : '';
   const base: Ticket = {
     ...t,
     technician,
@@ -456,6 +478,11 @@ const normalizeTicket = (t: Ticket): Ticket => {
     location: typeof t.location === 'string' ? t.location.trim() : t.location,
     reporter: typeof t.reporter === 'string' ? t.reporter.trim() : t.reporter,
   };
+  if (reporterEmailRaw) {
+    base.reporter_email = reporterEmailRaw;
+  } else {
+    delete (base as Partial<Ticket>).reporter_email;
+  }
   if (completionTimeNorm !== undefined) {
     base.completionTime = completionTimeNorm;
   } else {
@@ -1244,9 +1271,10 @@ const App: React.FC = () => {
       ut.is_reopened = false;
     }
 
-    if (ut.reporter_email) {
+    const reporterMailTo = ut.reporter_email?.trim();
+    if (reporterMailTo) {
       if (statusChanged && ut.status === Status.Abgeschlossen) {
-        sendDrkBrevoMail(ut.reporter_email, `Ihre Meldung wurde abgeschlossen – Ticket ${ut.id}`, {
+        sendDrkBrevoMail(reporterMailTo, `Ihre Meldung wurde abgeschlossen – Ticket ${ut.id}`, {
           kind: 'ticket_closed',
           ticketId: ut.id,
         });
@@ -1255,7 +1283,7 @@ const App: React.FC = () => {
         const isNoteFromReporter =
           latestNote.includes('(Melder am ') || latestNote.includes('Ticket durch Melder wiedereröffnet');
         if (!isNoteFromReporter) {
-          sendDrkBrevoMail(ut.reporter_email, `Neuigkeit zu Ihrem Ticket ${ut.id}`, {
+          sendDrkBrevoMail(reporterMailTo, `Neuigkeit zu Ihrem Ticket ${ut.id}`, {
             kind: 'staff_note',
             ticketId: ut.id,
             noteText: latestNote,
@@ -1310,6 +1338,8 @@ const App: React.FC = () => {
 
   const handleAddNewTicket = (newTicketData: Omit<Ticket, 'id' | 'entryDate' | 'status' | 'priority'> & { priority?: Priority }, silent = false): string => {
     // --- INTELLIGENT AUTOMATION LOGIC ---
+    const reporterEmail =
+      typeof newTicketData.reporter_email === 'string' ? newTicketData.reporter_email.trim() : '';
 
     const category = appSettings.ticketCategories.find(c => c.id === newTicketData.categoryId);
     const isReactive = newTicketData.ticketType === 'reactive';
@@ -1407,11 +1437,16 @@ const App: React.FC = () => {
       hasNewNoteFromReporter: false,
       is_emergency: false,
     };
+    if (reporterEmail) {
+      newTicket.reporter_email = reporterEmail;
+    } else {
+      delete (newTicket as Partial<Ticket>).reporter_email;
+    }
 
     setTickets(prevTickets => [newTicket, ...prevTickets]);
 
-    if (newTicket.reporter_email) {
-      sendDrkBrevoMail(newTicket.reporter_email, `Ihre Meldung wurde erfasst – Ticket ${newTicket.id}`, {
+    if (reporterEmail) {
+      sendDrkBrevoMail(reporterEmail, `Ihre Meldung wurde erfasst – Ticket ${newTicket.id}`, {
         kind: 'ticket_created',
         ticketId: newTicket.id,
       });

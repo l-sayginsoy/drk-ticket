@@ -49,6 +49,8 @@ jobs:
           npm run build
         env:
           VITE_BREVO_API_KEY: ${{ secrets.VITE_BREVO_API_KEY }}
+          VITE_BREVO_SENDER_EMAIL: ${{ secrets.VITE_BREVO_SENDER_EMAIL }}
+          VITE_BREVO_SENDER_NAME: ${{ secrets.VITE_BREVO_SENDER_NAME }}
 
       - name: Deploy to Firebase (Hosting)
         run: npx firebase-tools@13.35.1 deploy --only hosting --project drk-facility-dashboard --non-interactive

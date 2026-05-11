@@ -308,6 +308,8 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
     const [dragRoutineId, setDragRoutineId] = useState<string | null>(null);
     /** Neu angelegte Serientermine (noch nicht in appSettings); Speichern erfolgt in der jeweiligen Karte. */
     const [pendingNewRoutines, setPendingNewRoutines] = useState<RoutineSchedule[]>([]);
+    /** Karten auf-/zuklappen: gespeicherte standardmäßig zu, neue standardmäßig auf. */
+    const [routineCardExpanded, setRoutineCardExpanded] = useState<Record<string, boolean>>({});
     
     // Modals
     const [isUserModalOpen, setUserModalOpen] = useState(false);
@@ -583,6 +585,9 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                     ? (schedule.recurrence.weekdays as WeekdayKey[])
                                     : ([] as WeekdayKey[]);
                             const rotationPool = getRoutinePool(schedule, users);
+                            const routineExpanded = isPending
+                                ? routineCardExpanded[schedule.id] !== false
+                                : routineCardExpanded[schedule.id] === true;
 
                             return (
                                 <div
@@ -601,8 +606,46 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                         setDragRoutineId(null);
                                     }}
                                 >
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 10 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            gap: 12,
+                                            alignItems: 'center',
+                                            marginBottom: routineExpanded ? 10 : 0,
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                                            <button
+                                                type="button"
+                                                aria-expanded={routineExpanded}
+                                                title={routineExpanded ? 'Details zuklappen' : 'Details aufklappen'}
+                                                onClick={() =>
+                                                    setRoutineCardExpanded(prev => {
+                                                        const isOpen = isPending
+                                                            ? prev[schedule.id] !== false
+                                                            : prev[schedule.id] === true;
+                                                        return { ...prev, [schedule.id]: !isOpen };
+                                                    })
+                                                }
+                                                style={{
+                                                    flexShrink: 0,
+                                                    width: 30,
+                                                    height: 30,
+                                                    borderRadius: 8,
+                                                    border: '1px solid var(--border)',
+                                                    background: 'var(--bg-secondary)',
+                                                    color: 'var(--text-muted)',
+                                                    cursor: 'pointer',
+                                                    fontSize: 12,
+                                                    lineHeight: 1,
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                }}
+                                            >
+                                                {routineExpanded ? '▼' : '▶'}
+                                            </button>
                                             {isPending ? (
                                                 <span
                                                     title="Nach Speichern per Ziehen sortierbar"
@@ -655,8 +698,18 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                                 onChange={e => commit( { ...schedule, enabled: e.target.checked })}
                                                 title="Aktiv/Inaktiv"
                                             />
-                                            <strong style={{ fontSize: 14 }}>{schedule.title || 'Serientermin'}</strong>
-                                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                                            <strong
+                                                style={{
+                                                    fontSize: 14,
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap',
+                                                }}
+                                                title={schedule.title || 'Serientermin'}
+                                            >
+                                                {schedule.title || 'Serientermin'}
+                                            </strong>
+                                            <span style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>
                                                 {schedule.lastGenerated ? `zuletzt: ${schedule.lastGenerated}` : 'noch nie erzeugt'}
                                             </span>
                                         </div>
@@ -677,6 +730,8 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                         </button>
                                     </div>
 
+                                    {routineExpanded && (
+                                    <>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 12 }}>
                                         <div className="form-group">
                                             <label>Aufgabe</label>
@@ -1068,6 +1123,8 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                                 Speichern
                                             </button>
                                         </div>
+                                    )}
+                                    </>
                                     )}
 
                                 </div>
