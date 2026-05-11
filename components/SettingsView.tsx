@@ -2,6 +2,7 @@
 // FIX: Import useMemo hook from React.
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { User, Location, Role, AppSettings, Priority, TicketCategory, SLARule, RoutingRule, Asset, MaintenancePlan, AvailabilityStatus, RoutineSchedule, WeekdayKey } from '../types';
+import { getRoutinePool } from '../utils/routineHelpers';
 import { PlusIcon } from './icons/PlusIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import UserModal from './UserModal';
@@ -544,6 +545,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                 schedule.recurrence?.type === 'weekdays'
                                     ? (schedule.recurrence.weekdays as WeekdayKey[])
                                     : ([] as WeekdayKey[]);
+                            const rotationPool = getRoutinePool(schedule, users);
 
                             return (
                                 <div
@@ -814,6 +816,34 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                             )}
                                         </div>
                                     </div>
+
+                                    {schedule.assignment?.type === 'rotate' && rotationPool.length > 0 && (
+                                        <div className="form-group" style={{ marginTop: 12 }}>
+                                            <label>Als Nächstes in der Rotation</label>
+                                            <select
+                                                className="form-group-select"
+                                                style={{ maxWidth: 400 }}
+                                                value={String(Math.max(0, Number(schedule.rotationCursor || 0)) % rotationPool.length)}
+                                                onChange={(e) => {
+                                                    const idx = parseInt(e.target.value, 10);
+                                                    handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                        ...schedule,
+                                                        rotationCursor: Number.isFinite(idx) ? idx : 0,
+                                                    });
+                                                }}
+                                            >
+                                                {rotationPool.map((name, i) => (
+                                                    <option key={name} value={String(i)}>
+                                                        {name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <p className="form-group-description" style={{ marginTop: 6 }}>
+                                                Wer beim nächsten fälligen Serientermin zuerst das Ticket erhält. Später jederzeit wieder änderbar; danach läuft die Verteilung im gleichen Kreis weiter.
+                                            </p>
+                                        </div>
+                                    )}
+
                                 </div>
                             );
                         })
@@ -871,6 +901,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                 schedule.recurrence?.type === 'weekdays'
                                     ? (schedule.recurrence.weekdays as WeekdayKey[])
                                     : ([] as WeekdayKey[]);
+                            const rotationPool = getRoutinePool(schedule, users);
 
                             return (
                                 <div
@@ -1144,6 +1175,34 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                             Tipp: Wähle hier die Personen aus, die sich abwechseln sollen.
                                         </p>
                                     </div>
+
+                                    {schedule.assignment?.type === 'rotate' && rotationPool.length > 0 && (
+                                        <div className="form-group" style={{ marginTop: 12 }}>
+                                            <label>Als Nächstes in der Rotation</label>
+                                            <select
+                                                className="form-group-select"
+                                                style={{ maxWidth: 400 }}
+                                                value={String(Math.max(0, Number(schedule.rotationCursor || 0)) % rotationPool.length)}
+                                                onChange={(e) => {
+                                                    const idx = parseInt(e.target.value, 10);
+                                                    handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                        ...schedule,
+                                                        rotationCursor: Number.isFinite(idx) ? idx : 0,
+                                                    });
+                                                }}
+                                            >
+                                                {rotationPool.map((name, i) => (
+                                                    <option key={name} value={String(i)}>
+                                                        {name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <p className="form-group-description" style={{ marginTop: 6 }}>
+                                                Wer beim nächsten fälligen Serientermin zuerst das Ticket erhält. Später jederzeit wieder änderbar; danach läuft die Verteilung im gleichen Kreis weiter.
+                                            </p>
+                                        </div>
+                                    )}
+
                                 </div>
                             );
                         })

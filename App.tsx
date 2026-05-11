@@ -1214,8 +1214,18 @@ const App: React.FC = () => {
             }
         }
     } else {
-        // Keine manuelle Zuweisung, nutze Auto-Routing
-        assignedTechnician = assignTicket({ title: newTicketData.title, description: newTicketData.description }, users, tickets, appSettings.routingRules);
+        // Reaktive Meldungen (Portal + „Neues Ticket“): ohne explizite Wahl immer „Nicht zugewiesen“ — kein Keyword-Routing.
+        // Präventiv (Wartung/Serientermin): weiter automatisch zuweisen, wenn möglich.
+        if (newTicketData.ticketType === 'reactive') {
+            assignedTechnician = 'N/A';
+        } else {
+            assignedTechnician = assignTicket(
+                { title: newTicketData.title, description: newTicketData.description },
+                users,
+                tickets,
+                appSettings.routingRules
+            );
+        }
     }
 
     // 3. SLA-based Due Date Calculation

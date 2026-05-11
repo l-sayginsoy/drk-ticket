@@ -361,7 +361,7 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
                 </div>
             </div>
             <div className="form-group">
-                <label htmlFor="technician">Bearbeiter (wird ggf. automatisch zugewiesen)</label>
+                <label htmlFor="technician">Zugewiesen (Standard: nicht zugewiesen; optional einen Bearbeiter wählen)</label>
                 <select id="technician" value={technician} onChange={e => setTechnician(e.target.value)}>
                     <option value="N/A">Nicht zugewiesen</option>
                     {techniciansSorted.map(t => (
