@@ -2,7 +2,7 @@
 // FIX: Import useMemo hook from React.
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { User, Location, Role, AppSettings, Priority, TicketCategory, SLARule, RoutingRule, Asset, MaintenancePlan, AvailabilityStatus, RoutineSchedule, WeekdayKey } from '../types';
-import { getRoutinePool } from '../utils/routineHelpers';
+import { getRoutinePool, localISODate } from '../utils/routineHelpers';
 import { PlusIcon } from './icons/PlusIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import UserModal from './UserModal';
@@ -665,6 +665,25 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                         </div>
                                     </div>
 
+                                    <div className="form-group" style={{ marginTop: 12 }}>
+                                        <label>Startdatum</label>
+                                        <input
+                                            type="date"
+                                            className="form-group-input"
+                                            style={{ maxWidth: 220 }}
+                                            value={(schedule as any).startDate || ''}
+                                            onChange={(e) =>
+                                                handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                    ...schedule,
+                                                    startDate: e.target.value || null,
+                                                })
+                                            }
+                                        />
+                                        <p className="form-group-description" style={{ marginTop: 6 }}>
+                                            Ab diesem Kalendertag gilt die Wiederholung (z. B. 05.10.2026). Für <strong>monatlich</strong> und <strong>jährlich</strong> erforderlich. Bei <strong>wöchentlich</strong> mit Datum: gleicher Wochentag ab diesem Tag. Ohne Datum bleibt die bisherige Wochen-Logik (nur Intervall).
+                                        </p>
+                                    </div>
+
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
                                         <div className="form-group">
                                             <label>Wiederholung</label>
@@ -673,21 +692,29 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                                 value={schedule.recurrence?.type || 'weekdays'}
                                                 onChange={e => {
                                                     const type = e.target.value;
-                                                    const next =
-                                                        type === 'daily'
-                                                            ? { type: 'daily' }
-                                                            : type === 'weekly'
-                                                                ? { type: 'weekly', intervalWeeks: 1 }
-                                                                : { type: 'weekdays', intervalWeeks: 1, weekdays: ['mo', 'mi', 'fr'] as WeekdayKey[] };
-                                                    handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, recurrence: next as any });
+                                                    const today = localISODate(new Date());
+                                                    let next: any;
+                                                    if (type === 'daily') next = { type: 'daily' };
+                                                    else if (type === 'weekly') next = { type: 'weekly', intervalWeeks: 1 };
+                                                    else if (type === 'weekdays')
+                                                        next = { type: 'weekdays', intervalWeeks: 1, weekdays: ['mo', 'mi', 'fr'] as WeekdayKey[] };
+                                                    else if (type === 'monthly') next = { type: 'monthly', intervalMonths: 1, dayOfMonth: 5 };
+                                                    else next = { type: 'yearly', month: 10, day: 5 };
+                                                    const patch: Partial<RoutineSchedule> = { recurrence: next };
+                                                    if ((type === 'monthly' || type === 'yearly') && !(schedule as any).startDate) {
+                                                        (patch as any).startDate = today;
+                                                    }
+                                                    handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, ...patch } as RoutineSchedule);
                                                 }}
                                             >
                                                 <option value="daily">Täglich</option>
-                                                <option value="weekly">Wöchentlich</option>
+                                                <option value="weekly">Wöchentlich (Intervall Wochen)</option>
                                                 <option value="weekdays">Bestimmte Wochentage</option>
+                                                <option value="monthly">Monatlich</option>
+                                                <option value="yearly">Jährlich</option>
                                             </select>
 
-                                            {schedule.recurrence?.type !== 'daily' && (
+                                            {(schedule.recurrence?.type === 'weekly' || schedule.recurrence?.type === 'weekdays') && (
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
                                                     <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Intervall</span>
                                                     <input
@@ -698,14 +725,117 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                                         value={schedule.recurrence?.intervalWeeks || 1}
                                                         onChange={e => {
                                                             const intervalWeeks = Math.max(1, parseInt(e.target.value || '1', 10));
-                                                            const rec =
-                                                                schedule.recurrence?.type === 'weekdays'
-                                                                    ? { ...schedule.recurrence, intervalWeeks }
-                                                                    : { type: 'weekly', intervalWeeks };
-                                                            handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, recurrence: rec as any });
+                                                            const t = schedule.recurrence?.type;
+                                                            if (t === 'weekdays') {
+                                                                handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                                    ...schedule,
+                                                                    recurrence: { ...(schedule.recurrence as any), intervalWeeks },
+                                                                } as any);
+                                                            } else {
+                                                                handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                                    ...schedule,
+                                                                    recurrence: { type: 'weekly', intervalWeeks },
+                                                                } as any);
+                                                            }
                                                         }}
                                                     />
                                                     <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Woche(n)</span>
+                                                </div>
+                                            )}
+
+                                            {schedule.recurrence?.type === 'monthly' && (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                        <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>alle</span>
+                                                        <input
+                                                            type="number"
+                                                            min={1}
+                                                            className="form-group-input"
+                                                            style={{ width: 110 }}
+                                                            value={(schedule.recurrence as any).intervalMonths || 1}
+                                                            onChange={e => {
+                                                                const intervalMonths = Math.max(1, parseInt(e.target.value || '1', 10));
+                                                                handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                                    ...schedule,
+                                                                    recurrence: {
+                                                                        type: 'monthly',
+                                                                        intervalMonths,
+                                                                        dayOfMonth: Math.max(1, Math.min(31, (schedule.recurrence as any).dayOfMonth || 1)),
+                                                                    } as any,
+                                                                });
+                                                            }}
+                                                        />
+                                                        <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Monat(e)</span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                        <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Tag im Monat</span>
+                                                        <input
+                                                            type="number"
+                                                            min={1}
+                                                            max={31}
+                                                            className="form-group-input"
+                                                            style={{ width: 110 }}
+                                                            value={(schedule.recurrence as any).dayOfMonth || 1}
+                                                            onChange={e => {
+                                                                const dayOfMonth = Math.max(1, Math.min(31, parseInt(e.target.value || '1', 10)));
+                                                                handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                                    ...schedule,
+                                                                    recurrence: {
+                                                                        type: 'monthly',
+                                                                        intervalMonths: Math.max(1, (schedule.recurrence as any).intervalMonths || 1),
+                                                                        dayOfMonth,
+                                                                    } as any,
+                                                                });
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {schedule.recurrence?.type === 'yearly' && (
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 8, alignItems: 'center' }}>
+                                                    <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>jedes Jahr am</span>
+                                                    <select
+                                                        className="form-group-select"
+                                                        style={{ width: 130 }}
+                                                        value={(schedule.recurrence as any).month || 1}
+                                                        onChange={e => {
+                                                            const month = Math.max(1, Math.min(12, parseInt(e.target.value, 10)));
+                                                            handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                                ...schedule,
+                                                                recurrence: {
+                                                                    type: 'yearly',
+                                                                    month,
+                                                                    day: Math.max(1, Math.min(31, (schedule.recurrence as any).day || 1)),
+                                                                } as any,
+                                                            });
+                                                        }}
+                                                    >
+                                                        {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => (
+                                                            <option key={m} value={m}>
+                                                                {['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'][m - 1]}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    <input
+                                                        type="number"
+                                                        min={1}
+                                                        max={31}
+                                                        className="form-group-input"
+                                                        style={{ width: 72 }}
+                                                        value={(schedule.recurrence as any).day || 1}
+                                                        onChange={e => {
+                                                            const day = Math.max(1, Math.min(31, parseInt(e.target.value || '1', 10)));
+                                                            handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                                ...schedule,
+                                                                recurrence: {
+                                                                    type: 'yearly',
+                                                                    month: Math.max(1, Math.min(12, (schedule.recurrence as any).month || 1)),
+                                                                    day,
+                                                                } as any,
+                                                            });
+                                                        }}
+                                                    />
                                                 </div>
                                             )}
 
@@ -865,6 +995,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                 enabled: true,
                                 lastGenerated: null,
                                 rotationCursor: 0,
+                                startDate: localISODate(new Date()),
                                 recurrence: { type: 'weekdays', intervalWeeks: 1, weekdays: ['mo', 'mi', 'fr'] as WeekdayKey[] },
                             };
                             setAppSettings(prev => ({ ...prev, routineSchedules: [...(prev.routineSchedules || []), newItem] }));
@@ -1021,6 +1152,25 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                         </div>
                                     </div>
 
+                                    <div className="form-group" style={{ marginTop: 12 }}>
+                                        <label>Startdatum</label>
+                                        <input
+                                            type="date"
+                                            className="form-group-input"
+                                            style={{ maxWidth: 220 }}
+                                            value={(schedule as any).startDate || ''}
+                                            onChange={(e) =>
+                                                handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                    ...schedule,
+                                                    startDate: e.target.value || null,
+                                                })
+                                            }
+                                        />
+                                        <p className="form-group-description" style={{ marginTop: 6 }}>
+                                            Ab diesem Kalendertag gilt die Wiederholung (z. B. 05.10.2026). Für <strong>monatlich</strong> und <strong>jährlich</strong> erforderlich. Bei <strong>wöchentlich</strong> mit Datum: gleicher Wochentag ab diesem Tag. Ohne Datum bleibt die bisherige Wochen-Logik (nur Intervall).
+                                        </p>
+                                    </div>
+
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
                                         <div className="form-group">
                                             <label>Wiederholung</label>
@@ -1029,21 +1179,29 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                                 value={schedule.recurrence?.type || 'weekdays'}
                                                 onChange={e => {
                                                     const type = e.target.value;
-                                                    const next =
-                                                        type === 'daily'
-                                                            ? { type: 'daily' }
-                                                            : type === 'weekly'
-                                                                ? { type: 'weekly', intervalWeeks: 1 }
-                                                                : { type: 'weekdays', intervalWeeks: 1, weekdays: ['mo', 'mi', 'fr'] as WeekdayKey[] };
-                                                    handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, recurrence: next as any });
+                                                    const today = localISODate(new Date());
+                                                    let next: any;
+                                                    if (type === 'daily') next = { type: 'daily' };
+                                                    else if (type === 'weekly') next = { type: 'weekly', intervalWeeks: 1 };
+                                                    else if (type === 'weekdays')
+                                                        next = { type: 'weekdays', intervalWeeks: 1, weekdays: ['mo', 'mi', 'fr'] as WeekdayKey[] };
+                                                    else if (type === 'monthly') next = { type: 'monthly', intervalMonths: 1, dayOfMonth: 5 };
+                                                    else next = { type: 'yearly', month: 10, day: 5 };
+                                                    const patch: Partial<RoutineSchedule> = { recurrence: next };
+                                                    if ((type === 'monthly' || type === 'yearly') && !(schedule as any).startDate) {
+                                                        (patch as any).startDate = today;
+                                                    }
+                                                    handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, ...patch } as RoutineSchedule);
                                                 }}
                                             >
                                                 <option value="daily">Täglich</option>
-                                                <option value="weekly">Wöchentlich</option>
+                                                <option value="weekly">Wöchentlich (Intervall Wochen)</option>
                                                 <option value="weekdays">Bestimmte Wochentage</option>
+                                                <option value="monthly">Monatlich</option>
+                                                <option value="yearly">Jährlich</option>
                                             </select>
 
-                                            {schedule.recurrence?.type !== 'daily' && (
+                                            {(schedule.recurrence?.type === 'weekly' || schedule.recurrence?.type === 'weekdays') && (
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
                                                     <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Intervall</span>
                                                     <input
@@ -1054,14 +1212,117 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                                         value={schedule.recurrence?.intervalWeeks || 1}
                                                         onChange={e => {
                                                             const intervalWeeks = Math.max(1, parseInt(e.target.value || '1', 10));
-                                                            const rec =
-                                                                schedule.recurrence?.type === 'weekdays'
-                                                                    ? { ...schedule.recurrence, intervalWeeks }
-                                                                    : { type: 'weekly', intervalWeeks };
-                                                            handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, recurrence: rec as any });
+                                                            const t = schedule.recurrence?.type;
+                                                            if (t === 'weekdays') {
+                                                                handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                                    ...schedule,
+                                                                    recurrence: { ...(schedule.recurrence as any), intervalWeeks },
+                                                                } as any);
+                                                            } else {
+                                                                handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                                    ...schedule,
+                                                                    recurrence: { type: 'weekly', intervalWeeks },
+                                                                } as any);
+                                                            }
                                                         }}
                                                     />
                                                     <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Woche(n)</span>
+                                                </div>
+                                            )}
+
+                                            {schedule.recurrence?.type === 'monthly' && (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                        <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>alle</span>
+                                                        <input
+                                                            type="number"
+                                                            min={1}
+                                                            className="form-group-input"
+                                                            style={{ width: 110 }}
+                                                            value={(schedule.recurrence as any).intervalMonths || 1}
+                                                            onChange={e => {
+                                                                const intervalMonths = Math.max(1, parseInt(e.target.value || '1', 10));
+                                                                handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                                    ...schedule,
+                                                                    recurrence: {
+                                                                        type: 'monthly',
+                                                                        intervalMonths,
+                                                                        dayOfMonth: Math.max(1, Math.min(31, (schedule.recurrence as any).dayOfMonth || 1)),
+                                                                    } as any,
+                                                                });
+                                                            }}
+                                                        />
+                                                        <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Monat(e)</span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                        <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Tag im Monat</span>
+                                                        <input
+                                                            type="number"
+                                                            min={1}
+                                                            max={31}
+                                                            className="form-group-input"
+                                                            style={{ width: 110 }}
+                                                            value={(schedule.recurrence as any).dayOfMonth || 1}
+                                                            onChange={e => {
+                                                                const dayOfMonth = Math.max(1, Math.min(31, parseInt(e.target.value || '1', 10)));
+                                                                handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                                    ...schedule,
+                                                                    recurrence: {
+                                                                        type: 'monthly',
+                                                                        intervalMonths: Math.max(1, (schedule.recurrence as any).intervalMonths || 1),
+                                                                        dayOfMonth,
+                                                                    } as any,
+                                                                });
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {schedule.recurrence?.type === 'yearly' && (
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 8, alignItems: 'center' }}>
+                                                    <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>jedes Jahr am</span>
+                                                    <select
+                                                        className="form-group-select"
+                                                        style={{ width: 130 }}
+                                                        value={(schedule.recurrence as any).month || 1}
+                                                        onChange={e => {
+                                                            const month = Math.max(1, Math.min(12, parseInt(e.target.value, 10)));
+                                                            handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                                ...schedule,
+                                                                recurrence: {
+                                                                    type: 'yearly',
+                                                                    month,
+                                                                    day: Math.max(1, Math.min(31, (schedule.recurrence as any).day || 1)),
+                                                                } as any,
+                                                            });
+                                                        }}
+                                                    >
+                                                        {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => (
+                                                            <option key={m} value={m}>
+                                                                {['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'][m - 1]}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    <input
+                                                        type="number"
+                                                        min={1}
+                                                        max={31}
+                                                        className="form-group-input"
+                                                        style={{ width: 72 }}
+                                                        value={(schedule.recurrence as any).day || 1}
+                                                        onChange={e => {
+                                                            const day = Math.max(1, Math.min(31, parseInt(e.target.value || '1', 10)));
+                                                            handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                                ...schedule,
+                                                                recurrence: {
+                                                                    type: 'yearly',
+                                                                    month: Math.max(1, Math.min(12, (schedule.recurrence as any).month || 1)),
+                                                                    day,
+                                                                } as any,
+                                                            });
+                                                        }}
+                                                    />
                                                 </div>
                                             )}
 
@@ -1224,6 +1485,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                 enabled: true,
                                 lastGenerated: null,
                                 rotationCursor: 0,
+                                startDate: localISODate(new Date()),
                                 recurrence: { type: 'weekdays', intervalWeeks: 1, weekdays: ['mo', 'mi', 'fr'] as WeekdayKey[] },
                             };
                             setAppSettings(prev => ({ ...prev, routineSchedules: [...(prev.routineSchedules || []), newItem] }));

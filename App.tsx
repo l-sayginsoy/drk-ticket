@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { 
-  Ticket, Status, Priority, Role, GroupableKey, User, Location, AppSettings, Asset, MaintenancePlan, AvailabilityStatus, RoutingRule, RoutineSchedule, WeekdayKey
+  Ticket, Status, Priority, Role, GroupableKey, User, Location, AppSettings, Asset, MaintenancePlan, AvailabilityStatus, RoutingRule, RoutineSchedule
 } from './types';
 import { MOCK_TICKETS, MOCK_USERS, MOCK_LOCATIONS, STATUSES, DEFAULT_APP_SETTINGS, MOCK_ASSETS, MOCK_MAINTENANCE_PLANS } from './constants';
 import { db } from './firebase';
@@ -25,7 +25,8 @@ import SettingsView from './components/SettingsView';
 import RoutineSchedulesView from './components/RoutineSchedulesView';
 import RoutineNachweisView from './components/RoutineNachweisView';
 import DashboardRoutineLinkBar from './components/DashboardRoutineLinkBar';
-import { localISODate } from './utils/routineHelpers';
+import { localISODate, isRoutineDueOnCalendarDay } from './utils/routineHelpers';
+import { fetchRpHolidays } from './utils/rpHolidays';
 import { displayNameShort } from './utils/displayNames';
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: any}> {
   constructor(props: {children: React.ReactNode}) {
@@ -456,8 +457,24 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const [rpHolidayYmdList, setRpHolidayYmdList] = useState<string[]>([]);
   const isRemoteUpdate = useRef(false);
   const prevUsersRef = useRef<User[]>(users);
+
+  useEffect(() => {
+    const load = () => {
+      const y = new Date().getFullYear();
+      fetchRpHolidays([y - 1, y, y + 1])
+        .then((s) => setRpHolidayYmdList(Array.from(s)))
+        .catch(() => setRpHolidayYmdList([]));
+    };
+    load();
+    const onVis = () => {
+      if (document.visibilityState === 'visible') load();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
 
   // --- Firebase Sync Logic ---
   useEffect(() => {
@@ -906,8 +923,10 @@ const App: React.FC = () => {
     }
   }, []); // Runs once on app load
 
-  // Routine Schedules (Serientermine) Simulation
+  // Routine Schedules (Serientermine): Fälligkeit inkl. Startdatum, monatlich/jährlich, RP-Feiertags-Verschiebung
   useEffect(() => {
+    if (!isInitialized) return;
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayStr = localISODate(today);
@@ -915,56 +934,14 @@ const App: React.FC = () => {
     const schedules = (appSettings.routineSchedules || []) as Array<RoutineSchedule & { recurrence?: any }>;
     if (schedules.length === 0) return;
 
-    const weekdayKeyForDate = (d: Date): WeekdayKey => {
-      // JS: 0=So..6=Sa
-      const day = d.getDay();
-      switch (day) {
-        case 1: return 'mo';
-        case 2: return 'di';
-        case 3: return 'mi';
-        case 4: return 'do';
-        case 5: return 'fr';
-        case 6: return 'sa';
-        default: return 'so';
-      }
-    };
-
-    const isDueToday = (s: RoutineSchedule & { recurrence?: any }): boolean => {
-      if (!s.enabled) return false;
-      if (!String((s as any).area || '').trim()) return false;
-      if (s.lastGenerated === todayStr) return false;
-      const rec = (s as any).recurrence;
-      if (!rec || rec.type === 'daily') return true;
-
-      if (rec.type === 'weekly') {
-        const intervalWeeks = Math.max(1, Number(rec.intervalWeeks || 1));
-        // Use ISO weeks since 1970-01-05 (Monday) as a stable anchor
-        const anchor = new Date(1970, 0, 5);
-        anchor.setHours(0, 0, 0, 0);
-        const diffDays = Math.floor((today.getTime() - anchor.getTime()) / (1000 * 60 * 60 * 24));
-        const weeksSince = Math.floor(diffDays / 7);
-        return weeksSince % intervalWeeks === 0;
-      }
-
-      if (rec.type === 'weekdays') {
-        const intervalWeeks = Math.max(1, Number(rec.intervalWeeks || 1));
-        const weekdays = Array.isArray(rec.weekdays) ? (rec.weekdays as WeekdayKey[]) : [];
-        if (!weekdays.includes(weekdayKeyForDate(today))) return false;
-        const anchor = new Date(1970, 0, 5);
-        anchor.setHours(0, 0, 0, 0);
-        const diffDays = Math.floor((today.getTime() - anchor.getTime()) / (1000 * 60 * 60 * 24));
-        const weeksSince = Math.floor(diffDays / 7);
-        return weeksSince % intervalWeeks === 0;
-      }
-
-      return false;
-    };
+    const rpSet = new Set(rpHolidayYmdList);
 
     const updatedSchedules = [...schedules];
     let changed = false;
 
     schedules.forEach((schedule, idx) => {
-      if (!isDueToday(schedule)) return;
+      if (schedule.lastGenerated === todayStr) return;
+      if (!isRoutineDueOnCalendarDay(schedule, today, rpSet)) return;
 
       const eligibleUsers = users
         .filter(u => u.isActive && u.role === schedule.targetRole)
@@ -1016,7 +993,8 @@ const App: React.FC = () => {
     if (changed) {
       setAppSettings(prev => ({ ...prev, routineSchedules: updatedSchedules as any }));
     }
-  }, []); // Runs once on app load
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Serienlogik bewusst bei Schedule-/Feiertags-Änderung; Tickets über setTickets
+  }, [isInitialized, appSettings.routineSchedules, users, rpHolidayYmdList]);
 
   // Automatically set tickets to overdue and back
   useEffect(() => {
@@ -1737,6 +1715,7 @@ const App: React.FC = () => {
             userName={currentUser.name}
             schedules={appSettings.routineSchedules as any}
             users={users}
+            rpHolidayYmdList={rpHolidayYmdList}
             completions={appSettings.routineDayCompletions || []}
             onComplete={handleRoutineDayComplete}
             onUncomplete={handleRoutineDayUncomplete}
@@ -1761,6 +1740,7 @@ const App: React.FC = () => {
               users={users}
               userRole={currentUser.role}
               userName={currentUser.name}
+              rpHolidayYmdList={rpHolidayYmdList}
             />
           );
         case 'erledigt': return <ErledigtTableView tickets={filteredTickets} onSelectTicket={setSelectedTicket} selectedTicket={selectedTicket} onDeleteTicket={handleDeleteTicket} />;
@@ -1793,6 +1773,7 @@ const App: React.FC = () => {
             userRole={currentUser.role}
             userName={currentUser.name}
             completions={appSettings.routineDayCompletions || []}
+            rpHolidayYmdList={rpHolidayYmdList}
             onOpenRoutines={() => changeView('routines')}
           />
         )}

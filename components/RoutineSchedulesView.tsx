@@ -16,6 +16,8 @@ interface RoutineSchedulesViewProps {
   userName: string;
   schedules: Array<RoutineSchedule & { recurrence?: any }>;
   users: User[];
+  /** Feiertage RP (YYYY-MM-DD), z. B. aus feiertage-api.de — für Fälligkeit inkl. Verschiebung */
+  rpHolidayYmdList?: string[];
   onReorder: (fromId: string, toId: string) => void;
   completions: RoutineDayCompletion[];
   onComplete: (scheduleId: string) => void;
@@ -46,13 +48,25 @@ function formatInterval(schedule: RoutineSchedule & { recurrence?: any }): strin
     const prefix = n === 1 ? '' : `Alle ${n} Wochen: `;
     return `${prefix}${dayStr || '—'}`;
   }
+  if (rec.type === 'monthly') {
+    const n = Math.max(1, Number(rec.intervalMonths || 1));
+    const dom = Math.max(1, Math.min(31, Number(rec.dayOfMonth || 1)));
+    return n === 1 ? `Monatlich am ${dom}.` : `Alle ${n} Monate am ${dom}.`;
+  }
+  if (rec.type === 'yearly') {
+    const mo = Math.max(1, Math.min(12, Number(rec.month || 1)));
+    const d = Math.max(1, Math.min(31, Number(rec.day || 1)));
+    const mn = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'][mo - 1];
+    return `Jährlich ${mn} ${d}.`;
+  }
   return '—';
 }
 
 export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
-  const { userRole, userName, schedules, users, onReorder, completions, onComplete, onUncomplete } = props;
+  const { userRole, userName, schedules, users, rpHolidayYmdList = [], onReorder, completions, onComplete, onUncomplete } = props;
   const [dragId, setDragId] = useState<string | null>(null);
   const todayYmd = useMemo(() => localISODate(new Date()), []);
+  const rpHolidaySet = useMemo(() => new Set(rpHolidayYmdList), [rpHolidayYmdList]);
 
   const activeUsersByRole = useMemo(() => {
     const map = new Map<string, string[]>();
@@ -126,6 +140,14 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
               })
             )}
           </div>
+        </>
+      );
+    }
+    if (rec.type === 'monthly' || rec.type === 'yearly') {
+      return (
+        <>
+          <div className="routine-interval-label">{rec.type === 'monthly' ? 'Monatlich' : 'Jährlich'}</div>
+          <div className="routine-sub">{formatInterval(s)}</div>
         </>
       );
     }
@@ -395,7 +417,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                     </td>
                     <td className="routine-td">
                       {(() => {
-                        const due = isRoutineDueOnCalendarDay(s, new Date());
+                        const due = isRoutineDueOnCalendarDay(s, new Date(), rpHolidaySet);
                         if (!due) {
                           return (
                             <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>

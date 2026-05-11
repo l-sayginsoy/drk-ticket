@@ -65,7 +65,9 @@ export type WeekdayKey = 'mo' | 'di' | 'mi' | 'do' | 'fr' | 'sa' | 'so';
 export type RoutineRecurrence =
   | { type: 'daily' }
   | { type: 'weekly'; intervalWeeks: number }
-  | { type: 'weekdays'; intervalWeeks: number; weekdays: WeekdayKey[] };
+  | { type: 'weekdays'; intervalWeeks: number; weekdays: WeekdayKey[] }
+  | { type: 'monthly'; intervalMonths: number; dayOfMonth: number }
+  | { type: 'yearly'; month: number; day: number }; // month 1–12, day 1–31
 
 export type RoutineAssignment =
   | { type: 'rotate' }
@@ -81,6 +83,8 @@ export interface RoutineSchedule {
   assignees: string[]; // only these names are used for rotation/fixed selection
   assignment: RoutineAssignment;
   recurrence?: RoutineRecurrence;
+  /** Erstes Wiederholungsdatum (YYYY-MM-DD); für monatlich/jährlich erforderlich; bei wöchentlich mit Start: gleicher Wochentag */
+  startDate?: string | null;
   enabled: boolean;
   lastGenerated: string | null; // YYYY-MM-DD
   rotationCursor: number; // used when assignment.type === 'rotate'

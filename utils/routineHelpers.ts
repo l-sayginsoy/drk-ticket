@@ -59,39 +59,166 @@ export function localISODate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-export function isRoutineDueOnCalendarDay(
+export function parseYmdLocal(ymd: string): Date {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setHours(0, 0, 0, 0);
+  return dt;
+}
+
+function mondayOfDate(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  const dow = (x.getDay() + 6) % 7;
+  x.setDate(x.getDate() - dow);
+  return x;
+}
+
+function daysInMonth(year: number, monthIndex: number): number {
+  return new Date(year, monthIndex + 1, 0).getDate();
+}
+
+/** Optionales erstes Wiederholungsdatum (YYYY-MM-DD). Fehlt es, gilt Legacy-Verhalten wo nötig. */
+export function scheduleStartYmd(schedule: RoutineSchedule & { startDate?: string | null }): string | null {
+  const s = (schedule as any).startDate;
+  if (typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  return null;
+}
+
+function hasExplicitStart(schedule: RoutineSchedule & { startDate?: string | null }): boolean {
+  return scheduleStartYmd(schedule) !== null;
+}
+
+/** Verschiebt ein nominales Datum auf den nächsten Werktag (Mo–Fr, nicht RP-Feiertag). */
+export function shiftNominalToNextRpBusinessDay(nominalYmd: string, rpHolidays: Set<string>): string {
+  const d = parseYmdLocal(nominalYmd);
+  for (let i = 0; i < 21; i++) {
+    const dow = d.getDay();
+    const s = localISODate(d);
+    if (dow !== 0 && dow !== 6 && !rpHolidays.has(s)) return s;
+    d.setDate(d.getDate() + 1);
+  }
+  return nominalYmd;
+}
+
+function effectiveYmdAfterHolidays(
   schedule: RoutineSchedule & { recurrence?: any },
-  day: Date
-): boolean {
+  nominalYmd: string,
+  rpHolidays: Set<string>
+): string {
+  const rec = (schedule as any).recurrence;
+  if (!rec || rec.type === 'daily') return nominalYmd;
+  return shiftNominalToNextRpBusinessDay(nominalYmd, rpHolidays);
+}
+
+/** Nominaler Fälligkeitstag (ohne Feiertags-Verschiebung). */
+export function isNominalRoutineDay(schedule: RoutineSchedule & { recurrence?: any }, day: Date): boolean {
   if (!schedule.enabled) return false;
   if (!String(schedule.area || '').trim()) return false;
+
+  const dayStr = localISODate(day);
+  const startYmd = scheduleStartYmd(schedule);
   const rec = (schedule as any).recurrence;
-  if (!rec || rec.type === 'daily') return true;
+
+  if (!rec || rec.type === 'daily') {
+    if (!startYmd) return true;
+    return dayStr >= startYmd;
+  }
 
   if (rec.type === 'weekly') {
     const intervalWeeks = Math.max(1, Number(rec.intervalWeeks || 1));
-    const anchor = new Date(1970, 0, 5);
-    anchor.setHours(0, 0, 0, 0);
-    const t = new Date(day);
-    t.setHours(0, 0, 0, 0);
-    const diffDays = Math.floor((t.getTime() - anchor.getTime()) / (1000 * 60 * 60 * 24));
-    const weeksSince = Math.floor(diffDays / 7);
-    return weeksSince % intervalWeeks === 0;
+    if (!hasExplicitStart(schedule)) {
+      const anchor = new Date(1970, 0, 5);
+      anchor.setHours(0, 0, 0, 0);
+      const t = new Date(day);
+      t.setHours(0, 0, 0, 0);
+      const diffDays = Math.floor((t.getTime() - anchor.getTime()) / (1000 * 60 * 60 * 24));
+      const weeksSince = Math.floor(diffDays / 7);
+      return weeksSince % intervalWeeks === 0;
+    }
+    if (!startYmd || dayStr < startYmd) return false;
+    const start = parseYmdLocal(startYmd);
+    if (day.getDay() !== start.getDay()) return false;
+    const w0 = mondayOfDate(start);
+    const w1 = mondayOfDate(day);
+    const weekDiff = Math.round((w1.getTime() - w0.getTime()) / (1000 * 60 * 60 * 24) / 7);
+    return weekDiff >= 0 && weekDiff % intervalWeeks === 0;
   }
 
   if (rec.type === 'weekdays') {
     const intervalWeeks = Math.max(1, Number(rec.intervalWeeks || 1));
     const weekdays = Array.isArray(rec.weekdays) ? (rec.weekdays as WeekdayKey[]) : [];
     if (!weekdays.includes(weekdayKeyForDate(day))) return false;
-    const anchor = new Date(1970, 0, 5);
-    anchor.setHours(0, 0, 0, 0);
-    const t = new Date(day);
-    t.setHours(0, 0, 0, 0);
-    const diffDays = Math.floor((t.getTime() - anchor.getTime()) / (1000 * 60 * 60 * 24));
-    const weeksSince = Math.floor(diffDays / 7);
-    return weeksSince % intervalWeeks === 0;
+    if (!hasExplicitStart(schedule)) {
+      const anchor = new Date(1970, 0, 5);
+      anchor.setHours(0, 0, 0, 0);
+      const t = new Date(day);
+      t.setHours(0, 0, 0, 0);
+      const diffDays = Math.floor((t.getTime() - anchor.getTime()) / (1000 * 60 * 60 * 24));
+      const weeksSince = Math.floor(diffDays / 7);
+      return weeksSince % intervalWeeks === 0;
+    }
+    if (!startYmd || dayStr < startYmd) return false;
+    const start = parseYmdLocal(startYmd);
+    const w0 = mondayOfDate(start);
+    const w1 = mondayOfDate(day);
+    const weekDiff = Math.round((w1.getTime() - w0.getTime()) / (1000 * 60 * 60 * 24) / 7);
+    return weekDiff >= 0 && weekDiff % intervalWeeks === 0;
   }
 
+  if (rec.type === 'monthly') {
+    if (!startYmd) return false;
+    const intervalMonths = Math.max(1, Number(rec.intervalMonths || 1));
+    const dom = Math.max(1, Math.min(31, Number(rec.dayOfMonth || 1)));
+    const anchor = parseYmdLocal(startYmd);
+    const y = day.getFullYear();
+    const m = day.getMonth();
+    const monthsSince = (y - anchor.getFullYear()) * 12 + (m - anchor.getMonth());
+    if (monthsSince < 0) return false;
+    if (monthsSince % intervalMonths !== 0) return false;
+    const dim = daysInMonth(y, m);
+    const expect = Math.min(dom, dim);
+    if (day.getDate() !== expect) return false;
+    return dayStr >= startYmd;
+  }
+
+  if (rec.type === 'yearly') {
+    if (!startYmd) return false;
+    if (dayStr < startYmd) return false;
+    const month = Math.max(1, Math.min(12, Number(rec.month || 1)));
+    const dom = Math.max(1, Math.min(31, Number(rec.day || 1)));
+    const y = day.getFullYear();
+    const dim = daysInMonth(y, month - 1);
+    const expect = Math.min(dom, dim);
+    if (day.getMonth() + 1 !== month || day.getDate() !== expect) return false;
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Kalendertag, an dem das Ticket fällig wird: nominales Muster + ggf. Verschiebung (Sa/So/RP-Feiertag).
+ * `rpHolidays`: YYYY-MM-DD (lokal), z. B. aus feiertage-api.de für Rheinland-Pfalz.
+ */
+export function isRoutineDueOnCalendarDay(
+  schedule: RoutineSchedule & { recurrence?: any; startDate?: string | null },
+  day: Date,
+  rpHolidays: Set<string> = new Set()
+): boolean {
+  if (!schedule.enabled || !String(schedule.area || '').trim()) return false;
+
+  const dayStr = localISODate(day);
+  const lookback = 21;
+  for (let i = 0; i <= lookback; i++) {
+    const nd = new Date(day);
+    nd.setDate(nd.getDate() - i);
+    nd.setHours(0, 0, 0, 0);
+    if (!isNominalRoutineDay(schedule, nd)) continue;
+    const nominalStr = localISODate(nd);
+    const effective = effectiveYmdAfterHolidays(schedule, nominalStr, rpHolidays);
+    if (effective === dayStr) return true;
+  }
   return false;
 }
 
@@ -144,10 +271,11 @@ export function isScheduleVisibleForUser(
   return assignees.includes(userName) && poolAll.includes(userName);
 }
 
-/** Alle lokalen Kalendertage (YYYY-MM-DD) im Jahr, an denen der Auftrag laut Intervall fällig ist. */
+/** Alle Kalendertage im Jahr, an denen die Serie (inkl. Feiertags-Verschiebung) fällig ist. */
 export function getDueDatesInYear(
-  schedule: RoutineSchedule & { recurrence?: any },
-  year: number
+  schedule: RoutineSchedule & { recurrence?: any; startDate?: string | null },
+  year: number,
+  rpHolidays: Set<string> = new Set()
 ): string[] {
   const out: string[] = [];
   const d = new Date(year, 0, 1);
@@ -156,7 +284,7 @@ export function getDueDatesInYear(
   end.setHours(0, 0, 0, 0);
   while (d.getTime() <= end.getTime()) {
     const cur = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    if (isRoutineDueOnCalendarDay(schedule, cur)) {
+    if (isRoutineDueOnCalendarDay(schedule, cur, rpHolidays)) {
       out.push(localISODate(cur));
     }
     d.setDate(d.getDate() + 1);

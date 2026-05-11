@@ -15,6 +15,7 @@ export interface DashboardRoutineLinkBarProps {
   userRole: Role;
   userName: string;
   completions: RoutineDayCompletion[];
+  rpHolidayYmdList?: string[];
   onOpenRoutines: () => void;
 }
 
@@ -24,9 +25,11 @@ const DashboardRoutineLinkBar: React.FC<DashboardRoutineLinkBarProps> = ({
   userRole,
   userName,
   completions,
+  rpHolidayYmdList = [],
   onOpenRoutines,
 }) => {
   const todayYmd = useMemo(() => localISODate(new Date()), []);
+  const rpHolidaySet = useMemo(() => new Set(rpHolidayYmdList), [rpHolidayYmdList]);
 
   const completionSet = useMemo(() => {
     const s = new Set<string>();
@@ -38,7 +41,7 @@ const DashboardRoutineLinkBar: React.FC<DashboardRoutineLinkBarProps> = ({
 
   const { totalDue, openCount, openTaskTitles } = useMemo(() => {
     const list = (schedules || []).filter((sch) => isScheduleVisibleForUser(sch, userRole, userName, users));
-    const dueToday = list.filter((sch) => isRoutineDueOnCalendarDay(sch, new Date()));
+    const dueToday = list.filter((sch) => isRoutineDueOnCalendarDay(sch, new Date(), rpHolidaySet));
 
     if (userRole === Role.Admin) {
       const total = dueToday.length;
@@ -63,7 +66,7 @@ const DashboardRoutineLinkBar: React.FC<DashboardRoutineLinkBarProps> = ({
       }
     });
     return { totalDue: total, openCount: open, openTaskTitles: openTitles };
-  }, [schedules, users, userRole, userName, todayYmd, completionSet]);
+  }, [schedules, users, userRole, userName, todayYmd, completionSet, rpHolidaySet]);
 
   if (totalDue === 0) return null;
 

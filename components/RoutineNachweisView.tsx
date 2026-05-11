@@ -42,6 +42,7 @@ interface RoutineNachweisViewProps {
   users: User[];
   userRole: Role;
   userName: string;
+  rpHolidayYmdList?: string[];
 }
 
 export default function RoutineNachweisView({
@@ -50,6 +51,7 @@ export default function RoutineNachweisView({
   users,
   userRole,
   userName,
+  rpHolidayYmdList = [],
 }: RoutineNachweisViewProps) {
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
@@ -61,6 +63,8 @@ export default function RoutineNachweisView({
     t.setHours(0, 0, 0, 0);
     return localISODate(t);
   }, []);
+
+  const rpHolidaySet = useMemo(() => new Set(rpHolidayYmdList), [rpHolidayYmdList]);
 
   const visibleSchedules = useMemo(() => {
     const list = (schedules || []).filter((s) => isScheduleVisibleForUser(s, userRole, userName, users));
@@ -106,10 +110,10 @@ export default function RoutineNachweisView({
   const dueByScheduleId = useMemo(() => {
     const map = new Map<string, string[]>();
     visibleSchedules.forEach((sch) => {
-      map.set(sch.id, getDueDatesInYear(sch, year));
+      map.set(sch.id, getDueDatesInYear(sch, year, rpHolidaySet));
     });
     return map;
-  }, [visibleSchedules, year]);
+  }, [visibleSchedules, year, rpHolidaySet]);
 
   return (
     <div style={{ maxWidth: 1800 }}>
