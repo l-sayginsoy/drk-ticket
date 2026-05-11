@@ -27,6 +27,13 @@ import RoutineNachweisView from './components/RoutineNachweisView';
 import DashboardRoutineLinkBar from './components/DashboardRoutineLinkBar';
 import { localISODate, isRoutineDueOnCalendarDay } from './utils/routineHelpers';
 import { fetchRpHolidays } from './utils/rpHolidays';
+import {
+  BREVO_MAIL_STATUS_EVENT,
+  checkBrevoAccountApi,
+  emitBrevoMailStatus,
+  readStoredBrevoMailError,
+  type BrevoMailStatusDetail,
+} from './utils/brevoHealth';
 import { displayNameShort } from './utils/displayNames';
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: any}> {
   constructor(props: {children: React.ReactNode}) {
@@ -240,6 +247,7 @@ const sendDrkBrevoMail = (to: string, subject: string, payload: DrkBrevoMailPayl
     if (!apiKey) {
       const msg = 'E-Mail konnte nicht gesendet werden: VITE_BREVO_API_KEY fehlt im Build.';
       console.warn(msg);
+      emitBrevoMailStatus({ ok: false, status: 0, message: msg });
       window.alert(msg);
       return;
     }
@@ -261,6 +269,7 @@ const sendDrkBrevoMail = (to: string, subject: string, payload: DrkBrevoMailPayl
       if (!res.ok) {
         const clipped = bodyText.slice(0, 1200);
         console.error('Brevo Fehler:', res.status, clipped);
+        emitBrevoMailStatus({ ok: false, status: res.status, message: clipped });
         window.alert(`E-Mail konnte nicht gesendet werden (Brevo ${res.status}).\n\n${clipped}`);
         return;
       }
@@ -272,9 +281,12 @@ const sendDrkBrevoMail = (to: string, subject: string, payload: DrkBrevoMailPayl
       } catch {
         console.info('Brevo OK', { status: res.status });
       }
+      emitBrevoMailStatus({ ok: true });
     } catch (err) {
       console.error('Brevo senden fehlgeschlagen:', err);
-      window.alert(`E-Mail konnte nicht gesendet werden (Netzwerk/Browser-Block).\n\n${String(err)}`);
+      const m = String(err);
+      emitBrevoMailStatus({ ok: false, status: 0, message: m });
+      window.alert(`E-Mail konnte nicht gesendet werden (Netzwerk/Browser-Block).\n\n${m}`);
     }
   })();
 };
@@ -458,6 +470,12 @@ const App: React.FC = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [rpHolidayYmdList, setRpHolidayYmdList] = useState<string[]>([]);
+  /** Admin: sichtbarer Hinweis wenn Brevo (Transaktions-Mail) nicht funktioniert */
+  const [brevoAdminAlert, setBrevoAdminAlert] = useState<{ message: string; status: number } | null>(null);
+  const [brevoAlertSuppressed, setBrevoAlertSuppressed] = useState(false);
+  /** Sidebar-Status wie „Synchronisiert“ */
+  const [brevoMailOk, setBrevoMailOk] = useState<boolean | null>(null);
+  const [brevoMailLastChecked, setBrevoMailLastChecked] = useState<Date | null>(null);
   const isRemoteUpdate = useRef(false);
   const prevUsersRef = useRef<User[]>(users);
 
@@ -475,6 +493,59 @@ const App: React.FC = () => {
     document.addEventListener('visibilitychange', onVis);
     return () => document.removeEventListener('visibilitychange', onVis);
   }, []);
+
+  useEffect(() => {
+    const onStatus = (ev: Event) => {
+      const e = ev as CustomEvent<BrevoMailStatusDetail>;
+      const d = e.detail;
+      if (!d) return;
+      setBrevoMailLastChecked(new Date());
+      if (d.ok) {
+        setBrevoAdminAlert(null);
+        setBrevoAlertSuppressed(false);
+        setBrevoMailOk(true);
+      } else {
+        setBrevoAlertSuppressed(false);
+        setBrevoAdminAlert({ message: d.message || 'Fehler', status: d.status ?? 0 });
+        setBrevoMailOk(false);
+      }
+    };
+    window.addEventListener(BREVO_MAIL_STATUS_EVENT, onStatus);
+    return () => window.removeEventListener(BREVO_MAIL_STATUS_EVENT, onStatus);
+  }, []);
+
+  /** Admin: gespeicherten letzten Fehler anzeigen (z. B. nach Reload) */
+  useEffect(() => {
+    if (currentUser?.role !== Role.Admin) {
+      setBrevoAdminAlert(null);
+      return;
+    }
+    const stored = readStoredBrevoMailError();
+    if (stored) setBrevoAdminAlert(stored);
+  }, [currentUser?.role]);
+
+  /** Admin: Brevo-API regelmäßig prüfen (ohne Mail), damit deaktivierte Keys sofort auffallen */
+  useEffect(() => {
+    if (!isInitialized || currentUser?.role !== Role.Admin) return;
+    const apiKey = (import.meta.env.VITE_BREVO_API_KEY as string | undefined)?.trim();
+    let cancelled = false;
+    const run = async () => {
+      const r = await checkBrevoAccountApi(apiKey || '');
+      if (cancelled) return;
+      setBrevoMailLastChecked(new Date());
+      if (!r.ok) {
+        emitBrevoMailStatus({ ok: false, status: r.status, message: r.message });
+      } else {
+        emitBrevoMailStatus({ ok: true });
+      }
+    };
+    void run();
+    const id = window.setInterval(run, 30 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [isInitialized, currentUser?.role]);
 
   // --- Firebase Sync Logic ---
   useEffect(() => {
@@ -1763,9 +1834,65 @@ const App: React.FC = () => {
 
   return (
     <div className="app-layout">
-      <Sidebar appSettings={appSettings} isCollapsed={isSidebarCollapsed} setCollapsed={setSidebarCollapsed} theme={theme} setTheme={setTheme} currentView={currentView} setCurrentView={changeView} onLogout={handleLogout} userRole={currentUser.role} userName={displayNameShort(currentUser.name)} userNameFull={currentUser.name} tickets={ticketsForUser} onNewTicketClick={() => setIsModalOpen(true)} onExportPDF={handleExportPDF} onExportCSV={handleExportCSV} isSyncing={isSyncing} lastSyncTime={lastSyncTime} />
+      <Sidebar
+        appSettings={appSettings}
+        isCollapsed={isSidebarCollapsed}
+        setCollapsed={setSidebarCollapsed}
+        theme={theme}
+        setTheme={setTheme}
+        currentView={currentView}
+        setCurrentView={changeView}
+        onLogout={handleLogout}
+        userRole={currentUser.role}
+        userName={displayNameShort(currentUser.name)}
+        userNameFull={currentUser.name}
+        tickets={ticketsForUser}
+        onNewTicketClick={() => setIsModalOpen(true)}
+        onExportPDF={handleExportPDF}
+        onExportCSV={handleExportCSV}
+        isSyncing={isSyncing}
+        lastSyncTime={lastSyncTime}
+        brevoMailOk={currentUser.role === Role.Admin ? brevoMailOk : null}
+        brevoMailLastChecked={currentUser.role === Role.Admin ? brevoMailLastChecked : null}
+      />
       <main>
         <Header filters={filters} setFilters={setFilters} currentView={currentView} />
+        {currentUser?.role === Role.Admin && brevoAdminAlert && !brevoAlertSuppressed && (
+          <div
+            role="alert"
+            style={{
+              margin: '0 0 12px',
+              padding: '12px 14px',
+              borderRadius: 10,
+              border: '1px solid rgba(180, 35, 24, 0.45)',
+              background: 'rgba(220, 53, 69, 0.12)',
+              color: 'var(--text-primary)',
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: '10px 14px',
+              justifyContent: 'space-between',
+            }}
+          >
+            <div style={{ flex: '1 1 240px', minWidth: 0 }}>
+              <strong>E-Mail-Versand (Brevo):</strong> funktioniert gerade nicht
+              {brevoAdminAlert.status ? ` (HTTP ${brevoAdminAlert.status})` : ''}. Meldungen mit E-Mail können keine
+              Bestätigung verschicken. Bitte API-Key in Brevo prüfen und GitHub-Secret{' '}
+              <code style={{ fontSize: '0.9em' }}>VITE_BREVO_API_KEY</code> aktualisieren, dann neu deployen.
+              <div style={{ marginTop: 8, fontSize: 13, opacity: 0.92, wordBreak: 'break-word' }}>
+                {brevoAdminAlert.message}
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ flexShrink: 0 }}
+              onClick={() => setBrevoAlertSuppressed(true)}
+            >
+              Ausblenden
+            </button>
+          </div>
+        )}
         {(currentView === 'dashboard' || currentView === 'tech-dashboard') && (
           <DashboardRoutineLinkBar
             schedules={appSettings.routineSchedules as any}

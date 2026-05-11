@@ -31,10 +31,33 @@ interface SidebarProps {
     onExportCSV: () => void;
     isSyncing?: boolean;
     lastSyncTime?: Date | null;
+    /** Admin: Status für Transaktionsmails (Brevo) */
+    brevoMailOk?: boolean | null;
+    brevoMailLastChecked?: Date | null;
 }
 
 
-const Sidebar: React.FC<SidebarProps> = ({ appSettings, isCollapsed, setCollapsed, theme, setTheme, currentView, setCurrentView, onLogout, userRole, userName, userNameFull, tickets, onNewTicketClick, onExportPDF, onExportCSV, isSyncing, lastSyncTime }) => {
+const Sidebar: React.FC<SidebarProps> = ({
+    appSettings,
+    isCollapsed,
+    setCollapsed,
+    theme,
+    setTheme,
+    currentView,
+    setCurrentView,
+    onLogout,
+    userRole,
+    userName,
+    userNameFull,
+    tickets,
+    onNewTicketClick,
+    onExportPDF,
+    onExportCSV,
+    isSyncing,
+    lastSyncTime,
+    brevoMailOk,
+    brevoMailLastChecked,
+}) => {
     
     const [isExportOpen, setExportOpen] = useState(false);
     const newNotesCount = useMemo(() => {
@@ -599,6 +622,20 @@ const Sidebar: React.FC<SidebarProps> = ({ appSettings, isCollapsed, setCollapse
                 >
                     <div className={`sidebar-sync-dot ${isSyncing ? 'syncing' : ''}`}></div>
                     {!isCollapsed && <span>{isSyncing ? 'Synchronisiere...' : 'Synchronisiert'}</span>}
+                </div>
+            ) : null}
+            {userRole === Role.Admin && brevoMailOk !== undefined && brevoMailOk !== null && brevoMailLastChecked ? (
+                <div
+                    className="sidebar-sync"
+                    title={`Brevo geprüft: ${brevoMailLastChecked.toLocaleTimeString()}`}
+                >
+                    <div
+                        className="sidebar-sync-dot"
+                        style={{
+                            background: brevoMailOk ? 'rgba(30, 156, 64, 0.95)' : 'rgba(220, 53, 69, 0.95)',
+                        }}
+                    />
+                    {!isCollapsed && <span>{brevoMailOk ? 'E-Mail OK' : 'E-Mail FEHLER'}</span>}
                 </div>
             ) : null}
             <div className="sidebar-footer">
