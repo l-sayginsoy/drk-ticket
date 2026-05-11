@@ -27,12 +27,13 @@ const parseGermanDate = (dateStr: string | undefined): Date | null => {
 const TechnicianView: React.FC<TechnicianViewProps> = ({ tickets, technicians, onTechnicianSelect, onFilter }) => {
 
     const { totalOverdue, sortedTechnicians, performanceRanking } = useMemo(() => {
-        const today = new Date(2026, 1, 7); // Changed for Safari
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         
         const totalOverdue = tickets.filter(t => t.status === Status.Ueberfaellig).length;
 
         // --- Technician-Level Stats ---
-        let processedTechnicians = technicians.map(tech => {
+        const processedTechnicians = technicians.map(tech => {
             const assignedTickets = tickets.filter(t => t.technician === tech.name);
             const activeTickets = assignedTickets.filter(t => t.status !== Status.Abgeschlossen);
             const overdueTicketsCount = activeTickets.filter(t => t.status === Status.Ueberfaellig).length;
@@ -58,16 +59,21 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ tickets, technicians, o
 
             return {
                 ...tech,
+                assignedTicketsCount: assignedTickets.length,
                 activeTicketsCount: activeTickets.length,
                 overdueTicketsCount,
                 completedLast30Days,
                 performanceTrend,
             };
         });
+
+        // Nur Personen anzeigen, die tatsächlich Tickets haben (aktiv oder abgeschlossen).
+        // Sonst wirken Auslastung/Ranking „falsch“, wenn jemand gerade 0 Tickets hat.
+        const processedTechniciansWithWork = processedTechnicians.filter((t: any) => (t.assignedTicketsCount ?? 0) > 0);
         
-        const totalActiveTeamTickets = processedTechnicians.reduce((sum, tech) => sum + tech.activeTicketsCount, 0);
+        const totalActiveTeamTickets = processedTechniciansWithWork.reduce((sum, tech: any) => sum + (tech.activeTicketsCount ?? 0), 0);
         
-        const finalTechnicians = processedTechnicians.map(tech => ({
+        const finalTechnicians = processedTechniciansWithWork.map((tech: any) => ({
             ...tech,
             proportionalLoad: totalActiveTeamTickets > 0 ? (tech.activeTicketsCount / totalActiveTeamTickets) * 100 : 0,
         }));

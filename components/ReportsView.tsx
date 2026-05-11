@@ -100,7 +100,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
 
     const filteredTickets = useMemo(() => {
         return tickets.filter(ticket => {
-            const today = new Date(2026, 1, 7); today.setHours(0, 0, 0, 0);
+            const today = new Date(); today.setHours(0, 0, 0, 0);
             if (reportFilters.timeRange !== 'all') {
                 const entryDate = parseGermanDate(ticket.entryDate);
                 if (!entryDate) return false;
@@ -146,19 +146,17 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
 
     const ticketsByTechnician = useMemo(() => {
         const counts: Record<string, number> = {};
-        
-        // Initialize all technicians
-        technicians.forEach(tech => {
-            counts[tech.name] = 0;
-        });
-
         filteredTickets.forEach(ticket => {
-            if (ticket.technician && ticket.technician !== 'N/A' && counts[ticket.technician] !== undefined) {
-                 counts[ticket.technician] += 1;
+            if (ticket.technician && ticket.technician !== 'N/A') {
+                counts[ticket.technician] = (counts[ticket.technician] || 0) + 1;
             }
         });
 
-        const sorted = Object.entries(counts).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
+        // Nur Bearbeiter anzeigen, die im Zeitraum wirklich Tickets haben.
+        const sorted = Object.entries(counts)
+            .map(([label, value]) => ({ label, value }))
+            .filter(x => x.value > 0)
+            .sort((a, b) => b.value - a.value);
         
         const colors = ['#0d6efd', '#6f42c1', '#dc3545', '#fd7e14', '#198754', '#6c757d', '#343a40', '#adb5bd'];
         return sorted.map((item, index) => ({
@@ -174,15 +172,11 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
         const totalActiveTickets = activeTickets.length;
         
         const counts: Record<string, number> = {};
-        // Initialize all technicians
-        technicians.forEach(tech => {
-            counts[tech.name] = 0;
-        });
 
         activeTickets.forEach(ticket => {
-             if (ticket.technician && ticket.technician !== 'N/A' && counts[ticket.technician] !== undefined) {
-                counts[ticket.technician] += 1;
-            }
+             if (ticket.technician && ticket.technician !== 'N/A') {
+                counts[ticket.technician] = (counts[ticket.technician] || 0) + 1;
+             }
         });
 
         return Object.entries(counts)
@@ -192,6 +186,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
                 barTitle: label,
                 value: totalActiveTickets > 0 ? (value / totalActiveTickets) * 100 : 0,
             }))
+            .filter((x) => x.value > 0)
             .sort((a, b) => b.value - a.value);
 
     }, [filteredTickets, technicians]);
@@ -200,15 +195,11 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
         const resolvedTickets = filteredTickets.filter(t => t.status === Status.Abgeschlossen && t.completionDate && t.entryDate && t.technician !== 'N/A');
         const techData: Record<string, { totalTime: number, count: number }> = {};
 
-        // Initialisiere alle Bearbeiter mit 0
-        technicians.forEach(tech => {
-            techData[tech.name] = { totalTime: 0, count: 0 };
-        });
-
         resolvedTickets.forEach(t => {
             const entry = parseGermanDate(t.entryDate);
             const completion = parseGermanDate(t.completionDate);
-            if (entry && completion && techData[t.technician]) {
+            if (entry && completion) {
+                if (!techData[t.technician]) techData[t.technician] = { totalTime: 0, count: 0 };
                 const time = (completion.getTime() - entry.getTime()) / (1000 * 60 * 60 * 24);
                 techData[t.technician].totalTime += time;
                 techData[t.technician].count += 1;
@@ -222,6 +213,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
                 barTitle: label,
                 value: data.count > 0 ? data.totalTime / data.count : 0,
             }))
+            .filter((x) => x.value > 0)
             .sort((a, b) => b.value - a.value);
     }, [filteredTickets, technicians]);
 
