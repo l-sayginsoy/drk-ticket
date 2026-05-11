@@ -317,24 +317,6 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
                 />
             </div>
             <div className="form-group">
-                <p
-                    style={{
-                        margin: 0,
-                        fontSize: '0.88rem',
-                        color: 'var(--text-secondary)',
-                        lineHeight: 1.45,
-                        padding: '0.65rem 0.75rem',
-                        background: 'var(--bg-tertiary)',
-                        borderRadius: 8,
-                        border: '1px solid var(--border)',
-                    }}
-                >
-                    <strong>Fälligkeit</strong> wird automatisch gesetzt: ohne Wunschtermin{' '}
-                    <strong>5 Kalendertage nach Eingang</strong>, sofern für die Kategorie keine kürzere Frist aus der{' '}
-                    <strong>SLA-Matrix</strong> gilt.
-                </p>
-            </div>
-            <div className="form-group">
                 <label htmlFor="technician">Zugewiesen (Standard: nicht zugewiesen; optional einen Bearbeiter wählen)</label>
                 <select id="technician" value={technician} onChange={e => setTechnician(e.target.value)}>
                     <option value="N/A">Nicht zugewiesen</option>

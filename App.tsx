@@ -1317,8 +1317,9 @@ const App: React.FC = () => {
 
     // Reaktive Meldungen: Prio „Niedrig“, außer die SLA-Matrix liefert für die Kategorie eine strengere Regel (kürzeste Frist).
     // Präventiv / System: unverändert Kategorie-Default bzw. mitgegebene Prio.
+    // Reaktiv: Priorität aus der strengsten SLA-Regel der Kategorie, sonst Niedrig (kein stiller Kategorie-Default).
     const determinedPriority = isReactive
-      ? (newTicketData.priority ?? slaStrictPriority ?? Priority.Niedrig)
+      ? (slaStrictPriority ?? Priority.Niedrig)
       : (newTicketData.priority || category?.default_priority || appSettings.defaultPriority);
 
     // 2. Load-Balancing Technician Assignment
@@ -1355,25 +1356,27 @@ const App: React.FC = () => {
         }
     }
 
-    // 3. Fälligkeit: reaktiv — mit Wunschtermin = Fälligkeit am Wunschdatum; sonst SLA-Stunden wenn Regel passt; sonst Eingang + 5 Kalendertage.
+    // 3. Fälligkeit: reaktiv — mit Wunschtermin = Wunschdatum; sonst früheres Datum aus (Eingang + 5 Kalendertage) und kürzester SLA-Frist der Kategorie.
     let formattedDueDate: string;
     if (isReactive) {
       const wunsch = newTicketData.wunschTermin?.trim();
       if (wunsch) {
         formattedDueDate = wunsch;
       } else {
-        const slaRule = appSettings.slaMatrix.find(
-          (r) => r.categoryId === newTicketData.categoryId && r.priority === determinedPriority
-        );
-        if (slaRule) {
-          const dueDate = new Date();
-          dueDate.setHours(dueDate.getHours() + slaRule.responseTimeHours);
-          formattedDueDate = dueDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        } else {
-          const dueDate = new Date();
-          dueDate.setDate(dueDate.getDate() + REACTIVE_DEFAULT_LEAD_DAYS);
-          formattedDueDate = dueDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const now = new Date();
+        const deadlineCal = new Date(now);
+        deadlineCal.setDate(deadlineCal.getDate() + REACTIVE_DEFAULT_LEAD_DAYS);
+        const rulesForCat = appSettings.slaMatrix.filter((r) => r.categoryId === newTicketData.categoryId);
+        let deadlineSla: Date | null = null;
+        if (rulesForCat.length > 0) {
+          const minHours = Math.min(...rulesForCat.map((r) => r.responseTimeHours));
+          const d = new Date(now);
+          d.setHours(d.getHours() + minHours);
+          deadlineSla = d;
         }
+        const chosen =
+          deadlineSla !== null && deadlineSla.getTime() < deadlineCal.getTime() ? deadlineSla : deadlineCal;
+        formattedDueDate = chosen.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
       }
     } else {
       const slaRule = appSettings.slaMatrix.find(

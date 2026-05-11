@@ -306,7 +306,8 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
     type SettingsTab = 'allgemein' | 'prozesse' | 'serientermine' | 'benutzer' | 'standorte';
     const [activeTab, setActiveTab] = useState<SettingsTab>('allgemein');
     const [dragRoutineId, setDragRoutineId] = useState<string | null>(null);
-    const [routineSchedulesDraft, setRoutineSchedulesDraft] = useState<RoutineSchedule[]>([]);
+    /** Neu angelegte Serientermine (noch nicht in appSettings); Speichern erfolgt in der jeweiligen Karte. */
+    const [pendingNewRoutines, setPendingNewRoutines] = useState<RoutineSchedule[]>([]);
     
     // Modals
     const [isUserModalOpen, setUserModalOpen] = useState(false);
@@ -353,55 +354,40 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
             .sort((a, b) => a.localeCompare(b, 'de'));
 
     const savedRoutineSchedules = appSettings.routineSchedules || [];
-    const routinesDirty = useMemo(
-        () => JSON.stringify(routineSchedulesDraft) !== JSON.stringify(savedRoutineSchedules),
-        [routineSchedulesDraft, savedRoutineSchedules]
-    );
 
     const requestTab = (next: SettingsTab) => {
-        if (activeTab === 'serientermine' && next !== 'serientermine' && routinesDirty) {
+        if (activeTab === 'serientermine' && next !== 'serientermine' && pendingNewRoutines.length > 0) {
             if (
                 !window.confirm(
-                    'Serientermine: Es gibt nicht gespeicherte Änderungen. Trotzdem den Tab wechseln?'
+                    'Es gibt neue Serientermine, die noch nicht übernommen wurden (Speichern in der Karte). Trotzdem wechseln? Diese Einträge gehen verloren.'
                 )
             ) {
                 return;
             }
-        }
-        if (next === 'serientermine' && activeTab !== 'serientermine') {
-            setRoutineSchedulesDraft(JSON.parse(JSON.stringify(savedRoutineSchedules)) as RoutineSchedule[]);
+            setPendingNewRoutines([]);
         }
         setActiveTab(next);
     };
 
-    const updateRoutineDraft = (updated: RoutineSchedule) => {
-        setRoutineSchedulesDraft(prev => prev.map(item => (item.id === updated.id ? updated : item)));
-    };
-
-    const deleteRoutineFromDraft = (id: string) => {
-        if (!window.confirm('Sind Sie sicher, dass Sie diesen Eintrag löschen möchten?')) return;
-        setRoutineSchedulesDraft(prev => prev.filter(item => item.id !== id));
-    };
-
-    const reorderRoutineDraft = (fromId: string, toId: string) => {
+    const reorderRoutineSchedules = (fromId: string, toId: string) => {
         if (fromId === toId) return;
-        setRoutineSchedulesDraft(prev => {
-            const list = [...prev];
+        setAppSettings(prev => {
+            const list = [...(prev.routineSchedules || [])];
             const fromIdx = list.findIndex((x: any) => x.id === fromId);
             const toIdx = list.findIndex((x: any) => x.id === toId);
             if (fromIdx === -1 || toIdx === -1) return prev;
             const [moved] = list.splice(fromIdx, 1);
             list.splice(toIdx, 0, moved);
-            return list;
+            return { ...prev, routineSchedules: list };
         });
     };
 
-    const saveRoutineSchedulesDraft = () => {
-        setAppSettings(prev => ({ ...prev, routineSchedules: routineSchedulesDraft }));
-    };
-
-    const discardRoutineSchedulesDraft = () => {
-        setRoutineSchedulesDraft(JSON.parse(JSON.stringify(savedRoutineSchedules)) as RoutineSchedule[]);
+    const commitPendingRoutine = (schedule: RoutineSchedule) => {
+        setAppSettings(prev => ({
+            ...prev,
+            routineSchedules: [...(prev.routineSchedules || []), schedule],
+        }));
+        setPendingNewRoutines(prev => prev.filter(x => x.id !== schedule.id));
     };
 
     // --- User Management ---
@@ -560,7 +546,12 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
         </>
     );
 
-    const renderSerientermineTab = () => (
+    const renderSerientermineTab = () => {
+        const serientermineRows = [
+            ...savedRoutineSchedules.map((schedule) => ({ schedule, isPending: false as const })),
+            ...pendingNewRoutines.map((schedule) => ({ schedule, isPending: true as const })),
+        ];
+        return (
         <>
             <div className="settings-section">
                 <div className="settings-section-header">
@@ -568,16 +559,23 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                 </div>
                 <div className="settings-section-body">
                     <p className="form-group-description">
-                        Wiederkehrende Aufgaben für Service‑Team und Hauswirtschaft. Daraus werden automatisch präventive Tickets erzeugt.
+                        Wiederkehrende Aufgaben für Service‑Team und Hauswirtschaft. Daraus werden automatisch präventive Tickets erzeugt. Neu angelegte Serientermine bitte{' '}
+                        <strong>in der jeweiligen Karte mit „Speichern“</strong> übernehmen; bestehende Einträge werden sofort gespeichert.
                     </p>
 
-                    {routineSchedules.length === 0 ? (
+                    {serientermineRows.length === 0 ? (
                         <div style={{ padding: '12px 14px', border: '1px dashed var(--border)', borderRadius: 12, color: 'var(--text-muted)' }}>
                             Noch keine Serientermine angelegt.
                         </div>
                     ) : (
-                        routineSchedules.map((s: any) => {
-                            const schedule = s as RoutineSchedule & { recurrence?: any };
+                        serientermineRows.map(({ schedule, isPending }) => {
+                            const commit = (u: RoutineSchedule) => {
+                                if (isPending) {
+                                    setPendingNewRoutines(prev => prev.map(x => (x.id === u.id ? u : x)));
+                                } else {
+                                    handleUpdateSetting<RoutineSchedule>('routineSchedules', u);
+                                }
+                            };
                             const eligible = eligibleUsersByRole(schedule.targetRole);
                             const selectedAssignees = (schedule.assignees || []).filter(n => eligible.includes(n));
                             const weekdays =
@@ -597,42 +595,64 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                     onDrop={(e) => {
                                         if (!dragRoutineId) return;
                                         e.preventDefault();
-                                        reorderRoutineSchedules(dragRoutineId, schedule.id);
+                                        if (!isPending) {
+                                            reorderRoutineSchedules(dragRoutineId, schedule.id);
+                                        }
                                         setDragRoutineId(null);
                                     }}
                                 >
                                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 10 }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                            <span
-                                                draggable
-                                                onDragStart={(e) => {
-                                                    setDragRoutineId(schedule.id);
-                                                    e.dataTransfer.effectAllowed = 'move';
-                                                }}
-                                                onDragEnd={() => setDragRoutineId(null)}
-                                                title="Reihenfolge ändern (ziehen)"
-                                                style={{
-                                                    width: 26,
-                                                    height: 26,
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    borderRadius: 8,
-                                                    border: '1px solid var(--border)',
-                                                    background: 'var(--bg-secondary)',
-                                                    color: 'var(--text-muted)',
-                                                    cursor: 'grab',
-                                                    userSelect: 'none',
-                                                    fontWeight: 900,
-                                                    lineHeight: 1,
-                                                }}
-                                            >
-                                                ⋮⋮
-                                            </span>
+                                            {isPending ? (
+                                                <span
+                                                    title="Nach Speichern per Ziehen sortierbar"
+                                                    style={{
+                                                        width: 26,
+                                                        height: 26,
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        borderRadius: 8,
+                                                        border: '1px dashed var(--border)',
+                                                        color: 'var(--text-muted)',
+                                                        fontSize: 10,
+                                                        userSelect: 'none',
+                                                    }}
+                                                >
+                                                    Neu
+                                                </span>
+                                            ) : (
+                                                <span
+                                                    draggable
+                                                    onDragStart={(e) => {
+                                                        setDragRoutineId(schedule.id);
+                                                        e.dataTransfer.effectAllowed = 'move';
+                                                    }}
+                                                    onDragEnd={() => setDragRoutineId(null)}
+                                                    title="Reihenfolge ändern (ziehen)"
+                                                    style={{
+                                                        width: 26,
+                                                        height: 26,
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        borderRadius: 8,
+                                                        border: '1px solid var(--border)',
+                                                        background: 'var(--bg-secondary)',
+                                                        color: 'var(--text-muted)',
+                                                        cursor: 'grab',
+                                                        userSelect: 'none',
+                                                        fontWeight: 900,
+                                                        lineHeight: 1,
+                                                    }}
+                                                >
+                                                    ⋮⋮
+                                                </span>
+                                            )}
                                             <input
                                                 type="checkbox"
                                                 checked={!!schedule.enabled}
-                                                onChange={e => handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, enabled: e.target.checked })}
+                                                onChange={e => commit( { ...schedule, enabled: e.target.checked })}
                                                 title="Aktiv/Inaktiv"
                                             />
                                             <strong style={{ fontSize: 14 }}>{schedule.title || 'Serientermin'}</strong>
@@ -640,7 +660,19 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                                 {schedule.lastGenerated ? `zuletzt: ${schedule.lastGenerated}` : 'noch nie erzeugt'}
                                             </span>
                                         </div>
-                                        <button onClick={() => handleDeleteSetting('routineSchedules', schedule.id)} className="btn btn-danger-sm" title="Löschen">
+                                        <button
+                                            onClick={() => {
+                                                if (isPending) {
+                                                    if (window.confirm('Diesen neuen Serientermin verwerfen?')) {
+                                                        setPendingNewRoutines(prev => prev.filter(x => x.id !== schedule.id));
+                                                    }
+                                                } else {
+                                                    handleDeleteSetting('routineSchedules', schedule.id);
+                                                }
+                                            }}
+                                            className="btn btn-danger-sm"
+                                            title="Löschen"
+                                        >
                                             <TrashIcon />
                                         </button>
                                     </div>
@@ -651,7 +683,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                             <input
                                                 className="form-group-input"
                                                 value={schedule.title}
-                                                onChange={e => handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, title: e.target.value })}
+                                                onChange={e => commit( { ...schedule, title: e.target.value })}
                                             />
                                         </div>
                                         <div className="form-group">
@@ -660,7 +692,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                                 className="form-group-select"
                                                 value={schedule.targetRole}
                                                 onChange={e =>
-                                                    handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                    commit( {
                                                         ...schedule,
                                                         targetRole: e.target.value as Role.Technician | Role.Housekeeping,
                                                         assignees: [],
@@ -679,7 +711,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                                 className="form-group-input"
                                                 value={schedule.area}
                                                 onChange={e =>
-                                                    handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                    commit( {
                                                         ...schedule,
                                                         area: e.target.value,
                                                     })
@@ -699,7 +731,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                                 className="form-group-input"
                                                 style={{ minHeight: 80, resize: 'vertical' }}
                                                 value={schedule.description}
-                                                onChange={e => handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, description: e.target.value })}
+                                                onChange={e => commit( { ...schedule, description: e.target.value })}
                                             />
                                         </div>
                                     </div>
@@ -712,7 +744,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                             style={{ maxWidth: 220 }}
                                             value={(schedule as any).startDate || ''}
                                             onChange={(e) =>
-                                                handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                commit( {
                                                     ...schedule,
                                                     startDate: e.target.value || null,
                                                 })
@@ -743,7 +775,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                                     if ((type === 'monthly' || type === 'yearly') && !(schedule as any).startDate) {
                                                         (patch as any).startDate = today;
                                                     }
-                                                    handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, ...patch } as RoutineSchedule);
+                                                    commit( { ...schedule, ...patch } as RoutineSchedule);
                                                 }}
                                             >
                                                 <option value="daily">Täglich</option>
@@ -766,12 +798,12 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                                             const intervalWeeks = Math.max(1, parseInt(e.target.value || '1', 10));
                                                             const t = schedule.recurrence?.type;
                                                             if (t === 'weekdays') {
-                                                                handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                                commit( {
                                                                     ...schedule,
                                                                     recurrence: { ...(schedule.recurrence as any), intervalWeeks },
                                                                 } as any);
                                                             } else {
-                                                                handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                                commit( {
                                                                     ...schedule,
                                                                     recurrence: { type: 'weekly', intervalWeeks },
                                                                 } as any);
@@ -794,7 +826,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                                             value={(schedule.recurrence as any).intervalMonths || 1}
                                                             onChange={e => {
                                                                 const intervalMonths = Math.max(1, parseInt(e.target.value || '1', 10));
-                                                                handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                                commit( {
                                                                     ...schedule,
                                                                     recurrence: {
                                                                         type: 'monthly',
@@ -817,7 +849,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                                             value={(schedule.recurrence as any).dayOfMonth || 1}
                                                             onChange={e => {
                                                                 const dayOfMonth = Math.max(1, Math.min(31, parseInt(e.target.value || '1', 10)));
-                                                                handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                                commit( {
                                                                     ...schedule,
                                                                     recurrence: {
                                                                         type: 'monthly',
@@ -840,7 +872,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                                         value={(schedule.recurrence as any).month || 1}
                                                         onChange={e => {
                                                             const month = Math.max(1, Math.min(12, parseInt(e.target.value, 10)));
-                                                            handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                            commit( {
                                                                 ...schedule,
                                                                 recurrence: {
                                                                     type: 'yearly',
@@ -865,7 +897,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                                         value={(schedule.recurrence as any).day || 1}
                                                         onChange={e => {
                                                             const day = Math.max(1, Math.min(31, parseInt(e.target.value || '1', 10)));
-                                                            handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                            commit( {
                                                                 ...schedule,
                                                                 recurrence: {
                                                                     type: 'yearly',
@@ -891,7 +923,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                                                         const next = e.target.checked
                                                                             ? Array.from(new Set([...weekdays, w.key]))
                                                                             : weekdays.filter(x => x !== w.key);
-                                                                        handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                                        commit( {
                                                                             ...schedule,
                                                                             recurrence: { type: 'weekdays', intervalWeeks: schedule.recurrence?.intervalWeeks || 1, weekdays: next },
                                                                         } as any);
@@ -916,7 +948,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                                         type === 'rotate'
                                                             ? ({ type: 'rotate' } as const)
                                                             : ({ type: 'fixed', userName: selectedAssignees[0] || '' } as const);
-                                                    handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, assignment: next as any, rotationCursor: 0 });
+                                                    commit( { ...schedule, assignment: next as any, rotationCursor: 0 });
                                                 }}
                                             >
                                                 <option value="rotate">Automatisch rotieren</option>
@@ -929,7 +961,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                                     style={{ marginTop: 8 }}
                                                     value={schedule.assignment.userName}
                                                     onChange={e =>
-                                                        handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                        commit( {
                                                             ...schedule,
                                                             assignment: { type: 'fixed', userName: e.target.value } as any,
                                                         })
@@ -975,7 +1007,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                                                     const next = e.target.checked
                                                                         ? Array.from(new Set([...current, name]))
                                                                         : current.filter(n => n !== name);
-                                                                    handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, assignees: next, rotationCursor: 0 });
+                                                                    commit( { ...schedule, assignees: next, rotationCursor: 0 });
                                                                 }}
                                                             />
                                                             <span style={{ fontSize: 12 }}>{name}</span>
@@ -995,7 +1027,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                                 value={String(Math.max(0, Number(schedule.rotationCursor || 0)) % rotationPool.length)}
                                                 onChange={(e) => {
                                                     const idx = parseInt(e.target.value, 10);
-                                                    handleUpdateSetting<RoutineSchedule>('routineSchedules', {
+                                                    commit( {
                                                         ...schedule,
                                                         rotationCursor: Number.isFinite(idx) ? idx : 0,
                                                     });
@@ -1010,6 +1042,24 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                             <p className="form-group-description" style={{ marginTop: 6 }}>
                                                 Wer beim nächsten fälligen Serientermin zuerst das Ticket erhält. Später jederzeit wieder änderbar; danach läuft die Verteilung im gleichen Kreis weiter.
                                             </p>
+                                        </div>
+                                    )}
+
+                                    {isPending && (
+                                        <div
+                                            style={{
+                                                marginTop: 14,
+                                                paddingTop: 12,
+                                                borderTop: '1px solid var(--border)',
+                                                display: 'flex',
+                                                justifyContent: 'flex-end',
+                                                gap: 8,
+                                                flexWrap: 'wrap',
+                                            }}
+                                        >
+                                            <button type="button" className="btn btn-primary" onClick={() => commitPendingRoutine(schedule)}>
+                                                Speichern
+                                            </button>
                                         </div>
                                     )}
 
@@ -1037,7 +1087,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                 startDate: localISODate(new Date()),
                                 recurrence: { type: 'weekdays', intervalWeeks: 1, weekdays: ['mo', 'mi', 'fr'] as WeekdayKey[] },
                             };
-                            setAppSettings(prev => ({ ...prev, routineSchedules: [...(prev.routineSchedules || []), newItem] }));
+                            setPendingNewRoutines(prev => [...prev, newItem]);
                         }}
                         className="btn btn-secondary btn-full-width"
                     >
@@ -1046,495 +1096,10 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                 </div>
             </div>
         </>
-    );
+        );
+    };
     const renderProzesseTab = () => (
         <>
-            <div className="settings-section">
-                <div className="settings-section-header">
-                    <h3 className="settings-section-title">Serientermine (wiederkehrende Aufgaben)</h3>
-                </div>
-                <div className="settings-section-body">
-                    <p className="form-group-description">
-                        Wiederkehrende Aufgaben für Service‑Team und Hauswirtschaft. Daraus werden automatisch präventive Tickets erzeugt.
-                    </p>
-
-                    {routineSchedules.length === 0 ? (
-                        <div style={{ padding: '12px 14px', border: '1px dashed var(--border)', borderRadius: 12, color: 'var(--text-muted)' }}>
-                            Noch keine Serientermine angelegt.
-                        </div>
-                    ) : (
-                        routineSchedules.map((s: any) => {
-                            const schedule = s as RoutineSchedule & { recurrence?: any };
-                            const eligible = eligibleUsersByRole(schedule.targetRole);
-                            const selectedAssignees = (schedule.assignees || []).filter(n => eligible.includes(n));
-                            const weekdays =
-                                schedule.recurrence?.type === 'weekdays'
-                                    ? (schedule.recurrence.weekdays as WeekdayKey[])
-                                    : ([] as WeekdayKey[]);
-                            const rotationPool = getRoutinePool(schedule, users);
-
-                            return (
-                                <div
-                                    key={schedule.id}
-                                    style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 12, background: 'var(--bg-tertiary)' }}
-                                    onDragOver={(e) => {
-                                        if (!dragRoutineId) return;
-                                        e.preventDefault();
-                                    }}
-                                    onDrop={(e) => {
-                                        if (!dragRoutineId) return;
-                                        e.preventDefault();
-                                        reorderRoutineSchedules(dragRoutineId, schedule.id);
-                                        setDragRoutineId(null);
-                                    }}
-                                >
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 10 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                            <span
-                                                draggable
-                                                onDragStart={(e) => {
-                                                    setDragRoutineId(schedule.id);
-                                                    e.dataTransfer.effectAllowed = 'move';
-                                                }}
-                                                onDragEnd={() => setDragRoutineId(null)}
-                                                title="Reihenfolge ändern (ziehen)"
-                                                style={{
-                                                    width: 26,
-                                                    height: 26,
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    borderRadius: 8,
-                                                    border: '1px solid var(--border)',
-                                                    background: 'var(--bg-secondary)',
-                                                    color: 'var(--text-muted)',
-                                                    cursor: 'grab',
-                                                    userSelect: 'none',
-                                                    fontWeight: 900,
-                                                    lineHeight: 1,
-                                                }}
-                                            >
-                                                ⋮⋮
-                                            </span>
-                                            <input
-                                                type="checkbox"
-                                                checked={!!schedule.enabled}
-                                                onChange={e => handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, enabled: e.target.checked })}
-                                                title="Aktiv/Inaktiv"
-                                            />
-                                            <strong style={{ fontSize: 14 }}>{schedule.title || 'Serientermin'}</strong>
-                                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                                                {schedule.lastGenerated ? `zuletzt: ${schedule.lastGenerated}` : 'noch nie erzeugt'}
-                                            </span>
-                                        </div>
-                                        <button onClick={() => handleDeleteSetting('routineSchedules', schedule.id)} className="btn btn-danger-sm" title="Löschen">
-                                            <TrashIcon />
-                                        </button>
-                                    </div>
-
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 12 }}>
-                                        <div className="form-group">
-                                            <label>Aufgabe</label>
-                                            <input
-                                                className="form-group-input"
-                                                value={schedule.title}
-                                                onChange={e => handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, title: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="form-group">
-                                            <label>Bereich</label>
-                                            <select
-                                                className="form-group-select"
-                                                value={schedule.targetRole}
-                                                onChange={e =>
-                                                    handleUpdateSetting<RoutineSchedule>('routineSchedules', {
-                                                        ...schedule,
-                                                        targetRole: e.target.value as Role.Technician | Role.Housekeeping,
-                                                        assignees: [],
-                                                        assignment: { type: 'rotate' },
-                                                        rotationCursor: 0,
-                                                    })
-                                                }
-                                            >
-                                                <option value={Role.Technician}>Service‑Team</option>
-                                                <option value={Role.Housekeeping}>Hauswirtschaft</option>
-                                            </select>
-                                        </div>
-                                        <div className="form-group">
-                                            <label>Bereich (Pflichtfeld)</label>
-                                            <input
-                                                className="form-group-input"
-                                                value={schedule.area}
-                                                onChange={e =>
-                                                    handleUpdateSetting<RoutineSchedule>('routineSchedules', {
-                                                        ...schedule,
-                                                        area: e.target.value,
-                                                    })
-                                                }
-                                                placeholder="z.B. Alle Wohnbereiche / Küche / Wäscherei"
-                                                required
-                                            />
-                                            {!String(schedule.area || '').trim() && (
-                                                <p className="form-group-description" style={{ color: 'var(--accent-danger)' }}>
-                                                    Bitte einen Bereich angeben.
-                                                </p>
-                                            )}
-                                        </div>
-                                        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                                            <label>Beschreibung</label>
-                                            <textarea
-                                                className="form-group-input"
-                                                style={{ minHeight: 80, resize: 'vertical' }}
-                                                value={schedule.description}
-                                                onChange={e => handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, description: e.target.value })}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="form-group" style={{ marginTop: 12 }}>
-                                        <label>Startdatum</label>
-                                        <input
-                                            type="date"
-                                            className="form-group-input"
-                                            style={{ maxWidth: 220 }}
-                                            value={(schedule as any).startDate || ''}
-                                            onChange={(e) =>
-                                                handleUpdateSetting<RoutineSchedule>('routineSchedules', {
-                                                    ...schedule,
-                                                    startDate: e.target.value || null,
-                                                })
-                                            }
-                                        />
-                                        <p className="form-group-description" style={{ marginTop: 6 }}>
-                                            Ab diesem Kalendertag gilt die Wiederholung (z. B. 05.10.2026). Für <strong>monatlich</strong> und <strong>jährlich</strong> erforderlich. Bei <strong>wöchentlich</strong> mit Datum: gleicher Wochentag ab diesem Tag. Ohne Datum bleibt die bisherige Wochen-Logik (nur Intervall).
-                                        </p>
-                                    </div>
-
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
-                                        <div className="form-group">
-                                            <label>Wiederholung</label>
-                                            <select
-                                                className="form-group-select"
-                                                value={schedule.recurrence?.type || 'weekdays'}
-                                                onChange={e => {
-                                                    const type = e.target.value;
-                                                    const today = localISODate(new Date());
-                                                    let next: any;
-                                                    if (type === 'daily') next = { type: 'daily' };
-                                                    else if (type === 'weekly') next = { type: 'weekly', intervalWeeks: 1 };
-                                                    else if (type === 'weekdays')
-                                                        next = { type: 'weekdays', intervalWeeks: 1, weekdays: ['mo', 'mi', 'fr'] as WeekdayKey[] };
-                                                    else if (type === 'monthly') next = { type: 'monthly', intervalMonths: 1, dayOfMonth: 5 };
-                                                    else next = { type: 'yearly', month: 10, day: 5 };
-                                                    const patch: Partial<RoutineSchedule> = { recurrence: next };
-                                                    if ((type === 'monthly' || type === 'yearly') && !(schedule as any).startDate) {
-                                                        (patch as any).startDate = today;
-                                                    }
-                                                    handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, ...patch } as RoutineSchedule);
-                                                }}
-                                            >
-                                                <option value="daily">Täglich</option>
-                                                <option value="weekly">Wöchentlich (Intervall Wochen)</option>
-                                                <option value="weekdays">Bestimmte Wochentage</option>
-                                                <option value="monthly">Monatlich</option>
-                                                <option value="yearly">Jährlich</option>
-                                            </select>
-
-                                            {(schedule.recurrence?.type === 'weekly' || schedule.recurrence?.type === 'weekdays') && (
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
-                                                    <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Intervall</span>
-                                                    <input
-                                                        type="number"
-                                                        min={1}
-                                                        className="form-group-input"
-                                                        style={{ width: 110 }}
-                                                        value={schedule.recurrence?.intervalWeeks || 1}
-                                                        onChange={e => {
-                                                            const intervalWeeks = Math.max(1, parseInt(e.target.value || '1', 10));
-                                                            const t = schedule.recurrence?.type;
-                                                            if (t === 'weekdays') {
-                                                                handleUpdateSetting<RoutineSchedule>('routineSchedules', {
-                                                                    ...schedule,
-                                                                    recurrence: { ...(schedule.recurrence as any), intervalWeeks },
-                                                                } as any);
-                                                            } else {
-                                                                handleUpdateSetting<RoutineSchedule>('routineSchedules', {
-                                                                    ...schedule,
-                                                                    recurrence: { type: 'weekly', intervalWeeks },
-                                                                } as any);
-                                                            }
-                                                        }}
-                                                    />
-                                                    <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Woche(n)</span>
-                                                </div>
-                                            )}
-
-                                            {schedule.recurrence?.type === 'monthly' && (
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                                        <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>alle</span>
-                                                        <input
-                                                            type="number"
-                                                            min={1}
-                                                            className="form-group-input"
-                                                            style={{ width: 110 }}
-                                                            value={(schedule.recurrence as any).intervalMonths || 1}
-                                                            onChange={e => {
-                                                                const intervalMonths = Math.max(1, parseInt(e.target.value || '1', 10));
-                                                                handleUpdateSetting<RoutineSchedule>('routineSchedules', {
-                                                                    ...schedule,
-                                                                    recurrence: {
-                                                                        type: 'monthly',
-                                                                        intervalMonths,
-                                                                        dayOfMonth: Math.max(1, Math.min(31, (schedule.recurrence as any).dayOfMonth || 1)),
-                                                                    } as any,
-                                                                });
-                                                            }}
-                                                        />
-                                                        <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Monat(e)</span>
-                                                    </div>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                                        <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Tag im Monat</span>
-                                                        <input
-                                                            type="number"
-                                                            min={1}
-                                                            max={31}
-                                                            className="form-group-input"
-                                                            style={{ width: 110 }}
-                                                            value={(schedule.recurrence as any).dayOfMonth || 1}
-                                                            onChange={e => {
-                                                                const dayOfMonth = Math.max(1, Math.min(31, parseInt(e.target.value || '1', 10)));
-                                                                handleUpdateSetting<RoutineSchedule>('routineSchedules', {
-                                                                    ...schedule,
-                                                                    recurrence: {
-                                                                        type: 'monthly',
-                                                                        intervalMonths: Math.max(1, (schedule.recurrence as any).intervalMonths || 1),
-                                                                        dayOfMonth,
-                                                                    } as any,
-                                                                });
-                                                            }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {schedule.recurrence?.type === 'yearly' && (
-                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 8, alignItems: 'center' }}>
-                                                    <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>jedes Jahr am</span>
-                                                    <select
-                                                        className="form-group-select"
-                                                        style={{ width: 130 }}
-                                                        value={(schedule.recurrence as any).month || 1}
-                                                        onChange={e => {
-                                                            const month = Math.max(1, Math.min(12, parseInt(e.target.value, 10)));
-                                                            handleUpdateSetting<RoutineSchedule>('routineSchedules', {
-                                                                ...schedule,
-                                                                recurrence: {
-                                                                    type: 'yearly',
-                                                                    month,
-                                                                    day: Math.max(1, Math.min(31, (schedule.recurrence as any).day || 1)),
-                                                                } as any,
-                                                            });
-                                                        }}
-                                                    >
-                                                        {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => (
-                                                            <option key={m} value={m}>
-                                                                {['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'][m - 1]}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                    <input
-                                                        type="number"
-                                                        min={1}
-                                                        max={31}
-                                                        className="form-group-input"
-                                                        style={{ width: 72 }}
-                                                        value={(schedule.recurrence as any).day || 1}
-                                                        onChange={e => {
-                                                            const day = Math.max(1, Math.min(31, parseInt(e.target.value || '1', 10)));
-                                                            handleUpdateSetting<RoutineSchedule>('routineSchedules', {
-                                                                ...schedule,
-                                                                recurrence: {
-                                                                    type: 'yearly',
-                                                                    month: Math.max(1, Math.min(12, (schedule.recurrence as any).month || 1)),
-                                                                    day,
-                                                                } as any,
-                                                            });
-                                                        }}
-                                                    />
-                                                </div>
-                                            )}
-
-                                            {schedule.recurrence?.type === 'weekdays' && (
-                                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-                                                    {weekdayOptions.map(w => {
-                                                        const checked = weekdays.includes(w.key);
-                                                        return (
-                                                            <label key={w.key} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 999, border: '1px solid var(--border)', background: checked ? 'var(--bg-secondary)' : 'transparent', cursor: 'pointer' }}>
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={checked}
-                                                                    onChange={e => {
-                                                                        const next = e.target.checked
-                                                                            ? Array.from(new Set([...weekdays, w.key]))
-                                                                            : weekdays.filter(x => x !== w.key);
-                                                                        handleUpdateSetting<RoutineSchedule>('routineSchedules', {
-                                                                            ...schedule,
-                                                                            recurrence: { type: 'weekdays', intervalWeeks: schedule.recurrence?.intervalWeeks || 1, weekdays: next },
-                                                                        } as any);
-                                                                    }}
-                                                                />
-                                                                <span style={{ fontSize: 12 }}>{w.label}</span>
-                                                            </label>
-                                                        );
-                                                    })}
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div className="form-group">
-                                            <label>Zuordnung</label>
-                                            <select
-                                                className="form-group-select"
-                                                value={schedule.assignment?.type || 'rotate'}
-                                                onChange={e => {
-                                                    const type = e.target.value as 'rotate' | 'fixed';
-                                                    const next =
-                                                        type === 'rotate'
-                                                            ? ({ type: 'rotate' } as const)
-                                                            : ({ type: 'fixed', userName: eligible[0] || '' } as const);
-                                                    handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, assignment: next as any, rotationCursor: 0 });
-                                                }}
-                                            >
-                                                <option value="rotate">Automatisch rotieren</option>
-                                                <option value="fixed">Feste Person</option>
-                                            </select>
-
-                                            {schedule.assignment?.type === 'fixed' && (
-                                                <select
-                                                    className="form-group-select"
-                                                    style={{ marginTop: 8 }}
-                                                    value={schedule.assignment.userName}
-                                                    onChange={e =>
-                                                        handleUpdateSetting<RoutineSchedule>('routineSchedules', {
-                                                            ...schedule,
-                                                            assignment: { type: 'fixed', userName: e.target.value } as any,
-                                                        })
-                                                    }
-                                                >
-                                                    {selectedAssignees.length === 0 ? (
-                                                        <option value="">(Keine aktiven Nutzer)</option>
-                                                    ) : (
-                                                        selectedAssignees.map(n => <option key={n} value={n}>{n}</option>)
-                                                    )}
-                                                </select>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className="form-group" style={{ marginTop: 12 }}>
-                                        <label>Zuständige Mitarbeiter (für Rotation)</label>
-                                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                            {eligible.length === 0 ? (
-                                                <span style={{ color: 'var(--text-muted)' }}>(Keine aktiven Nutzer in diesem Bereich)</span>
-                                            ) : (
-                                                eligible.map(name => {
-                                                    const checked = (schedule.assignees || []).includes(name);
-                                                    return (
-                                                        <label
-                                                            key={name}
-                                                            style={{
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                gap: 6,
-                                                                padding: '6px 10px',
-                                                                borderRadius: 999,
-                                                                border: '1px solid var(--border)',
-                                                                background: checked ? 'var(--bg-secondary)' : 'transparent',
-                                                                cursor: 'pointer',
-                                                            }}
-                                                        >
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={checked}
-                                                                onChange={e => {
-                                                                    const current = schedule.assignees || [];
-                                                                    const next = e.target.checked
-                                                                        ? Array.from(new Set([...current, name]))
-                                                                        : current.filter(n => n !== name);
-                                                                    handleUpdateSetting<RoutineSchedule>('routineSchedules', { ...schedule, assignees: next, rotationCursor: 0 });
-                                                                }}
-                                                            />
-                                                            <span style={{ fontSize: 12 }}>{name}</span>
-                                                        </label>
-                                                    );
-                                                })
-                                            )}
-                                        </div>
-                                        <p className="form-group-description" style={{ marginTop: 6 }}>
-                                            Tipp: Wähle hier die Personen aus, die sich abwechseln sollen.
-                                        </p>
-                                    </div>
-
-                                    {schedule.assignment?.type === 'rotate' && rotationPool.length > 0 && (
-                                        <div className="form-group" style={{ marginTop: 12 }}>
-                                            <label>Als Nächstes in der Rotation</label>
-                                            <select
-                                                className="form-group-select"
-                                                style={{ maxWidth: 400 }}
-                                                value={String(Math.max(0, Number(schedule.rotationCursor || 0)) % rotationPool.length)}
-                                                onChange={(e) => {
-                                                    const idx = parseInt(e.target.value, 10);
-                                                    handleUpdateSetting<RoutineSchedule>('routineSchedules', {
-                                                        ...schedule,
-                                                        rotationCursor: Number.isFinite(idx) ? idx : 0,
-                                                    });
-                                                }}
-                                            >
-                                                {rotationPool.map((name, i) => (
-                                                    <option key={name} value={String(i)}>
-                                                        {name}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            <p className="form-group-description" style={{ marginTop: 6 }}>
-                                                Wer beim nächsten fälligen Serientermin zuerst das Ticket erhält. Später jederzeit wieder änderbar; danach läuft die Verteilung im gleichen Kreis weiter.
-                                            </p>
-                                        </div>
-                                    )}
-
-                                </div>
-                            );
-                        })
-                    )}
-
-                    <button
-                        onClick={() => {
-                            const id = `routine-${Date.now()}`;
-                            const defaultRole: Role.Technician | Role.Housekeeping = Role.Technician;
-                            const newItem: RoutineSchedule & { recurrence?: any } = {
-                                id,
-                                title: 'Neue Aufgabe',
-                                description: '',
-                                area: '',
-                                location: '',
-                                targetRole: defaultRole,
-                                assignees: [],
-                                assignment: { type: 'rotate' },
-                                enabled: true,
-                                lastGenerated: null,
-                                rotationCursor: 0,
-                                startDate: localISODate(new Date()),
-                                recurrence: { type: 'weekdays', intervalWeeks: 1, weekdays: ['mo', 'mi', 'fr'] as WeekdayKey[] },
-                            };
-                            setAppSettings(prev => ({ ...prev, routineSchedules: [...(prev.routineSchedules || []), newItem] }));
-                        }}
-                        className="btn btn-secondary btn-full-width"
-                    >
-                        <PlusIcon /> Serientermin hinzufügen
-                    </button>
-                </div>
-            </div>
 
             {/* Allgemein ist eigener Tab */}
             <div className="settings-section">
@@ -1743,11 +1308,11 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
             </div>
 
             <div className="settings-tabs">
-                <button className={`tab-btn ${activeTab === 'allgemein' ? 'active' : ''}`} onClick={() => setActiveTab('allgemein')}>Allgemein</button>
-                <button className={`tab-btn ${activeTab === 'prozesse' ? 'active' : ''}`} onClick={() => setActiveTab('prozesse')}>Prozesse & Logik</button>
-                <button className={`tab-btn ${activeTab === 'serientermine' ? 'active' : ''}`} onClick={() => setActiveTab('serientermine')}>Serientermine</button>
-                <button className={`tab-btn ${activeTab === 'benutzer' ? 'active' : ''}`} onClick={() => setActiveTab('benutzer')}>Benutzer & Teams</button>
-                <button className={`tab-btn ${activeTab === 'standorte' ? 'active' : ''}`} onClick={() => setActiveTab('standorte')}>Standorte & Anlagen</button>
+                <button className={`tab-btn ${activeTab === 'allgemein' ? 'active' : ''}`} onClick={() => requestTab('allgemein')}>Allgemein</button>
+                <button className={`tab-btn ${activeTab === 'prozesse' ? 'active' : ''}`} onClick={() => requestTab('prozesse')}>Prozesse & Logik</button>
+                <button className={`tab-btn ${activeTab === 'serientermine' ? 'active' : ''}`} onClick={() => requestTab('serientermine')}>Serientermine</button>
+                <button className={`tab-btn ${activeTab === 'benutzer' ? 'active' : ''}`} onClick={() => requestTab('benutzer')}>Benutzer & Teams</button>
+                <button className={`tab-btn ${activeTab === 'standorte' ? 'active' : ''}`} onClick={() => requestTab('standorte')}>Standorte & Anlagen</button>
             </div>
             <div className="tab-content">
                 {activeTab === 'allgemein' && renderAllgemeinTab()}

@@ -286,9 +286,6 @@ const NewTicketForm: React.FC<{
                             onChange={e => setFormState(p => ({...p, wunschTermin: e.target.value}))} 
                         />
                     </div>
-                    <span className="info-text" style={{ display: 'block', marginTop: 8, fontSize: '0.85rem', lineHeight: 1.4 }}>
-                        Ohne Wunschtermin: Fälligkeit automatisch <strong>5 Kalendertage nach Eingang</strong> (oder kürzer, wenn für die Kategorie eine SLA-Regel vorgibt).
-                    </span>
                 </div>
                 <div className="portal-actions">
                     <button className="portal-btn btn-primary" onClick={handleSubmit} style={{ whiteSpace: 'nowrap' }}>Meldung senden</button>
