@@ -20,6 +20,25 @@ export default defineConfig({
       input: {
         main: './index.html',
       },
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
+            return 'vendor-react'
+          }
+          if (id.includes('node_modules/firebase')) {
+            return 'vendor-firebase'
+          }
+          if (id.includes('node_modules/@supabase')) {
+            return 'vendor-supabase'
+          }
+          if (id.includes('node_modules/html2canvas') || id.includes('node_modules/dompurify')) {
+            return 'vendor-pdf-renderers'
+          }
+          if (id.includes('node_modules/jspdf') || id.includes('node_modules/jspdf-autotable')) {
+            return 'vendor-pdf'
+          }
+        },
+      },
     }
   }
 })

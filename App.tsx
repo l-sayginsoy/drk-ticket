@@ -1,7 +1,5 @@
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { 
   Ticket, Status, Priority, Role, GroupableKey, User, Location, AppSettings, Asset, MaintenancePlan, AvailabilityStatus, RoutingRule, RoutineSchedule, SLARule
 } from './types';
@@ -1774,47 +1772,56 @@ const App: React.FC = () => {
         document.body.removeChild(link);
     };
     
-    const handleExportPDF = () => {
+    const handleExportPDF = async () => {
         if (filteredTickets.length === 0) {
             alert("Keine Tickets zum Exportieren vorhanden.");
             return;
         }
-        const doc = new jsPDF();
-        const title = currentView === 'erledigt' ? 'Abgeschlossene Tickets' : 'Aktuelle Ticketliste';
-        const date = new Date().toLocaleDateString('de-DE');
+        try {
+            const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+                import('jspdf'),
+                import('jspdf-autotable'),
+            ]);
+            const doc = new jsPDF();
+            const title = currentView === 'erledigt' ? 'Abgeschlossene Tickets' : 'Aktuelle Ticketliste';
+            const date = new Date().toLocaleDateString('de-DE');
 
-        doc.setFontSize(18);
-        doc.text(title, 14, 22);
-        doc.setFontSize(11);
-        doc.setTextColor(100);
-        doc.text(`Exportiert am: ${date} | Standort: ${filters.area}, Bearbeiter: ${filters.technician}`, 14, 30);
+            doc.setFontSize(18);
+            doc.text(title, 14, 22);
+            doc.setFontSize(11);
+            doc.setTextColor(100);
+            doc.text(`Exportiert am: ${date} | Standort: ${filters.area}, Bearbeiter: ${filters.technician}`, 14, 30);
 
-        const head = [['ID', 'Priorität', 'Titel', 'Standort / Raum', 'Fällig', 'Bearbeiter']];
-        const body = filteredTickets.map(t => [
-            t.id,
-            t.priority,
-            t.title,
-            `${t.area} (${t.location})`,
-            t.dueDate,
-            t.technician
-        ]);
+            const head = [['ID', 'Priorität', 'Titel', 'Standort / Raum', 'Fällig', 'Bearbeiter']];
+            const body = filteredTickets.map(t => [
+                t.id,
+                t.priority,
+                t.title,
+                `${t.area} (${t.location})`,
+                t.dueDate,
+                t.technician
+            ]);
 
-        autoTable(doc, {
-            startY: 35,
-            head: head,
-            body: body,
-            theme: 'striped',
-            headStyles: { fillColor: [33, 37, 41], textColor: 255, fontStyle: 'bold' },
-            willDrawCell: (data) => {
-                const ticket = filteredTickets[data.row.index];
-                if (ticket && (ticket.priority === Priority.Hoch || ticket.status === Status.Ueberfaellig || ticket.is_emergency)) {
-                    doc.setFillColor(255, 235, 238); // light red for high priority rows
-                }
-            },
-        });
+            autoTable(doc, {
+                startY: 35,
+                head: head,
+                body: body,
+                theme: 'striped',
+                headStyles: { fillColor: [33, 37, 41], textColor: 255, fontStyle: 'bold' },
+                willDrawCell: (data) => {
+                    const ticket = filteredTickets[data.row.index];
+                    if (ticket && (ticket.priority === Priority.Hoch || ticket.status === Status.Ueberfaellig || ticket.is_emergency)) {
+                        doc.setFillColor(255, 235, 238); // light red for high priority rows
+                    }
+                },
+            });
 
-        const fileName = `tickets_${currentView}_${new Date().toISOString().split('T')[0]}.pdf`;
-        doc.save(fileName);
+            const fileName = `tickets_${currentView}_${new Date().toISOString().split('T')[0]}.pdf`;
+            doc.save(fileName);
+        } catch (error) {
+            console.error('PDF-Export konnte nicht geladen werden:', error);
+            alert('Der PDF-Export konnte nicht geladen werden. Bitte versuchen Sie es erneut.');
+        }
     };
 
   const ticketsForUser = useMemo(() => {
