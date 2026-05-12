@@ -1260,7 +1260,7 @@ const App: React.FC = () => {
     if (wasChanged) {
         setTickets(updatedTickets);
     }
-  }, [tickets]); // Reruns whenever tickets change
+  }, []); // Runs once on app load
 
   const handleRoutineDayComplete = (scheduleId: string) => {
     if (!currentUser) return;
