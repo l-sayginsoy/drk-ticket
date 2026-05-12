@@ -1,7 +1,5 @@
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { 
   Ticket, Status, Priority, Role, GroupableKey, User, Location, AppSettings, Asset, MaintenancePlan, AvailabilityStatus, RoutingRule, RoutineSchedule, SLARule
 } from './types';
@@ -524,25 +522,24 @@ const completionStampNow = () => {
 /** Reaktive Meldungen ohne Wunschtermin: Vorlauf in Kalendertagen nach Eingang. */
 const REACTIVE_DEFAULT_LEAD_DAYS = 5;
 
-/** Strengste SLA-Regel pro Kategorie (kürzeste Antwortzeit) → deren Priorität; sonst null. */
-const inferStrictestSlaPriorityForCategory = (categoryId: string | undefined, slaMatrix: SLARule[]): Priority | null => {
-  if (!categoryId || !Array.isArray(slaMatrix) || slaMatrix.length === 0) return null;
-  const rules = slaMatrix.filter((r) => r.categoryId === categoryId);
-  if (rules.length === 0) return null;
-  return [...rules].sort((a, b) => a.responseTimeHours - b.responseTimeHours)[0].priority;
-};
-
-/** Reaktiv ohne Wunschtermin: Eingang (Kalender) + 5 Tage vs. kürzeste SLA-Frist — gleiche Logik wie bei Neuanlage. */
+/**
+ * Reaktive Standard-Meldungen: Priorität ist immer Niedrig. Die SLA-Matrix greift für die Fälligkeit nur,
+ * wenn es für (Kategorie, Niedrig) eine Regel gibt — nicht über Hoch/Mittel-Zeilen, sonst würde z. B.
+ * „Sicherheit“ mit 4h-Hoch-Regel jeden Standard-Auftrag künstlich auf Hoch + nächsten Tag ziehen.
+ */
 const computeReactiveDueDateWithoutWunsch = (
   entryDateDE: string,
   categoryId: string | undefined,
   slaMatrix: SLARule[]
 ): string => {
   const deadlineCal = reactiveDueDateAfterCalendarDaysFromEntry(entryDateDE, REACTIVE_DEFAULT_LEAD_DAYS);
-  const rulesForCat = slaMatrix.filter((r) => r.categoryId === categoryId);
+  const rulesNiedrig =
+    categoryId && Array.isArray(slaMatrix)
+      ? slaMatrix.filter((r) => r.categoryId === categoryId && r.priority === Priority.Niedrig)
+      : [];
   let deadlineSla: Date | null = null;
-  if (rulesForCat.length > 0) {
-    const minHours = Math.min(...rulesForCat.map((r) => r.responseTimeHours));
+  if (rulesNiedrig.length > 0) {
+    const minHours = Math.min(...rulesNiedrig.map((r) => r.responseTimeHours));
     const d = new Date();
     d.setHours(d.getHours() + minHours);
     deadlineSla = d;
@@ -637,6 +634,13 @@ const App: React.FC = () => {
   const [brevoMailOk, setBrevoMailOk] = useState<boolean | null>(null);
   const [brevoMailLastChecked, setBrevoMailLastChecked] = useState<Date | null>(null);
   const isRemoteUpdate = useRef(false);
+  /**
+   * Sync-Queue: wenn der User sehr schnell ein Ticket erstellt, bevor Firebase Initialisierung fertig ist,
+   * oder während ein Remote-Update läuft, würde syncToFirebase sonst "return" machen und der lokale Stand
+   * wird beim nächsten Snapshot wieder überschrieben (Ticket "verschwindet").
+   */
+  const pendingFirebaseSyncRef = useRef<Record<string, any>>({});
+  const flushFirebaseSyncScheduledRef = useRef<number | null>(null);
   const prevUsersRef = useRef<User[]>(users);
 
   useEffect(() => {
@@ -740,7 +744,10 @@ const App: React.FC = () => {
             }
           });
           setLastSyncTime(new Date());
-          setTimeout(() => { isRemoteUpdate.current = false; }, 100);
+          setTimeout(() => {
+            isRemoteUpdate.current = false;
+            scheduleFlushFirebaseSyncQueue();
+          }, 100);
         }
         setIsInitialized(true);
       } catch (err) {
@@ -787,9 +794,13 @@ const App: React.FC = () => {
       });
       if (hasChanges) {
         setLastSyncTime(new Date());
-        setTimeout(() => { isRemoteUpdate.current = false; }, 100);
+        setTimeout(() => {
+          isRemoteUpdate.current = false;
+          scheduleFlushFirebaseSyncQueue();
+        }, 100);
       } else {
         isRemoteUpdate.current = false;
+        scheduleFlushFirebaseSyncQueue();
       }
     }, (error) => {
       console.error('Firebase onSnapshot error:', error);
@@ -800,15 +811,37 @@ const App: React.FC = () => {
     };
   }, []);
 
-  const syncToFirebase = async (key: string, value: any) => {
-    if (isRemoteUpdate.current || !isInitialized) return;
-    try {
-      const sanitizedValue = JSON.parse(JSON.stringify(value));
-      await setDoc(doc(db, 'app_data', key), { value: sanitizedValue, updated_at: new Date().toISOString() });
-      setLastSyncTime(new Date());
-    } catch (err) {
-      console.error(`Error syncing ${key} to Firebase:`, err);
+  const flushFirebaseSyncQueue = async () => {
+    if (!isInitialized || isRemoteUpdate.current) return;
+    const pending = pendingFirebaseSyncRef.current;
+    const keys = Object.keys(pending);
+    if (keys.length === 0) return;
+    pendingFirebaseSyncRef.current = {};
+    for (const key of keys) {
+      try {
+        const sanitizedValue = JSON.parse(JSON.stringify(pending[key]));
+        await setDoc(doc(db, 'app_data', key), { value: sanitizedValue, updated_at: new Date().toISOString() });
+        setLastSyncTime(new Date());
+      } catch (err) {
+        console.error(`Error syncing ${key} to Firebase:`, err);
+        // wieder einreihen (best effort), damit es nicht "verloren" geht
+        pendingFirebaseSyncRef.current[key] = pending[key];
+      }
     }
+  };
+
+  const scheduleFlushFirebaseSyncQueue = () => {
+    if (flushFirebaseSyncScheduledRef.current !== null) return;
+    flushFirebaseSyncScheduledRef.current = window.setTimeout(() => {
+      flushFirebaseSyncScheduledRef.current = null;
+      void flushFirebaseSyncQueue();
+    }, 250);
+  };
+
+  const syncToFirebase = (key: string, value: any) => {
+    // nie verlieren: immer einreihen, flush passiert sobald initialisiert & nicht im Remote-Update
+    pendingFirebaseSyncRef.current[key] = value;
+    scheduleFlushFirebaseSyncQueue();
   };
 
   // --- UI State ---
@@ -1369,10 +1402,6 @@ const App: React.FC = () => {
         if (wunschCleared || catChanged) {
           ut.dueDate = computeReactiveDueDateWithoutWunsch(ut.entryDate, ut.categoryId, appSettings.slaMatrix);
         }
-        if (catChanged) {
-          const slaP = inferStrictestSlaPriorityForCategory(ut.categoryId, appSettings.slaMatrix);
-          ut.priority = slaP ?? Priority.Niedrig;
-        }
       }
     }
 
@@ -1515,12 +1544,10 @@ const App: React.FC = () => {
 
     const category = appSettings.ticketCategories.find(c => c.id === newTicketData.categoryId);
     const isReactive = newTicketData.ticketType === 'reactive';
-    const slaStrictPriority = inferStrictestSlaPriorityForCategory(newTicketData.categoryId, appSettings.slaMatrix);
 
-    // Reaktiv: immer Priorität „Niedrig“, außer die SLA-Matrix (kürzeste Frist je Kategorie) legt eine andere Prio fest.
-    // Keine Kategorie-Defaults, keine mitgeschickte priority aus Formularen.
+    // Reaktiv: fester Standard Niedrig; engere Fälligkeit nur über SLA-Zeilen mit priority === Niedrig (s. computeReactiveDueDateWithoutWunsch).
     const determinedPriority = isReactive
-      ? (slaStrictPriority ?? Priority.Niedrig)
+      ? Priority.Niedrig
       : (newTicketData.priority || category?.default_priority || appSettings.defaultPriority);
 
     // 2. Load-Balancing Technician Assignment
@@ -1745,47 +1772,56 @@ const App: React.FC = () => {
         document.body.removeChild(link);
     };
     
-    const handleExportPDF = () => {
+    const handleExportPDF = async () => {
         if (filteredTickets.length === 0) {
             alert("Keine Tickets zum Exportieren vorhanden.");
             return;
         }
-        const doc = new jsPDF();
-        const title = currentView === 'erledigt' ? 'Abgeschlossene Tickets' : 'Aktuelle Ticketliste';
-        const date = new Date().toLocaleDateString('de-DE');
+        try {
+            const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+                import('jspdf'),
+                import('jspdf-autotable'),
+            ]);
+            const doc = new jsPDF();
+            const title = currentView === 'erledigt' ? 'Abgeschlossene Tickets' : 'Aktuelle Ticketliste';
+            const date = new Date().toLocaleDateString('de-DE');
 
-        doc.setFontSize(18);
-        doc.text(title, 14, 22);
-        doc.setFontSize(11);
-        doc.setTextColor(100);
-        doc.text(`Exportiert am: ${date} | Standort: ${filters.area}, Bearbeiter: ${filters.technician}`, 14, 30);
+            doc.setFontSize(18);
+            doc.text(title, 14, 22);
+            doc.setFontSize(11);
+            doc.setTextColor(100);
+            doc.text(`Exportiert am: ${date} | Standort: ${filters.area}, Bearbeiter: ${filters.technician}`, 14, 30);
 
-        const head = [['ID', 'Priorität', 'Titel', 'Standort / Raum', 'Fällig', 'Bearbeiter']];
-        const body = filteredTickets.map(t => [
-            t.id,
-            t.priority,
-            t.title,
-            `${t.area} (${t.location})`,
-            t.dueDate,
-            t.technician
-        ]);
+            const head = [['ID', 'Priorität', 'Titel', 'Standort / Raum', 'Fällig', 'Bearbeiter']];
+            const body = filteredTickets.map(t => [
+                t.id,
+                t.priority,
+                t.title,
+                `${t.area} (${t.location})`,
+                t.dueDate,
+                t.technician
+            ]);
 
-        autoTable(doc, {
-            startY: 35,
-            head: head,
-            body: body,
-            theme: 'striped',
-            headStyles: { fillColor: [33, 37, 41], textColor: 255, fontStyle: 'bold' },
-            willDrawCell: (data) => {
-                const ticket = filteredTickets[data.row.index];
-                if (ticket && (ticket.priority === Priority.Hoch || ticket.status === Status.Ueberfaellig || ticket.is_emergency)) {
-                    doc.setFillColor(255, 235, 238); // light red for high priority rows
-                }
-            },
-        });
+            autoTable(doc, {
+                startY: 35,
+                head: head,
+                body: body,
+                theme: 'striped',
+                headStyles: { fillColor: [33, 37, 41], textColor: 255, fontStyle: 'bold' },
+                willDrawCell: (data) => {
+                    const ticket = filteredTickets[data.row.index];
+                    if (ticket && (ticket.priority === Priority.Hoch || ticket.status === Status.Ueberfaellig || ticket.is_emergency)) {
+                        doc.setFillColor(255, 235, 238); // light red for high priority rows
+                    }
+                },
+            });
 
-        const fileName = `tickets_${currentView}_${new Date().toISOString().split('T')[0]}.pdf`;
-        doc.save(fileName);
+            const fileName = `tickets_${currentView}_${new Date().toISOString().split('T')[0]}.pdf`;
+            doc.save(fileName);
+        } catch (error) {
+            console.error('PDF-Export konnte nicht geladen werden:', error);
+            alert('Der PDF-Export konnte nicht geladen werden. Bitte versuchen Sie es erneut.');
+        }
     };
 
   const ticketsForUser = useMemo(() => {
