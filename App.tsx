@@ -896,35 +896,41 @@ const App: React.FC = () => {
 
   useEffect(() => { localStorage.setItem('currentUser', JSON.stringify(currentUser)); }, [currentUser]);
   
-  useEffect(() => { 
+  useEffect(() => {
+    if (!isInitialized) return;
     localStorage.setItem(LOCAL_STORAGE_KEY_TICKETS, JSON.stringify(tickets));
     syncToFirebase(LOCAL_STORAGE_KEY_TICKETS, tickets);
-  }, [tickets]);
+  }, [tickets, isInitialized]);
   
-  useEffect(() => { 
+  useEffect(() => {
+    if (!isInitialized) return;
     localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(users));
     syncToFirebase(LOCAL_STORAGE_KEY_USERS, users);
-  }, [users]);
+  }, [users, isInitialized]);
   
-  useEffect(() => { 
+  useEffect(() => {
+    if (!isInitialized) return;
     localStorage.setItem(LOCAL_STORAGE_KEY_LOCATIONS, JSON.stringify(locations));
     syncToFirebase(LOCAL_STORAGE_KEY_LOCATIONS, locations);
-  }, [locations]);
+  }, [locations, isInitialized]);
   
-  useEffect(() => { 
+  useEffect(() => {
+    if (!isInitialized) return;
     localStorage.setItem(LOCAL_STORAGE_KEY_ASSETS, JSON.stringify(assets));
     syncToFirebase(LOCAL_STORAGE_KEY_ASSETS, assets);
-  }, [assets]);
+  }, [assets, isInitialized]);
   
-  useEffect(() => { 
+  useEffect(() => {
+    if (!isInitialized) return;
     localStorage.setItem(LOCAL_STORAGE_KEY_PLANS, JSON.stringify(maintenancePlans));
     syncToFirebase(LOCAL_STORAGE_KEY_PLANS, maintenancePlans);
-  }, [maintenancePlans]);
+  }, [maintenancePlans, isInitialized]);
   
-  useEffect(() => { 
+  useEffect(() => {
+    if (!isInitialized) return;
     localStorage.setItem(LOCAL_STORAGE_KEY_SETTINGS, JSON.stringify(appSettings));
     syncToFirebase(LOCAL_STORAGE_KEY_SETTINGS, appSettings);
-  }, [appSettings]);
+  }, [appSettings, isInitialized]);
 
   // --- Core App Logic Effects ---
   // Automatic Ticket Re-assignment on Technician Leave OR Return
