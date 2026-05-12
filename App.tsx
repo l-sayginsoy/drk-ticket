@@ -636,6 +636,13 @@ const App: React.FC = () => {
   const [brevoMailOk, setBrevoMailOk] = useState<boolean | null>(null);
   const [brevoMailLastChecked, setBrevoMailLastChecked] = useState<Date | null>(null);
   const isRemoteUpdate = useRef(false);
+  /**
+   * Sync-Queue: wenn der User sehr schnell ein Ticket erstellt, bevor Firebase Initialisierung fertig ist,
+   * oder während ein Remote-Update läuft, würde syncToFirebase sonst "return" machen und der lokale Stand
+   * wird beim nächsten Snapshot wieder überschrieben (Ticket "verschwindet").
+   */
+  const pendingFirebaseSyncRef = useRef<Record<string, any>>({});
+  const flushFirebaseSyncScheduledRef = useRef<number | null>(null);
   const prevUsersRef = useRef<User[]>(users);
 
   useEffect(() => {
@@ -739,7 +746,10 @@ const App: React.FC = () => {
             }
           });
           setLastSyncTime(new Date());
-          setTimeout(() => { isRemoteUpdate.current = false; }, 100);
+          setTimeout(() => {
+            isRemoteUpdate.current = false;
+            scheduleFlushFirebaseSyncQueue();
+          }, 100);
         }
         setIsInitialized(true);
       } catch (err) {
@@ -786,9 +796,13 @@ const App: React.FC = () => {
       });
       if (hasChanges) {
         setLastSyncTime(new Date());
-        setTimeout(() => { isRemoteUpdate.current = false; }, 100);
+        setTimeout(() => {
+          isRemoteUpdate.current = false;
+          scheduleFlushFirebaseSyncQueue();
+        }, 100);
       } else {
         isRemoteUpdate.current = false;
+        scheduleFlushFirebaseSyncQueue();
       }
     }, (error) => {
       console.error('Firebase onSnapshot error:', error);
@@ -799,15 +813,37 @@ const App: React.FC = () => {
     };
   }, []);
 
-  const syncToFirebase = async (key: string, value: any) => {
-    if (isRemoteUpdate.current || !isInitialized) return;
-    try {
-      const sanitizedValue = JSON.parse(JSON.stringify(value));
-      await setDoc(doc(db, 'app_data', key), { value: sanitizedValue, updated_at: new Date().toISOString() });
-      setLastSyncTime(new Date());
-    } catch (err) {
-      console.error(`Error syncing ${key} to Firebase:`, err);
+  const flushFirebaseSyncQueue = async () => {
+    if (!isInitialized || isRemoteUpdate.current) return;
+    const pending = pendingFirebaseSyncRef.current;
+    const keys = Object.keys(pending);
+    if (keys.length === 0) return;
+    pendingFirebaseSyncRef.current = {};
+    for (const key of keys) {
+      try {
+        const sanitizedValue = JSON.parse(JSON.stringify(pending[key]));
+        await setDoc(doc(db, 'app_data', key), { value: sanitizedValue, updated_at: new Date().toISOString() });
+        setLastSyncTime(new Date());
+      } catch (err) {
+        console.error(`Error syncing ${key} to Firebase:`, err);
+        // wieder einreihen (best effort), damit es nicht "verloren" geht
+        pendingFirebaseSyncRef.current[key] = pending[key];
+      }
     }
+  };
+
+  const scheduleFlushFirebaseSyncQueue = () => {
+    if (flushFirebaseSyncScheduledRef.current !== null) return;
+    flushFirebaseSyncScheduledRef.current = window.setTimeout(() => {
+      flushFirebaseSyncScheduledRef.current = null;
+      void flushFirebaseSyncQueue();
+    }, 250);
+  };
+
+  const syncToFirebase = (key: string, value: any) => {
+    // nie verlieren: immer einreihen, flush passiert sobald initialisiert & nicht im Remote-Update
+    pendingFirebaseSyncRef.current[key] = value;
+    scheduleFlushFirebaseSyncQueue();
   };
 
   // --- UI State ---
