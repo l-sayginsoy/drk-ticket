@@ -524,25 +524,24 @@ const completionStampNow = () => {
 /** Reaktive Meldungen ohne Wunschtermin: Vorlauf in Kalendertagen nach Eingang. */
 const REACTIVE_DEFAULT_LEAD_DAYS = 5;
 
-/** Strengste SLA-Regel pro Kategorie (kürzeste Antwortzeit) → deren Priorität; sonst null. */
-const inferStrictestSlaPriorityForCategory = (categoryId: string | undefined, slaMatrix: SLARule[]): Priority | null => {
-  if (!categoryId || !Array.isArray(slaMatrix) || slaMatrix.length === 0) return null;
-  const rules = slaMatrix.filter((r) => r.categoryId === categoryId);
-  if (rules.length === 0) return null;
-  return [...rules].sort((a, b) => a.responseTimeHours - b.responseTimeHours)[0].priority;
-};
-
-/** Reaktiv ohne Wunschtermin: Eingang (Kalender) + 5 Tage vs. kürzeste SLA-Frist — gleiche Logik wie bei Neuanlage. */
+/**
+ * Reaktive Standard-Meldungen: Priorität ist immer Niedrig. Die SLA-Matrix greift für die Fälligkeit nur,
+ * wenn es für (Kategorie, Niedrig) eine Regel gibt — nicht über Hoch/Mittel-Zeilen, sonst würde z. B.
+ * „Sicherheit“ mit 4h-Hoch-Regel jeden Standard-Auftrag künstlich auf Hoch + nächsten Tag ziehen.
+ */
 const computeReactiveDueDateWithoutWunsch = (
   entryDateDE: string,
   categoryId: string | undefined,
   slaMatrix: SLARule[]
 ): string => {
   const deadlineCal = reactiveDueDateAfterCalendarDaysFromEntry(entryDateDE, REACTIVE_DEFAULT_LEAD_DAYS);
-  const rulesForCat = slaMatrix.filter((r) => r.categoryId === categoryId);
+  const rulesNiedrig =
+    categoryId && Array.isArray(slaMatrix)
+      ? slaMatrix.filter((r) => r.categoryId === categoryId && r.priority === Priority.Niedrig)
+      : [];
   let deadlineSla: Date | null = null;
-  if (rulesForCat.length > 0) {
-    const minHours = Math.min(...rulesForCat.map((r) => r.responseTimeHours));
+  if (rulesNiedrig.length > 0) {
+    const minHours = Math.min(...rulesNiedrig.map((r) => r.responseTimeHours));
     const d = new Date();
     d.setHours(d.getHours() + minHours);
     deadlineSla = d;
@@ -1369,10 +1368,6 @@ const App: React.FC = () => {
         if (wunschCleared || catChanged) {
           ut.dueDate = computeReactiveDueDateWithoutWunsch(ut.entryDate, ut.categoryId, appSettings.slaMatrix);
         }
-        if (catChanged) {
-          const slaP = inferStrictestSlaPriorityForCategory(ut.categoryId, appSettings.slaMatrix);
-          ut.priority = slaP ?? Priority.Niedrig;
-        }
       }
     }
 
@@ -1515,12 +1510,10 @@ const App: React.FC = () => {
 
     const category = appSettings.ticketCategories.find(c => c.id === newTicketData.categoryId);
     const isReactive = newTicketData.ticketType === 'reactive';
-    const slaStrictPriority = inferStrictestSlaPriorityForCategory(newTicketData.categoryId, appSettings.slaMatrix);
 
-    // Reaktiv: immer Priorität „Niedrig“, außer die SLA-Matrix (kürzeste Frist je Kategorie) legt eine andere Prio fest.
-    // Keine Kategorie-Defaults, keine mitgeschickte priority aus Formularen.
+    // Reaktiv: fester Standard Niedrig; engere Fälligkeit nur über SLA-Zeilen mit priority === Niedrig (s. computeReactiveDueDateWithoutWunsch).
     const determinedPriority = isReactive
-      ? (slaStrictPriority ?? Priority.Niedrig)
+      ? Priority.Niedrig
       : (newTicketData.priority || category?.default_priority || appSettings.defaultPriority);
 
     // 2. Load-Balancing Technician Assignment
