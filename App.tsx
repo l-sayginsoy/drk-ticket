@@ -898,32 +898,32 @@ const App: React.FC = () => {
   
   useEffect(() => { 
     localStorage.setItem(LOCAL_STORAGE_KEY_TICKETS, JSON.stringify(tickets));
-    syncToFirebase(LOCAL_STORAGE_KEY_TICKETS, tickets);
+    // syncToFirebase(LOCAL_STORAGE_KEY_TICKETS, tickets);
   }, [tickets]);
   
   useEffect(() => { 
     localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(users));
-    syncToFirebase(LOCAL_STORAGE_KEY_USERS, users);
+    // syncToFirebase(LOCAL_STORAGE_KEY_USERS, users);
   }, [users]);
   
   useEffect(() => { 
     localStorage.setItem(LOCAL_STORAGE_KEY_LOCATIONS, JSON.stringify(locations));
-    syncToFirebase(LOCAL_STORAGE_KEY_LOCATIONS, locations);
+    // syncToFirebase(LOCAL_STORAGE_KEY_LOCATIONS, locations);
   }, [locations]);
   
   useEffect(() => { 
     localStorage.setItem(LOCAL_STORAGE_KEY_ASSETS, JSON.stringify(assets));
-    syncToFirebase(LOCAL_STORAGE_KEY_ASSETS, assets);
+    // syncToFirebase(LOCAL_STORAGE_KEY_ASSETS, assets);
   }, [assets]);
   
   useEffect(() => { 
     localStorage.setItem(LOCAL_STORAGE_KEY_PLANS, JSON.stringify(maintenancePlans));
-    syncToFirebase(LOCAL_STORAGE_KEY_PLANS, maintenancePlans);
+    // syncToFirebase(LOCAL_STORAGE_KEY_PLANS, maintenancePlans);
   }, [maintenancePlans]);
   
   useEffect(() => { 
     localStorage.setItem(LOCAL_STORAGE_KEY_SETTINGS, JSON.stringify(appSettings));
-    syncToFirebase(LOCAL_STORAGE_KEY_SETTINGS, appSettings);
+   // syncToFirebase(LOCAL_STORAGE_KEY_SETTINGS, appSettings);
   }, [appSettings]);
 
   // --- Core App Logic Effects ---
