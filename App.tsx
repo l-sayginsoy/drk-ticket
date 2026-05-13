@@ -525,11 +525,21 @@ const completionStampNow = () => {
 const REACTIVE_DEFAULT_LEAD_DAYS = 5;
 
 /** Strengste SLA-Regel pro Kategorie (kürzeste Antwortzeit) → deren Priorität; sonst null. */
-const inferStrictestSlaPriorityForCategory = (categoryId: string | undefined, slaMatrix: SLARule[]): Priority | null => {
+const inferStrictestSlaPriorityForCategory = (
+  categoryId: string | undefined,
+  slaMatrix: SLARule[]
+): Priority | null => {
   if (!categoryId || !Array.isArray(slaMatrix) || slaMatrix.length === 0) return null;
-  const rules = slaMatrix.filter((r) => r.categoryId === categoryId);
+
+  const rules = slaMatrix.filter((r) =>
+    r.categoryId === categoryId &&
+    r.priority &&
+    r.responseTimeHours > 0
+  );
+
   if (rules.length === 0) return null;
-  return [...rules].sort((a, b) => a.responseTimeHours - b.responseTimeHours)[0].priority;
+
+  return rules.sort((a, b) => a.responseTimeHours - b.responseTimeHours).shift()?.priority ?? null;
 };
 
 /** Reaktiv ohne Wunschtermin: Eingang (Kalender) + 5 Tage vs. kürzeste SLA-Frist — gleiche Logik wie bei Neuanlage. */
