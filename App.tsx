@@ -651,7 +651,16 @@ const mergeAppSettingsRemote = (value: unknown, prev: AppSettings): AppSettings 
     ticketCategories: Array.isArray(v.ticketCategories) ? v.ticketCategories : prev.ticketCategories,
     slaMatrix: Array.isArray(v.slaMatrix) ? v.slaMatrix : prev.slaMatrix,
     routingRules: Array.isArray(v.routingRules) ? v.routingRules : prev.routingRules,
-    routineSchedules: Array.isArray(v.routineSchedules) ? v.routineSchedules : prev.routineSchedules ?? [],
+    routineSchedules: Array.isArray(v.routineSchedules)
+      ? v.routineSchedules.map((remoteS: RoutineSchedule) => {
+          const localS = prev.routineSchedules?.find(s => s.id === remoteS.id);
+          // Keep the more recent lastGenerated so a just-generated ticket isn't overwritten by stale remote data
+          if (localS && (localS.lastGenerated ?? '') > (remoteS.lastGenerated ?? '')) {
+            return { ...remoteS, lastGenerated: localS.lastGenerated, rotationCursor: localS.rotationCursor };
+          }
+          return remoteS;
+        })
+      : prev.routineSchedules ?? [],
     routineDayCompletions: Array.isArray(v.routineDayCompletions)
       ? v.routineDayCompletions
       : prev.routineDayCompletions ?? [],
@@ -1233,6 +1242,11 @@ const App: React.FC = () => {
     schedules.forEach((schedule, idx) => {
       if (schedule.lastGenerated === todayStr) return;
       if (!isRoutineDueOnCalendarDay(schedule, today, rpSet)) return;
+      // Safety: skip if a ticket for this schedule was already created today
+      const alreadyCreatedToday = tickets.some(
+        t => t.routineScheduleId === schedule.id && t.entryDate === today.toLocaleDateString('de-DE')
+      );
+      if (alreadyCreatedToday) return;
 
       const eligibleUsers = users
         .filter(u => u.isActive && u.role === schedule.targetRole)
@@ -1285,7 +1299,7 @@ const App: React.FC = () => {
       setAppSettings(prev => ({ ...prev, routineSchedules: updatedSchedules as any }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Serienlogik bewusst bei Schedule-/Feiertags-Änderung; Tickets über setTickets
-  }, [isInitialized, appSettings.routineSchedules, users, rpHolidayYmdList]);
+  }, [isInitialized, appSettings.routineSchedules, users, rpHolidayYmdList, tickets]);
 
   // Automatically set tickets to overdue and back
   useEffect(() => {
