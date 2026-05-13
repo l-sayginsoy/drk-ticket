@@ -1585,6 +1585,17 @@ saveTicketsSafely(nextTickets);
 
     // 2. Load-Balancing Technician Assignment
     let assignedTechnician = newTicketData.technician || 'N/A';
+
+if (newTicketData.ticketType === 'reactive') {
+  assignedTechnician = newTicketData.technician || 'N/A';
+} else if (assignedTechnician === 'N/A') {
+  assignedTechnician = assignTicket(
+    { title: newTicketData.title, description: newTicketData.description },
+    users,
+    tickets,
+    appSettings.routingRules
+  );
+}
     let autoCorrectionNote = '';
 
     // Wenn ein Bearbeiter manuell gewählt wurde, prüfen ob er abwesend ist
@@ -1625,11 +1636,14 @@ saveTicketsSafely(nextTickets);
       if (wunsch) {
         formattedDueDate = wunsch;
       } else {
-        formattedDueDate = computeReactiveDueDateWithoutWunsch(
-          entryDateStr,
-          newTicketData.categoryId,
-          appSettings.slaMatrix
-        );
+        formattedDueDate = reactiveDueDateAfterCalendarDaysFromEntry(
+  entryDateStr,
+  REACTIVE_DEFAULT_LEAD_DAYS
+).toLocaleDateString('de-DE', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+});
       }
     } else {
       const slaRule = appSettings.slaMatrix.find(
