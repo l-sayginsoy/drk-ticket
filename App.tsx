@@ -523,6 +523,10 @@ const completionStampNow = () => {
 
 /** Reaktive Meldungen ohne Wunschtermin: Vorlauf in Kalendertagen nach Eingang. */
 const REACTIVE_DEFAULT_LEAD_DAYS = 5;
+reactiveDueDateAfterCalendarDaysFromEntry(
+  entryDateDE,
+  REACTIVE_DEFAULT_LEAD_DAYS
+)
 
 /** Strengste SLA-Regel pro Kategorie (kürzeste Antwortzeit) → deren Priorität; sonst null. */
 const inferStrictestSlaPriorityForCategory = (
