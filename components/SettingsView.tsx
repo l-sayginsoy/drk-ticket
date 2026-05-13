@@ -1274,76 +1274,101 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
         </>
     );
 
-    const renderBenutzerTab = () => (
-        <div id="user-management">
-            <div className="content-header">
-               <h2 className="content-title">Benutzerliste</h2>
-               <button className="btn btn-primary" onClick={() => handleOpenUserModal(null)}><PlusIcon />Benutzer hinzufügen</button>
-            </div>
-            <table className="settings-table">
-                <thead><tr><th>Name</th><th>Rolle</th><th>Skills</th><th>Verfügbarkeit</th><th>Status</th><th></th></tr></thead>
-                <tbody>
+    const renderBenutzerTab = () => {
+        const roleLabel: Record<string, string> = { admin: 'Admin', techniker: 'Service-Team', hauswirtschaft: 'Hauswirtschaft' };
+        const roleColor: Record<string, string> = { admin: '#c0392b', techniker: '#2563eb', hauswirtschaft: '#059669' };
+        const getInitials = (name: string) => name.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2);
+        return (
+            <div id="user-management">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                    <div>
+                        <h2 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Benutzer</h2>
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>{users.length} Einträge</p>
+                    </div>
+                    <button className="btn btn-primary" onClick={() => handleOpenUserModal(null)}><PlusIcon />Hinzufügen</button>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     {users.map(user => (
-                        <tr key={user.id}>
-                            <td>{user.name}</td>
-                            <td>{user.role}</td>
-                            <td><div className="skills-container">{user.skills.map(s => <span key={s} className="skill-tag">{s}</span>)}</div></td>
-                            <td>{user.availability.status}</td>
-                            <td>
-                                <SwitchToggle
-                                    id={`user-status-${user.id}`}
-                                    isChecked={user.isActive}
-                                    onChange={() => handleToggleUserStatus(user.id)}
-                                />
-                            </td>
-                            <td className="actions-cell">
-                                <button className="btn btn-secondary" onClick={() => handleOpenUserModal(user)}>Bearbeiten</button>
-                                {user.role !== Role.Admin ? (
-                                    <button className="btn btn-danger" onClick={() => handleDeleteUser(user.id)} title="Löschen"><TrashIcon /></button>
-                                ) : (
-                                    <button className="btn btn-danger" disabled style={{ cursor: 'not-allowed', opacity: 0.5 }} title="Admin kann nicht gelöscht werden"><TrashIcon /></button>
+                        <div key={user.id} style={{
+                            display: 'flex', alignItems: 'center', gap: '1rem',
+                            background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+                            borderRadius: 12, padding: '0.75rem 1rem',
+                            opacity: user.isActive ? 1 : 0.5,
+                        }}>
+                            <div style={{
+                                width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
+                                background: roleColor[user.role] ?? '#888',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                color: 'white', fontWeight: 700, fontSize: '0.8rem', letterSpacing: '0.05em',
+                            }}>{getInitials(user.name)}</div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                    <span style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{user.name}</span>
+                                    <span style={{
+                                        fontSize: '0.72rem', fontWeight: 600, padding: '2px 8px', borderRadius: 999,
+                                        background: roleColor[user.role] + '18' ?? '#88888818',
+                                        color: roleColor[user.role] ?? '#888', border: `1px solid ${roleColor[user.role]}33`,
+                                    }}>{roleLabel[user.role] ?? user.role}</span>
+                                    {user.availability.status === 'Abwesend' && (
+                                        <span style={{ fontSize: '0.72rem', fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: '#f59e0b18', color: '#b45309', border: '1px solid #f59e0b33' }}>Abwesend</span>
+                                    )}
+                                </div>
+                                {user.skills.length > 0 && (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem', marginTop: '0.3rem' }}>
+                                        {user.skills.map(s => (
+                                            <span key={s} style={{ fontSize: '0.72rem', padding: '1px 7px', borderRadius: 4, background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>{s}</span>
+                                        ))}
+                                    </div>
                                 )}
-                            </td>
-                        </tr>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                                <SwitchToggle id={`user-status-${user.id}`} isChecked={user.isActive} onChange={() => handleToggleUserStatus(user.id)} />
+                                <button className="btn btn-secondary" style={{ fontSize: '0.82rem', padding: '0.35rem 0.75rem' }} onClick={() => handleOpenUserModal(user)}>Bearbeiten</button>
+                                {user.role !== Role.Admin ? (
+                                    <button className="btn btn-danger-sm" onClick={() => handleDeleteUser(user.id)} title="Löschen"><TrashIcon /></button>
+                                ) : (
+                                    <button className="btn btn-danger-sm" disabled style={{ cursor: 'not-allowed', opacity: 0.3 }} title="Admin kann nicht gelöscht werden"><TrashIcon /></button>
+                                )}
+                            </div>
+                        </div>
                     ))}
-                </tbody>
-            </table>
-        </div>
-    );
+                </div>
+            </div>
+        );
+    };
 
     const renderStandorteTab = () => (
         <div id="location-management">
-            <div className="content-header">
-                <h2 className="content-title">Standortliste</h2>
-                <button className="btn btn-primary" onClick={() => handleOpenLocationModal(null)}><PlusIcon />Standort hinzufügen</button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <div>
+                    <h2 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Standorte</h2>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>{locations.length} Einträge</p>
+                </div>
+                <button className="btn btn-primary" onClick={() => handleOpenLocationModal(null)}><PlusIcon />Hinzufügen</button>
             </div>
-            <table className="settings-table">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Status</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {locations.map(location => (
-                        <tr key={location.id}>
-                            <td>{location.name}</td>
-                             <td>
-                                <SwitchToggle
-                                    id={`location-status-${location.id}`}
-                                    isChecked={location.isActive}
-                                    onChange={() => handleToggleLocationStatus(location.id)}
-                                />
-                            </td>
-                            <td className="actions-cell">
-                                <button className="btn btn-secondary" onClick={() => handleOpenLocationModal(location)}>Bearbeiten</button>
-                                <button className="btn btn-danger" onClick={() => handleDeleteLocation(location.id)} title="Löschen"><TrashIcon /></button>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {locations.map(location => (
+                    <div key={location.id} style={{
+                        display: 'flex', alignItems: 'center', gap: '1rem',
+                        background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+                        borderRadius: 12, padding: '0.75rem 1rem',
+                        opacity: location.isActive ? 1 : 0.5,
+                    }}>
+                        <div style={{
+                            width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
+                            background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: '1rem',
+                        }}>📍</div>
+                        <span style={{ flex: 1, fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{location.name}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                            <SwitchToggle id={`location-status-${location.id}`} isChecked={location.isActive} onChange={() => handleToggleLocationStatus(location.id)} />
+                            <button className="btn btn-secondary" style={{ fontSize: '0.82rem', padding: '0.35rem 0.75rem' }} onClick={() => handleOpenLocationModal(location)}>Bearbeiten</button>
+                            <button className="btn btn-danger-sm" onClick={() => handleDeleteLocation(location.id)} title="Löschen"><TrashIcon /></button>
+                        </div>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 
@@ -1449,31 +1474,23 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                 .skills-container { display: flex; flex-wrap: wrap; gap: 0.25rem; }
                 .skill-tag { background-color: var(--bg-tertiary); color: var(--text-secondary); padding: 0.1rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 500; }
             `}</style>
-            <div className="settings-section">
-                <div className="settings-section-header">
-                    <h3 className="settings-section-title">Dokumentation</h3>
-                </div>
-                <div className="settings-section-body">
-                    <p className="form-group-description">
-                        Laden Sie die vollständige Systemdokumentation als PDF-Datei herunter, um sie offline zu lesen oder zu archivieren.
-                    </p>
-                    <button 
-                        onClick={handleDownloadDocs} 
-                        className="btn btn-secondary" 
-                        style={{ justifyContent: 'flex-start', gap: '0.75rem', width: 'fit-content' }}
-                    >
-                        <DocumentArrowDownIcon />
-                        Systemdokumentation als PDF herunterladen
-                    </button>
-                </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
+                <button
+                    onClick={handleDownloadDocs}
+                    className="btn btn-secondary"
+                    style={{ fontSize: '0.82rem', padding: '0.35rem 0.85rem', gap: '0.4rem' }}
+                >
+                    <DocumentArrowDownIcon />
+                    Dokumentation (PDF)
+                </button>
             </div>
 
             <div className="settings-tabs">
                 <button className={`tab-btn ${activeTab === 'allgemein' ? 'active' : ''}`} onClick={() => requestTab('allgemein')}>Allgemein</button>
                 <button className={`tab-btn ${activeTab === 'prozesse' ? 'active' : ''}`} onClick={() => requestTab('prozesse')}>Prozesse & Logik</button>
                 <button className={`tab-btn ${activeTab === 'serientermine' ? 'active' : ''}`} onClick={() => requestTab('serientermine')}>Serientermine</button>
-                <button className={`tab-btn ${activeTab === 'benutzer' ? 'active' : ''}`} onClick={() => requestTab('benutzer')}>Benutzer & Teams</button>
-                <button className={`tab-btn ${activeTab === 'standorte' ? 'active' : ''}`} onClick={() => requestTab('standorte')}>Standorte & Anlagen</button>
+                <button className={`tab-btn ${activeTab === 'benutzer' ? 'active' : ''}`} onClick={() => requestTab('benutzer')}>Benutzer</button>
+                <button className={`tab-btn ${activeTab === 'standorte' ? 'active' : ''}`} onClick={() => requestTab('standorte')}>Standorte</button>
                 <button className={`tab-btn ${activeTab === 'benachrichtigungen' ? 'active' : ''}`} onClick={() => requestTab('benachrichtigungen')}>Benachrichtigungen</button>
             </div>
             <div className="tab-content">
