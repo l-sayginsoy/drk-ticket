@@ -63,6 +63,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     const newNotesCount = useMemo(() => {
         return tickets.filter(t => t.hasNewNoteFromReporter && t.status !== Status.Abgeschlossen).length;
     }, [tickets]);
+
+    const newMeldungenCount = useMemo(() => {
+        return tickets.filter(t => t.status === Status.Offen && (t.technician === 'N/A' || !t.technician)).length;
+    }, [tickets]);
     
     /** Drei Blöcke wie in der Nav-Skizze: Übersicht → Verwaltung → Aktionen (Menü-Labels unverändert). */
     type NavSection = 'uebersicht' | 'verwaltung' | 'aktionen';
@@ -121,6 +125,9 @@ const Sidebar: React.FC<SidebarProps> = ({
             <span className="nav-label">{label}</span>
             {viewName === 'tickets' && newNotesCount > 0 && (
                 <span className="nav-badge">{newNotesCount}</span>
+            )}
+            {viewName === 'dashboard' && userRole === Role.Admin && newMeldungenCount > 0 && (
+                <span className="nav-badge">{newMeldungenCount}</span>
             )}
             <span className="nav-tooltip">{label}</span>
         </button>

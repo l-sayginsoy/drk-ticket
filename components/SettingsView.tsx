@@ -317,7 +317,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
         setAppSettings,
         onResendConfirmationMailsForEntryDate,
     } = props;
-    type SettingsTab = 'allgemein' | 'prozesse' | 'serientermine' | 'benutzer' | 'standorte';
+    type SettingsTab = 'allgemein' | 'prozesse' | 'serientermine' | 'benutzer' | 'standorte' | 'benachrichtigungen';
     const [activeTab, setActiveTab] = useState<SettingsTab>('allgemein');
     const [dragRoutineId, setDragRoutineId] = useState<string | null>(null);
     /** Neu angelegte Serientermine (noch nicht in appSettings); Speichern erfolgt in der jeweiligen Karte. */
@@ -1428,6 +1428,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                 <button className={`tab-btn ${activeTab === 'serientermine' ? 'active' : ''}`} onClick={() => requestTab('serientermine')}>Serientermine</button>
                 <button className={`tab-btn ${activeTab === 'benutzer' ? 'active' : ''}`} onClick={() => requestTab('benutzer')}>Benutzer & Teams</button>
                 <button className={`tab-btn ${activeTab === 'standorte' ? 'active' : ''}`} onClick={() => requestTab('standorte')}>Standorte & Anlagen</button>
+                <button className={`tab-btn ${activeTab === 'benachrichtigungen' ? 'active' : ''}`} onClick={() => requestTab('benachrichtigungen')}>Benachrichtigungen</button>
             </div>
             <div className="tab-content">
                 {activeTab === 'allgemein' && renderAllgemeinTab()}
@@ -1435,6 +1436,28 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                 {activeTab === 'serientermine' && renderSerientermineTab()}
                 {activeTab === 'benutzer' && renderBenutzerTab()}
                 {activeTab === 'standorte' && renderStandorteTab()}
+                {activeTab === 'benachrichtigungen' && (
+                    <div className="settings-section">
+                        <div className="settings-section-header">
+                            <h3 className="settings-section-title">Benachrichtigungen</h3>
+                        </div>
+                        <div className="settings-section-body">
+                            <div className="form-group">
+                                <label>Admin-E-Mail für neue Meldungen</label>
+                                <p className="form-group-description">
+                                    Bei jedem neu eingegangenen Ticket wird automatisch eine E-Mail mit allen Ticket-Infos an diese Adresse gesendet. Leer lassen um die Benachrichtigung zu deaktivieren.
+                                </p>
+                                <input
+                                    type="email"
+                                    placeholder="admin@beispiel.de"
+                                    value={appSettings.adminNotificationEmail ?? ''}
+                                    onChange={e => setAppSettings(prev => ({ ...prev, adminNotificationEmail: e.target.value }))}
+                                    className="form-group-input"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
             {isUserModalOpen && <UserModal user={editingUser} allSkills={allSkills} onClose={() => setUserModalOpen(false)} onSave={handleSaveUser} />}
             {isLocationModalOpen && <AreaModal area={editingLocation} onClose={() => setLocationModalOpen(false)} onSave={handleSaveLocation} />}

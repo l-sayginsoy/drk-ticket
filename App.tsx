@@ -25,6 +25,7 @@ import SettingsView from './components/SettingsView';
 import RoutineSchedulesView from './components/RoutineSchedulesView';
 import RoutineNachweisView from './components/RoutineNachweisView';
 import CompleteOrderDialog from './components/CompleteOrderDialog';
+import ToastContainer, { type Toast } from './components/ToastContainer';
 import DashboardRoutineLinkBar from './components/DashboardRoutineLinkBar';
 import { localISODate, isRoutineDueOnCalendarDay } from './utils/routineHelpers';
 import { fetchRpHolidays } from './utils/rpHolidays';
@@ -97,6 +98,19 @@ type DrkBrevoMailPayload =
       technician: string;
       priority: string;
       title: string;
+    }
+  | {
+      kind: 'admin_new_ticket';
+      ticketId: string;
+      title: string;
+      area: string;
+      location: string;
+      categoryName: string;
+      priority: string;
+      reporter: string;
+      description: string;
+      entryDate: string;
+      entryTime?: string;
     };
 
 const drkBrevoBannerTitle = (p: DrkBrevoMailPayload) => {
@@ -109,6 +123,8 @@ const drkBrevoBannerTitle = (p: DrkBrevoMailPayload) => {
       return 'Meldung abgeschlossen';
     case 'ticket_update':
       return 'Stand Ihrer Meldung';
+    case 'admin_new_ticket':
+      return 'Neue Meldung eingegangen';
   }
 };
 
@@ -171,6 +187,24 @@ const buildDrkBrevoPlainText = (p: DrkBrevoMailPayload) => {
       '',
       'Diese E-Mail wurde automatisch erzeugt. Bitte nicht antworten.',
     ].join('\n');
+  }
+  if (p.kind === 'admin_new_ticket') {
+    return [
+      'DRK Serviceportal · Neue Meldung',
+      '',
+      `Ticket-Nr.: ${p.ticketId}`,
+      `Betreff:    ${p.title}`,
+      `Gemeldet:   ${p.reporter}`,
+      `Standort:   ${p.area}`,
+      `Raum:       ${p.location}`,
+      `Kategorie:  ${p.categoryName}`,
+      `Priorität:  ${p.priority}`,
+      `Eingang:    ${p.entryDate}${p.entryTime ? ` | ${p.entryTime} Uhr` : ''}`,
+      '',
+      p.description ? `Beschreibung:\n${p.description}` : '',
+      '',
+      'Diese E-Mail wurde automatisch erzeugt.',
+    ].filter(l => l !== '').join('\n');
   }
   return [
     'Haustechnik Service · DRK Ticket',
@@ -240,7 +274,7 @@ ${
 }
 </table>
 <p style="max-width:580px;margin:14px auto 0;font-size:12px;color:#888;text-align:center;line-height:1.45;">Automatische Nachricht · bitte nicht auf diese E-Mail antworten</p>
-<p style="max-width:580px;margin:10px auto 0;font-size:13px;font-weight:600;color:#666;text-align:center;line-height:1.3;">DRK Haustechnik Service</p>
+<p style="max-width:580px;margin:10px auto 0;font-size:13px;font-weight:600;color:#666;text-align:center;line-height:1.3;">DRK Serviceportal</p>
 </td></tr></table>
 </body></html>`;
 
@@ -280,6 +314,27 @@ ${portalOpenButtonWrappedHtml(p.ticketId, '18px 0 0')}`;
 ${portalOpenButtonWrappedHtml(p.ticketId, '18px 0 0')}`;
     return drkEmailShellHtml(title, inner, p.ticketId, '');
   }
+  if (p.kind === 'admin_new_ticket') {
+    const rows = [
+      ['Ticket-Nr.', p.ticketId],
+      ['Betreff', p.title],
+      ['Gemeldet von', p.reporter],
+      ['Standort', p.area],
+      ['Raum / Bereich', p.location],
+      ['Kategorie', p.categoryName],
+      ['Priorität', p.priority],
+      ['Eingang', p.entryTime ? `${p.entryDate} | ${p.entryTime} Uhr` : p.entryDate],
+    ].map(([label, value]) =>
+      `<tr><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#555;white-space:nowrap;padding-right:16px;">${escapeHtml(label)}</td><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#222;font-weight:600;">${escapeHtml(value)}</td></tr>`
+    ).join('');
+    const descHtml = p.description
+      ? `<p style="margin:18px 0 6px;font-size:14px;color:#555;font-weight:600;">Beschreibung</p><p style="margin:0;font-size:14px;line-height:1.6;color:#333;white-space:pre-wrap;">${escapeHtml(p.description)}</p>`
+      : '';
+    const inner = `
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:4px;">${rows}</table>
+${descHtml}`;
+    return drkEmailShellHtml(title, inner, p.ticketId, '');
+  }
   const inner = `
 <p style="margin:0;font-size:15px;line-height:1.55;color:#333;">Ihre Meldung mit der <strong>Ticketnummer: ${escapeHtml(p.ticketId)}</strong> wurde erfolgreich abgeschlossen.</p>
 <p style="margin:14px 0 0;font-size:14px;line-height:1.55;color:#444;">Zum Nachlesen oder bei Rückfragen nutzen Sie den Button – Ihr Ticket wird im Portal direkt geöffnet.</p>
@@ -313,7 +368,7 @@ const sendDrkBrevoMailAsync = async (
   const senderEmail =
     (import.meta.env.VITE_BREVO_SENDER_EMAIL as string | undefined)?.trim() || 'noreply@drk-ticket.de';
   const senderName =
-    (import.meta.env.VITE_BREVO_SENDER_NAME as string | undefined)?.trim() || 'DRK Haustechnik Service';
+    (import.meta.env.VITE_BREVO_SENDER_NAME as string | undefined)?.trim() || 'DRK Serviceportal';
   const textContent = buildDrkBrevoPlainText(payload);
   const htmlContent = buildDrkBrevoHtml(payload);
   try {
@@ -633,6 +688,9 @@ const App: React.FC = () => {
   /** Admin: sichtbarer Hinweis wenn Brevo (Transaktions-Mail) nicht funktioniert */
   const [brevoAdminAlert, setBrevoAdminAlert] = useState<{ message: string; status: number } | null>(null);
   const [brevoAlertSuppressed, setBrevoAlertSuppressed] = useState(false);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const dismissToast = (id: string) => setToasts(prev => prev.filter(t => t.id !== id));
+  const addToast = (toast: Omit<Toast, 'id'>) => setToasts(prev => [...prev, { ...toast, id: `${Date.now()}-${Math.random()}` }]);
   /** Sidebar-Status wie „Synchronisiert“ */
   const [brevoMailOk, setBrevoMailOk] = useState<boolean | null>(null);
   const [brevoMailLastChecked, setBrevoMailLastChecked] = useState<Date | null>(null);
@@ -844,7 +902,7 @@ const App: React.FC = () => {
   // Migration for old data
   useEffect(() => {
     if (isInitialized) {
-      const officialName = 'DRK Haustechnik Service';
+      const officialName = 'DRK Serviceportal';
       
       // Update if appName is missing or still set to the old name
       if (!appSettings.appName || appSettings.appName === 'DRK Facility Dashboard') {
@@ -1573,6 +1631,7 @@ saveTicketsSafely(nextTickets);
       typeof newTicketData.reporter_email === 'string' ? newTicketData.reporter_email.trim() : '';
     /** Eingang = Kalendertag der Erfassung (gleiches Datum wie Fälligkeits-Basis ohne Wunschtermin). */
     const entryDateStr = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const entryTimeStr = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
     const category = appSettings.ticketCategories.find(c => c.id === newTicketData.categoryId);
     const isReactive = newTicketData.ticketType === 'reactive';
@@ -1671,6 +1730,7 @@ if (newTicketData.ticketType === 'reactive') {
       ...(sanitizedTicketData as Omit<Ticket, 'id' | 'entryDate' | 'status'>),
       id: `${Math.floor(Math.random() * 10000) + 30000}`,
       entryDate: entryDateStr,
+      entryTime: entryTimeStr,
       status: Status.Offen,
       priority: determinedPriority,
       technician: assignedTechnician,
@@ -1697,7 +1757,30 @@ if (newTicketData.ticketType === 'reactive') {
         ticketId: newTicket.id,
       });
     }
-    
+
+    const adminEmail = appSettings.adminNotificationEmail?.trim();
+    if (adminEmail) {
+      const categoryName = appSettings.ticketCategories.find(c => c.id === newTicket.categoryId)?.name || 'N/A';
+      sendDrkBrevoMail(
+        adminEmail,
+        `Neue Meldung – Ticket ${newTicket.id}: ${newTicket.title}`,
+        {
+          kind: 'admin_new_ticket',
+          ticketId: newTicket.id,
+          title: newTicket.title,
+          area: newTicket.area,
+          location: newTicket.location,
+          categoryName,
+          priority: String(newTicket.priority),
+          reporter: newTicket.reporter,
+          description: newTicket.description || '',
+          entryDate: newTicket.entryDate,
+          entryTime: newTicket.entryTime,
+        },
+        { silent: true }
+      );
+    }
+
     if (!silent) setIsModalOpen(false);
     return newTicket.id;
   };
@@ -1873,6 +1956,59 @@ if (newTicketData.ticketType === 'reactive') {
       return tickets.filter((t) => t.technician === currentUser.name);
     }
     return tickets;
+  }, [tickets, currentUser]);
+
+  const newMeldungenCount = useMemo(() => {
+    return tickets.filter(t => t.status === Status.Offen && (t.technician === 'N/A' || !t.technician)).length;
+  }, [tickets]);
+
+  const techOffeneCount = useMemo(() => {
+    if (!currentUser || !isServiceTeamRole(currentUser.role)) return 0;
+    return ticketsForUser.filter(t => t.status === Status.Offen).length;
+  }, [ticketsForUser, currentUser]);
+
+  useEffect(() => {
+    document.title = newMeldungenCount > 0
+      ? `(${newMeldungenCount}) DRK Serviceportal`
+      : 'DRK Serviceportal';
+  }, [newMeldungenCount]);
+
+  // Browser-Benachrichtigungs-Berechtigung beim Login anfordern
+  useEffect(() => {
+    if (currentUser && 'Notification' in window && Notification.permission === 'default') {
+      void Notification.requestPermission();
+    }
+  }, [currentUser?.id]);
+
+  // In-App-Toasts + Browser-Benachrichtigungen: neue Tickets (Admin) + neue Zuweisung (Techniker)
+  const prevTicketsRef = useRef<Ticket[] | null>(null);
+  useEffect(() => {
+    if (!currentUser) { prevTicketsRef.current = null; return; }
+    if (prevTicketsRef.current === null) { prevTicketsRef.current = tickets; return; }
+    const prev = prevTicketsRef.current;
+    prevTicketsRef.current = tickets;
+    const prevIds = new Set(prev.map(t => t.id));
+    if (currentUser.role === Role.Admin) {
+      tickets
+        .filter(t => !prevIds.has(t.id) && t.status !== Status.Abgeschlossen)
+        .forEach(t => {
+          addToast({ type: 'new-ticket', title: 'Neue Meldung', message: `Ticket ${t.id}: ${t.title} · ${t.area}` });
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('Neue Meldung', { body: `Ticket ${t.id}: ${t.title} · ${t.area}`, icon: '/favicon.ico' });
+          }
+        });
+    }
+    if (isServiceTeamRole(currentUser.role)) {
+      tickets.forEach(t => {
+        const p = prev.find(x => x.id === t.id);
+        if (p && p.technician !== currentUser.name && t.technician === currentUser.name) {
+          addToast({ type: 'assigned', title: 'Ticket zugewiesen', message: `Ticket ${t.id}: ${t.title}` });
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('Ticket zugewiesen', { body: `Ticket ${t.id}: ${t.title}`, icon: '/favicon.ico' });
+          }
+        }
+      });
+    }
   }, [tickets, currentUser]);
 
   const allTechnicianNames = useMemo(
@@ -2317,6 +2453,58 @@ if (newTicketData.ticketType === 'reactive') {
             onOpenRoutines={() => changeView('routines')}
           />
         )}
+        {currentView === 'dashboard' && newMeldungenCount > 0 && (
+          <div
+            role="alert"
+            style={{
+              margin: '0 0 12px',
+              padding: '12px 16px',
+              borderRadius: 10,
+              border: '1px solid rgba(220, 53, 69, 0.45)',
+              background: 'rgba(220, 53, 69, 0.1)',
+              color: 'var(--text-primary)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              fontWeight: 500,
+            }}
+          >
+            <span style={{ background: 'var(--accent-danger)', color: '#fff', borderRadius: '20px', padding: '0.1rem 0.65rem', fontWeight: 700, fontSize: '1rem', flexShrink: 0 }}>
+              {newMeldungenCount}
+            </span>
+            <span>
+              {newMeldungenCount === 1
+                ? 'Neue Meldung wartet auf Bearbeiter-Zuweisung'
+                : `${newMeldungenCount} neue Meldungen warten auf Bearbeiter-Zuweisung`}
+            </span>
+          </div>
+        )}
+        {currentView === 'tech-dashboard' && techOffeneCount > 0 && (
+          <div
+            role="alert"
+            style={{
+              margin: '0 0 12px',
+              padding: '12px 16px',
+              borderRadius: 10,
+              border: '1px solid rgba(234, 179, 8, 0.5)',
+              background: 'rgba(234, 179, 8, 0.1)',
+              color: 'var(--text-primary)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              fontWeight: 500,
+            }}
+          >
+            <span style={{ background: '#d97706', color: '#fff', borderRadius: '20px', padding: '0.1rem 0.65rem', fontWeight: 700, fontSize: '1rem', flexShrink: 0 }}>
+              {techOffeneCount}
+            </span>
+            <span>
+              {techOffeneCount === 1
+                ? 'Dir wurde 1 Ticket zugewiesen — bitte auf „In Arbeit" setzen'
+                : `Dir wurden ${techOffeneCount} Tickets zugewiesen — bitte auf „In Arbeit" setzen`}
+            </span>
+          </div>
+        )}
         {isKanbanWorkbench ? (
           <div className="kanban-workbench">
             <style>{`
@@ -2404,6 +2592,7 @@ if (newTicketData.ticketType === 'reactive') {
           </div>
         </div>
       )}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 };

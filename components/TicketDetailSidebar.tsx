@@ -173,20 +173,20 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             .detail-group { margin-bottom: 1rem; }
             
             .detail-label-compact {
-                font-size: 0.75rem; font-weight: 500; color: var(--text-muted); margin-bottom: 0.25rem;
+                font-size: 0.8rem; font-weight: 500; color: var(--text-muted); margin-bottom: 0.25rem;
             }
             .detail-subject-text {
-                font-size: 1rem; color: var(--text-primary); line-height: 1.4;
+                font-size: 1.1rem; font-weight: 700; color: var(--text-primary); line-height: 1.4;
             }
 
             .auftrag-grid {
                 display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem 1rem;
             }
             .grid-item-span-2 { grid-column: span 2; }
-            
+
             .detail-value-compact, .editable-field-compact {
-                font-size: 0.85rem; font-weight: 500; border-radius: var(--radius-md);
-                height: 32px; display: flex; align-items: center; justify-content: flex-start;
+                font-size: 0.9rem; font-weight: 500; border-radius: var(--radius-md);
+                height: 34px; display: flex; align-items: center; justify-content: flex-start;
                 padding: 0 0.75rem;
             }
             .detail-value-compact {
@@ -260,8 +260,12 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 border-color: var(--border);
             }
             .admin-action-btn.not-emergency {
-                background-color: var(--accent-danger);
-                color: white;
+                background-color: transparent;
+                color: var(--accent-danger);
+                border-color: var(--accent-danger);
+            }
+            .admin-action-btn.not-emergency:hover {
+                background-color: rgba(220, 53, 69, 0.08);
             }
             
             .photo-gallery { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
@@ -338,72 +342,42 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
         </div>
         <div className="sidebar-body-compact">
             
-            <div className="detail-group">
-                <p className="detail-label-compact">Betreff</p>
-                <p className="detail-subject-text">{ticket.title}</p>
+            <div className="detail-group" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <p className="detail-subject-text">{ticket.title}</p>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.25rem', fontWeight: 600 }}>
+                        Gemeldet: {ticket.reporter}
+                    </p>
+                </div>
+                {currentUser?.role === Role.Admin && (
+                    ticket.is_emergency ? (
+                        <button
+                            onClick={handleToggleEmergency}
+                            style={{ flexShrink: 0, marginTop: '0.15rem', padding: '0.2rem 0.6rem', fontSize: '0.72rem', fontWeight: 500, background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        >
+                            Notfall aufheben
+                        </button>
+                    ) : (
+                        <button
+                            onClick={handleToggleEmergency}
+                            style={{ flexShrink: 0, marginTop: '0.15rem', padding: '0.2rem 0.6rem', fontSize: '0.72rem', fontWeight: 500, background: 'transparent', color: 'var(--accent-danger)', border: '1px solid var(--accent-danger)', borderRadius: 'var(--radius-md)', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        >
+                            ⚠ Notfall
+                        </button>
+                    )
+                )}
             </div>
 
-            {currentUser?.role === Role.Admin && (
-              <div className="detail-group">
-                {ticket.is_emergency ? (
-                    <button
-                        className="admin-action-btn is-emergency"
-                        onClick={handleToggleEmergency}
-                    >
-                        Notfall-Markierung aufheben
-                    </button>
-                ) : (
-                    <button
-                        className="admin-action-btn not-emergency"
-                        onClick={handleToggleEmergency}
-                    >
-                        Als Notfall markieren
-                    </button>
-                )}
-              </div>
-            )}
-
             <div className="auftrag-grid">
-                <div className="grid-item">
-                    <p className="detail-label-compact">Gemeldet von</p>
-                    <p className="detail-value-compact">{ticket.reporter}</p>
-                </div>
                 <div className="grid-item">
                     <p className="detail-label-compact">Standort</p>
                     <p className="detail-value-compact">{ticket.area}</p>
                 </div>
-                <div className="grid-item grid-item-span-2">
+                <div className="grid-item">
                     <p className="detail-label-compact">Raum / Bereich</p>
-                    <p className="detail-value-compact">{ticket.location}</p>
-                </div>
-                 <div className="grid-item">
-                    <p className="detail-label-compact">Kategorie</p>
-                     <div className="editable-field-compact">
-                        <span>{categoryName}</span><ChevronDownIcon />
-                        <select value={ticket.categoryId} onChange={(e) => handleFieldChange('categoryId', e.target.value)}>
-                            {appSettings.ticketCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
-                    </div>
+                    <p className="detail-value-compact" title={ticket.location} style={{ overflow: 'hidden' }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ticket.location}</span></p>
                 </div>
                 <div className="grid-item">
-                    <p className="detail-label-compact">Priorität</p>
-                    <div className={`editable-field-compact ${priorityClasses[ticket.priority]}`}>
-                        <span>{ticket.priority}</span><ChevronDownIcon />
-                        <select value={ticket.priority} onChange={(e) => handleFieldChange('priority', e.target.value as Priority)}>
-                            {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
-                        </select>
-                    </div>
-                </div>
-                 <div className="grid-item grid-item-span-2">
-                    <p className="detail-label-compact">Status</p>
-                    <div className="editable-field-compact" style={{ backgroundColor: statusBgColorMap[ticket.status], borderColor: `var(${statusColorMap[ticket.status]})`, color: `var(${statusColorMap[ticket.status]})` }}>
-                        <span>{ticket.status}</span><ChevronDownIcon />
-                        <select value={ticket.status} onChange={(e) => handleFieldChange('status', e.target.value as Status)}>
-                            {statuses.map(s => <option key={s} value={s}>{s === Status.Abgeschlossen ? 'Abschließen' : s}</option>)}
-                        </select>
-                    </div>
-                </div>
-                <div className="grid-item grid-item-span-2">
                     <p className="detail-label-compact">Bearbeiter</p>
                     <div className={`editable-field-compact`}>
                         <span>
@@ -422,8 +396,38 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                     </div>
                 </div>
                 <div className="grid-item">
+                    <p className="detail-label-compact">Priorität</p>
+                    <div className={`editable-field-compact ${priorityClasses[ticket.priority]}`}>
+                        <span>{ticket.priority}</span><ChevronDownIcon />
+                        <select value={ticket.priority} onChange={(e) => handleFieldChange('priority', e.target.value as Priority)}>
+                            {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                    </div>
+                </div>
+                <div className="grid-item">
+                    <p className="detail-label-compact">Kategorie</p>
+                    <div className="editable-field-compact">
+                        <span>{categoryName}</span><ChevronDownIcon />
+                        <select value={ticket.categoryId} onChange={(e) => handleFieldChange('categoryId', e.target.value)}>
+                            {appSettings.ticketCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                    </div>
+                </div>
+                <div className="grid-item">
+                    <p className="detail-label-compact">Status</p>
+                    <div className="editable-field-compact" style={{ backgroundColor: statusBgColorMap[ticket.status], borderColor: `var(${statusColorMap[ticket.status]})`, color: `var(${statusColorMap[ticket.status]})` }}>
+                        <span>{ticket.status}</span><ChevronDownIcon />
+                        <select value={ticket.status} onChange={(e) => handleFieldChange('status', e.target.value as Status)}>
+                            {statuses.map(s => <option key={s} value={s}>{s === Status.Abgeschlossen ? 'Abschließen' : s}</option>)}
+                        </select>
+                    </div>
+                </div>
+                <div className="grid-item">
                     <p className="detail-label-compact">Eingang</p>
-                    <p className="detail-value-compact">{ticket.entryDate}</p>
+                    <p className="detail-value-compact">
+                        {ticket.entryDate}
+                        {ticket.entryTime && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 400, marginLeft: '0.4rem' }}>| {ticket.entryTime} Uhr</span>}
+                    </p>
                 </div>
                 <div className="grid-item">
                     <p className="detail-label-compact">Fällig bis</p>
@@ -438,20 +442,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                     <p className="detail-label-compact">Abgeschlossen am</p>
                     <p className="detail-value-compact">
                       {ticket.completionDate}
-                      {ticket.completionTime ? (
-                        <span
-                          style={{
-                            display: 'block',
-                            fontSize: '0.72rem',
-                            fontWeight: 400,
-                            color: 'var(--text-muted)',
-                            marginTop: '0.2rem',
-                            textAlign: 'left',
-                          }}
-                        >
-                          {ticket.completionTime}
-                        </span>
-                      ) : null}
+                      {ticket.completionTime && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 400, marginLeft: '0.4rem' }}>{ticket.completionTime} Uhr</span>}
                     </p>
                   </div>
                 )}
