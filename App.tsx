@@ -1261,7 +1261,36 @@ const App: React.FC = () => {
         setTickets(updatedTickets);
     }
   }, [tickets]); // Reruns whenever tickets change
+const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => {
+  setAppSettings((prev) => {
+    const next =
+      typeof updater === 'function'
+        ? (updater as (prevState: AppSettings) => AppSettings)(prev)
+        : updater;
 
+    localStorage.setItem(
+      LOCAL_STORAGE_KEY_SETTINGS,
+      JSON.stringify(next)
+    );
+
+    void setDoc(
+      doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS),
+      {
+        value: JSON.parse(JSON.stringify(next)),
+        updated_at: new Date().toISOString(),
+      }
+    )
+      .then(() => {
+        setLastSyncTime(new Date());
+        console.log('Einstellungen gespeichert');
+      })
+      .catch((err) => {
+        console.error('Fehler beim Speichern der Einstellungen:', err);
+      });
+
+    return next;
+  });
+};
   const handleRoutineDayComplete = (scheduleId: string) => {
     if (!currentUser) return;
     const ymd = localISODate(new Date());
@@ -2151,7 +2180,7 @@ const App: React.FC = () => {
           return <ReportsView activeTickets={activeTickets} completedTickets={completedTickets} users={users} />;
         }
         case 'techniker': return <TechnicianView tickets={listenBenchTickets} technicians={users.filter(u => (u.role === Role.Technician || u.role === Role.Housekeeping) && u.isActive)} onTechnicianSelect={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} onFilter={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} />;
-        case 'settings': return <SettingsView users={users} setUsers={setUsers} locations={locations} setLocations={setLocations} assets={assets} setAssets={setAssets} maintenancePlans={maintenancePlans} setMaintenancePlans={setMaintenancePlans} appSettings={appSettings} setAppSettings={setAppSettings} onResendConfirmationMailsForEntryDate={handleResendConfirmationMailsForEntryDate} />;
+        case 'settings': return <SettingsView users={users} setUsers={setUsers} locations={locations} setLocations={setLocations} assets={assets} setAssets={setAssets} maintenancePlans={maintenancePlans} setMaintenancePlans={setMaintenancePlans} appSettings={appSettings} setAppSettings={handleAppSettingsChange} onResendConfirmationMailsForEntryDate={handleResendConfirmationMailsForEntryDate} />;
         default: return (
           <KanbanBoard
             tickets={filteredTickets}
