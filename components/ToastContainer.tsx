@@ -24,7 +24,6 @@ const ToastItem: React.FC<{ toast: Toast; onDismiss: (id: string) => void }> = (
         display: 'flex',
         alignItems: 'flex-start',
         gap: '0.75rem',
-        background: 'var(--bg-secondary)',
         border: `1px solid ${accentColor}`,
         borderLeft: `4px solid ${accentColor}`,
         borderRadius: 10,
