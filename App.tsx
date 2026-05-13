@@ -1585,7 +1585,7 @@ saveTicketsSafely(nextTickets);
 
     const category = appSettings.ticketCategories.find(c => c.id === newTicketData.categoryId);
     const isReactive = newTicketData.ticketType === 'reactive';
-    const slaStrictPriority = newTicketData.wunschDate
+    const slaStrictPriority = newTicketData.dueDate
   ? inferStrictestSlaPriorityForCategory(newTicketData.categoryId, appSettings.slaMatrix)
   : null;
 
