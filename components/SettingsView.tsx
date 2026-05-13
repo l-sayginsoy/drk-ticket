@@ -1280,58 +1280,53 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
         const getInitials = (name: string) => name.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2);
         return (
             <div id="user-management">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-                    <div>
-                        <h2 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Benutzer</h2>
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>{users.length} Einträge</p>
-                    </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{users.length} Benutzer</span>
                     <button className="btn btn-primary" onClick={() => handleOpenUserModal(null)}><PlusIcon />Hinzufügen</button>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    {users.map(user => (
-                        <div key={user.id} style={{
-                            display: 'flex', alignItems: 'center', gap: '1rem',
-                            background: 'var(--bg-secondary)', border: '1px solid var(--border)',
-                            borderRadius: 12, padding: '0.75rem 1rem',
-                            opacity: user.isActive ? 1 : 0.5,
-                        }}>
-                            <div style={{
-                                width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
-                                background: roleColor[user.role] ?? '#888',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                color: 'white', fontWeight: 700, fontSize: '0.8rem', letterSpacing: '0.05em',
-                            }}>{getInitials(user.name)}</div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                    <span style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{user.name}</span>
+                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+                    {users.map((user, idx) => {
+                        const color = roleColor[user.role] ?? '#888888';
+                        return (
+                            <div key={user.id} style={{
+                                display: 'grid',
+                                gridTemplateColumns: '36px 1fr auto auto auto',
+                                alignItems: 'center',
+                                gap: '0.75rem',
+                                padding: '0.7rem 1rem',
+                                borderTop: idx > 0 ? '1px solid var(--border)' : 'none',
+                                opacity: user.isActive ? 1 : 0.45,
+                            }}>
+                                <div style={{
+                                    width: 36, height: 36, borderRadius: '50%', background: color,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    color: 'white', fontWeight: 700, fontSize: '0.75rem', flexShrink: 0,
+                                }}>{getInitials(user.name)}</div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', minWidth: 0 }}>
+                                    <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{user.name}</span>
                                     <span style={{
-                                        fontSize: '0.72rem', fontWeight: 600, padding: '2px 8px', borderRadius: 999,
-                                        background: (roleColor[user.role] ?? '#888888') + '18',
-                                        color: roleColor[user.role] ?? '#888', border: `1px solid ${(roleColor[user.role] ?? '#888888')}33`,
+                                        fontSize: '0.7rem', fontWeight: 600, padding: '1px 7px', borderRadius: 999,
+                                        background: color + '18', color, border: `1px solid ${color}33`, whiteSpace: 'nowrap',
                                     }}>{roleLabel[user.role] ?? user.role}</span>
                                     {user.availability.status === 'Abwesend' && (
-                                        <span style={{ fontSize: '0.72rem', fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: '#f59e0b18', color: '#b45309', border: '1px solid #f59e0b33' }}>Abwesend</span>
+                                        <span style={{ fontSize: '0.7rem', fontWeight: 600, padding: '1px 7px', borderRadius: 999, background: '#fef3c7', color: '#b45309', border: '1px solid #fcd34d', whiteSpace: 'nowrap' }}>Abwesend</span>
                                     )}
+                                    {user.skills.filter(s => s !== 'all').map(s => (
+                                        <span key={s} style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: 4, background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{s}</span>
+                                    ))}
                                 </div>
-                                {user.skills.length > 0 && (
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem', marginTop: '0.3rem' }}>
-                                        {user.skills.map(s => (
-                                            <span key={s} style={{ fontSize: '0.72rem', padding: '1px 7px', borderRadius: 4, background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>{s}</span>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+
                                 <SwitchToggle id={`user-status-${user.id}`} isChecked={user.isActive} onChange={() => handleToggleUserStatus(user.id)} />
-                                <button className="btn btn-secondary" style={{ fontSize: '0.82rem', padding: '0.35rem 0.75rem' }} onClick={() => handleOpenUserModal(user)}>Bearbeiten</button>
+                                <button className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem', whiteSpace: 'nowrap' }} onClick={() => handleOpenUserModal(user)}>Bearbeiten</button>
                                 {user.role !== Role.Admin ? (
                                     <button className="btn btn-danger-sm" onClick={() => handleDeleteUser(user.id)} title="Löschen"><TrashIcon /></button>
                                 ) : (
-                                    <button className="btn btn-danger-sm" disabled style={{ cursor: 'not-allowed', opacity: 0.3 }} title="Admin kann nicht gelöscht werden"><TrashIcon /></button>
+                                    <button className="btn btn-danger-sm" disabled style={{ cursor: 'not-allowed', opacity: 0.3 }}><TrashIcon /></button>
                                 )}
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
         );
@@ -1339,33 +1334,23 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
 
     const renderStandorteTab = () => (
         <div id="location-management">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-                <div>
-                    <h2 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Standorte</h2>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>{locations.length} Einträge</p>
-                </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{locations.length} Standorte</span>
                 <button className="btn btn-primary" onClick={() => handleOpenLocationModal(null)}><PlusIcon />Hinzufügen</button>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {locations.map(location => (
+            <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+                {locations.map((location, idx) => (
                     <div key={location.id} style={{
-                        display: 'flex', alignItems: 'center', gap: '1rem',
-                        background: 'var(--bg-secondary)', border: '1px solid var(--border)',
-                        borderRadius: 12, padding: '0.75rem 1rem',
-                        opacity: location.isActive ? 1 : 0.5,
+                        display: 'grid', gridTemplateColumns: '1fr auto auto auto',
+                        alignItems: 'center', gap: '0.75rem',
+                        padding: '0.7rem 1rem',
+                        borderTop: idx > 0 ? '1px solid var(--border)' : 'none',
+                        opacity: location.isActive ? 1 : 0.45,
                     }}>
-                        <div style={{
-                            width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
-                            background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: '1rem',
-                        }}>📍</div>
-                        <span style={{ flex: 1, fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{location.name}</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
-                            <SwitchToggle id={`location-status-${location.id}`} isChecked={location.isActive} onChange={() => handleToggleLocationStatus(location.id)} />
-                            <button className="btn btn-secondary" style={{ fontSize: '0.82rem', padding: '0.35rem 0.75rem' }} onClick={() => handleOpenLocationModal(location)}>Bearbeiten</button>
-                            <button className="btn btn-danger-sm" onClick={() => handleDeleteLocation(location.id)} title="Löschen"><TrashIcon /></button>
-                        </div>
+                        <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{location.name}</span>
+                        <SwitchToggle id={`location-status-${location.id}`} isChecked={location.isActive} onChange={() => handleToggleLocationStatus(location.id)} />
+                        <button className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem' }} onClick={() => handleOpenLocationModal(location)}>Bearbeiten</button>
+                        <button className="btn btn-danger-sm" onClick={() => handleDeleteLocation(location.id)} title="Löschen"><TrashIcon /></button>
                     </div>
                 ))}
             </div>
