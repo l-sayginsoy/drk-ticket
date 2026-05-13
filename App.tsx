@@ -1585,7 +1585,9 @@ saveTicketsSafely(nextTickets);
 
     const category = appSettings.ticketCategories.find(c => c.id === newTicketData.categoryId);
     const isReactive = newTicketData.ticketType === 'reactive';
-    const slaStrictPriority = inferStrictestSlaPriorityForCategory(newTicketData.categoryId, appSettings.slaMatrix);
+    const slaStrictPriority = newTicketData.wunschDate
+  ? inferStrictestSlaPriorityForCategory(newTicketData.categoryId, appSettings.slaMatrix)
+  : null;
 
     // Reaktiv: immer Priorität „Niedrig“, außer die SLA-Matrix (kürzeste Frist je Kategorie) legt eine andere Prio fest.
     // Keine Kategorie-Defaults, keine mitgeschickte priority aus Formularen.
