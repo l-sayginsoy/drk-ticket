@@ -1268,8 +1268,9 @@ const App: React.FC = () => {
     });
 
     if (wasChanged) {
-        setTickets(updatedTickets);
-    }
+  setTickets(updatedTickets);
+  saveTicketsSafely(updatedTickets);
+}
   }, [tickets]); // Reruns whenever tickets change
 const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => {
   setAppSettings((prev) => {
@@ -1696,7 +1697,11 @@ if (newTicketData.ticketType === 'reactive') {
       delete (newTicket as Partial<Ticket>).reporter_email;
     }
 
-    setTickets(prevTickets => [newTicket, ...prevTickets]);
+    setTickets(prevTickets => {
+  const updatedTickets = [newTicket, ...prevTickets];
+  saveTicketsSafely(updatedTickets);
+  return updatedTickets;
+});
 
     if (reporterEmail) {
       sendDrkBrevoMail(reporterEmail, `Ihre Meldung wurde erfasst – Ticket ${newTicket.id}`, {
