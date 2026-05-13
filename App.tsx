@@ -1593,8 +1593,8 @@ saveTicketsSafely(nextTickets);
     // Reaktiv: immer Priorität „Niedrig“, außer die SLA-Matrix (kürzeste Frist je Kategorie) legt eine andere Prio fest.
     // Keine Kategorie-Defaults, keine mitgeschickte priority aus Formularen.
     const determinedPriority = isReactive
-      ? (slaStrictPriority ?? Priority.Niedrig)
-      : (newTicketData.priority || category?.default_priority || appSettings.defaultPriority);
+  ? (slaStrictPriority ?? Priority.Niedrig)
+  : (newTicketData.priority || category?.default_priority || appSettings.defaultPriority);
 
     // 2. Load-Balancing Technician Assignment
     let assignedTechnician = newTicketData.technician || 'N/A';
@@ -1645,7 +1645,7 @@ if (newTicketData.ticketType === 'reactive') {
     //    oder falls die SLA-Matrix für die Kategorie eine frühere Frist liefert: das frühere Datum.
     let formattedDueDate: string;
     if (isReactive) {
-      const wunsch = newTicketData.wunschTermin?.trim();
+      const wunsch = newTicketData.dueDate?.trim();
       if (wunsch) {
         formattedDueDate = wunsch;
       } else {
