@@ -132,7 +132,7 @@ const buildDrkBrevoPlainText = (p: DrkBrevoMailPayload) => {
   const line = '────────────────────────────';
   if (p.kind === 'ticket_created') {
     return [
-      'Haustechnik Service · DRK Ticket',
+      'DRK Serviceportal',
       '',
       `Ticketnummer: ${p.ticketId}`,
       '',
@@ -151,7 +151,7 @@ const buildDrkBrevoPlainText = (p: DrkBrevoMailPayload) => {
   }
   if (p.kind === 'staff_note') {
     return [
-      'Haustechnik Service · DRK Ticket',
+      'DRK Serviceportal',
       '',
       `Ticketnummer: ${p.ticketId}`,
       '',
@@ -170,7 +170,7 @@ const buildDrkBrevoPlainText = (p: DrkBrevoMailPayload) => {
   }
   if (p.kind === 'ticket_update') {
     return [
-      'Haustechnik Service · DRK Ticket',
+      'DRK Serviceportal',
       '',
       `Ticketnummer: ${p.ticketId}`,
       '',
@@ -207,7 +207,7 @@ const buildDrkBrevoPlainText = (p: DrkBrevoMailPayload) => {
     ].filter(l => l !== '').join('\n');
   }
   return [
-    'Haustechnik Service · DRK Ticket',
+    'DRK Serviceportal',
     '',
     `Ihre Meldung mit der Ticketnummer: ${p.ticketId} wurde erfolgreich abgeschlossen.`,
     '',
