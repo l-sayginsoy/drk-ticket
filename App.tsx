@@ -527,23 +527,12 @@ reactiveDueDateAfterCalendarDaysFromEntry(
   entryDateDE,
   REACTIVE_DEFAULT_LEAD_DAYS
 )
-
 /** Strengste SLA-Regel pro Kategorie (kürzeste Antwortzeit) → deren Priorität; sonst null. */
-const inferStrictestSlaPriorityForCategory = (
-  categoryId: string | undefined,
-  slaMatrix: SLARule[]
-): Priority | null => {
+const inferStrictestSlaPriorityForCategory = (categoryId: string | undefined, slaMatrix: SLARule[]): Priority | null => {
   if (!categoryId || !Array.isArray(slaMatrix) || slaMatrix.length === 0) return null;
-
-  const rules = slaMatrix.filter((r) =>
-    r.categoryId === categoryId &&
-    r.priority &&
-    r.responseTimeHours > 0
-  );
-
+  const rules = slaMatrix.filter((r) => r.categoryId === categoryId);
   if (rules.length === 0) return null;
-
-  return rules.sort((a, b) => a.responseTimeHours - b.responseTimeHours).shift()?.priority ?? null;
+  return [...rules].sort((a, b) => a.responseTimeHours - b.responseTimeHours)[0].priority;
 };
 
 /** Reaktiv ohne Wunschtermin: Eingang (Kalender) + 5 Tage vs. kürzeste SLA-Frist — gleiche Logik wie bei Neuanlage. */
@@ -1590,9 +1579,7 @@ saveTicketsSafely(nextTickets);
 
     const category = appSettings.ticketCategories.find(c => c.id === newTicketData.categoryId);
     const isReactive = newTicketData.ticketType === 'reactive';
-    const slaStrictPriority = newTicketData.dueDate
-  ? inferStrictestSlaPriorityForCategory(newTicketData.categoryId, appSettings.slaMatrix)
-  : null;
+    const slaStrictPriority = inferStrictestSlaPriorityForCategory(newTicketData.categoryId, appSettings.slaMatrix);
 
     // Reaktiv: immer Priorität „Niedrig“, außer die SLA-Matrix (kürzeste Frist je Kategorie) legt eine andere Prio fest.
     // Keine Kategorie-Defaults, keine mitgeschickte priority aus Formularen.
@@ -1649,11 +1636,14 @@ if (newTicketData.ticketType === 'reactive') {
     //    oder falls die SLA-Matrix für die Kategorie eine frühere Frist liefert: das frühere Datum.
     let formattedDueDate: string;
     if (isReactive) {
-      const wunsch = newTicketData.dueDate?.trim();
-      if (wunsch) {
-        formattedDueDate = wunsch;
-      } else {
-        formattedDueDate = reactiveDueDateAfterCalendarDaysFromEntry(
+      formattedDueDate = reactiveDueDateAfterCalendarDaysFromEntry(
+  entryDateStr,
+  REACTIVE_DEFAULT_LEAD_DAYS
+).toLocaleDateString('de-DE', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+});
   entryDateStr,
   REACTIVE_DEFAULT_LEAD_DAYS
 ).toLocaleDateString('de-DE', {
