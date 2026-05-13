@@ -634,12 +634,12 @@ const normalizeTicket = (t: Ticket): Ticket => {
   return base;
 };
 const asTicketArray = (value: unknown): Ticket[] =>
-  Array.isArray(value) ? (value as Ticket[]).map(normalizeTicket) : MOCK_TICKETS.map(normalizeTicket);
+  Array.isArray(value) ? (value as Ticket[]).map(normalizeTicket) : [];
 const asLocationArray = (value: unknown): Location[] =>
-  Array.isArray(value) ? (value as Location[]) : MOCK_LOCATIONS;
-const asAssetArray = (value: unknown): Asset[] => (Array.isArray(value) ? (value as Asset[]) : MOCK_ASSETS);
+  Array.isArray(value) ? (value as Location[]) : [];
+const asAssetArray = (value: unknown): Asset[] => (Array.isArray(value) ? (value as Asset[]) : []);
 const asPlanArray = (value: unknown): MaintenancePlan[] =>
-  Array.isArray(value) ? (value as MaintenancePlan[]) : MOCK_MAINTENANCE_PLANS;
+  Array.isArray(value) ? (value as MaintenancePlan[]) : [];
 
 const mergeAppSettingsRemote = (value: unknown, prev: AppSettings): AppSettings => {
   if (!value || typeof value !== 'object') return prev;
@@ -683,12 +683,12 @@ const App: React.FC = () => {
 
   // --- Main Data State ---
   const [tickets, setTickets] = useState<Ticket[]>(() =>
-    safeJSONParse<Ticket[]>(LOCAL_STORAGE_KEY_TICKETS, MOCK_TICKETS).map(normalizeTicket)
+    safeJSONParse<Ticket[]>(LOCAL_STORAGE_KEY_TICKETS, []).map(normalizeTicket)
   );
-  const [users, setUsers] = useState<User[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_USERS, MOCK_USERS));
-  const [locations, setLocations] = useState<Location[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_LOCATIONS, MOCK_LOCATIONS));
-  const [assets, setAssets] = useState<Asset[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_ASSETS, MOCK_ASSETS));
-  const [maintenancePlans, setMaintenancePlans] = useState<MaintenancePlan[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_PLANS, MOCK_MAINTENANCE_PLANS));
+  const [users, setUsers] = useState<User[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_USERS, []));
+  const [locations, setLocations] = useState<Location[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_LOCATIONS, []));
+  const [assets, setAssets] = useState<Asset[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_ASSETS, []));
+  const [maintenancePlans, setMaintenancePlans] = useState<MaintenancePlan[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_PLANS, []));
   const [appSettings, setAppSettings] = useState<AppSettings>(() => ({ ...DEFAULT_APP_SETTINGS, ...safeJSONParse(LOCAL_STORAGE_KEY_SETTINGS, {}) }));
   const [isSyncing, setIsSyncing] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -1265,8 +1265,11 @@ const App: React.FC = () => {
       if (schedule.lastGenerated === todayStr) return;
       if (!isRoutineDueOnCalendarDay(schedule, today, rpSet)) return;
       // Safety: skip if a ticket for this schedule was already created today
+      // Use todayStr (ISO YYYY-MM-DD) to compare against entryDate stored as DD.MM.YYYY
+      const [y, m, d] = todayStr.split('-');
+      const todayDE = `${d}.${m}.${y}`;
       const alreadyCreatedToday = tickets.some(
-        t => t.routineScheduleId === schedule.id && t.entryDate === today.toLocaleDateString('de-DE')
+        t => t.routineScheduleId === schedule.id && t.entryDate === todayDE
       );
       if (alreadyCreatedToday) return;
 
@@ -1320,8 +1323,8 @@ const App: React.FC = () => {
     if (changed) {
       setAppSettings(prev => ({ ...prev, routineSchedules: updatedSchedules as any }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Serienlogik bewusst bei Schedule-/Feiertags-Änderung; Tickets über setTickets
-  }, [isInitialized, appSettings.routineSchedules, users, rpHolidayYmdList, tickets]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tickets intentionally accessed via closure; adding to deps would re-run on every ticket save
+  }, [isInitialized, appSettings.routineSchedules, users, rpHolidayYmdList]);
 
   // Automatically set tickets to overdue and back
   useEffect(() => {
