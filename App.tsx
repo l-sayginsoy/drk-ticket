@@ -896,41 +896,35 @@ const App: React.FC = () => {
 
   useEffect(() => { localStorage.setItem('currentUser', JSON.stringify(currentUser)); }, [currentUser]);
   
-  useEffect(() => {
-    if (!isInitialized) return;
+  useEffect(() => { 
     localStorage.setItem(LOCAL_STORAGE_KEY_TICKETS, JSON.stringify(tickets));
-    syncToFirebase(LOCAL_STORAGE_KEY_TICKETS, tickets);
-  }, [tickets, isInitialized]);
+    // syncToFirebase(LOCAL_STORAGE_KEY_TICKETS, tickets);
+  }, [tickets]);
   
-  useEffect(() => {
-    if (!isInitialized) return;
+  useEffect(() => { 
     localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(users));
-    syncToFirebase(LOCAL_STORAGE_KEY_USERS, users);
-  }, [users, isInitialized]);
+    // syncToFirebase(LOCAL_STORAGE_KEY_USERS, users);
+  }, [users]);
   
-  useEffect(() => {
-    if (!isInitialized) return;
+  useEffect(() => { 
     localStorage.setItem(LOCAL_STORAGE_KEY_LOCATIONS, JSON.stringify(locations));
-    syncToFirebase(LOCAL_STORAGE_KEY_LOCATIONS, locations);
-  }, [locations, isInitialized]);
+    // syncToFirebase(LOCAL_STORAGE_KEY_LOCATIONS, locations);
+  }, [locations]);
   
-  useEffect(() => {
-    if (!isInitialized) return;
+  useEffect(() => { 
     localStorage.setItem(LOCAL_STORAGE_KEY_ASSETS, JSON.stringify(assets));
-    syncToFirebase(LOCAL_STORAGE_KEY_ASSETS, assets);
-  }, [assets, isInitialized]);
+    // syncToFirebase(LOCAL_STORAGE_KEY_ASSETS, assets);
+  }, [assets]);
   
-  useEffect(() => {
-    if (!isInitialized) return;
+  useEffect(() => { 
     localStorage.setItem(LOCAL_STORAGE_KEY_PLANS, JSON.stringify(maintenancePlans));
-    syncToFirebase(LOCAL_STORAGE_KEY_PLANS, maintenancePlans);
-  }, [maintenancePlans, isInitialized]);
+    // syncToFirebase(LOCAL_STORAGE_KEY_PLANS, maintenancePlans);
+  }, [maintenancePlans]);
   
-  useEffect(() => {
-    if (!isInitialized) return;
+  useEffect(() => { 
     localStorage.setItem(LOCAL_STORAGE_KEY_SETTINGS, JSON.stringify(appSettings));
-    syncToFirebase(LOCAL_STORAGE_KEY_SETTINGS, appSettings);
-  }, [appSettings, isInitialized]);
+   // syncToFirebase(LOCAL_STORAGE_KEY_SETTINGS, appSettings);
+  }, [appSettings]);
 
   // --- Core App Logic Effects ---
   // Automatic Ticket Re-assignment on Technician Leave OR Return
@@ -1266,8 +1260,37 @@ const App: React.FC = () => {
     if (wasChanged) {
         setTickets(updatedTickets);
     }
-  }, []); // Runs once on app load
+  }, [tickets]); // Reruns whenever tickets change
+const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => {
+  setAppSettings((prev) => {
+    const next =
+      typeof updater === 'function'
+        ? (updater as (prevState: AppSettings) => AppSettings)(prev)
+        : updater;
 
+    localStorage.setItem(
+      LOCAL_STORAGE_KEY_SETTINGS,
+      JSON.stringify(next)
+    );
+
+    void setDoc(
+      doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS),
+      {
+        value: JSON.parse(JSON.stringify(next)),
+        updated_at: new Date().toISOString(),
+      }
+    )
+      .then(() => {
+        setLastSyncTime(new Date());
+        console.log('Einstellungen gespeichert');
+      })
+      .catch((err) => {
+        console.error('Fehler beim Speichern der Einstellungen:', err);
+      });
+
+    return next;
+  });
+};
   const handleRoutineDayComplete = (scheduleId: string) => {
     if (!currentUser) return;
     const ymd = localISODate(new Date());
@@ -1295,7 +1318,27 @@ const App: React.FC = () => {
       routineDayCompletions: (prev.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd)),
     }));
   };
+const saveTicketsSafely = (nextTickets: Ticket[]) => {
+  localStorage.setItem(
+    LOCAL_STORAGE_KEY_TICKETS,
+    JSON.stringify(nextTickets)
+  );
 
+  void setDoc(
+    doc(db, 'app_data', LOCAL_STORAGE_KEY_TICKETS),
+    {
+      value: JSON.parse(JSON.stringify(nextTickets)),
+      updated_at: new Date().toISOString(),
+    }
+  )
+    .then(() => {
+      setLastSyncTime(new Date());
+      console.log('Tickets gespeichert');
+    })
+    .catch((err) => {
+      console.error('Fehler beim Speichern der Tickets:', err);
+    });
+};
   const commitTicketUpdate = (updatedTicket: Ticket, originalTicket: Ticket) => {
     const ut: Ticket = { ...updatedTicket };
     const statusChanged = originalTicket.status !== ut.status;
@@ -1430,7 +1473,12 @@ const App: React.FC = () => {
       }
     }
 
-    setTickets((prev) => prev.map((t) => (t.id === ut.id ? ut : t)));
+    const nextTickets = tickets.map((t) =>
+  t.id === ut.id ? ut : t
+);
+
+setTickets(nextTickets);
+saveTicketsSafely(nextTickets);
 
     if (selectedTicket && selectedTicket.id === ut.id) {
       setSelectedTicket(ut);
@@ -1468,11 +1516,17 @@ const App: React.FC = () => {
   };
 
   const handleDeleteTicket = (ticketId: string) => {
-    setTickets((prev) => prev.filter((ticket) => ticket.id !== ticketId));
-    if (selectedTicket && selectedTicket.id === ticketId) {
-      setSelectedTicket(null);
-    }
-  };
+  const nextTickets = tickets.filter(
+    (ticket) => ticket.id !== ticketId
+  );
+
+  setTickets(nextTickets);
+  saveTicketsSafely(nextTickets);
+
+  if (selectedTicket && selectedTicket.id === ticketId) {
+    setSelectedTicket(null);
+  }
+};
 
   /** Nachhol-Bestätigungen (z. B. nach Brevo-Ausfall): gleiche Vorlage wie bei Meldung erfassen. */
   const handleResendConfirmationMailsForEntryDate = useCallback(async (entryDateDE: string) => {
@@ -2157,7 +2211,7 @@ const App: React.FC = () => {
           return <ReportsView activeTickets={activeTickets} completedTickets={completedTickets} users={users} />;
         }
         case 'techniker': return <TechnicianView tickets={listenBenchTickets} technicians={users.filter(u => (u.role === Role.Technician || u.role === Role.Housekeeping) && u.isActive)} onTechnicianSelect={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} onFilter={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} />;
-        case 'settings': return <SettingsView users={users} setUsers={setUsers} locations={locations} setLocations={setLocations} assets={assets} setAssets={setAssets} maintenancePlans={maintenancePlans} setMaintenancePlans={setMaintenancePlans} appSettings={appSettings} setAppSettings={setAppSettings} onResendConfirmationMailsForEntryDate={handleResendConfirmationMailsForEntryDate} />;
+        case 'settings': return <SettingsView users={users} setUsers={setUsers} locations={locations} setLocations={setLocations} assets={assets} setAssets={setAssets} maintenancePlans={maintenancePlans} setMaintenancePlans={setMaintenancePlans} appSettings={appSettings} setAppSettings={handleAppSettingsChange} onResendConfirmationMailsForEntryDate={handleResendConfirmationMailsForEntryDate} />;
         default: return (
           <KanbanBoard
             tickets={filteredTickets}
