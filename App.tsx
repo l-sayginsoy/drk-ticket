@@ -523,10 +523,7 @@ const completionStampNow = () => {
 
 /** Reaktive Meldungen ohne Wunschtermin: Vorlauf in Kalendertagen nach Eingang. */
 const REACTIVE_DEFAULT_LEAD_DAYS = 5;
-reactiveDueDateAfterCalendarDaysFromEntry(
-  entryDateDE,
-  REACTIVE_DEFAULT_LEAD_DAYS
-)
+
 /** Strengste SLA-Regel pro Kategorie (kürzeste Antwortzeit) → deren Priorität; sonst null. */
 const inferStrictestSlaPriorityForCategory = (categoryId: string | undefined, slaMatrix: SLARule[]): Priority | null => {
   if (!categoryId || !Array.isArray(slaMatrix) || slaMatrix.length === 0) return null;
@@ -1636,14 +1633,11 @@ if (newTicketData.ticketType === 'reactive') {
     //    oder falls die SLA-Matrix für die Kategorie eine frühere Frist liefert: das frühere Datum.
     let formattedDueDate: string;
     if (isReactive) {
-      formattedDueDate = reactiveDueDateAfterCalendarDaysFromEntry(
-  entryDateStr,
-  REACTIVE_DEFAULT_LEAD_DAYS
-).toLocaleDateString('de-DE', {
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-});
+      const wunsch = newTicketData.dueDate?.trim();
+      if (wunsch) {
+        formattedDueDate = wunsch;
+      } else {
+        formattedDueDate = reactiveDueDateAfterCalendarDaysFromEntry(
   entryDateStr,
   REACTIVE_DEFAULT_LEAD_DAYS
 ).toLocaleDateString('de-DE', {
