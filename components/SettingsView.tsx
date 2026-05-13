@@ -1284,45 +1284,66 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                     <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{users.length} Benutzer</span>
                     <button className="btn btn-primary" onClick={() => handleOpenUserModal(null)}><PlusIcon />Hinzufügen</button>
                 </div>
-                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+
+                {/* Header */}
+                <div style={{ display: 'grid', gridTemplateColumns: '180px 130px 1fr 60px 110px 40px', gap: '0.75rem', padding: '0 1rem 0.5rem', borderBottom: '1px solid var(--border)' }}>
+                    {['Name', 'Rolle', 'Skills', 'Aktiv', '', ''].map((h, i) => (
+                        <span key={i} style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</span>
+                    ))}
+                </div>
+
+                {/* Rows */}
+                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', marginTop: '0.5rem' }}>
                     {users.map((user, idx) => {
                         const color = roleColor[user.role] ?? '#888888';
                         return (
                             <div key={user.id} style={{
                                 display: 'grid',
-                                gridTemplateColumns: '36px 1fr auto auto auto',
+                                gridTemplateColumns: '180px 130px 1fr 60px 110px 40px',
                                 alignItems: 'center',
                                 gap: '0.75rem',
-                                padding: '0.7rem 1rem',
+                                padding: '0.65rem 1rem',
                                 borderTop: idx > 0 ? '1px solid var(--border)' : 'none',
                                 opacity: user.isActive ? 1 : 0.45,
                             }}>
-                                <div style={{
-                                    width: 36, height: 36, borderRadius: '50%', background: color,
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    color: 'white', fontWeight: 700, fontSize: '0.75rem', flexShrink: 0,
-                                }}>{getInitials(user.name)}</div>
-
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', minWidth: 0 }}>
-                                    <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{user.name}</span>
-                                    <span style={{
-                                        fontSize: '0.7rem', fontWeight: 600, padding: '1px 7px', borderRadius: 999,
-                                        background: color + '18', color, border: `1px solid ${color}33`, whiteSpace: 'nowrap',
-                                    }}>{roleLabel[user.role] ?? user.role}</span>
-                                    {user.availability.status === 'Abwesend' && (
-                                        <span style={{ fontSize: '0.7rem', fontWeight: 600, padding: '1px 7px', borderRadius: 999, background: '#fef3c7', color: '#b45309', border: '1px solid #fcd34d', whiteSpace: 'nowrap' }}>Abwesend</span>
-                                    )}
-                                    {user.skills.filter(s => s !== 'all').map(s => (
-                                        <span key={s} style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: 4, background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{s}</span>
-                                    ))}
+                                {/* Name + Avatar */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
+                                    <div style={{
+                                        width: 32, height: 32, borderRadius: '50%', background: color, flexShrink: 0,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        color: 'white', fontWeight: 700, fontSize: '0.7rem',
+                                    }}>{getInitials(user.name)}</div>
+                                    <span style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</span>
                                 </div>
 
-                                <SwitchToggle id={`user-status-${user.id}`} isChecked={user.isActive} onChange={() => handleToggleUserStatus(user.id)} />
-                                <button className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem', whiteSpace: 'nowrap' }} onClick={() => handleOpenUserModal(user)}>Bearbeiten</button>
+                                {/* Rolle */}
+                                <span style={{
+                                    fontSize: '0.72rem', fontWeight: 600, padding: '2px 8px', borderRadius: 999,
+                                    background: color + '15', color, border: `1px solid ${color}30`,
+                                    display: 'inline-block', width: 'fit-content',
+                                }}>{roleLabel[user.role] ?? user.role}</span>
+
+                                {/* Skills */}
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                                    {user.skills.filter(s => s !== 'all').length === 0
+                                        ? <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>—</span>
+                                        : user.skills.filter(s => s !== 'all').map(s => (
+                                            <span key={s} style={{ fontSize: '0.72rem', padding: '1px 7px', borderRadius: 4, background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>{s}</span>
+                                        ))
+                                    }
+                                </div>
+
+                                {/* Toggle */}
+                                <div><SwitchToggle id={`user-status-${user.id}`} isChecked={user.isActive} onChange={() => handleToggleUserStatus(user.id)} /></div>
+
+                                {/* Bearbeiten */}
+                                <button className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '0.3rem 0.6rem' }} onClick={() => handleOpenUserModal(user)}>Bearbeiten</button>
+
+                                {/* Löschen */}
                                 {user.role !== Role.Admin ? (
                                     <button className="btn btn-danger-sm" onClick={() => handleDeleteUser(user.id)} title="Löschen"><TrashIcon /></button>
                                 ) : (
-                                    <button className="btn btn-danger-sm" disabled style={{ cursor: 'not-allowed', opacity: 0.3 }}><TrashIcon /></button>
+                                    <button className="btn btn-danger-sm" disabled style={{ opacity: 0.25, cursor: 'not-allowed' }}><TrashIcon /></button>
                                 )}
                             </div>
                         );
