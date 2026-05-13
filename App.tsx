@@ -1318,7 +1318,27 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
       routineDayCompletions: (prev.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd)),
     }));
   };
+const saveTicketsSafely = (nextTickets: Ticket[]) => {
+  localStorage.setItem(
+    LOCAL_STORAGE_KEY_TICKETS,
+    JSON.stringify(nextTickets)
+  );
 
+  void setDoc(
+    doc(db, 'app_data', LOCAL_STORAGE_KEY_TICKETS),
+    {
+      value: JSON.parse(JSON.stringify(nextTickets)),
+      updated_at: new Date().toISOString(),
+    }
+  )
+    .then(() => {
+      setLastSyncTime(new Date());
+      console.log('Tickets gespeichert');
+    })
+    .catch((err) => {
+      console.error('Fehler beim Speichern der Tickets:', err);
+    });
+};
   const commitTicketUpdate = (updatedTicket: Ticket, originalTicket: Ticket) => {
     const ut: Ticket = { ...updatedTicket };
     const statusChanged = originalTicket.status !== ut.status;
@@ -1453,7 +1473,12 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
       }
     }
 
-    setTickets((prev) => prev.map((t) => (t.id === ut.id ? ut : t)));
+    const nextTickets = tickets.map((t) =>
+  t.id === ut.id ? ut : t
+);
+
+setTickets(nextTickets);
+saveTicketsSafely(nextTickets);
 
     if (selectedTicket && selectedTicket.id === ut.id) {
       setSelectedTicket(ut);
@@ -1491,11 +1516,17 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
   };
 
   const handleDeleteTicket = (ticketId: string) => {
-    setTickets((prev) => prev.filter((ticket) => ticket.id !== ticketId));
-    if (selectedTicket && selectedTicket.id === ticketId) {
-      setSelectedTicket(null);
-    }
-  };
+  const nextTickets = tickets.filter(
+    (ticket) => ticket.id !== ticketId
+  );
+
+  setTickets(nextTickets);
+  saveTicketsSafely(nextTickets);
+
+  if (selectedTicket && selectedTicket.id === ticketId) {
+    setSelectedTicket(null);
+  }
+};
 
   /** Nachhol-Bestätigungen (z. B. nach Brevo-Ausfall): gleiche Vorlage wie bei Meldung erfassen. */
   const handleResendConfirmationMailsForEntryDate = useCallback(async (entryDateDE: string) => {
