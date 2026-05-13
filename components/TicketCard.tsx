@@ -242,7 +242,14 @@ const TicketCard: React.FC<TicketCardProps> = ({
             <div className="card-header">
                 <h3 className="card-title">{ticket.title}</h3>
                 <div className="card-icons">
-                    {ticket.is_reopened && <span title="Ticket wurde vom Melder wiedereröffnet"><RefreshIcon className="reopen-icon" width="24" height="24" /></span>}
+                    {ticket.is_reopened && (
+                        <span title="Ticket wurde vom Melder wiedereröffnet" style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '3px',
+                            fontSize: '0.68rem', fontWeight: 700, padding: '2px 7px',
+                            borderRadius: 999, background: '#fff3e0', color: '#e65100',
+                            border: '1.5px solid #ff9800', whiteSpace: 'nowrap', lineHeight: 1.4,
+                        }}>↩ Wiedereröffnet</span>
+                    )}
                     {isTicketStagnating && <span title="Ticket stagniert (> 5 Tage keine Notiz)"><ClockIcon className="stagnating-icon" width="24" height="24" /></span>}
                     {isEmergency && <span className="urgent-icon" title="Notfall"><ExclamationTriangleIcon width="24" height="24" /></span>}
                     {ticket.hasNewNoteFromReporter && <span className="new-note-indicator" title="Neue Nachricht vom Melder"></span>}

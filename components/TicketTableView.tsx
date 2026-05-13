@@ -258,7 +258,14 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
                 </td>
                 <td className="icons-cell">
                     <div className="icons-cell-content">
-                        {ticket.is_reopened && <span className="reopen-icon" title="Ticket wurde vom Melder wiedereröffnet"><RefreshIcon style={{ color: 'var(--accent-warning)', width: '1.2rem', height: '1.2rem' }} /></span>}
+                        {ticket.is_reopened && (
+                            <span title="Ticket wurde vom Melder wiedereröffnet" style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '3px',
+                                fontSize: '0.65rem', fontWeight: 700, padding: '1px 6px',
+                                borderRadius: 999, background: '#fff3e0', color: '#e65100',
+                                border: '1.5px solid #ff9800', whiteSpace: 'nowrap', lineHeight: 1.4,
+                            }}>↩ Wiedereröffnet</span>
+                        )}
                         {isTicketStagnating && <span className="stagnating-icon" title="Ticket stagniert (> 5 Tage keine Notiz)"><ClockIcon /></span>}
                         {isEmergency && <span className="urgent-icon" title="Notfall"><ExclamationTriangleIcon /></span>}
                     </div>

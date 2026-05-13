@@ -65,7 +65,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     }, [tickets]);
 
     const newMeldungenCount = useMemo(() => {
-        return tickets.filter(t => t.status === Status.Offen && (t.technician === 'N/A' || !t.technician)).length;
+        return tickets.filter(t =>
+            (t.status === Status.Offen && (t.technician === 'N/A' || !t.technician)) || t.is_reopened
+        ).length;
     }, [tickets]);
     
     /** Drei Blöcke wie in der Nav-Skizze: Übersicht → Verwaltung → Aktionen (Menü-Labels unverändert). */
