@@ -1306,8 +1306,8 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                     <span style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{user.name}</span>
                                     <span style={{
                                         fontSize: '0.72rem', fontWeight: 600, padding: '2px 8px', borderRadius: 999,
-                                        background: roleColor[user.role] + '18' ?? '#88888818',
-                                        color: roleColor[user.role] ?? '#888', border: `1px solid ${roleColor[user.role]}33`,
+                                        background: (roleColor[user.role] ?? '#888888') + '18',
+                                        color: roleColor[user.role] ?? '#888', border: `1px solid ${(roleColor[user.role] ?? '#888888')}33`,
                                     }}>{roleLabel[user.role] ?? user.role}</span>
                                     {user.availability.status === 'Abwesend' && (
                                         <span style={{ fontSize: '0.72rem', fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: '#f59e0b18', color: '#b45309', border: '1px solid #f59e0b33' }}>Abwesend</span>
