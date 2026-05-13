@@ -1213,26 +1213,78 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
         </>
         );
     };
+    const KeywordTagInput: React.FC<{ value: string; onChange: (val: string) => void }> = ({ value, onChange }) => {
+        const [input, setInput] = useState('');
+        const tags = value.split(',').map(t => t.trim()).filter(Boolean);
+        const addTag = (raw: string) => {
+            const t = raw.replace(/,/g, '').trim();
+            if (!t || tags.includes(t)) { setInput(''); return; }
+            onChange([...tags, t].join(','));
+            setInput('');
+        };
+        const removeTag = (tag: string) => onChange(tags.filter(t => t !== tag).join(','));
+        return (
+            <div style={{
+                display: 'flex', flexWrap: 'wrap', gap: '0.35rem', alignItems: 'center',
+                border: '1px solid var(--border)', borderRadius: 8, padding: '0.4rem 0.6rem',
+                background: 'var(--bg-primary)', minHeight: 38, cursor: 'text',
+            }} onClick={() => (document.activeElement as HTMLElement)?.blur?.()}>
+                {tags.map(tag => (
+                    <span key={tag} style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                        background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
+                        borderRadius: 999, padding: '1px 8px 1px 10px', fontSize: '0.78rem',
+                        color: 'var(--text-primary)', whiteSpace: 'nowrap',
+                    }}>
+                        {tag}
+                        <button type="button" onClick={() => removeTag(tag)} style={{
+                            background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                            color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1,
+                            display: 'flex', alignItems: 'center',
+                        }}>×</button>
+                    </span>
+                ))}
+                <input
+                    value={input}
+                    onChange={e => setInput(e.target.value)}
+                    onKeyDown={e => {
+                        if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(input); }
+                        if (e.key === 'Backspace' && !input && tags.length > 0) removeTag(tags[tags.length - 1]);
+                    }}
+                    onBlur={() => { if (input.trim()) addTag(input); }}
+                    placeholder={tags.length === 0 ? 'Keyword eingeben + Enter' : ''}
+                    style={{
+                        border: 'none', outline: 'none', background: 'transparent',
+                        fontSize: '0.85rem', color: 'var(--text-primary)', minWidth: 120, flex: 1,
+                    }}
+                />
+            </div>
+        );
+    };
+
     const renderProzesseTab = () => (
         <>
-
-            {/* Allgemein ist eigener Tab */}
             <div className="settings-section">
                 <div className="settings-section-header"><h3 className="settings-section-title">Ticket-Kategorien</h3></div>
                 <div className="settings-section-body">
+                    <p className="form-group-description">Kategorien steuern die Standard-Priorität und die SLA-Fälligkeiten.</p>
                     {appSettings.ticketCategories.map(cat => (
                         <div key={cat.id} className="list-item">
                             <input type="text" value={cat.name} onChange={e => handleUpdateSetting('ticketCategories', {...cat, name: e.target.value})} className="form-group-input" />
+                            <select value={cat.default_priority ?? Priority.Mittel} onChange={e => handleUpdateSetting('ticketCategories', {...cat, default_priority: e.target.value as Priority})} className="form-group-select" style={{ maxWidth: 110 }}>
+                                {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
+                            </select>
                             <button onClick={() => handleDeleteSetting('ticketCategories', cat.id)} className="btn btn-danger-sm"><TrashIcon/></button>
                         </div>
                     ))}
-                    <button onClick={() => handleAddSetting<TicketCategory>('ticketCategories', { name: 'Neue Kategorie'})} className="btn btn-secondary btn-full-width"><PlusIcon /> Neue Kategorie hinzufügen</button>
+                    <button onClick={() => handleAddSetting<TicketCategory>('ticketCategories', { name: 'Neue Kategorie', default_priority: Priority.Mittel })} className="btn btn-secondary btn-full-width"><PlusIcon /> Neue Kategorie hinzufügen</button>
                 </div>
             </div>
 
             <div className="settings-section">
-                <div className="settings-section-header"><h3 className="settings-section-title">SLA-Matrix (Fälligkeiten)</h3></div>
+                <div className="settings-section-header"><h3 className="settings-section-title">SLA-Matrix (Reaktionszeiten)</h3></div>
                 <div className="settings-section-body">
+                    <p className="form-group-description">Legt fest, innerhalb wie vieler Stunden ein Ticket bearbeitet werden muss.</p>
                     <div className="sla-grid-header">
                         <span>Kategorie</span><span>Priorität</span><span>Reaktionszeit (Stunden)</span><span></span>
                     </div>
@@ -1255,17 +1307,27 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
             <div className="settings-section">
                 <div className="settings-section-header"><h3 className="settings-section-title">Automatisches Ticket-Routing</h3></div>
                 <div className="settings-section-body">
-                    <div className="routing-grid-header">
-                        <span>Wenn Text enthält (Keywords, Komma-getrennt)</span><span>...dann Skill zuweisen</span><span></span>
-                    </div>
+                    <p className="form-group-description">
+                        Wenn ein Betreff oder eine Beschreibung eines der Keywords enthält, wird das Ticket automatisch dem passenden Skill zugewiesen.
+                        Keywords einzeln eingeben und mit <strong>Enter</strong> bestätigen.
+                    </p>
                     {appSettings.routingRules.map(rule => (
-                        <div key={rule.id} className="routing-grid-row">
-                            <input type="text" value={rule.keyword} onChange={e => handleUpdateSetting<RoutingRule>('routingRules', {...rule, keyword: e.target.value})} className="form-group-input" />
-                             <input type="text" value={rule.skill} list="skills-datalist" onChange={e => handleUpdateSetting<RoutingRule>('routingRules', {...rule, skill: e.target.value})} className="form-group-input" />
-                            <button onClick={() => handleDeleteSetting('routingRules', rule.id)} className="btn btn-danger-sm"><TrashIcon /></button>
+                        <div key={rule.id} style={{ display: 'grid', gridTemplateColumns: '1fr 140px auto', gap: '0.5rem', alignItems: 'start' }}>
+                            <div>
+                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.3rem', fontWeight: 500 }}>Keywords (Enter zum Hinzufügen)</div>
+                                <KeywordTagInput
+                                    value={rule.keyword}
+                                    onChange={val => handleUpdateSetting<RoutingRule>('routingRules', {...rule, keyword: val})}
+                                />
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.3rem', fontWeight: 500 }}>Skill</div>
+                                <input type="text" value={rule.skill} list="skills-datalist" onChange={e => handleUpdateSetting<RoutingRule>('routingRules', {...rule, skill: e.target.value})} className="form-group-input" />
+                            </div>
+                            <button onClick={() => handleDeleteSetting('routingRules', rule.id)} className="btn btn-danger-sm" style={{ marginTop: '1.4rem' }}><TrashIcon /></button>
                         </div>
                     ))}
-                    <button onClick={() => handleAddSetting<RoutingRule>('routingRules', { keyword: 'Beispiel', skill: 'Allgemein'})} className="btn btn-secondary btn-full-width"><PlusIcon /> Neue Routing-Regel hinzufügen</button>
+                    <button onClick={() => handleAddSetting<RoutingRule>('routingRules', { keyword: '', skill: '' })} className="btn btn-secondary btn-full-width"><PlusIcon /> Neue Routing-Regel hinzufügen</button>
                     <datalist id="skills-datalist">
                         {allSkills.map(s => <option key={s} value={s} />)}
                     </datalist>

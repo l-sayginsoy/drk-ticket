@@ -910,18 +910,40 @@ const App: React.FC = () => {
 
   // Migration for old data
   useEffect(() => {
-    if (isInitialized) {
-      const officialName = 'DRK Serviceportal';
-      
-      // Update if appName is missing or still set to the old name
-      if (!appSettings.appName || appSettings.appName === 'DRK Facility Dashboard') {
-        setAppSettings(prev => ({
-          ...prev,
-          appName: officialName
-        }));
+    if (!isInitialized) return;
+
+    setAppSettings(prev => {
+      let changed = false;
+      const next = { ...prev };
+
+      // appName
+      if (!next.appName || next.appName === 'DRK Facility Dashboard') {
+        next.appName = 'DRK Serviceportal';
+        changed = true;
       }
-    }
-  }, [isInitialized, appSettings.appName]);
+
+      // Category name migrations
+      const catRenames: Record<string, string> = {
+        'Sicherheit': 'Sicherheit / Brandschutz',
+        'IT-Infrastruktur': 'IT / EDV',
+        'Komfort': 'Hauswirtschaft',
+        'Gebäudetechnik': 'Haustechnik',
+      };
+      const newCats = (next.ticketCategories || []).map(c => {
+        if (catRenames[c.name]) { changed = true; return { ...c, name: catRenames[c.name] }; }
+        return c;
+      });
+      // Add missing categories
+      const missingCats = [
+        { id: 'cat-garten', name: 'Garten / Außen', default_priority: Priority.Niedrig },
+        { id: 'cat-sonstiges', name: 'Sonstiges', default_priority: Priority.Niedrig },
+      ].filter(nc => !newCats.some(c => c.id === nc.id));
+      if (missingCats.length > 0) changed = true;
+      next.ticketCategories = [...newCats, ...missingCats];
+
+      return changed ? next : prev;
+    });
+  }, [isInitialized]);
 
   useEffect(() => {
     if (isInitialized) {
