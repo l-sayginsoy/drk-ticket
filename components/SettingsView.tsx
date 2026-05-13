@@ -1349,6 +1349,52 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
 
 
 
+    const BenachrichtigungenTab: React.FC<{ appSettings: AppSettings; setAppSettings: React.Dispatch<React.SetStateAction<AppSettings>> }> = ({ appSettings, setAppSettings }) => {
+        const [draftEmail, setDraftEmail] = useState(appSettings.adminNotificationEmail ?? '');
+        const isDirty = draftEmail !== (appSettings.adminNotificationEmail ?? '');
+        const [saved, setSaved] = useState(false);
+
+        const handleSave = () => {
+            setAppSettings(prev => ({ ...prev, adminNotificationEmail: draftEmail }));
+            setSaved(true);
+            setTimeout(() => setSaved(false), 2000);
+        };
+
+        return (
+            <div className="settings-section">
+                <div className="settings-section-header">
+                    <h3 className="settings-section-title">Benachrichtigungen</h3>
+                </div>
+                <div className="settings-section-body">
+                    <div className="form-group">
+                        <label>Admin-E-Mail für neue Meldungen</label>
+                        <p className="form-group-description">
+                            Bei jedem neu eingegangenen Ticket wird automatisch eine E-Mail mit allen Ticket-Infos an diese Adresse gesendet. Leer lassen um die Benachrichtigung zu deaktivieren.
+                        </p>
+                        <input
+                            type="email"
+                            placeholder="admin@beispiel.de"
+                            value={draftEmail}
+                            onChange={e => { setDraftEmail(e.target.value); setSaved(false); }}
+                            className="form-group-input"
+                        />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <button
+                            className="btn btn-primary"
+                            disabled={!isDirty}
+                            onClick={handleSave}
+                            style={{ opacity: isDirty ? 1 : 0.5 }}
+                        >
+                            Speichern
+                        </button>
+                        {saved && <span style={{ fontSize: '0.85rem', color: 'var(--accent-success)' }}>Gespeichert</span>}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="settings-view">
             <style>{`
@@ -1437,26 +1483,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                 {activeTab === 'benutzer' && renderBenutzerTab()}
                 {activeTab === 'standorte' && renderStandorteTab()}
                 {activeTab === 'benachrichtigungen' && (
-                    <div className="settings-section">
-                        <div className="settings-section-header">
-                            <h3 className="settings-section-title">Benachrichtigungen</h3>
-                        </div>
-                        <div className="settings-section-body">
-                            <div className="form-group">
-                                <label>Admin-E-Mail für neue Meldungen</label>
-                                <p className="form-group-description">
-                                    Bei jedem neu eingegangenen Ticket wird automatisch eine E-Mail mit allen Ticket-Infos an diese Adresse gesendet. Leer lassen um die Benachrichtigung zu deaktivieren.
-                                </p>
-                                <input
-                                    type="email"
-                                    placeholder="admin@beispiel.de"
-                                    value={appSettings.adminNotificationEmail ?? ''}
-                                    onChange={e => setAppSettings(prev => ({ ...prev, adminNotificationEmail: e.target.value }))}
-                                    className="form-group-input"
-                                />
-                            </div>
-                        </div>
-                    </div>
+                    <BenachrichtigungenTab appSettings={appSettings} setAppSettings={setAppSettings} />
                 )}
             </div>
             {isUserModalOpen && <UserModal user={editingUser} allSkills={allSkills} onClose={() => setUserModalOpen(false)} onSave={handleSaveUser} />}
