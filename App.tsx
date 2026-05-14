@@ -829,34 +829,48 @@ const App: React.FC = () => {
           setTimeout(() => { isRemoteUpdate.current = false; }, 100);
         }
 
-        // One-time migration: if tickets/ collection is empty, copy from old array doc
-        const ticketsCollSnap = await getDocs(collection(db, 'tickets'));
-        if (ticketsCollSnap.empty) {
-          const oldDoc = querySnapshot.docs.find((d) => d.id === LOCAL_STORAGE_KEY_TICKETS);
-          if (oldDoc) {
-            const oldTickets = asTicketArray(oldDoc.data().value);
-            if (oldTickets.length > 0) {
-              console.log(`Migrating ${oldTickets.length} tickets to tickets/ collection…`);
-              await Promise.all(
-                oldTickets.map((t) =>
-                  setDoc(doc(db, 'tickets', t.id), JSON.parse(JSON.stringify(t)))
-                )
-              );
-            }
+        // Load current state of both ticket collections
+        const [ticketsCollSnap, completedCollSnap] = await Promise.all([
+          getDocs(collection(db, 'tickets')),
+          getDocs(collection(db, 'completed_tickets')),
+        ]);
+
+        // Migration from old app_data array format:
+        // Write any ticket from the old doc that doesn't yet exist in either collection
+        const oldDoc = querySnapshot.docs.find((d) => d.id === LOCAL_STORAGE_KEY_TICKETS);
+        if (oldDoc) {
+          const oldTickets = asTicketArray(oldDoc.data().value);
+          const existingIds = new Set([
+            ...ticketsCollSnap.docs.map((d) => d.id),
+            ...completedCollSnap.docs.map((d) => d.id),
+          ]);
+          const missing = oldTickets.filter(
+            (t) => !existingIds.has(t.id) && !deletedTicketIdsRef.current.has(t.id)
+          );
+          if (missing.length > 0) {
+            console.log(`Migrating ${missing.length} missing tickets from old format…`);
+            await Promise.all(
+              missing.map((t) => {
+                const target = t.status === Status.Abgeschlossen ? 'completed_tickets' : 'tickets';
+                return setDoc(doc(db, target, t.id), JSON.parse(JSON.stringify(t)));
+              })
+            );
           }
         }
 
-        // Migration: move any completed tickets from tickets/ to completed_tickets/
-        const toMigrate = ticketsCollSnap.docs.filter(d => {
+        // Migration: move any completed tickets still in tickets/ to completed_tickets/
+        const toMigrate = ticketsCollSnap.docs.filter((d) => {
           const t = d.data() as Ticket;
-          return t.status === 'Abgeschlossen' && !deletedTicketIdsRef.current.has(d.id);
+          return t.status === Status.Abgeschlossen && !deletedTicketIdsRef.current.has(d.id);
         });
         if (toMigrate.length > 0) {
-          console.log(`Migrating ${toMigrate.length} completed tickets to completed_tickets/ collection…`);
-          await Promise.all(toMigrate.map(async d => {
-            await setDoc(doc(db, 'completed_tickets', d.id), d.data());
-            await deleteDoc(doc(db, 'tickets', d.id));
-          }));
+          console.log(`Moving ${toMigrate.length} completed tickets to completed_tickets/…`);
+          await Promise.all(
+            toMigrate.map(async (d) => {
+              await setDoc(doc(db, 'completed_tickets', d.id), d.data());
+              await deleteDoc(doc(db, 'tickets', d.id));
+            })
+          );
         }
 
         appDataReadyRef.current = true;
