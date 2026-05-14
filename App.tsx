@@ -2707,7 +2707,7 @@ if (newTicketData.ticketType === 'reactive') {
     <Portal
       appSettings={appSettings}
       onLogin={handleLogin}
-      tickets={tickets}
+      tickets={[...tickets, ...routineTickets, ...completedTickets]}
       onAddTicket={handleAddNewTicket}
       onUpdateTicket={handleTicketUpdate}
       locations={activeLocations.map((a) => a.name)}
