@@ -71,6 +71,7 @@ const LOCAL_STORAGE_KEY_LOCATIONS = 'facility-management-locations';
 const LOCAL_STORAGE_KEY_ASSETS = 'facility-management-assets';
 const LOCAL_STORAGE_KEY_PLANS = 'facility-management-plans';
 const LOCAL_STORAGE_KEY_SETTINGS = 'facility-management-settings';
+const LOCAL_STORAGE_KEY_DELETED_IDS = 'facility-management-deleted-ticket-ids';
 
 const DRK_TICKET_PORTAL_URL = 'https://www.drk-ticket.de';
 /** An Portal-Farben angelehnt (Haustechnik Service) */
@@ -706,7 +707,9 @@ const App: React.FC = () => {
   const isRemoteUpdate = useRef(false);
   const appDataReadyRef = useRef(false);
   const ticketsSnapshotReadyRef = useRef(false);
-  const deletedTicketIdsRef = useRef<Set<string>>(new Set());
+  const deletedTicketIdsRef = useRef<Set<string>>(
+    new Set<string>(safeJSONParse<string[]>(LOCAL_STORAGE_KEY_DELETED_IDS, []))
+  );
   const prevUsersRef = useRef<User[]>(users);
 
   useEffect(() => {
@@ -812,7 +815,8 @@ const App: React.FC = () => {
                 setAppSettings((prev) => mergeAppSettingsRemote(value, prev));
                 break;
               case 'deleted-ticket-ids':
-                deletedTicketIdsRef.current = new Set<string>(Array.isArray(value) ? value : []);
+                (Array.isArray(value) ? value as string[] : []).forEach((id: string) => deletedTicketIdsRef.current.add(id));
+                persistDeletedIds();
                 break;
             }
           });
@@ -881,7 +885,8 @@ const App: React.FC = () => {
               break;
             case 'deleted-ticket-ids':
               hasChanges = true;
-              deletedTicketIdsRef.current = new Set<string>(Array.isArray(value) ? value : []);
+              (Array.isArray(value) ? value as string[] : []).forEach((id: string) => deletedTicketIdsRef.current.add(id));
+              persistDeletedIds();
               setTickets((prev) => prev.filter((t) => !deletedTicketIdsRef.current.has(t.id)));
               break;
           }
@@ -1494,6 +1499,13 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
       routineDayCompletions: (prev.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd)),
     }));
   };
+const persistDeletedIds = () => {
+  localStorage.setItem(
+    LOCAL_STORAGE_KEY_DELETED_IDS,
+    JSON.stringify(Array.from(deletedTicketIdsRef.current))
+  );
+};
+
 const saveTicketToFirebase = (ticket: Ticket) => {
   void setDoc(doc(db, 'tickets', ticket.id), JSON.parse(JSON.stringify(ticket)))
     .then(() => setLastSyncTime(new Date()))
@@ -1501,8 +1513,12 @@ const saveTicketToFirebase = (ticket: Ticket) => {
 };
 
 const deleteTicketFromFirebase = (ticketId: string) => {
-  // Permanent blocklist entry — survives even if deleteDoc fails
+  // Layer 1: localStorage — immediate, works offline, persists across restarts
+  deletedTicketIdsRef.current.add(ticketId);
+  persistDeletedIds();
+  // Layer 2: Firestore blocklist — cross-device sync
   void setDoc(doc(db, 'app_data', 'deleted-ticket-ids'), { value: arrayUnion(ticketId) }, { merge: true });
+  // Layer 3: actually delete the document
   void deleteDoc(doc(db, 'tickets', ticketId))
     .then(() => setLastSyncTime(new Date()))
     .catch((err) => console.error('Fehler beim Löschen des Tickets:', err));
@@ -1684,7 +1700,6 @@ saveTicketToFirebase(ut);
   };
 
   const handleDeleteTicket = (ticketId: string) => {
-    deletedTicketIdsRef.current.add(ticketId);
     setTickets((prev) => prev.filter((t) => t.id !== ticketId));
     deleteTicketFromFirebase(ticketId);
     if (selectedTicket && selectedTicket.id === ticketId) setSelectedTicket(null);
@@ -1917,10 +1932,7 @@ if (newTicketData.ticketType === 'reactive') {
 
   const handleBulkDelete = () => {
     if (window.confirm(`Sind Sie sicher, dass Sie ${selectedTicketIds.length} Tickets endgültig löschen möchten? Dieser Vorgang kann nicht rückgängig gemacht werden.`)) {
-      selectedTicketIds.forEach((id) => {
-        deletedTicketIdsRef.current.add(id);
-        deleteTicketFromFirebase(id);
-      });
+      selectedTicketIds.forEach((id) => deleteTicketFromFirebase(id));
       setTickets((prev) => prev.filter((t) => !selectedTicketIds.includes(t.id)));
       setSelectedTicketIds([]);
     }
