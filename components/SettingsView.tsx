@@ -1336,14 +1336,13 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                         );
                                     })}
                                     {unassigned.length > 0 && (
-                                        <select value="" onChange={e => addAssignee(e.target.value)} title="Mitarbeiter hinzufügen" style={{
-                                            fontSize: '0.78rem', borderRadius: 6, padding: '3px 10px',
-                                            border: '1px solid var(--border)', background: 'var(--bg-secondary)',
-                                            color: 'var(--text-muted)', cursor: 'pointer',
-                                        }}>
-                                            <option value="">+ Hinzufügen</option>
-                                            {unassigned.map(u => <option key={u.name} value={u.name}>{u.name.split(' ')[0]} {u.name.split(' ').slice(-1)[0]}{u.availability.status !== AvailabilityStatus.Available ? ' (abwesend)' : ''}</option>)}
-                                        </select>
+                                        <label style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-secondary)', cursor: 'pointer', flexShrink: 0 }}>
+                                            <span style={{ fontSize: '1.1rem', color: 'var(--text-muted)', lineHeight: 1, marginTop: '-1px' }}>+</span>
+                                            <select value="" onChange={e => addAssignee(e.target.value)} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }}>
+                                                <option value=""></option>
+                                                {unassigned.map(u => <option key={u.name} value={u.name}>{u.name.split(' ')[0]} {u.name.split(' ').slice(-1)[0]}{u.availability.status !== AvailabilityStatus.Available ? ' (abwesend)' : ''}</option>)}
+                                            </select>
+                                        </label>
                                     )}
                                     {assignees.length === 0 && unassigned.length === 0 && <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Keine aktiven Mitarbeiter.</span>}
                                 </div>
