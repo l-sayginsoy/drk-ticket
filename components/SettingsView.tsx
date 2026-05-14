@@ -1282,29 +1282,6 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
             </div>
 
             <div className="settings-section">
-                <div className="settings-section-header"><h3 className="settings-section-title">SLA-Matrix (Reaktionszeiten)</h3></div>
-                <div className="settings-section-body">
-                    <p className="form-group-description">Legt fest, innerhalb wie vieler Stunden ein Ticket bearbeitet werden muss.</p>
-                    <div className="sla-grid-header">
-                        <span>Kategorie</span><span>Priorität</span><span>Reaktionszeit (Stunden)</span><span></span>
-                    </div>
-                    {appSettings.slaMatrix.map(rule => (
-                        <div key={rule.id} className="sla-grid-row">
-                            <select value={rule.categoryId} onChange={e => handleUpdateSetting<SLARule>('slaMatrix', {...rule, categoryId: e.target.value})} className="form-group-select">
-                                {appSettings.ticketCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                            </select>
-                            <select value={rule.priority} onChange={e => handleUpdateSetting<SLARule>('slaMatrix', {...rule, priority: e.target.value as Priority})} className="form-group-select">
-                                {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
-                            </select>
-                            <input type="number" value={rule.responseTimeHours} min="1" onChange={e => handleUpdateSetting<SLARule>('slaMatrix', {...rule, responseTimeHours: parseInt(e.target.value,10)})} className="form-group-input" />
-                            <button onClick={() => handleDeleteSetting('slaMatrix', rule.id)} className="btn btn-danger-sm"><TrashIcon /></button>
-                        </div>
-                    ))}
-                    <button onClick={() => handleAddSetting<SLARule>('slaMatrix', { categoryId: appSettings.ticketCategories[0]?.id || '', priority: Priority.Mittel, responseTimeHours: 24 })} className="btn btn-secondary btn-full-width"><PlusIcon /> Neue SLA-Regel hinzufügen</button>
-                </div>
-            </div>
-
-            <div className="settings-section">
                 <div className="settings-section-header"><h3 className="settings-section-title">Automatisches Ticket-Routing</h3></div>
                 <div className="settings-section-body">
                     <p className="form-group-description">
@@ -1317,7 +1294,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                             : [];
                         return (
                         <div key={rule.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px 140px auto', gap: '0.75rem', alignItems: 'start' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 170px 130px 110px auto', gap: '0.75rem', alignItems: 'start' }}>
                             <div>
                                 <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.3rem', fontWeight: 500 }}>Keywords</div>
                                 <KeywordTagInput
@@ -1330,6 +1307,13 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                 <select value={rule.categoryId || ''} onChange={e => handleUpdateSetting<RoutingRule>('routingRules', {...rule, categoryId: e.target.value || undefined})} className="form-group-select">
                                     <option value="">— keine —</option>
                                     {appSettings.ticketCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.3rem', fontWeight: 500 }}>Priorität</div>
+                                <select value={rule.priority || ''} onChange={e => handleUpdateSetting<RoutingRule>('routingRules', {...rule, priority: e.target.value as Priority || undefined})} className="form-group-select">
+                                    <option value="">— auto —</option>
+                                    {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
                                 </select>
                             </div>
                             <div>

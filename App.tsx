@@ -2019,13 +2019,17 @@ const deleteTicketFromFirebase = (ticketId: string) => {
         );
 
     const category = appSettings.ticketCategories.find(c => c.id === resolvedCategoryId);
-    const slaStrictPriority = inferStrictestSlaPriorityForCategory(resolvedCategoryId, appSettings.slaMatrix);
 
-    // Reaktiv: immer Priorität „Niedrig“, außer die SLA-Matrix (kürzeste Frist je Kategorie) legt eine andere Prio fest.
-    // Keine Kategorie-Defaults, keine mitgeschickte priority aus Formularen.
+    // Priorität: Routing-Regel hat Vorrang, dann Kategorie-Default, dann App-Default
+    const fullText = `${newTicketData.title || ''} ${newTicketData.description || ''}`.toLowerCase();
+    const matchedRoutingRule = appSettings.routingRules.find(r =>
+      r.keyword.split(',').some(kw => kw.trim() && fullText.includes(kw.trim().toLowerCase()))
+    );
+    const routingPriority = matchedRoutingRule?.priority ?? null;
+
     const determinedPriority = isReactive
-  ? (slaStrictPriority ?? Priority.Niedrig)
-  : (newTicketData.priority || category?.default_priority || appSettings.defaultPriority);
+      ? (routingPriority ?? category?.default_priority ?? Priority.Niedrig)
+      : (newTicketData.priority || category?.default_priority || appSettings.defaultPriority);
 
     // 2. Load-Balancing Technician Assignment
     let assignedTechnician = newTicketData.technician || 'N/A';
