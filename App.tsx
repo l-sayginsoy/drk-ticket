@@ -1328,6 +1328,7 @@ const App: React.FC = () => {
 
   // Automatically set tickets to overdue and back
   useEffect(() => {
+    if (!isInitialized) return;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -1340,7 +1341,6 @@ const App: React.FC = () => {
         const dueDate = parseGermanDate(ticket.dueDate);
         if (!dueDate) return ticket;
 
-// FIX: Use .getTime() for robust date comparison to resolve arithmetic operation error.
         const isPastDue = dueDate.getTime() < today.getTime();
 
         if (isPastDue && ticket.status !== Status.Ueberfaellig) {
@@ -1350,15 +1350,15 @@ const App: React.FC = () => {
             wasChanged = true;
             return { ...ticket, status: Status.InArbeit };
         }
-        
+
         return ticket;
     });
 
     if (wasChanged) {
-  setTickets(updatedTickets);
-  saveTicketsSafely(updatedTickets);
-}
-  }, [tickets]); // Reruns whenever tickets change
+      setTickets(updatedTickets);
+      saveTicketsSafely(updatedTickets);
+    }
+  }, [tickets, isInitialized]);
 const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => {
   setAppSettings((prev) => {
     const next =
