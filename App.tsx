@@ -72,6 +72,7 @@ const LOCAL_STORAGE_KEY_ASSETS = 'facility-management-assets';
 const LOCAL_STORAGE_KEY_PLANS = 'facility-management-plans';
 const LOCAL_STORAGE_KEY_SETTINGS = 'facility-management-settings';
 const LOCAL_STORAGE_KEY_DELETED_IDS = 'facility-management-deleted-ticket-ids';
+const LOCAL_STORAGE_KEY_COMPLETED_TICKETS = 'facility-management-completed-tickets';
 
 const DRK_TICKET_PORTAL_URL = 'https://www.drk-ticket.de';
 /** An Portal-Farben angelehnt (Haustechnik Service) */
@@ -686,6 +687,9 @@ const App: React.FC = () => {
   const [tickets, setTickets] = useState<Ticket[]>(() =>
     safeJSONParse<Ticket[]>(LOCAL_STORAGE_KEY_TICKETS, []).map(normalizeTicket)
   );
+  const [completedTickets, setCompletedTickets] = useState<Ticket[]>(() =>
+    safeJSONParse<Ticket[]>(LOCAL_STORAGE_KEY_COMPLETED_TICKETS, []).map(normalizeTicket)
+  );
   const [users, setUsers] = useState<User[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_USERS, []));
   const [locations, setLocations] = useState<Location[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_LOCATIONS, []));
   const [assets, setAssets] = useState<Asset[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_ASSETS, []));
@@ -707,6 +711,7 @@ const App: React.FC = () => {
   const isRemoteUpdate = useRef(false);
   const appDataReadyRef = useRef(false);
   const ticketsSnapshotReadyRef = useRef(false);
+  const completedSnapshotReadyRef = useRef(false);
   const deletedTicketIdsRef = useRef<Set<string>>(
     new Set<string>(safeJSONParse<string[]>(LOCAL_STORAGE_KEY_DELETED_IDS, []))
   );
@@ -783,7 +788,7 @@ const App: React.FC = () => {
   // --- Firebase Sync Logic ---
   useEffect(() => {
     const tryMarkInitialized = () => {
-      if (appDataReadyRef.current && ticketsSnapshotReadyRef.current) {
+      if (appDataReadyRef.current && ticketsSnapshotReadyRef.current && completedSnapshotReadyRef.current) {
         setIsInitialized(true);
       }
     };
@@ -841,6 +846,19 @@ const App: React.FC = () => {
           }
         }
 
+        // Migration: move any completed tickets from tickets/ to completed_tickets/
+        const toMigrate = ticketsCollSnap.docs.filter(d => {
+          const t = d.data() as Ticket;
+          return t.status === 'Abgeschlossen' && !deletedTicketIdsRef.current.has(d.id);
+        });
+        if (toMigrate.length > 0) {
+          console.log(`Migrating ${toMigrate.length} completed tickets to completed_tickets/ collection…`);
+          await Promise.all(toMigrate.map(async d => {
+            await setDoc(doc(db, 'completed_tickets', d.id), d.data());
+            await deleteDoc(doc(db, 'tickets', d.id));
+          }));
+        }
+
         appDataReadyRef.current = true;
         tryMarkInitialized();
       } catch (err) {
@@ -888,6 +906,7 @@ const App: React.FC = () => {
               (Array.isArray(value) ? value as string[] : []).forEach((id: string) => deletedTicketIdsRef.current.add(id));
               persistDeletedIds();
               setTickets((prev) => prev.filter((t) => !deletedTicketIdsRef.current.has(t.id)));
+              setCompletedTickets((prev) => prev.filter((t) => !deletedTicketIdsRef.current.has(t.id)));
               break;
           }
         }
@@ -942,9 +961,48 @@ const App: React.FC = () => {
       }
     });
 
+    const unsubscribeCompleted = onSnapshot(collection(db, 'completed_tickets'), (snapshot) => {
+      isRemoteUpdate.current = true;
+      const changes = snapshot.docChanges();
+
+      if (!completedSnapshotReadyRef.current) {
+        const allCompleted = snapshot.docs
+          .filter((d) => !deletedTicketIdsRef.current.has(d.id))
+          .map((d) => normalizeTicket(d.data() as Ticket));
+        setCompletedTickets(allCompleted);
+        completedSnapshotReadyRef.current = true;
+        tryMarkInitialized();
+      } else if (changes.length > 0) {
+        setCompletedTickets((prev) => {
+          let next = [...prev];
+          changes.forEach((change) => {
+            if (change.type === 'added' || change.type === 'modified') {
+              if (deletedTicketIdsRef.current.has(change.doc.id)) return;
+              const ticket = normalizeTicket(change.doc.data() as Ticket);
+              const idx = next.findIndex((t) => t.id === ticket.id);
+              if (idx >= 0) next[idx] = ticket;
+              else next = [ticket, ...next];
+            } else if (change.type === 'removed') {
+              next = next.filter((t) => t.id !== change.doc.id);
+            }
+          });
+          return next;
+        });
+        setLastSyncTime(new Date());
+      }
+      setTimeout(() => { isRemoteUpdate.current = false; }, 100);
+    }, (error) => {
+      console.error('Firebase completed_tickets onSnapshot error:', error);
+      if (!completedSnapshotReadyRef.current) {
+        completedSnapshotReadyRef.current = true;
+        tryMarkInitialized();
+      }
+    });
+
     return () => {
       unsubscribeAppData();
       unsubscribeTickets();
+      unsubscribeCompleted();
     };
   }, []);
 
@@ -1066,12 +1124,16 @@ const App: React.FC = () => {
 
   useEffect(() => { localStorage.setItem('currentUser', JSON.stringify(currentUser)); }, [currentUser]);
   
-  useEffect(() => { 
+  useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_KEY_TICKETS, JSON.stringify(tickets));
     // syncToFirebase(LOCAL_STORAGE_KEY_TICKETS, tickets);
   }, [tickets]);
-  
-  useEffect(() => { 
+
+  useEffect(() => {
+    localStorage.setItem(LOCAL_STORAGE_KEY_COMPLETED_TICKETS, JSON.stringify(completedTickets));
+  }, [completedTickets]);
+
+  useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(users));
     // syncToFirebase(LOCAL_STORAGE_KEY_USERS, users);
   }, [users]);
@@ -1512,16 +1574,34 @@ const saveTicketToFirebase = (ticket: Ticket) => {
     .catch((err) => console.error('Fehler beim Speichern des Tickets:', err));
 };
 
+const saveCompletedTicketToFirebase = (ticket: Ticket) => {
+  void setDoc(doc(db, 'completed_tickets', ticket.id), JSON.parse(JSON.stringify(ticket)))
+    .then(() => setLastSyncTime(new Date()))
+    .catch((err) => console.error('Fehler beim Speichern:', err));
+};
+
+const deleteFromActiveFirebase = (ticketId: string) => {
+  void deleteDoc(doc(db, 'tickets', ticketId))
+    .catch((err) => console.error('Fehler beim Löschen (aktiv):', err));
+};
+
+const deleteFromCompletedFirebase = (ticketId: string) => {
+  void deleteDoc(doc(db, 'completed_tickets', ticketId))
+    .catch((err) => console.error('Fehler beim Löschen (abgeschlossen):', err));
+};
+
 const deleteTicketFromFirebase = (ticketId: string) => {
   // Layer 1: localStorage — immediate, works offline, persists across restarts
   deletedTicketIdsRef.current.add(ticketId);
   persistDeletedIds();
   // Layer 2: Firestore blocklist — cross-device sync
   void setDoc(doc(db, 'app_data', 'deleted-ticket-ids'), { value: arrayUnion(ticketId) }, { merge: true });
-  // Layer 3: actually delete the document
+  // Layer 3: delete from both collections (ticket could be in either)
   void deleteDoc(doc(db, 'tickets', ticketId))
     .then(() => setLastSyncTime(new Date()))
     .catch((err) => console.error('Fehler beim Löschen des Tickets:', err));
+  void deleteDoc(doc(db, 'completed_tickets', ticketId))
+    .catch(() => {}); // silently ignore if not there
 };
   const commitTicketUpdate = (updatedTicket: Ticket, originalTicket: Ticket) => {
     const ut: Ticket = { ...updatedTicket };
@@ -1657,12 +1737,30 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       }
     }
 
-    const nextTickets = tickets.map((t) =>
-  t.id === ut.id ? ut : t
-);
+    const wasCompleted = originalTicket.status === Status.Abgeschlossen;
+    const isNowCompleted = ut.status === Status.Abgeschlossen;
 
-setTickets(nextTickets);
-saveTicketToFirebase(ut);
+    if (!wasCompleted && isNowCompleted) {
+      // Active → Completed
+      setTickets((prev) => prev.filter((t) => t.id !== ut.id));
+      setCompletedTickets((prev) => [ut, ...prev]);
+      saveCompletedTicketToFirebase(ut);
+      deleteFromActiveFirebase(ut.id);
+    } else if (wasCompleted && !isNowCompleted) {
+      // Reopened: Completed → Active
+      setCompletedTickets((prev) => prev.filter((t) => t.id !== ut.id));
+      setTickets((prev) => [ut, ...prev]);
+      saveTicketToFirebase(ut);
+      deleteFromCompletedFirebase(ut.id);
+    } else if (wasCompleted) {
+      // Update within completed
+      setCompletedTickets((prev) => prev.map((t) => t.id === ut.id ? ut : t));
+      saveCompletedTicketToFirebase(ut);
+    } else {
+      // Update within active
+      setTickets((prev) => prev.map((t) => t.id === ut.id ? ut : t));
+      saveTicketToFirebase(ut);
+    }
 
     if (selectedTicket && selectedTicket.id === ut.id) {
       setSelectedTicket(ut);
@@ -1670,7 +1768,7 @@ saveTicketToFirebase(ut);
   };
 
   const handleTicketUpdate = (updatedTicket: Ticket) => {
-    const originalTicket = tickets.find((t) => t.id === updatedTicket.id);
+    const originalTicket = tickets.find((t) => t.id === updatedTicket.id) ?? completedTickets.find((t) => t.id === updatedTicket.id);
     if (!originalTicket) return;
 
     const statusChanged = originalTicket.status !== updatedTicket.status;
@@ -1690,7 +1788,7 @@ saveTicketToFirebase(ut);
     if (!completeOrderDialog) return;
     const draft = completeOrderDialog.draft;
     setCompleteOrderDialog(null);
-    const originalTicket = tickets.find((t) => t.id === draft.id);
+    const originalTicket = tickets.find((t) => t.id === draft.id) ?? completedTickets.find((t) => t.id === draft.id);
     if (!originalTicket) return;
     commitTicketUpdate(draft, originalTicket);
   };
@@ -1701,6 +1799,7 @@ saveTicketToFirebase(ut);
 
   const handleDeleteTicket = (ticketId: string) => {
     setTickets((prev) => prev.filter((t) => t.id !== ticketId));
+    setCompletedTickets((prev) => prev.filter((t) => t.id !== ticketId));
     deleteTicketFromFirebase(ticketId);
     if (selectedTicket && selectedTicket.id === ticketId) setSelectedTicket(null);
   };
@@ -1910,23 +2009,34 @@ if (newTicketData.ticketType === 'reactive') {
       }
     }
 
-    const changed: Ticket[] = [];
+    const toComplete: Ticket[] = [];
+    const toUpdate: Ticket[] = [];
     setTickets((prevTickets) =>
-      prevTickets.map((ticket) => {
-        if (selectedTicketIds.includes(ticket.id)) {
-          const updatedTicket = { ...ticket, [property]: value };
-          if (property === 'status' && value === Status.Abgeschlossen && !ticket.completionDate) {
+      prevTickets.filter((ticket) => {
+        if (!selectedTicketIds.includes(ticket.id)) return true;
+        const updatedTicket = { ...ticket, [property]: value } as Ticket;
+        if (property === 'status' && value === Status.Abgeschlossen) {
+          if (!ticket.completionDate) {
             const stamp = completionStampNow();
             updatedTicket.completionDate = stamp.completionDate;
             updatedTicket.completionTime = stamp.completionTime;
           }
-          changed.push(updatedTicket);
-          return updatedTicket;
+          updatedTicket.is_reopened = false;
+          toComplete.push(updatedTicket);
+          return false; // remove from active
         }
-        return ticket;
+        toUpdate.push(updatedTicket);
+        return true; // keep in active (updated below)
+      }).map(ticket => {
+        const updated = toUpdate.find(t => t.id === ticket.id);
+        return updated ?? ticket;
       })
     );
-    changed.forEach((t) => saveTicketToFirebase(t));
+    if (toComplete.length > 0) {
+      setCompletedTickets((prev) => [...toComplete, ...prev]);
+      toComplete.forEach(t => { saveCompletedTicketToFirebase(t); deleteFromActiveFirebase(t.id); });
+    }
+    toUpdate.forEach(t => saveTicketToFirebase(t));
     setSelectedTicketIds([]);
   };
 
@@ -1934,6 +2044,7 @@ if (newTicketData.ticketType === 'reactive') {
     if (window.confirm(`Sind Sie sicher, dass Sie ${selectedTicketIds.length} Tickets endgültig löschen möchten? Dieser Vorgang kann nicht rückgängig gemacht werden.`)) {
       selectedTicketIds.forEach((id) => deleteTicketFromFirebase(id));
       setTickets((prev) => prev.filter((t) => !selectedTicketIds.includes(t.id)));
+      setCompletedTickets((prev) => prev.filter((t) => !selectedTicketIds.includes(t.id)));
       setSelectedTicketIds([]);
     }
   };
@@ -1950,17 +2061,18 @@ if (newTicketData.ticketType === 'reactive') {
 
   /** Gleiche Grundmenge wie die Haupttabelle der Listenansicht: keine Serienaufträge (origin routine). */
   const listenBenchTickets = useMemo(() => {
-    return tickets.filter((ticket) => {
+    return [...tickets, ...completedTickets].filter((ticket) => {
       if (currentUser?.role && isServiceTeamRole(currentUser.role) && ticket.technician !== currentUser.name) {
         return false;
       }
       if (ticket.origin === 'routine') return false;
       return true;
     });
-  }, [tickets, currentUser]);
+  }, [tickets, completedTickets, currentUser]);
 
   const filteredTickets = useMemo(() => {
-    return tickets.filter(ticket => {
+    const source = currentView === 'erledigt' ? completedTickets : tickets;
+    return source.filter(ticket => {
         // Role-based pre-filtering: Service-Team should only see tickets assigned to them.
         if (currentUser?.role && isServiceTeamRole(currentUser.role) && ticket.technician !== currentUser.name) {
             return false;
@@ -1968,36 +2080,34 @@ if (newTicketData.ticketType === 'reactive') {
 
         const searchLower = filters.search.toLowerCase();
         if (filters.search && !ticket.title.toLowerCase().includes(searchLower) && !ticket.id.toLowerCase().includes(searchLower) && !ticket.area.toLowerCase().includes(searchLower)) return false;
-        
+
         if (filters.area !== 'Alle' && ticket.area !== filters.area) return false;
-        
+
         if (
           filters.technician !== 'Alle' &&
           normalizePersonName(ticket.technician) !== normalizePersonName(filters.technician)
         ) {
           return false;
         }
-        
-        if (filters.priority !== 'Alle' && ticket.priority !== filters.priority) return false;
-        
-        if (currentView === 'erledigt') {
-            if (filters.status !== 'Alle' && ticket.status !== filters.status) return false;
-            return ticket.status === Status.Abgeschlossen;
-        }
-        
-        // For dashboard & tickets views, hide completed tickets.
-        if (ticket.status === Status.Abgeschlossen) return false;
 
-        // Serienaufträge nicht im Kanban (nur in Listenansicht anzeigen)
-        if ((currentView === 'dashboard' || currentView === 'tech-dashboard') && ticket.origin === 'routine') {
-            return false;
+        if (filters.priority !== 'Alle' && ticket.priority !== filters.priority) return false;
+
+        if (currentView === 'erledigt') {
+          if (filters.status !== 'Alle' && ticket.status !== filters.status) return false;
         }
-        
-        if ((currentView === 'tickets' || currentView === 'dashboard' || currentView === 'tech-dashboard') && filters.status !== 'Alle' && ticket.status !== filters.status) return false;
-        
+
+        if (currentView !== 'erledigt') {
+          // Serienaufträge nicht im Kanban (nur in Listenansicht anzeigen)
+          if ((currentView === 'dashboard' || currentView === 'tech-dashboard') && ticket.origin === 'routine') {
+              return false;
+          }
+
+          if ((currentView === 'tickets' || currentView === 'dashboard' || currentView === 'tech-dashboard') && filters.status !== 'Alle' && ticket.status !== filters.status) return false;
+        }
+
         return true;
     });
-  }, [tickets, filters, currentView, currentUser]);
+  }, [tickets, completedTickets, filters, currentView, currentUser]);
 
     const handleExportCSV = () => {
         if (filteredTickets.length === 0) {
@@ -2144,14 +2254,14 @@ if (newTicketData.ticketType === 'reactive') {
   );
   
   const locationOptionsWithCounts = useMemo(() => {
-    const ticketsForCounts = tickets.filter(t => currentView === 'erledigt' ? t.status === Status.Abgeschlossen : t.status !== Status.Abgeschlossen);
+    const ticketsForCounts = currentView === 'erledigt' ? completedTickets : tickets;
     const counts = ticketsForCounts.reduce((acc, ticket) => {
         acc[ticket.area] = (acc[ticket.area] || 0) + 1;
         return acc;
     }, {} as Record<string, number>);
     const result = activeLocations.map(loc => ({ name: loc.name, count: counts[loc.name] || 0 }));
     return [{ name: 'Alle', count: ticketsForCounts.length }, ...result];
-  }, [tickets, activeLocations, currentView]);
+  }, [tickets, completedTickets, activeLocations, currentView]);
 
   const changeView = (view: string) => {
     if (['dashboard', 'reports', 'techniker', 'settings', 'erledigt'].includes(view) && currentUser?.role !== Role.Admin) {
@@ -2486,9 +2596,7 @@ if (newTicketData.ticketType === 'reactive') {
           );
         case 'erledigt': return <ErledigtTableView tickets={filteredTickets} onSelectTicket={setSelectedTicket} selectedTicket={selectedTicket} onDeleteTicket={handleDeleteTicket} />;
         case 'reports': {
-          const activeTickets = listenBenchTickets.filter((t) => t.status !== Status.Abgeschlossen);
-          const completedTickets = listenBenchTickets.filter((t) => t.status === Status.Abgeschlossen);
-          return <ReportsView activeTickets={activeTickets} completedTickets={completedTickets} users={users} />;
+          return <ReportsView activeTickets={tickets} completedTickets={completedTickets} users={users} />;
         }
         case 'techniker': return <TechnicianView tickets={listenBenchTickets} technicians={users.filter(u => (u.role === Role.Technician || u.role === Role.Housekeeping) && u.isActive)} onTechnicianSelect={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} onFilter={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} />;
         case 'settings': return <SettingsView users={users} setUsers={setUsers} locations={locations} setLocations={setLocations} assets={assets} setAssets={setAssets} maintenancePlans={maintenancePlans} setMaintenancePlans={setMaintenancePlans} appSettings={appSettings} setAppSettings={handleAppSettingsChange} onResendConfirmationMailsForEntryDate={handleResendConfirmationMailsForEntryDate} />;
