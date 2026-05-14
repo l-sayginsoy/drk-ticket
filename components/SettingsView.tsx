@@ -2,6 +2,7 @@
 // FIX: Import useMemo hook from React.
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { User, Location, Role, AppSettings, Priority, TicketCategory, SLARule, RoutingRule, Asset, MaintenancePlan, AvailabilityStatus, RoutineSchedule, WeekdayKey } from '../types';
+import { DEFAULT_APP_SETTINGS } from '../constants';
 import { getRoutinePool, localISODate } from '../utils/routineHelpers';
 import { PlusIcon } from './icons/PlusIcon';
 import { TrashIcon } from './icons/TrashIcon';
@@ -1282,7 +1283,14 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
             </div>
 
             <div className="settings-section">
-                <div className="settings-section-header"><h3 className="settings-section-title">Automatisches Ticket-Routing</h3></div>
+                <div className="settings-section-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <h3 className="settings-section-title">Automatisches Ticket-Routing</h3>
+                    <button className="btn btn-secondary" style={{ fontSize: '0.8rem' }} onClick={() => {
+                        if (window.confirm('Alle bestehenden Routing-Regeln durch die 11 Standard-Regeln ersetzen?')) {
+                            setAppSettings(prev => ({ ...prev, routingRules: DEFAULT_APP_SETTINGS.routingRules }));
+                        }
+                    }}>Standard laden</button>
+                </div>
                 <div className="settings-section-body">
                     <p className="form-group-description">
                         Keywords eingeben und mit <strong>Enter</strong> bestätigen. Mitarbeiter direkt anklicken zum Zuordnen.
