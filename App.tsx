@@ -1133,8 +1133,7 @@ const App: React.FC = () => {
       currentView === 'dashboard' ||
       currentView === 'reports' ||
       currentView === 'techniker' ||
-      currentView === 'settings' ||
-      currentView === 'erledigt'
+      currentView === 'settings'
     ) {
       setCurrentView('tech-dashboard');
     }
@@ -2440,7 +2439,7 @@ if (newTicketData.ticketType === 'reactive') {
   }, [tickets, routineTickets, completedTickets, activeLocations, currentView]);
 
   const changeView = (view: string) => {
-    if (['dashboard', 'reports', 'techniker', 'settings', 'erledigt'].includes(view) && currentUser?.role !== Role.Admin) {
+    if (['dashboard', 'reports', 'techniker', 'settings'].includes(view) && currentUser?.role !== Role.Admin) {
       alert('Keine Berechtigung, auf diese Seite zuzugreifen.');
       return;
     }
