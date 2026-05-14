@@ -426,7 +426,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                     <p className="detail-label-compact">Eingang</p>
                     <p className="detail-value-compact">
                         {ticket.entryDate}
-                        {ticket.entryTime && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 400, marginLeft: '0.4rem' }}>| {ticket.entryTime} Uhr</span>}
+                        {ticket.entryTime && <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400, marginLeft: '0.35rem' }}>({ticket.entryTime})</span>}
                     </p>
                 </div>
                 <div className="grid-item">
@@ -442,7 +442,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                     <p className="detail-label-compact">Abgeschlossen am</p>
                     <p className="detail-value-compact">
                       {ticket.completionDate}
-                      {ticket.completionTime && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 400, marginLeft: '0.4rem' }}>{ticket.completionTime} Uhr</span>}
+                      {ticket.completionTime && <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400, marginLeft: '0.35rem' }}>({ticket.completionTime})</span>}
                     </p>
                   </div>
                 )}
