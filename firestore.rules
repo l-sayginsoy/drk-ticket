@@ -52,20 +52,14 @@ service cloud.firestore {
 
     // Active Tickets Collection
     match /tickets/{ticketId} {
-      allow get: if true;
-      allow list: if isStaff();
-      allow create: if true;
-      allow update: if isStaff();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if true;
     }
 
     // Completed Tickets Collection
     match /completed_tickets/{ticketId} {
-      allow get: if true;
-      allow list: if isStaff();
-      allow create: if isStaff();
-      allow update: if isStaff();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if true;
     }
 
     // Assets Collection
