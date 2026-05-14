@@ -7,7 +7,7 @@ import {
 } from './types';
 import { MOCK_TICKETS, MOCK_USERS, MOCK_LOCATIONS, STATUSES, DEFAULT_APP_SETTINGS, MOCK_ASSETS, MOCK_MAINTENANCE_PLANS } from './constants';
 import { db } from './firebase';
-import { collection, doc, setDoc, onSnapshot, getDocs, deleteDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, onSnapshot, getDocs, deleteDoc, arrayUnion } from 'firebase/firestore';
 
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -706,6 +706,7 @@ const App: React.FC = () => {
   const isRemoteUpdate = useRef(false);
   const appDataReadyRef = useRef(false);
   const ticketsSnapshotReadyRef = useRef(false);
+  const deletedTicketIdsRef = useRef<Set<string>>(new Set());
   const prevUsersRef = useRef<User[]>(users);
 
   useEffect(() => {
@@ -810,6 +811,9 @@ const App: React.FC = () => {
               case LOCAL_STORAGE_KEY_SETTINGS:
                 setAppSettings((prev) => mergeAppSettingsRemote(value, prev));
                 break;
+              case 'deleted-ticket-ids':
+                deletedTicketIdsRef.current = new Set<string>(Array.isArray(value) ? value : []);
+                break;
             }
           });
           setLastSyncTime(new Date());
@@ -875,6 +879,11 @@ const App: React.FC = () => {
               hasChanges = true;
               setAppSettings((prev) => mergeAppSettingsRemote(value, prev));
               break;
+            case 'deleted-ticket-ids':
+              hasChanges = true;
+              deletedTicketIdsRef.current = new Set<string>(Array.isArray(value) ? value : []);
+              setTickets((prev) => prev.filter((t) => !deletedTicketIdsRef.current.has(t.id)));
+              break;
           }
         }
       });
@@ -894,8 +903,10 @@ const App: React.FC = () => {
       const changes = snapshot.docChanges();
 
       if (!ticketsSnapshotReadyRef.current) {
-        // Initial snapshot: replace state with all tickets from Firestore
-        const allTickets = snapshot.docs.map((d) => normalizeTicket(d.data() as Ticket));
+        // Initial snapshot: replace state with all tickets, filtered by deletion blocklist
+        const allTickets = snapshot.docs
+          .filter((d) => !deletedTicketIdsRef.current.has(d.id))
+          .map((d) => normalizeTicket(d.data() as Ticket));
         setTickets(allTickets);
         ticketsSnapshotReadyRef.current = true;
         tryMarkInitialized();
@@ -904,6 +915,7 @@ const App: React.FC = () => {
           let next = [...prev];
           changes.forEach((change) => {
             if (change.type === 'added' || change.type === 'modified') {
+              if (deletedTicketIdsRef.current.has(change.doc.id)) return; // permanently deleted
               const ticket = normalizeTicket(change.doc.data() as Ticket);
               const idx = next.findIndex((t) => t.id === ticket.id);
               if (idx >= 0) next[idx] = ticket;
@@ -1489,6 +1501,8 @@ const saveTicketToFirebase = (ticket: Ticket) => {
 };
 
 const deleteTicketFromFirebase = (ticketId: string) => {
+  // Permanent blocklist entry — survives even if deleteDoc fails
+  void setDoc(doc(db, 'app_data', 'deleted-ticket-ids'), { value: arrayUnion(ticketId) }, { merge: true });
   void deleteDoc(doc(db, 'tickets', ticketId))
     .then(() => setLastSyncTime(new Date()))
     .catch((err) => console.error('Fehler beim Löschen des Tickets:', err));
@@ -1670,6 +1684,7 @@ saveTicketToFirebase(ut);
   };
 
   const handleDeleteTicket = (ticketId: string) => {
+    deletedTicketIdsRef.current.add(ticketId);
     setTickets((prev) => prev.filter((t) => t.id !== ticketId));
     deleteTicketFromFirebase(ticketId);
     if (selectedTicket && selectedTicket.id === ticketId) setSelectedTicket(null);
@@ -1902,7 +1917,10 @@ if (newTicketData.ticketType === 'reactive') {
 
   const handleBulkDelete = () => {
     if (window.confirm(`Sind Sie sicher, dass Sie ${selectedTicketIds.length} Tickets endgültig löschen möchten? Dieser Vorgang kann nicht rückgängig gemacht werden.`)) {
-      selectedTicketIds.forEach((id) => deleteTicketFromFirebase(id));
+      selectedTicketIds.forEach((id) => {
+        deletedTicketIdsRef.current.add(id);
+        deleteTicketFromFirebase(id);
+      });
       setTickets((prev) => prev.filter((t) => !selectedTicketIds.includes(t.id)));
       setSelectedTicketIds([]);
     }
