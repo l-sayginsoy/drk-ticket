@@ -1573,6 +1573,7 @@ saveTicketsSafely(nextTickets);
       typeof newTicketData.reporter_email === 'string' ? newTicketData.reporter_email.trim() : '';
     /** Eingang = Kalendertag der Erfassung (gleiches Datum wie Fälligkeits-Basis ohne Wunschtermin). */
     const entryDateStr = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const entryTimeStr = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
     const category = appSettings.ticketCategories.find(c => c.id === newTicketData.categoryId);
     const isReactive = newTicketData.ticketType === 'reactive';
@@ -1671,6 +1672,7 @@ if (newTicketData.ticketType === 'reactive') {
       ...(sanitizedTicketData as Omit<Ticket, 'id' | 'entryDate' | 'status'>),
       id: `${Math.floor(Math.random() * 10000) + 30000}`,
       entryDate: entryDateStr,
+      entryTime: entryTimeStr,
       status: Status.Offen,
       priority: determinedPriority,
       technician: assignedTechnician,
@@ -1874,6 +1876,16 @@ if (newTicketData.ticketType === 'reactive') {
     }
     return tickets;
   }, [tickets, currentUser]);
+
+  const newMeldungenCount = useMemo(() => {
+    return tickets.filter(t => t.status === Status.Offen && (t.technician === 'N/A' || !t.technician)).length;
+  }, [tickets]);
+
+  useEffect(() => {
+    document.title = newMeldungenCount > 0
+      ? `(${newMeldungenCount}) DRK Haustechnik Service`
+      : 'DRK Haustechnik Service';
+  }, [newMeldungenCount]);
 
   const allTechnicianNames = useMemo(
     () => [
@@ -2316,6 +2328,32 @@ if (newTicketData.ticketType === 'reactive') {
             rpHolidayYmdList={rpHolidayYmdList}
             onOpenRoutines={() => changeView('routines')}
           />
+        )}
+        {currentView === 'dashboard' && newMeldungenCount > 0 && (
+          <div
+            role="alert"
+            style={{
+              margin: '0 0 12px',
+              padding: '12px 16px',
+              borderRadius: 10,
+              border: '1px solid rgba(220, 53, 69, 0.45)',
+              background: 'rgba(220, 53, 69, 0.1)',
+              color: 'var(--text-primary)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              fontWeight: 500,
+            }}
+          >
+            <span style={{ background: 'var(--accent-danger)', color: '#fff', borderRadius: '20px', padding: '0.1rem 0.65rem', fontWeight: 700, fontSize: '1rem', flexShrink: 0 }}>
+              {newMeldungenCount}
+            </span>
+            <span>
+              {newMeldungenCount === 1
+                ? 'Neue Meldung wartet auf Bearbeiter-Zuweisung'
+                : `${newMeldungenCount} neue Meldungen warten auf Bearbeiter-Zuweisung`}
+            </span>
+          </div>
         )}
         {isKanbanWorkbench ? (
           <div className="kanban-workbench">

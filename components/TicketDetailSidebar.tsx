@@ -423,7 +423,12 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 </div>
                 <div className="grid-item">
                     <p className="detail-label-compact">Eingang</p>
-                    <p className="detail-value-compact">{ticket.entryDate}</p>
+                    <p className="detail-value-compact" style={ticket.entryTime ? { height: 'auto', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: 0, padding: '0.35rem 0.75rem' } : {}}>
+                        <span>{ticket.entryDate}</span>
+                        {ticket.entryTime && (
+                            <span style={{ display: 'block', fontSize: '0.72rem', fontWeight: 400, color: 'var(--text-muted)', marginTop: '0.15rem' }}>{ticket.entryTime}</span>
+                        )}
+                    </p>
                 </div>
                 <div className="grid-item">
                     <p className="detail-label-compact">Fällig bis</p>
@@ -436,22 +441,13 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 {ticket.completionDate && (
                   <div className="grid-item">
                     <p className="detail-label-compact">Abgeschlossen am</p>
-                    <p className="detail-value-compact">
-                      {ticket.completionDate}
-                      {ticket.completionTime ? (
-                        <span
-                          style={{
-                            display: 'block',
-                            fontSize: '0.72rem',
-                            fontWeight: 400,
-                            color: 'var(--text-muted)',
-                            marginTop: '0.2rem',
-                            textAlign: 'left',
-                          }}
-                        >
+                    <p className="detail-value-compact" style={ticket.completionTime ? { height: 'auto', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: 0, padding: '0.35rem 0.75rem' } : {}}>
+                      <span>{ticket.completionDate}</span>
+                      {ticket.completionTime && (
+                        <span style={{ display: 'block', fontSize: '0.72rem', fontWeight: 400, color: 'var(--text-muted)', marginTop: '0.15rem' }}>
                           {ticket.completionTime}
                         </span>
-                      ) : null}
+                      )}
                     </p>
                   </div>
                 )}

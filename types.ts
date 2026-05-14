@@ -171,6 +171,7 @@ export interface Ticket {
   reporter: string;
   reporter_email?: string;
   entryDate: string; // DD.MM.YYYY
+  entryTime?: string; // HH:MM
   dueDate: string; // DD.MM.YYYY
   status: Status;
   technician: string;
