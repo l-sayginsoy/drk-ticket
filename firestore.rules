@@ -62,6 +62,12 @@ service cloud.firestore {
       allow write: if true;
     }
 
+    // Routine Tickets Collection (active series/routine tickets)
+    match /routine_tickets/{ticketId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
     // Assets Collection
     match /assets/{assetId} {
       allow read: if isStaff();
