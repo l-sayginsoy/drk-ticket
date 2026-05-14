@@ -1337,10 +1337,13 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                     })}
                                     {unassigned.length > 0 && (
                                         <select value="" onChange={e => addAssignee(e.target.value)} style={{
-                                            fontSize: '0.78rem', borderRadius: 6, padding: '3px 8px', border: '1px dashed var(--border)',
-                                            background: 'var(--bg-secondary)', color: 'var(--text-muted)', cursor: 'pointer',
-                                        }}>
-                                            <option value="">+ Mitarbeiter</option>
+                                            width: 28, height: 28, borderRadius: '50%', border: '1px solid var(--border)',
+                                            background: 'var(--bg-tertiary)', color: 'var(--text-muted)', cursor: 'pointer',
+                                            appearance: 'none', WebkitAppearance: 'none',
+                                            fontSize: '1.1rem', fontWeight: 400, textAlign: 'center',
+                                            padding: 0, flexShrink: 0,
+                                        }} title="Mitarbeiter hinzufügen">
+                                            <option value="">+</option>
                                             {unassigned.map(u => <option key={u.name} value={u.name}>{u.name.split(' ')[0]} {u.name.split(' ').slice(-1)[0]}{u.availability.status !== AvailabilityStatus.Available ? ' (abwesend)' : ''}</option>)}
                                         </select>
                                     )}
