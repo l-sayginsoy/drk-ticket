@@ -1285,68 +1285,60 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                 <div className="settings-section-header"><h3 className="settings-section-title">Automatisches Ticket-Routing</h3></div>
                 <div className="settings-section-body">
                     <p className="form-group-description">
-                        Wenn ein Betreff oder eine Beschreibung eines der Keywords enthält, wird das Ticket automatisch dem passenden Skill zugewiesen.
-                        Keywords einzeln eingeben und mit <strong>Enter</strong> bestätigen.
+                        Keywords eingeben und mit <strong>Enter</strong> bestätigen. Mitarbeiter direkt anklicken zum Zuordnen.
                     </p>
                     {appSettings.routingRules.map(rule => {
-                        const matchedTechs = rule.skill
-                            ? users.filter(u => u.isActive && (u.role === Role.Technician || u.role === Role.Housekeeping) && u.skills.includes(rule.skill))
-                            : [];
+                        const allTechs = users.filter(u => u.isActive && (u.role === Role.Technician || u.role === Role.Housekeeping));
+                        const assignees = rule.assignees || [];
+                        const toggleAssignee = (name: string) => {
+                            const next = assignees.includes(name) ? assignees.filter(n => n !== name) : [...assignees, name];
+                            handleUpdateSetting<RoutingRule>('routingRules', {...rule, assignees: next});
+                        };
                         return (
-                        <div key={rule.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 170px 130px 110px auto', gap: '0.75rem', alignItems: 'start' }}>
-                            <div>
-                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.3rem', fontWeight: 500 }}>Keywords</div>
-                                <KeywordTagInput
-                                    value={rule.keyword}
-                                    onChange={val => handleUpdateSetting<RoutingRule>('routingRules', {...rule, keyword: val})}
-                                />
+                        <div key={rule.id} style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 8, padding: '0.85rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 170px 120px auto', gap: '0.75rem', alignItems: 'start' }}>
+                                <div>
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.3rem', fontWeight: 500 }}>Keywords</div>
+                                    <KeywordTagInput value={rule.keyword} onChange={val => handleUpdateSetting<RoutingRule>('routingRules', {...rule, keyword: val})} />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.3rem', fontWeight: 500 }}>Kategorie</div>
+                                    <select value={rule.categoryId || ''} onChange={e => handleUpdateSetting<RoutingRule>('routingRules', {...rule, categoryId: e.target.value || undefined})} className="form-group-select">
+                                        <option value="">— keine —</option>
+                                        {appSettings.ticketCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.3rem', fontWeight: 500 }}>Priorität</div>
+                                    <select value={rule.priority || ''} onChange={e => handleUpdateSetting<RoutingRule>('routingRules', {...rule, priority: e.target.value as Priority || undefined})} className="form-group-select">
+                                        <option value="">— auto —</option>
+                                        {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
+                                    </select>
+                                </div>
+                                <button onClick={() => handleDeleteSetting('routingRules', rule.id)} className="btn btn-danger-sm" style={{ marginTop: '1.4rem' }}><TrashIcon /></button>
                             </div>
                             <div>
-                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.3rem', fontWeight: 500 }}>Kategorie</div>
-                                <select value={rule.categoryId || ''} onChange={e => handleUpdateSetting<RoutingRule>('routingRules', {...rule, categoryId: e.target.value || undefined})} className="form-group-select">
-                                    <option value="">— keine —</option>
-                                    {appSettings.ticketCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
+                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.4rem', fontWeight: 500 }}>Zuständige Mitarbeiter <span style={{ fontWeight: 400 }}>(anklicken zum Zuordnen)</span></div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                                    {allTechs.map(u => {
+                                        const selected = assignees.includes(u.name);
+                                        const available = u.availability.status === AvailabilityStatus.Available;
+                                        return (
+                                            <button key={u.name} type="button" onClick={() => toggleAssignee(u.name)} style={{
+                                                fontSize: '0.78rem', fontWeight: 600, borderRadius: 6, padding: '3px 12px', cursor: 'pointer', border: '1px solid',
+                                                background: selected ? 'rgba(37,99,235,0.12)' : 'var(--bg-secondary)',
+                                                borderColor: selected ? 'rgba(37,99,235,0.4)' : 'var(--border)',
+                                                color: selected ? '#2563eb' : 'var(--text-muted)',
+                                                opacity: available ? 1 : 0.5,
+                                            }}>
+                                                {u.name.split(' ')[0]} {u.name.split(' ').slice(-1)[0]}
+                                                {!available && ' · abwesend'}
+                                            </button>
+                                        );
+                                    })}
+                                    {allTechs.length === 0 && <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Keine aktiven Mitarbeiter vorhanden.</span>}
+                                </div>
                             </div>
-                            <div>
-                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.3rem', fontWeight: 500 }}>Priorität</div>
-                                <select value={rule.priority || ''} onChange={e => handleUpdateSetting<RoutingRule>('routingRules', {...rule, priority: e.target.value as Priority || undefined})} className="form-group-select">
-                                    <option value="">— auto —</option>
-                                    {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.3rem', fontWeight: 500 }}>Skill</div>
-                                <input type="text" value={rule.skill} list="skills-datalist" onChange={e => handleUpdateSetting<RoutingRule>('routingRules', {...rule, skill: e.target.value})} className="form-group-input" />
-                            </div>
-                            <button onClick={() => handleDeleteSetting('routingRules', rule.id)} className="btn btn-danger-sm" style={{ marginTop: '1.4rem' }}><TrashIcon /></button>
-                        </div>
-                        {matchedTechs.length > 0 && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', paddingLeft: '0.1rem' }}>
-                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Zuständig:</span>
-                                {matchedTechs.map(u => {
-                                    const available = u.availability.status === AvailabilityStatus.Available;
-                                    return (
-                                        <span key={u.name} style={{
-                                            fontSize: '0.75rem', fontWeight: 600,
-                                            background: available ? 'rgba(37,99,235,0.1)' : 'var(--bg-tertiary)',
-                                            border: `1px solid ${available ? 'rgba(37,99,235,0.3)' : 'var(--border)'}`,
-                                            borderRadius: 6, padding: '2px 10px',
-                                            color: available ? '#2563eb' : 'var(--text-muted)',
-                                        }}>
-                                            {u.name.split(' ')[0]} {u.name.split(' ').slice(-1)[0]}
-                                            {!available && ' · abwesend'}
-                                        </span>
-                                    );
-                                })}
-                            </div>
-                        )}
-                        {rule.skill && matchedTechs.length === 0 && (
-                            <div style={{ fontSize: '0.72rem', color: 'var(--accent-danger)', paddingLeft: '0.1rem' }}>
-                                Kein aktiver Mitarbeiter mit Skill „{rule.skill}" gefunden.
-                            </div>
-                        )}
                         </div>
                         );
                     })}
@@ -1371,8 +1363,8 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                 </div>
 
                 {/* Header */}
-                <div style={{ display: 'grid', gridTemplateColumns: '180px 130px 1fr 60px 110px 40px', gap: '0.75rem', padding: '0 1rem 0.5rem', borderBottom: '1px solid var(--border)' }}>
-                    {['Name', 'Rolle', 'Skills', 'Aktiv', '', ''].map((h, i) => (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px 120px 60px 110px 40px', gap: '0.75rem', padding: '0 1rem 0.5rem', borderBottom: '1px solid var(--border)' }}>
+                    {['Name', 'Rolle', 'Status', 'Aktiv', '', ''].map((h, i) => (
                         <span key={i} style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</span>
                     ))}
                 </div>
@@ -1381,10 +1373,11 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                 <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', marginTop: '0.5rem' }}>
                     {users.map((user, idx) => {
                         const color = roleColor[user.role] ?? '#888888';
+                        const available = user.availability.status === AvailabilityStatus.Available;
                         return (
                             <div key={user.id} style={{
                                 display: 'grid',
-                                gridTemplateColumns: '180px 130px 1fr 60px 110px 40px',
+                                gridTemplateColumns: '1fr 150px 120px 60px 110px 40px',
                                 alignItems: 'center',
                                 gap: '0.75rem',
                                 padding: '0.65rem 1rem',
@@ -1408,15 +1401,14 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                     display: 'inline-block', width: 'fit-content',
                                 }}>{roleLabel[user.role] ?? user.role}</span>
 
-                                {/* Skills */}
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
-                                    {user.skills.filter(s => s !== 'all').length === 0
-                                        ? <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>—</span>
-                                        : user.skills.filter(s => s !== 'all').map(s => (
-                                            <span key={s} style={{ fontSize: '0.72rem', fontWeight: 600, padding: '2px 8px', borderRadius: 6, background: 'rgba(37,99,235,0.08)', color: '#2563eb', border: '1px solid rgba(37,99,235,0.2)' }}>{s}</span>
-                                        ))
-                                    }
-                                </div>
+                                {/* Verfügbarkeit */}
+                                <span style={{
+                                    fontSize: '0.72rem', fontWeight: 600, padding: '2px 8px', borderRadius: 6,
+                                    background: available ? 'rgba(5,150,105,0.1)' : 'rgba(220,53,69,0.1)',
+                                    color: available ? '#059669' : '#c0392b',
+                                    border: `1px solid ${available ? 'rgba(5,150,105,0.3)' : 'rgba(220,53,69,0.3)'}`,
+                                    display: 'inline-block', width: 'fit-content',
+                                }}>{available ? 'Verfügbar' : 'Abwesend'}</span>
 
                                 {/* Toggle */}
                                 <div><SwitchToggle id={`user-status-${user.id}`} isChecked={user.isActive} onChange={() => handleToggleUserStatus(user.id)} /></div>

@@ -57,9 +57,10 @@ export interface SLARule {
 export interface RoutingRule {
   id: string;
   keyword: string; // Comma-separated
-  skill: string;
   categoryId?: string;
   priority?: Priority;
+  assignees?: string[]; // Zugeordnete Mitarbeiter (Namen)
+  skill?: string; // veraltet, für Kompatibilität behalten
 }
 
 export type WeekdayKey = 'mo' | 'di' | 'mi' | 'do' | 'fr' | 'sa' | 'so';

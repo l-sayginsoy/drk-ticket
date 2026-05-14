@@ -544,21 +544,25 @@ const assignTicket = (
     );
 
     if (matchedRule) {
-        // Alle verfügbaren Techniker mit passendem Skill, wenigste Auslastung gewinnt
-        const skilledTechnicians = users.filter(u =>
+        // Kandidaten: direkt zugeordnete Mitarbeiter (assignees) oder Fallback über Skill
+        const pool = users.filter(u =>
             (u.role === Role.Technician || u.role === Role.Housekeeping) &&
             u.isActive &&
             u.availability.status === AvailabilityStatus.Available &&
-            u.skills.includes(matchedRule.skill)
+            (
+                (matchedRule.assignees && matchedRule.assignees.length > 0)
+                    ? matchedRule.assignees.includes(u.name)
+                    : matchedRule.skill ? u.skills.includes(matchedRule.skill) : false
+            )
         );
 
-        if (skilledTechnicians.length > 0) {
-            const techniciansWithLoad = skilledTechnicians.map(tech => ({
+        if (pool.length > 0) {
+            const withLoad = pool.map(tech => ({
                 ...tech,
                 load: tickets.filter(t => t.technician === tech.name && t.status !== Status.Abgeschlossen).length
             }));
-            techniciansWithLoad.sort((a, b) => a.load - b.load);
-            assignedTechnician = techniciansWithLoad[0].name;
+            withLoad.sort((a, b) => a.load - b.load);
+            assignedTechnician = withLoad[0].name;
         }
     }
     return assignedTechnician;

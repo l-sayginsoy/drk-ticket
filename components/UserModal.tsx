@@ -131,13 +131,6 @@ const UserModal: React.FC<UserModalProps> = ({ user, allSkills, onClose, onSave 
             <label htmlFor="password">Passwort</label>
             <input id="password" name="password" type="password" value={formData.password || ''} onChange={handleChange} placeholder={isNewUser ? '' : 'Leer lassen, um nicht zu ändern'} />
           </div>
-          <div className="form-group full-width">
-            <label htmlFor="skills">Skills (Komma-getrennt)</label>
-            <input id="skills" name="skills" type="text" value={skills} onChange={e => setSkills(e.target.value)} list="skills-datalist" placeholder="z.B. Elektrik, Sanitär, HLK" />
-            <datalist id="skills-datalist">
-                {allSkills.map(s => <option key={s} value={s} />)}
-            </datalist>
-          </div>
           <div className="form-group">
             <label htmlFor="availability-status">Verfügbarkeit</label>
             <select id="availability-status" name="status" value={formData.availability?.status || ''} onChange={handleAvailabilityChange}>
