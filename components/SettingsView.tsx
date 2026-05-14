@@ -1312,9 +1312,9 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                         Keywords einzeln eingeben und mit <strong>Enter</strong> bestätigen.
                     </p>
                     {appSettings.routingRules.map(rule => (
-                        <div key={rule.id} style={{ display: 'grid', gridTemplateColumns: '1fr 160px 160px 120px auto', gap: '0.5rem', alignItems: 'start' }}>
+                        <div key={rule.id} style={{ display: 'grid', gridTemplateColumns: '1fr 180px 140px auto', gap: '0.75rem', alignItems: 'start' }}>
                             <div>
-                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.3rem', fontWeight: 500 }}>Keywords (Enter zum Hinzufügen)</div>
+                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.3rem', fontWeight: 500 }}>Keywords</div>
                                 <KeywordTagInput
                                     value={rule.keyword}
                                     onChange={val => handleUpdateSetting<RoutingRule>('routingRules', {...rule, keyword: val})}
@@ -1328,16 +1328,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                 </select>
                             </div>
                             <div>
-                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.3rem', fontWeight: 500 }}>Zuständig</div>
-                                <select value={rule.assignedUser || ''} onChange={e => handleUpdateSetting<RoutingRule>('routingRules', {...rule, assignedUser: e.target.value || undefined})} className="form-group-select">
-                                    <option value="">— auto (Skill) —</option>
-                                    {users.filter(u => u.isActive && (u.role === Role.Technician || u.role === Role.Housekeeping)).map(u => (
-                                        <option key={u.name} value={u.name}>{u.name.split(' ')[0]} {u.name.split(' ').slice(-1)[0]}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.3rem', fontWeight: 500 }}>Skill (Fallback)</div>
+                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.3rem', fontWeight: 500 }}>Skill</div>
                                 <input type="text" value={rule.skill} list="skills-datalist" onChange={e => handleUpdateSetting<RoutingRule>('routingRules', {...rule, skill: e.target.value})} className="form-group-input" />
                             </div>
                             <button onClick={() => handleDeleteSetting('routingRules', rule.id)} className="btn btn-danger-sm" style={{ marginTop: '1.4rem' }}><TrashIcon /></button>

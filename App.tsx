@@ -544,17 +544,7 @@ const assignTicket = (
     );
 
     if (matchedRule) {
-        // Direkte Zuweisung: wenn Mitarbeiter verfügbar, sofort zuweisen
-        if (matchedRule.assignedUser) {
-            const directUser = users.find(u =>
-                u.name === matchedRule.assignedUser &&
-                u.isActive &&
-                u.availability.status === AvailabilityStatus.Available
-            );
-            if (directUser) return directUser.name;
-        }
-
-        // Fallback: Mitarbeiter mit passendem Skill und geringster Auslastung
+        // Alle verfügbaren Techniker mit passendem Skill, wenigste Auslastung gewinnt
         const skilledTechnicians = users.filter(u =>
             (u.role === Role.Technician || u.role === Role.Housekeeping) &&
             u.isActive &&
