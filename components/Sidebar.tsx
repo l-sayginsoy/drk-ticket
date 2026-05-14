@@ -132,6 +132,10 @@ const Sidebar: React.FC<SidebarProps> = ({
             {viewName === 'dashboard' && userRole === Role.Admin && newMeldungenCount > 0 && (
                 <span className="nav-badge">{newMeldungenCount}</span>
             )}
+            {viewName === 'tech-dashboard' && userRole !== Role.Admin && (() => {
+                const c = tickets.filter(t => t.technician === userNameFull && t.status === Status.Offen && t.origin !== 'routine').length;
+                return c > 0 ? <span className="nav-badge">{c}</span> : null;
+            })()}
             <span className="nav-tooltip">{label}</span>
         </button>
     );

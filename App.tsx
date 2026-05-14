@@ -2370,7 +2370,7 @@ if (newTicketData.ticketType === 'reactive') {
 
   const techOffeneCount = useMemo(() => {
     if (!currentUser || !isServiceTeamRole(currentUser.role)) return 0;
-    return ticketsForUser.filter(t => t.status === Status.Offen).length;
+    return ticketsForUser.filter(t => t.status === Status.Offen && t.origin !== 'routine').length;
   }, [ticketsForUser, currentUser]);
 
   useEffect(() => {
