@@ -25,7 +25,6 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
   const [reporter, setReporter] = useState('');
   const [reporterEmail, setReporterEmail] = useState('');
   const [technician, setTechnician] = useState('N/A');
-  const [categoryId, setCategoryId] = useState(appSettings.ticketCategories[0]?.id || '');
   const [description, setDescription] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
 
@@ -76,7 +75,7 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
       reporter,
       ...(emailTrim ? { reporter_email: emailTrim } : {}),
       technician,
-      categoryId,
+      categoryId: '',
       description,
       photos,
       notes: [],
@@ -269,16 +268,6 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
                 <label htmlFor="location">Raum / Bereich</label>
                 <input id="location" type="text" value={location} onChange={e => setLocation(e.target.value)} />
             </div>
-            {appSettings.ticketCategories.length > 1 && (
-              <div className="form-group">
-                <label htmlFor="category">Kategorie</label>
-                <select id="category" value={categoryId} onChange={e => setCategoryId(e.target.value)}>
-                  {appSettings.ticketCategories.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
             <div className="form-group full-width">
                 <label htmlFor="title">Betreff</label>
                 <input id="title" type="text" placeholder="Worum geht es?" value={title} onChange={e => setTitle(e.target.value)} required />

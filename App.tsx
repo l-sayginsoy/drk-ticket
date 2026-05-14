@@ -567,6 +567,19 @@ const assignTicket = (
     return assignedTechnician;
 };
 
+/** Erkennt die Kategorie automatisch aus Betreff + Beschreibung anhand der Routing-Regeln. */
+const inferCategoryFromText = (
+  text: string,
+  routingRules: RoutingRule[],
+  fallbackCategoryId: string
+): string => {
+  const lower = text.toLowerCase();
+  const matched = routingRules.find(r =>
+    r.categoryId && r.keyword.split(',').some(kw => kw.trim() && lower.includes(kw.trim().toLowerCase()))
+  );
+  return matched?.categoryId || fallbackCategoryId;
+};
+
 const safeJSONParse = <T,>(key: string, fallback: T): T => {
     try {
         const item = window.localStorage.getItem(key);
@@ -1996,9 +2009,20 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     const entryDateStr = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const entryTimeStr = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
-    const category = appSettings.ticketCategories.find(c => c.id === newTicketData.categoryId);
     const isReactive = newTicketData.ticketType === 'reactive';
-    const slaStrictPriority = inferStrictestSlaPriorityForCategory(newTicketData.categoryId, appSettings.slaMatrix);
+
+    // Kategorie automatisch aus Stichwörtern erkennen wenn keine angegeben
+    const fallbackCategoryId = appSettings.ticketCategories[0]?.id || '';
+    const resolvedCategoryId = newTicketData.categoryId
+      ? newTicketData.categoryId
+      : inferCategoryFromText(
+          `${newTicketData.title || ''} ${newTicketData.description || ''}`,
+          appSettings.routingRules,
+          fallbackCategoryId
+        );
+
+    const category = appSettings.ticketCategories.find(c => c.id === resolvedCategoryId);
+    const slaStrictPriority = inferStrictestSlaPriorityForCategory(resolvedCategoryId, appSettings.slaMatrix);
 
     // Reaktiv: immer Priorität „Niedrig“, außer die SLA-Matrix (kürzeste Frist je Kategorie) legt eine andere Prio fest.
     // Keine Kategorie-Defaults, keine mitgeschickte priority aus Formularen.
@@ -2037,18 +2061,13 @@ if (newTicketData.ticketType === 'reactive') {
             }
         }
     } else {
-        // Reaktive Meldungen (Portal + „Neues Ticket“): ohne explizite Wahl immer „Nicht zugewiesen“ — kein Keyword-Routing.
-        // Präventiv (Wartung/Serientermin): weiter automatisch zuweisen, wenn möglich.
-        if (newTicketData.ticketType === 'reactive') {
-            assignedTechnician = 'N/A';
-        } else {
-            assignedTechnician = assignTicket(
-                { title: newTicketData.title, description: newTicketData.description },
-                users,
-                tickets,
-                appSettings.routingRules
-            );
-        }
+        // Reaktiv + präventiv: Keyword-Routing für automatische Zuweisung nutzen.
+        assignedTechnician = assignTicket(
+            { title: newTicketData.title, description: newTicketData.description },
+            users,
+            tickets,
+            appSettings.routingRules
+        );
     }
 
     // 3. Fälligkeit: reaktiv — mit Wunschtermin = Wunschdatum; sonst Kalender „Eingang + 5 Tage“ (z. B. 11.05. → 16.05.)
@@ -2097,6 +2116,7 @@ if (newTicketData.ticketType === 'reactive') {
       status: Status.Offen,
       priority: determinedPriority,
       technician: assignedTechnician,
+      categoryId: resolvedCategoryId,
       dueDate: formattedDueDate,
       notes: autoCorrectionNote ? [...(newTicketData.notes || []), autoCorrectionNote] : (newTicketData.notes || []),
       hasNewNoteFromReporter: false,

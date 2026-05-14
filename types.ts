@@ -58,6 +58,7 @@ export interface RoutingRule {
   id: string;
   keyword: string; // Comma-separated
   skill: string;
+  categoryId?: string;
 }
 
 export type WeekdayKey = 'mo' | 'di' | 'mi' | 'do' | 'fr' | 'sa' | 'so';

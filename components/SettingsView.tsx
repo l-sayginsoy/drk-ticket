@@ -1228,7 +1228,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                 display: 'flex', flexWrap: 'wrap', gap: '0.35rem', alignItems: 'center',
                 border: '1px solid var(--border)', borderRadius: 8, padding: '0.4rem 0.6rem',
                 background: 'var(--bg-primary)', minHeight: 38, cursor: 'text',
-            }} onClick={() => (document.activeElement as HTMLElement)?.blur?.()}>
+            }}>
                 {tags.map(tag => (
                     <span key={tag} style={{
                         display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -1312,7 +1312,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                         Keywords einzeln eingeben und mit <strong>Enter</strong> bestätigen.
                     </p>
                     {appSettings.routingRules.map(rule => (
-                        <div key={rule.id} style={{ display: 'grid', gridTemplateColumns: '1fr 140px auto', gap: '0.5rem', alignItems: 'start' }}>
+                        <div key={rule.id} style={{ display: 'grid', gridTemplateColumns: '1fr 140px 180px auto', gap: '0.5rem', alignItems: 'start' }}>
                             <div>
                                 <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.3rem', fontWeight: 500 }}>Keywords (Enter zum Hinzufügen)</div>
                                 <KeywordTagInput
@@ -1323,6 +1323,13 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                             <div>
                                 <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.3rem', fontWeight: 500 }}>Skill</div>
                                 <input type="text" value={rule.skill} list="skills-datalist" onChange={e => handleUpdateSetting<RoutingRule>('routingRules', {...rule, skill: e.target.value})} className="form-group-input" />
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.3rem', fontWeight: 500 }}>Kategorie (auto)</div>
+                                <select value={rule.categoryId || ''} onChange={e => handleUpdateSetting<RoutingRule>('routingRules', {...rule, categoryId: e.target.value || undefined})} className="form-group-select">
+                                    <option value="">— keine —</option>
+                                    {appSettings.ticketCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                </select>
                             </div>
                             <button onClick={() => handleDeleteSetting('routingRules', rule.id)} className="btn btn-danger-sm" style={{ marginTop: '1.4rem' }}><TrashIcon /></button>
                         </div>
