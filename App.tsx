@@ -544,22 +544,29 @@ const assignTicket = (
     );
 
     if (matchedRule) {
-        // Find all active and available technicians with the required skill
-        const skilledTechnicians = users.filter(u => 
-            (u.role === Role.Technician || u.role === Role.Housekeeping) && 
-            u.isActive && 
-            u.availability.status === AvailabilityStatus.Available && 
+        // Direkte Zuweisung: wenn Mitarbeiter verfügbar, sofort zuweisen
+        if (matchedRule.assignedUser) {
+            const directUser = users.find(u =>
+                u.name === matchedRule.assignedUser &&
+                u.isActive &&
+                u.availability.status === AvailabilityStatus.Available
+            );
+            if (directUser) return directUser.name;
+        }
+
+        // Fallback: Mitarbeiter mit passendem Skill und geringster Auslastung
+        const skilledTechnicians = users.filter(u =>
+            (u.role === Role.Technician || u.role === Role.Housekeeping) &&
+            u.isActive &&
+            u.availability.status === AvailabilityStatus.Available &&
             u.skills.includes(matchedRule.skill)
         );
-        
+
         if (skilledTechnicians.length > 0) {
-            // Calculate current load for each skilled technician
             const techniciansWithLoad = skilledTechnicians.map(tech => ({
                 ...tech,
                 load: tickets.filter(t => t.technician === tech.name && t.status !== Status.Abgeschlossen).length
             }));
-            
-            // Sort by load, ascending, to find the least busy one
             techniciansWithLoad.sort((a, b) => a.load - b.load);
             assignedTechnician = techniciansWithLoad[0].name;
         }
