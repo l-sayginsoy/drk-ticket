@@ -50,20 +50,21 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Tickets Collection
+    // Active Tickets Collection
     match /tickets/{ticketId} {
-      // Anyone can get a specific ticket by ID (for status check)
-      // Staff can list all tickets
       allow get: if true;
       allow list: if isStaff();
-      
-      // Anyone can create a ticket (portal)
       allow create: if true;
-      
-      // Staff can update tickets
       allow update: if isStaff();
-      
-      // Only admins can delete tickets
+      allow delete: if isAdmin();
+    }
+
+    // Completed Tickets Collection
+    match /completed_tickets/{ticketId} {
+      allow get: if true;
+      allow list: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff();
       allow delete: if isAdmin();
     }
 
