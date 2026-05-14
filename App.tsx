@@ -94,13 +94,15 @@ type DrkBrevoMailPayload =
   | { kind: 'staff_note'; ticketId: string; noteText: string }
   | { kind: 'ticket_closed'; ticketId: string }
   | {
-      kind: 'ticket_update';
+      kind: 'ticket_in_progress';
       ticketId: string;
-      status: string;
-      dueDate: string;
-      technician: string;
-      priority: string;
       title: string;
+      area: string;
+      location: string;
+      priority: string;
+      technician: string;
+      dueDate: string;
+      description: string;
     }
   | {
       kind: 'admin_new_ticket';
@@ -124,8 +126,8 @@ const drkBrevoBannerTitle = (p: DrkBrevoMailPayload) => {
       return 'Neuigkeit zu Ihrer Meldung';
     case 'ticket_closed':
       return 'Meldung abgeschlossen';
-    case 'ticket_update':
-      return 'Stand Ihrer Meldung';
+    case 'ticket_in_progress':
+      return 'Ihre Meldung wird bearbeitet';
     case 'admin_new_ticket':
       return 'Neue Meldung eingegangen';
   }
@@ -171,19 +173,21 @@ const buildDrkBrevoPlainText = (p: DrkBrevoMailPayload) => {
       'Diese E-Mail wurde automatisch erzeugt. Bitte nicht antworten.',
     ].join('\n');
   }
-  if (p.kind === 'ticket_update') {
+  if (p.kind === 'ticket_in_progress') {
     return [
       'DRK Serviceportal',
       '',
       `Ticketnummer: ${p.ticketId}`,
       '',
-      'Es gibt eine Aktualisierung zu Ihrer Meldung (aktueller Stand):',
+      'Ihre Meldung wird jetzt bearbeitet. Hier alle Informationen auf einen Blick:',
       '',
-      `  Status:     ${p.status}`,
-      `  Fälligkeit: ${p.dueDate}`,
-      `  Bearbeiter: ${p.technician}`,
-      `  Priorität:  ${p.priority}`,
-      `  Betreff:    ${p.title}`,
+      `  Ticket-Nr.:  ${p.ticketId}`,
+      `  Betreff:     ${p.title}`,
+      `  Standort:    ${p.area}${p.location ? ` › ${p.location}` : ''}`,
+      `  Priorität:   ${p.priority}`,
+      `  Bearbeiter:  ${p.technician}`,
+      `  Fälligkeit:  ${p.dueDate}`,
+      ...(p.description ? ['', `  Beschreibung: ${p.description}`] : []),
       '',
       'Direktlink zu Ihrem Ticket:',
       `${DRK_TICKET_PORTAL_URL}/?ticket=${encodeURIComponent(p.ticketId)}`,
@@ -291,18 +295,24 @@ ${portalOpenButtonWrappedHtml(p.ticketId, '0 0 18px')}
 <p style="margin:0;font-size:14px;line-height:1.55;color:#444;">Mit diesem Button öffnen Sie das Meldeportal. Ihre Ticketnummer ist im Link bereits enthalten – Sie müssen sie <strong>nicht erneut eingeben</strong>.</p>`;
     return drkEmailShellHtml(title, inner, p.ticketId, '');
   }
-  if (p.kind === 'ticket_update') {
+  if (p.kind === 'ticket_in_progress') {
+    const rows = [
+      ['Ticket-Nr.', p.ticketId],
+      ['Betreff', p.title],
+      ['Standort', p.location ? `${p.area} › ${p.location}` : p.area],
+      ['Priorität', p.priority],
+      ['Bearbeiter', p.technician],
+      ['Fälligkeit', p.dueDate],
+    ].map(([label, value]) =>
+      `<tr><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#555;white-space:nowrap;padding-right:16px;">${escapeHtml(label)}</td><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#222;font-weight:600;">${escapeHtml(value)}</td></tr>`
+    ).join('');
+    const descHtml = p.description
+      ? `<p style="margin:18px 0 6px;font-size:14px;color:#555;font-weight:600;">Beschreibung</p><p style="margin:0;font-size:14px;line-height:1.6;color:#333;white-space:pre-wrap;">${escapeHtml(p.description)}</p>`
+      : '';
     const inner = `
-<p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#333;"><strong>Ticketnummer: ${escapeHtml(p.ticketId)}</strong></p>
-<p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:#333;">Ihre Meldung wurde bearbeitet. <strong>Aktueller Stand:</strong></p>
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 18px;border-collapse:collapse;">
-<tr><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#555;">Status</td><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#222;font-weight:600;">${escapeHtml(p.status)}</td></tr>
-<tr><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#555;">Fälligkeit</td><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#222;">${escapeHtml(p.dueDate)}</td></tr>
-<tr><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#555;">Bearbeiter</td><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#222;">${escapeHtml(p.technician)}</td></tr>
-<tr><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#555;">Priorität</td><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#222;">${escapeHtml(p.priority)}</td></tr>
-<tr><td style="padding:8px 0;font-size:14px;color:#555;vertical-align:top;">Betreff</td><td style="padding:8px 0;font-size:14px;color:#222;">${escapeHtml(p.title)}</td></tr>
-</table>
-<p style="margin:0;font-size:14px;line-height:1.55;color:#444;">Details im Portal – Ihre Ticketnummer ist im Link bereits hinterlegt.</p>
+<p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:#333;">Ihre Meldung wird jetzt bearbeitet. Hier alle Informationen auf einen Blick:</p>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:4px;">${rows}</table>
+${descHtml}
 ${portalOpenButtonWrappedHtml(p.ticketId, '18px 0 0')}`;
     return drkEmailShellHtml(title, inner, p.ticketId, '');
   }
@@ -1825,14 +1835,24 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     }
 
     const reporterMailTo = ut.reporter_email?.trim();
-    let reporterMailSent = false;
     if (reporterMailTo) {
       if (statusChanged && ut.status === Status.Abgeschlossen) {
         sendDrkBrevoMail(reporterMailTo, `Ihre Meldung wurde abgeschlossen – Ticket ${ut.id}`, {
           kind: 'ticket_closed',
           ticketId: ut.id,
         });
-        reporterMailSent = true;
+      } else if (statusChanged && ut.status === Status.InArbeit) {
+        sendDrkBrevoMail(reporterMailTo, `Ihre Meldung wird bearbeitet – Ticket ${ut.id}`, {
+          kind: 'ticket_in_progress',
+          ticketId: ut.id,
+          title: ut.title || '—',
+          area: ut.area || '—',
+          location: ut.location || '',
+          priority: String(ut.priority),
+          technician: ut.technician || 'N/A',
+          dueDate: ut.dueDate || '—',
+          description: ut.description || '',
+        });
       } else if ((ut.notes?.length || 0) > (originalTicket.notes?.length || 0)) {
         const latestNote = ut.notes![ut.notes!.length - 1];
         const isNoteFromReporter =
@@ -1843,28 +1863,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
             ticketId: ut.id,
             noteText: latestNote,
           });
-          reporterMailSent = true;
         }
-      }
-    }
-    if (reporterMailTo && !reporterMailSent) {
-      const statusDiff = ut.status !== originalTicket.status;
-      const dueDiff = ut.dueDate !== originalTicket.dueDate;
-      const techDiff = ut.technician !== originalTicket.technician;
-      const prioDiff = ut.priority !== originalTicket.priority;
-      const titleDiff = ut.title !== originalTicket.title;
-      const descDiff = (ut.description || '') !== (originalTicket.description || '');
-      const wunschDiff = (ut.wunschTermin || '') !== (originalTicket.wunschTermin || '');
-      if (statusDiff || dueDiff || techDiff || prioDiff || titleDiff || descDiff || wunschDiff) {
-        sendDrkBrevoMail(reporterMailTo, `Aktualisierung zu Ihrem Ticket ${ut.id}`, {
-          kind: 'ticket_update',
-          ticketId: ut.id,
-          status: String(ut.status),
-          dueDate: ut.dueDate || '—',
-          technician: ut.technician || 'N/A',
-          priority: String(ut.priority),
-          title: ut.title || '—',
-        });
       }
     }
 
