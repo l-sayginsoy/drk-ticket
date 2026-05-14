@@ -1336,16 +1336,22 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                         );
                                     })}
                                     {unassigned.length > 0 && (
-                                        <select value="" onChange={e => addAssignee(e.target.value)} style={{
-                                            width: 28, height: 28, borderRadius: '50%', border: '1px solid var(--border)',
-                                            background: 'var(--bg-tertiary)', color: 'var(--text-muted)', cursor: 'pointer',
-                                            appearance: 'none', WebkitAppearance: 'none',
-                                            fontSize: '1.1rem', fontWeight: 400, textAlign: 'center',
-                                            padding: 0, flexShrink: 0,
-                                        }} title="Mitarbeiter hinzufügen">
-                                            <option value="">+</option>
-                                            {unassigned.map(u => <option key={u.name} value={u.name}>{u.name.split(' ')[0]} {u.name.split(' ').slice(-1)[0]}{u.availability.status !== AvailabilityStatus.Available ? ' (abwesend)' : ''}</option>)}
-                                        </select>
+                                        <div style={{ position: 'relative', width: 30, height: 30, flexShrink: 0 }}>
+                                            <div style={{
+                                                width: 30, height: 30, borderRadius: '50%',
+                                                border: '1.5px solid var(--border)',
+                                                background: 'var(--bg-secondary)',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                color: 'var(--text-muted)', fontSize: '1.15rem', fontWeight: 300,
+                                                lineHeight: 1, userSelect: 'none',
+                                            }}>+</div>
+                                            <select value="" onChange={e => addAssignee(e.target.value)} title="Mitarbeiter hinzufügen" style={{
+                                                position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%',
+                                            }}>
+                                                <option value=""></option>
+                                                {unassigned.map(u => <option key={u.name} value={u.name}>{u.name.split(' ')[0]} {u.name.split(' ').slice(-1)[0]}{u.availability.status !== AvailabilityStatus.Available ? ' (abwesend)' : ''}</option>)}
+                                            </select>
+                                        </div>
                                     )}
                                     {assignees.length === 0 && unassigned.length === 0 && <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Keine aktiven Mitarbeiter.</span>}
                                 </div>
