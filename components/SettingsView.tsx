@@ -1290,10 +1290,9 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                     {appSettings.routingRules.map(rule => {
                         const allTechs = users.filter(u => u.isActive && (u.role === Role.Technician || u.role === Role.Housekeeping));
                         const assignees = rule.assignees || [];
-                        const toggleAssignee = (name: string) => {
-                            const next = assignees.includes(name) ? assignees.filter(n => n !== name) : [...assignees, name];
-                            handleUpdateSetting<RoutingRule>('routingRules', {...rule, assignees: next});
-                        };
+                        const removeAssignee = (name: string) => handleUpdateSetting<RoutingRule>('routingRules', {...rule, assignees: assignees.filter(n => n !== name)});
+                        const addAssignee = (name: string) => { if (name) handleUpdateSetting<RoutingRule>('routingRules', {...rule, assignees: [...assignees, name]}); };
+                        const unassigned = allTechs.filter(u => !assignees.includes(u.name));
                         return (
                         <div key={rule.id} style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 8, padding: '0.85rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 170px 120px auto', gap: '0.75rem', alignItems: 'start' }}>
@@ -1318,25 +1317,34 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                 <button onClick={() => handleDeleteSetting('routingRules', rule.id)} className="btn btn-danger-sm" style={{ marginTop: '1.4rem' }}><TrashIcon /></button>
                             </div>
                             <div>
-                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.4rem', fontWeight: 500 }}>Zuständige Mitarbeiter <span style={{ fontWeight: 400 }}>(anklicken zum Zuordnen)</span></div>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-                                    {allTechs.map(u => {
-                                        const selected = assignees.includes(u.name);
-                                        const available = u.availability.status === AvailabilityStatus.Available;
+                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.4rem', fontWeight: 500 }}>Zuständige Mitarbeiter</div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', alignItems: 'center' }}>
+                                    {assignees.map(name => {
+                                        const u = users.find(u => u.name === name);
+                                        const available = !u || u.availability.status === AvailabilityStatus.Available;
                                         return (
-                                            <button key={u.name} type="button" onClick={() => toggleAssignee(u.name)} style={{
-                                                fontSize: '0.78rem', fontWeight: 600, borderRadius: 6, padding: '3px 12px', cursor: 'pointer', border: '1px solid',
-                                                background: selected ? 'rgba(37,99,235,0.12)' : 'var(--bg-secondary)',
-                                                borderColor: selected ? 'rgba(37,99,235,0.4)' : 'var(--border)',
-                                                color: selected ? '#2563eb' : 'var(--text-muted)',
-                                                opacity: available ? 1 : 0.5,
+                                            <span key={name} style={{
+                                                display: 'inline-flex', alignItems: 'center', gap: 6,
+                                                fontSize: '0.78rem', fontWeight: 600, borderRadius: 6, padding: '3px 8px 3px 12px',
+                                                background: 'rgba(37,99,235,0.12)', border: '1px solid rgba(37,99,235,0.4)',
+                                                color: available ? '#2563eb' : 'var(--text-muted)',
                                             }}>
-                                                {u.name.split(' ')[0]} {u.name.split(' ').slice(-1)[0]}
+                                                {name.split(' ')[0]} {name.split(' ').slice(-1)[0]}
                                                 {!available && ' · abwesend'}
-                                            </button>
+                                                <button type="button" onClick={() => removeAssignee(name)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, fontSize: '1rem', lineHeight: 1, opacity: 0.7 }}>×</button>
+                                            </span>
                                         );
                                     })}
-                                    {allTechs.length === 0 && <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Keine aktiven Mitarbeiter vorhanden.</span>}
+                                    {unassigned.length > 0 && (
+                                        <select value="" onChange={e => addAssignee(e.target.value)} style={{
+                                            fontSize: '0.78rem', borderRadius: 6, padding: '3px 8px', border: '1px dashed var(--border)',
+                                            background: 'var(--bg-secondary)', color: 'var(--text-muted)', cursor: 'pointer',
+                                        }}>
+                                            <option value="">+ Mitarbeiter</option>
+                                            {unassigned.map(u => <option key={u.name} value={u.name}>{u.name.split(' ')[0]} {u.name.split(' ').slice(-1)[0]}{u.availability.status !== AvailabilityStatus.Available ? ' (abwesend)' : ''}</option>)}
+                                        </select>
+                                    )}
+                                    {assignees.length === 0 && unassigned.length === 0 && <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Keine aktiven Mitarbeiter.</span>}
                                 </div>
                             </div>
                         </div>
