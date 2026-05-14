@@ -2259,8 +2259,9 @@ if (newTicketData.ticketType === 'reactive') {
           });
 
           if (movedCount > 0) {
+              const originalTickets = tickets;
               setTickets(ticketsToUpdate);
-              ticketsToUpdate.forEach((t) => saveTicketToFirebase(t));
+              ticketsToUpdate.forEach((t, i) => { if (t !== originalTickets[i]) saveTicketToFirebase(t); });
               alert(`ERFOLG: ${movedCount} Tickets von ${displayNameShort(user.name)} wurden automatisch auf ${availableTechnicians.length} verfügbare Kollegen verteilt.`);
           }
       }
@@ -2280,6 +2281,7 @@ if (newTicketData.ticketType === 'reactive') {
           return;
       }
 
+      const originalTickets = [...tickets];
       let ticketsToUpdate = [...tickets];
       let movedTotal = 0;
       let logMessages: string[] = [];
@@ -2372,7 +2374,7 @@ if (newTicketData.ticketType === 'reactive') {
 
       if (movedTotal > 0) {
           setTickets(ticketsToUpdate);
-          ticketsToUpdate.forEach((t) => saveTicketToFirebase(t));
+          ticketsToUpdate.forEach((t, i) => { if (t !== originalTickets[i]) saveTicketToFirebase(t); });
           alert(`Erfolg: ${movedTotal} Tickets wurden umverteilt.\n\nDetails:\n${logMessages.join('\n')}`);
       } else {
           alert(`Prüfung abgeschlossen. Keine Tickets mussten umverteilt werden.\n\nDetails:\n${logMessages.join('\n')}`);
