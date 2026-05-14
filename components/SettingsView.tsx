@@ -807,7 +807,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                                     })
                                                 }
                                             >
-                                                <option value={Role.Technician}>Service‑Team</option>
+                                                <option value={Role.Technician}>Haustechniker</option>
                                                 <option value={Role.Housekeeping}>Hauswirtschaft</option>
                                             </select>
                                         </div>
@@ -1341,17 +1341,21 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                         {matchedTechs.length > 0 && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', paddingLeft: '0.1rem' }}>
                                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Zuständig:</span>
-                                {matchedTechs.map(u => (
-                                    <span key={u.name} style={{
-                                        fontSize: '0.75rem', fontWeight: 500,
-                                        background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
-                                        borderRadius: 999, padding: '2px 10px',
-                                        color: u.availability.status === AvailabilityStatus.Available ? 'var(--text-primary)' : 'var(--text-muted)',
-                                    }}>
-                                        {u.name.split(' ')[0]} {u.name.split(' ').slice(-1)[0]}
-                                        {u.availability.status !== AvailabilityStatus.Available && ' (abwesend)'}
-                                    </span>
-                                ))}
+                                {matchedTechs.map(u => {
+                                    const available = u.availability.status === AvailabilityStatus.Available;
+                                    return (
+                                        <span key={u.name} style={{
+                                            fontSize: '0.75rem', fontWeight: 600,
+                                            background: available ? 'rgba(37,99,235,0.1)' : 'var(--bg-tertiary)',
+                                            border: `1px solid ${available ? 'rgba(37,99,235,0.3)' : 'var(--border)'}`,
+                                            borderRadius: 6, padding: '2px 10px',
+                                            color: available ? '#2563eb' : 'var(--text-muted)',
+                                        }}>
+                                            {u.name.split(' ')[0]} {u.name.split(' ').slice(-1)[0]}
+                                            {!available && ' · abwesend'}
+                                        </span>
+                                    );
+                                })}
                             </div>
                         )}
                         {rule.skill && matchedTechs.length === 0 && (
@@ -1372,7 +1376,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
     );
 
     const renderBenutzerTab = () => {
-        const roleLabel: Record<string, string> = { admin: 'Admin', techniker: 'Service-Team', hauswirtschaft: 'Hauswirtschaft' };
+        const roleLabel: Record<string, string> = { admin: 'Admin', techniker: 'Haustechniker', hauswirtschaft: 'Hauswirtschaft' };
         const roleColor: Record<string, string> = { admin: '#c0392b', techniker: '#2563eb', hauswirtschaft: '#059669' };
         const getInitials = (name: string) => name.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2);
         return (
@@ -1415,7 +1419,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
 
                                 {/* Rolle */}
                                 <span style={{
-                                    fontSize: '0.72rem', fontWeight: 600, padding: '2px 8px', borderRadius: 999,
+                                    fontSize: '0.72rem', fontWeight: 600, padding: '2px 8px', borderRadius: 6,
                                     background: color + '15', color, border: `1px solid ${color}30`,
                                     display: 'inline-block', width: 'fit-content',
                                 }}>{roleLabel[user.role] ?? user.role}</span>
@@ -1425,7 +1429,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                     {user.skills.filter(s => s !== 'all').length === 0
                                         ? <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>—</span>
                                         : user.skills.filter(s => s !== 'all').map(s => (
-                                            <span key={s} style={{ fontSize: '0.72rem', padding: '1px 7px', borderRadius: 4, background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>{s}</span>
+                                            <span key={s} style={{ fontSize: '0.72rem', fontWeight: 600, padding: '2px 8px', borderRadius: 6, background: 'rgba(37,99,235,0.08)', color: '#2563eb', border: '1px solid rgba(37,99,235,0.2)' }}>{s}</span>
                                         ))
                                     }
                                 </div>
