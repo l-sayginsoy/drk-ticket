@@ -2769,7 +2769,7 @@ if (newTicketData.ticketType === 'reactive') {
               rpHolidayYmdList={rpHolidayYmdList}
             />
           );
-        case 'erledigt': return <ErledigtTableView tickets={filteredTickets} onSelectTicket={setSelectedTicket} selectedTicket={selectedTicket} onDeleteTicket={handleDeleteTicket} />;
+        case 'erledigt': return <ErledigtTableView tickets={filteredTickets} onSelectTicket={setSelectedTicket} selectedTicket={selectedTicket} onDeleteTicket={handleDeleteTicket} userRole={currentUser?.role} />;
         case 'reports': {
           return <ReportsView activeTickets={tickets} completedTickets={completedTickets} users={users} />;
         }

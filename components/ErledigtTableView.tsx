@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Ticket, Priority } from '../types';
+import { Ticket, Priority, Role } from '../types';
 import { SortAscendingIcon } from './icons/SortAscendingIcon';
 import { SortDescendingIcon } from './icons/SortDescendingIcon';
 import { TrashIcon } from './icons/TrashIcon';
@@ -11,6 +11,7 @@ interface ErledigtTableViewProps {
   onSelectTicket: (ticket: Ticket) => void;
   selectedTicket: Ticket | null;
   onDeleteTicket: (ticketId: string) => void;
+  userRole?: Role | null;
 }
 
 type SortableKeys = keyof Ticket | 'entryDate' | 'dueDate' | 'completionDate';
@@ -42,7 +43,7 @@ const PriorityPill: React.FC<{ priority: Priority }> = ({ priority }) => {
 
 const technicianCell = (name: string) => (name === 'N/A' ? 'N/A' : displayNameShort(name));
 
-const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelectTicket, selectedTicket, onDeleteTicket }) => {
+const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelectTicket, selectedTicket, onDeleteTicket, userRole }) => {
   const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>({
     key: 'completionDate',
     direction: 'descending',
@@ -347,14 +348,16 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelect
                     </div>
                   </td>
                   <td className="actions-cell" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      type="button"
-                      className="btn-delete"
-                      title="Abgeschlossenen Auftrag löschen"
-                      onClick={(e) => handleDeleteClick(e, ticket)}
-                    >
-                      <TrashIcon />
-                    </button>
+                    {userRole === Role.Admin && (
+                      <button
+                        type="button"
+                        className="btn-delete"
+                        title="Abgeschlossenen Auftrag löschen"
+                        onClick={(e) => handleDeleteClick(e, ticket)}
+                      >
+                        <TrashIcon />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))
