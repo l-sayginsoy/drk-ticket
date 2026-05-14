@@ -7,7 +7,7 @@ import {
 } from './types';
 import { MOCK_TICKETS, MOCK_USERS, MOCK_LOCATIONS, STATUSES, DEFAULT_APP_SETTINGS, MOCK_ASSETS, MOCK_MAINTENANCE_PLANS } from './constants';
 import { db } from './firebase';
-import { collection, doc, setDoc, onSnapshot, getDocs } from 'firebase/firestore';
+import { collection, doc, setDoc, onSnapshot, getDocs, deleteDoc } from 'firebase/firestore';
 
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -704,6 +704,8 @@ const App: React.FC = () => {
   const [brevoMailOk, setBrevoMailOk] = useState<boolean | null>(null);
   const [brevoMailLastChecked, setBrevoMailLastChecked] = useState<Date | null>(null);
   const isRemoteUpdate = useRef(false);
+  const appDataReadyRef = useRef(false);
+  const ticketsSnapshotReadyRef = useRef(false);
   const prevUsersRef = useRef<User[]>(users);
 
   useEffect(() => {
@@ -776,19 +778,23 @@ const App: React.FC = () => {
 
   // --- Firebase Sync Logic ---
   useEffect(() => {
+    const tryMarkInitialized = () => {
+      if (appDataReadyRef.current && ticketsSnapshotReadyRef.current) {
+        setIsInitialized(true);
+      }
+    };
+
     const fetchData = async () => {
       setIsSyncing(true);
       try {
+        // Load non-ticket app data
         const querySnapshot = await getDocs(collection(db, 'app_data'));
         if (!querySnapshot.empty) {
           isRemoteUpdate.current = true;
-          querySnapshot.forEach((doc) => {
-            const key = doc.id;
-            const value = doc.data().value;
+          querySnapshot.forEach((d) => {
+            const key = d.id;
+            const value = d.data().value;
             switch (key) {
-              case LOCAL_STORAGE_KEY_TICKETS:
-                setTickets(asTicketArray(value));
-                break;
               case LOCAL_STORAGE_KEY_USERS:
                 setUsers(asUserArray(value));
                 break;
@@ -809,11 +815,30 @@ const App: React.FC = () => {
           setLastSyncTime(new Date());
           setTimeout(() => { isRemoteUpdate.current = false; }, 100);
         }
-        setIsInitialized(true);
+
+        // One-time migration: if tickets/ collection is empty, copy from old array doc
+        const ticketsCollSnap = await getDocs(collection(db, 'tickets'));
+        if (ticketsCollSnap.empty) {
+          const oldDoc = querySnapshot.docs.find((d) => d.id === LOCAL_STORAGE_KEY_TICKETS);
+          if (oldDoc) {
+            const oldTickets = asTicketArray(oldDoc.data().value);
+            if (oldTickets.length > 0) {
+              console.log(`Migrating ${oldTickets.length} tickets to tickets/ collection…`);
+              await Promise.all(
+                oldTickets.map((t) =>
+                  setDoc(doc(db, 'tickets', t.id), JSON.parse(JSON.stringify(t)))
+                )
+              );
+            }
+          }
+        }
+
+        appDataReadyRef.current = true;
+        tryMarkInitialized();
       } catch (err) {
         console.error('Error fetching from Firebase:', err);
-        // Even if it fails, we mark as initialized to allow local changes to sync
-        setIsInitialized(true);
+        appDataReadyRef.current = true;
+        tryMarkInitialized();
       } finally {
         setIsSyncing(false);
       }
@@ -821,32 +846,33 @@ const App: React.FC = () => {
 
     fetchData();
 
-    // Subscribe to realtime changes
-    const unsubscribe = onSnapshot(collection(db, 'app_data'), (snapshot) => {
+    // Real-time listener for non-ticket app data
+    const unsubscribeAppData = onSnapshot(collection(db, 'app_data'), (snapshot) => {
       isRemoteUpdate.current = true;
       let hasChanges = false;
       snapshot.docChanges().forEach((change) => {
         if (change.type === 'added' || change.type === 'modified') {
-          hasChanges = true;
           const key = change.doc.id;
           const value = change.doc.data().value;
           switch (key) {
-            case LOCAL_STORAGE_KEY_TICKETS:
-              setTickets(asTicketArray(value));
-              break;
             case LOCAL_STORAGE_KEY_USERS:
+              hasChanges = true;
               setUsers(asUserArray(value));
               break;
             case LOCAL_STORAGE_KEY_LOCATIONS:
+              hasChanges = true;
               setLocations(asLocationArray(value));
               break;
             case LOCAL_STORAGE_KEY_ASSETS:
+              hasChanges = true;
               setAssets(asAssetArray(value));
               break;
             case LOCAL_STORAGE_KEY_PLANS:
+              hasChanges = true;
               setMaintenancePlans(asPlanArray(value));
               break;
             case LOCAL_STORAGE_KEY_SETTINGS:
+              hasChanges = true;
               setAppSettings((prev) => mergeAppSettingsRemote(value, prev));
               break;
           }
@@ -859,11 +885,49 @@ const App: React.FC = () => {
         isRemoteUpdate.current = false;
       }
     }, (error) => {
-      console.error('Firebase onSnapshot error:', error);
+      console.error('Firebase app_data onSnapshot error:', error);
+    });
+
+    // Real-time listener for individual ticket documents
+    const unsubscribeTickets = onSnapshot(collection(db, 'tickets'), (snapshot) => {
+      isRemoteUpdate.current = true;
+      const changes = snapshot.docChanges();
+
+      if (!ticketsSnapshotReadyRef.current) {
+        // Initial snapshot: replace state with all tickets from Firestore
+        const allTickets = snapshot.docs.map((d) => normalizeTicket(d.data() as Ticket));
+        setTickets(allTickets);
+        ticketsSnapshotReadyRef.current = true;
+        tryMarkInitialized();
+      } else if (changes.length > 0) {
+        setTickets((prev) => {
+          let next = [...prev];
+          changes.forEach((change) => {
+            if (change.type === 'added' || change.type === 'modified') {
+              const ticket = normalizeTicket(change.doc.data() as Ticket);
+              const idx = next.findIndex((t) => t.id === ticket.id);
+              if (idx >= 0) next[idx] = ticket;
+              else next = [ticket, ...next];
+            } else if (change.type === 'removed') {
+              next = next.filter((t) => t.id !== change.doc.id);
+            }
+          });
+          return next;
+        });
+        setLastSyncTime(new Date());
+      }
+      setTimeout(() => { isRemoteUpdate.current = false; }, 100);
+    }, (error) => {
+      console.error('Firebase tickets onSnapshot error:', error);
+      if (!ticketsSnapshotReadyRef.current) {
+        ticketsSnapshotReadyRef.current = true;
+        tryMarkInitialized();
+      }
     });
 
     return () => {
-      unsubscribe();
+      unsubscribeAppData();
+      unsubscribeTickets();
     };
   }, []);
 
@@ -1100,6 +1164,7 @@ const App: React.FC = () => {
 
               if (updated) {
                   alert(`Erfolg: ${movedTotal} Tickets wurden automatisch umverteilt.`);
+                  ticketsToUpdate.forEach((t, i) => { if (t !== currentTickets[i]) saveTicketToFirebase(t); });
                   return ticketsToUpdate;
               }
               return currentTickets;
@@ -1187,6 +1252,7 @@ const App: React.FC = () => {
               if (ticketsUpdated) {
                   console.log(`RÜCKKEHR LOGIK: ${reassignedCount} Tickets neu zugewiesen.`);
                   alert(`Willkommen zurück! ${returningTechnicians.map((u) => displayNameShort(u.name)).join(', ')} ist wieder verfügbar. ${reassignedCount} offene Tickets wurden zur Lastverteilung automatisch zugewiesen.`);
+                  updatedTickets.forEach((t, i) => { if (t !== currentTickets[i]) saveTicketToFirebase(t); });
                   return updatedTickets;
               }
               return currentTickets;
@@ -1356,7 +1422,7 @@ const App: React.FC = () => {
 
     if (wasChanged) {
       setTickets(updatedTickets);
-      saveTicketsSafely(updatedTickets);
+      updatedTickets.forEach((t, i) => { if (t !== tickets[i]) saveTicketToFirebase(t); });
     }
   }, [tickets, isInitialized]);
 const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => {
@@ -1416,26 +1482,16 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
       routineDayCompletions: (prev.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd)),
     }));
   };
-const saveTicketsSafely = (nextTickets: Ticket[]) => {
-  localStorage.setItem(
-    LOCAL_STORAGE_KEY_TICKETS,
-    JSON.stringify(nextTickets)
-  );
+const saveTicketToFirebase = (ticket: Ticket) => {
+  void setDoc(doc(db, 'tickets', ticket.id), JSON.parse(JSON.stringify(ticket)))
+    .then(() => setLastSyncTime(new Date()))
+    .catch((err) => console.error('Fehler beim Speichern des Tickets:', err));
+};
 
-  void setDoc(
-    doc(db, 'app_data', LOCAL_STORAGE_KEY_TICKETS),
-    {
-      value: JSON.parse(JSON.stringify(nextTickets)),
-      updated_at: new Date().toISOString(),
-    }
-  )
-    .then(() => {
-      setLastSyncTime(new Date());
-      console.log('Tickets gespeichert');
-    })
-    .catch((err) => {
-      console.error('Fehler beim Speichern der Tickets:', err);
-    });
+const deleteTicketFromFirebase = (ticketId: string) => {
+  void deleteDoc(doc(db, 'tickets', ticketId))
+    .then(() => setLastSyncTime(new Date()))
+    .catch((err) => console.error('Fehler beim Löschen des Tickets:', err));
 };
   const commitTicketUpdate = (updatedTicket: Ticket, originalTicket: Ticket) => {
     const ut: Ticket = { ...updatedTicket };
@@ -1576,7 +1632,7 @@ const saveTicketsSafely = (nextTickets: Ticket[]) => {
 );
 
 setTickets(nextTickets);
-saveTicketsSafely(nextTickets);
+saveTicketToFirebase(ut);
 
     if (selectedTicket && selectedTicket.id === ut.id) {
       setSelectedTicket(ut);
@@ -1614,17 +1670,10 @@ saveTicketsSafely(nextTickets);
   };
 
   const handleDeleteTicket = (ticketId: string) => {
-  const nextTickets = tickets.filter(
-    (ticket) => ticket.id !== ticketId
-  );
-
-  setTickets(nextTickets);
-  saveTicketsSafely(nextTickets);
-
-  if (selectedTicket && selectedTicket.id === ticketId) {
-    setSelectedTicket(null);
-  }
-};
+    setTickets((prev) => prev.filter((t) => t.id !== ticketId));
+    deleteTicketFromFirebase(ticketId);
+    if (selectedTicket && selectedTicket.id === ticketId) setSelectedTicket(null);
+  };
 
   /** Nachhol-Bestätigungen (z. B. nach Brevo-Ausfall): gleiche Vorlage wie bei Meldung erfassen. */
   const handleResendConfirmationMailsForEntryDate = useCallback(async (entryDateDE: string) => {
@@ -1784,11 +1833,8 @@ if (newTicketData.ticketType === 'reactive') {
       delete (newTicket as Partial<Ticket>).reporter_email;
     }
 
-    setTickets(prevTickets => {
-  const updatedTickets = [newTicket, ...prevTickets];
-  saveTicketsSafely(updatedTickets);
-  return updatedTickets;
-});
+    setTickets((prevTickets) => [newTicket, ...prevTickets]);
+    saveTicketToFirebase(newTicket);
 
     if (reporterEmail) {
       sendDrkBrevoMail(reporterEmail, `Ihre Meldung wurde erfasst – Ticket ${newTicket.id}`, {
@@ -1834,6 +1880,7 @@ if (newTicketData.ticketType === 'reactive') {
       }
     }
 
+    const changed: Ticket[] = [];
     setTickets((prevTickets) =>
       prevTickets.map((ticket) => {
         if (selectedTicketIds.includes(ticket.id)) {
@@ -1843,17 +1890,20 @@ if (newTicketData.ticketType === 'reactive') {
             updatedTicket.completionDate = stamp.completionDate;
             updatedTicket.completionTime = stamp.completionTime;
           }
+          changed.push(updatedTicket);
           return updatedTicket;
         }
         return ticket;
       })
     );
+    changed.forEach((t) => saveTicketToFirebase(t));
     setSelectedTicketIds([]);
   };
 
   const handleBulkDelete = () => {
     if (window.confirm(`Sind Sie sicher, dass Sie ${selectedTicketIds.length} Tickets endgültig löschen möchten? Dieser Vorgang kann nicht rückgängig gemacht werden.`)) {
-      setTickets(prev => prev.filter(ticket => !selectedTicketIds.includes(ticket.id)));
+      selectedTicketIds.forEach((id) => deleteTicketFromFirebase(id));
+      setTickets((prev) => prev.filter((t) => !selectedTicketIds.includes(t.id)));
       setSelectedTicketIds([]);
     }
   };
@@ -2210,6 +2260,7 @@ if (newTicketData.ticketType === 'reactive') {
 
           if (movedCount > 0) {
               setTickets(ticketsToUpdate);
+              ticketsToUpdate.forEach((t) => saveTicketToFirebase(t));
               alert(`ERFOLG: ${movedCount} Tickets von ${displayNameShort(user.name)} wurden automatisch auf ${availableTechnicians.length} verfügbare Kollegen verteilt.`);
           }
       }
@@ -2321,6 +2372,7 @@ if (newTicketData.ticketType === 'reactive') {
 
       if (movedTotal > 0) {
           setTickets(ticketsToUpdate);
+          ticketsToUpdate.forEach((t) => saveTicketToFirebase(t));
           alert(`Erfolg: ${movedTotal} Tickets wurden umverteilt.\n\nDetails:\n${logMessages.join('\n')}`);
       } else {
           alert(`Prüfung abgeschlossen. Keine Tickets mussten umverteilt werden.\n\nDetails:\n${logMessages.join('\n')}`);
