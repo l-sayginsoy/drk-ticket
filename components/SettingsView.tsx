@@ -1311,8 +1311,13 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                         Wenn ein Betreff oder eine Beschreibung eines der Keywords enthält, wird das Ticket automatisch dem passenden Skill zugewiesen.
                         Keywords einzeln eingeben und mit <strong>Enter</strong> bestätigen.
                     </p>
-                    {appSettings.routingRules.map(rule => (
-                        <div key={rule.id} style={{ display: 'grid', gridTemplateColumns: '1fr 180px 140px auto', gap: '0.75rem', alignItems: 'start' }}>
+                    {appSettings.routingRules.map(rule => {
+                        const matchedTechs = rule.skill
+                            ? users.filter(u => u.isActive && (u.role === Role.Technician || u.role === Role.Housekeeping) && u.skills.includes(rule.skill))
+                            : [];
+                        return (
+                        <div key={rule.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px 140px auto', gap: '0.75rem', alignItems: 'start' }}>
                             <div>
                                 <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.3rem', fontWeight: 500 }}>Keywords</div>
                                 <KeywordTagInput
@@ -1333,7 +1338,30 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                             </div>
                             <button onClick={() => handleDeleteSetting('routingRules', rule.id)} className="btn btn-danger-sm" style={{ marginTop: '1.4rem' }}><TrashIcon /></button>
                         </div>
-                    ))}
+                        {matchedTechs.length > 0 && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', paddingLeft: '0.1rem' }}>
+                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Zuständig:</span>
+                                {matchedTechs.map(u => (
+                                    <span key={u.name} style={{
+                                        fontSize: '0.75rem', fontWeight: 500,
+                                        background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
+                                        borderRadius: 999, padding: '2px 10px',
+                                        color: u.availability.status === AvailabilityStatus.Available ? 'var(--text-primary)' : 'var(--text-muted)',
+                                    }}>
+                                        {u.name.split(' ')[0]} {u.name.split(' ').slice(-1)[0]}
+                                        {u.availability.status !== AvailabilityStatus.Available && ' (abwesend)'}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                        {rule.skill && matchedTechs.length === 0 && (
+                            <div style={{ fontSize: '0.72rem', color: 'var(--accent-danger)', paddingLeft: '0.1rem' }}>
+                                Kein aktiver Mitarbeiter mit Skill „{rule.skill}" gefunden.
+                            </div>
+                        )}
+                        </div>
+                        );
+                    })}
                     <button onClick={() => handleAddSetting<RoutingRule>('routingRules', { keyword: '', skill: '' })} className="btn btn-secondary btn-full-width"><PlusIcon /> Neue Routing-Regel hinzufügen</button>
                     <datalist id="skills-datalist">
                         {allSkills.map(s => <option key={s} value={s} />)}
