@@ -1687,7 +1687,7 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
     const ymd = localISODate(new Date());
     setAppSettings((prev) => {
       const rest = (prev.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd));
-      return {
+      const next = {
         ...prev,
         routineDayCompletions: [
           ...rest,
@@ -1699,15 +1699,21 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
           },
         ],
       };
+      void setDoc(doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS), { value: JSON.parse(JSON.stringify(next)), updated_at: new Date().toISOString() });
+      return next;
     });
   };
 
   const handleRoutineDayUncomplete = (scheduleId: string) => {
     const ymd = localISODate(new Date());
-    setAppSettings((prev) => ({
-      ...prev,
-      routineDayCompletions: (prev.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd)),
-    }));
+    setAppSettings((prev) => {
+      const next = {
+        ...prev,
+        routineDayCompletions: (prev.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd)),
+      };
+      void setDoc(doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS), { value: JSON.parse(JSON.stringify(next)), updated_at: new Date().toISOString() });
+      return next;
+    });
   };
 const persistDeletedIds = () => {
   localStorage.setItem(
