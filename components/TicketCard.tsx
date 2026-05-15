@@ -14,6 +14,7 @@ interface TicketCardProps {
   onUpdateTicket: (ticket: Ticket) => void;
   onSelectTicket: (ticket: Ticket) => void;
   selectedTicket: Ticket | null;
+  badgeNumber?: number;
 }
 
 const ExclamationTriangleIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
@@ -68,6 +69,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
     onUpdateTicket,
     onSelectTicket,
     selectedTicket,
+    badgeNumber,
 }) => {
     const technicians = techniciansProp ?? [];
 
@@ -181,6 +183,39 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 
                 .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.5rem; }
                 .card-title { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem; flex-grow: 1;}
+                .unassigned-badge {
+                    position: absolute;
+                    top: -8px;
+                    right: -8px;
+                    width: 22px;
+                    height: 22px;
+                    border-radius: 50%;
+                    background: #dc3545;
+                    color: #fff;
+                    font-size: 11px;
+                    font-weight: 700;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border: 2px solid var(--bg-secondary);
+                    line-height: 1;
+                    pointer-events: none;
+                    z-index: 2;
+                }
+                .auto-chip {
+                    display: inline-flex;
+                    align-items: center;
+                    padding: 1px 6px;
+                    border-radius: 4px;
+                    font-size: 10px;
+                    font-weight: 700;
+                    background: rgba(13, 110, 253, 0.1);
+                    color: #0d6efd;
+                    border: 1px solid rgba(13, 110, 253, 0.25);
+                    margin-left: 5px;
+                    vertical-align: middle;
+                    letter-spacing: 0.02em;
+                }
                 .card-location { font-size: 0.9rem; color: var(--text-secondary); font-weight: 500; }
                 .card-location span { font-weight: normal; color: var(--text-muted); }
                 .card-meta { font-size: 0.9rem; color: var(--text-secondary); font-weight: 500; margin-bottom: 1rem; }
@@ -239,6 +274,9 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .custom-dropdown.priority-low:hover { filter: none; background-color: rgba(25, 135, 84, 0.14); border-color: rgba(25, 135, 84, 0.4); color: var(--accent-success); }
             `}</style>
             
+            {badgeNumber !== undefined && (
+                <div className="unassigned-badge" title="Wartet auf Zuweisung">{badgeNumber}</div>
+            )}
             <div className="card-header">
                 <h3 className="card-title">{ticket.title}</h3>
                 <div className="card-icons">
@@ -287,6 +325,9 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     <div className="custom-dropdown">
                         <span>
                             {ticket.technician === 'N/A' ? 'Zuweisen' : displayNameShort(ticket.technician)}
+                            {ticket.autoAssigned && ticket.technician !== 'N/A' && (
+                                <span className="auto-chip">Auto</span>
+                            )}
                         </span>{' '}
                         <ChevronDownIcon />
                         <select value={ticket.technician} onChange={handleTechnicianSelectChange}>

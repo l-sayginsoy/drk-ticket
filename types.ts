@@ -192,6 +192,7 @@ export interface Ticket {
   hasNewNoteFromReporter?: boolean;
   is_emergency?: boolean;
   is_reopened?: boolean;
+  autoAssigned?: boolean;
   costs?: {
     laborHours: number;
     materials: number;

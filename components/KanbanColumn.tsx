@@ -12,6 +12,7 @@ interface KanbanColumnProps {
   onSelectTicket: (ticket: Ticket) => void;
   selectedTicket: Ticket | null;
   panelEmbed?: boolean;
+  badgeNumbers?: Record<string, number>;
 }
 
 const EmptyStateIcon: React.FC<{ kind: 'ok' | 'idle' }> = ({ kind }) => {
@@ -54,6 +55,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
   onSelectTicket,
   selectedTicket,
   panelEmbed = false,
+  badgeNumbers,
 }) => {
   const technicians = techniciansProp ?? [];
     const [isDragOver, setIsDragOver] = useState(false);
@@ -216,6 +218,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
                             onUpdateTicket={onUpdateTicket}
                             onSelectTicket={onSelectTicket}
                             selectedTicket={selectedTicket}
+                            badgeNumber={badgeNumbers?.[ticket.id]}
                         />
                     ))
                 )}

@@ -2044,6 +2044,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
 
     // 2. Load-Balancing Technician Assignment
     let assignedTechnician = newTicketData.technician || 'N/A';
+    let wasAutoAssigned = false;
 
 if (newTicketData.ticketType === 'reactive') {
   assignedTechnician = newTicketData.technician || 'N/A';
@@ -2054,6 +2055,7 @@ if (newTicketData.ticketType === 'reactive') {
     tickets,
     appSettings.routingRules
   );
+  if (assignedTechnician !== 'N/A') wasAutoAssigned = true;
 }
     let autoCorrectionNote = '';
 
@@ -2133,6 +2135,7 @@ if (newTicketData.ticketType === 'reactive') {
       notes: autoCorrectionNote ? [...(newTicketData.notes || []), autoCorrectionNote] : (newTicketData.notes || []),
       hasNewNoteFromReporter: false,
       is_emergency: false,
+      autoAssigned: wasAutoAssigned,
     };
     if (reporterEmail) {
       newTicket.reporter_email = reporterEmail;

@@ -11,12 +11,8 @@ interface KanbanBoardProps {
   panelEmbed?: boolean;
 }
 
-const getTicketSortPriority = (ticket: Ticket): number => {
-    if (ticket.is_emergency) return 0; // Highest priority
-    if (ticket.status === Status.Ueberfaellig) return 1; // Second highest
-    return 2; // Normal
-};
-
+const parseGermanDate = (d: string) => d.split('.').reverse().join('-'); // DD.MM.YYYY → YYYY-MM-DD
+const isUnassigned = (t: Ticket) => !t.technician || t.technician === 'N/A';
 
 const KanbanBoard: React.FC<KanbanBoardProps> = ({
   tickets,
@@ -41,20 +37,30 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   };
 
   const getTicketsForColumn = (status: Status) => {
-    return tickets
-      .filter(ticket => ticket.status === status && ticket.status !== Status.Abgeschlossen)
-      .sort((a, b) => {
-          const priorityA = getTicketSortPriority(a);
-          const priorityB = getTicketSortPriority(b);
-          if (priorityA !== priorityB) {
-              return priorityA - priorityB;
-          }
-          // Optional: secondary sort by due date
-          const dateA = a.dueDate.split('.').reverse().join('-');
-          const dateB = b.dueDate.split('.').reverse().join('-');
-          return dateA.localeCompare(dateB);
+    const col = tickets.filter(t => t.status === status && t.status !== Status.Abgeschlossen);
+    if (status === Status.Offen) {
+      return col.sort((a, b) => {
+        if (a.is_emergency && !b.is_emergency) return -1;
+        if (!a.is_emergency && b.is_emergency) return 1;
+        const aU = isUnassigned(a), bU = isUnassigned(b);
+        if (aU && !bU) return -1;
+        if (!aU && bU) return 1;
+        return parseGermanDate(b.entryDate).localeCompare(parseGermanDate(a.entryDate));
       });
+    }
+    return col.sort((a, b) => {
+      if (a.is_emergency && !b.is_emergency) return -1;
+      if (!a.is_emergency && b.is_emergency) return 1;
+      const dateA = a.dueDate.split('.').reverse().join('-');
+      const dateB = b.dueDate.split('.').reverse().join('-');
+      return dateA.localeCompare(dateB);
+    });
   };
+
+  const unassignedBadgeNumbers: Record<string, number> = {};
+  getTicketsForColumn(Status.Offen)
+    .filter(t => isUnassigned(t) && !t.is_emergency)
+    .forEach((t, i) => { unassignedBadgeNumbers[t.id] = i + 1; });
 
   return (
     <div className={`kanban-board-container${panelEmbed ? ' kanban-board-container--embed' : ''}`}>
@@ -105,6 +111,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
             onSelectTicket={onSelectTicket}
             selectedTicket={selectedTicket}
             panelEmbed={panelEmbed}
+            badgeNumbers={column.status === Status.Offen ? unassignedBadgeNumbers : undefined}
           />
         ))}
       </div>
