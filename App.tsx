@@ -233,10 +233,10 @@ const portalOpenButtonRowHtml = (ticketId: string) => {
   const href = portalDeepLink(ticketId);
   return `<tr><td align="left" style="padding:0;">
 <!--[if mso]>
-<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="left"><tr>
-<td bgcolor="${DRK_RED}" style="padding:14px 26px;mso-padding-alt:14px 26px;">
-<a href="${href}" style="color:#ffffff;text-decoration:none;font-size:15px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;display:inline-block;mso-line-height-rule:exactly;line-height:1.2;">Ticket im Portal &#246;ffnen</a>
-</td></tr></table>
+<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="${href}" style="height:48px;v-text-anchor:middle;width:230px;" arcsize="20%" stroke="f" fillcolor="${DRK_RED}">
+<w:anchorlock/>
+<center style="color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;">Ticket im Portal &#246;ffnen</center>
+</v:roundrect>
 <![endif]-->
 <!--[if !mso]><!-->
 <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="left" style="border-collapse:separate;">
@@ -293,7 +293,7 @@ const drkEmailShellHtml = (
 <!--<![endif]-->
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>
 <td style="vertical-align:middle;text-align:left;padding:0;">
-<img src="${DRK_LOGO_EMAIL_SRC}" alt="DRK Logo" width="200" style="display:block;margin:0;max-height:72px;max-width:360px;width:auto;height:auto;border:0;">
+<!--[if mso]><img src="${DRK_LOGO_EMAIL_SRC}" alt="DRK Logo" width="160" style="display:block;border:0;"><![endif]--><!--[if !mso]><!--><img src="${DRK_LOGO_EMAIL_SRC}" alt="DRK Logo" style="display:block;margin:0;max-height:72px;max-width:360px;width:auto;height:auto;border:0;"><!--<![endif]-->
 </td>
 </tr></table>
 </td></tr>
