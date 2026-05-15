@@ -252,7 +252,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .custom-dropdown.priority-high { background-color: rgba(220, 53, 69, 0.1); color: #c82333; border-color: rgba(220, 53, 69, 0.3); font-weight: 600; }
                 .custom-dropdown.priority-medium { background-color: rgba(255, 193, 7, 0.1); color: #d97706; border-color: rgba(255, 193, 7, 0.3); font-weight: 600; }
                 .custom-dropdown.priority-low { background-color: rgba(25, 135, 84, 0.1); color: var(--accent-success); border-color: rgba(25, 135, 84, 0.3); font-weight: 600; }
-                .custom-dropdown span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                .custom-dropdown > span:not(.auto-chip) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
                 .custom-dropdown select { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
                 .custom-dropdown svg { width: 14px; height: 14px; flex-shrink: 0; }
                 .details-btn { cursor: pointer; }
@@ -321,11 +321,11 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     <div className="custom-dropdown">
                         <span>
                             {ticket.technician === 'N/A' ? 'Zuweisen' : displayNameShort(ticket.technician)}
-                            {ticket.autoAssigned && ticket.technician !== 'N/A' && (
-                                <span className="auto-chip">Auto</span>
-                            )}
-                        </span>{' '}
-                        <ChevronDownIcon />
+                        </span>
+                        {ticket.autoAssigned && ticket.technician !== 'N/A' && (
+                            <span className="auto-chip">Auto</span>
+                        )}
+                        {' '}<ChevronDownIcon />
                         <select value={ticket.technician} onChange={handleTechnicianSelectChange}>
                              {technicianOptions.map((opt) => {
                                  if (opt === 'N/A') {
