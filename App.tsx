@@ -1685,35 +1685,26 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
   const handleRoutineDayComplete = (scheduleId: string) => {
     if (!currentUser) return;
     const ymd = localISODate(new Date());
-    setAppSettings((prev) => {
-      const rest = (prev.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd));
-      const next = {
-        ...prev,
-        routineDayCompletions: [
-          ...rest,
-          {
-            scheduleId,
-            date: ymd,
-            completedBy: currentUser.name,
-            completedAt: new Date().toISOString(),
-          },
-        ],
-      };
-      void setDoc(doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS), { value: JSON.parse(JSON.stringify(next)), updated_at: new Date().toISOString() });
-      return next;
-    });
+    const rest = (appSettings.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd));
+    const next: AppSettings = {
+      ...appSettings,
+      routineDayCompletions: [
+        ...rest,
+        { scheduleId, date: ymd, completedBy: currentUser.name, completedAt: new Date().toISOString() },
+      ],
+    };
+    setAppSettings(next);
+    void setDoc(doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS), { value: JSON.parse(JSON.stringify(next)), updated_at: new Date().toISOString() });
   };
 
   const handleRoutineDayUncomplete = (scheduleId: string) => {
     const ymd = localISODate(new Date());
-    setAppSettings((prev) => {
-      const next = {
-        ...prev,
-        routineDayCompletions: (prev.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd)),
-      };
-      void setDoc(doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS), { value: JSON.parse(JSON.stringify(next)), updated_at: new Date().toISOString() });
-      return next;
-    });
+    const next: AppSettings = {
+      ...appSettings,
+      routineDayCompletions: (appSettings.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd)),
+    };
+    setAppSettings(next);
+    void setDoc(doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS), { value: JSON.parse(JSON.stringify(next)), updated_at: new Date().toISOString() });
   };
 const persistDeletedIds = () => {
   localStorage.setItem(
