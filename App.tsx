@@ -270,7 +270,7 @@ const drkEmailShellHtml = (
 <table role="presentation" align="center" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.06);">
 <tr><td bgcolor="${DRK_RED}" style="background:${DRK_RED};padding:0;height:6px;line-height:6px;font-size:1px;">&nbsp;</td></tr>
 <tr><td bgcolor="#ffffff" style="background:#ffffff;padding:18px 22px;">
-<img src="${DRK_LOGO_EMAIL_SRC}" alt="DRK Logo" width="200" style="display:block;width:200px;max-width:100%;height:auto;border:0;">
+<img src="${DRK_LOGO_EMAIL_SRC}" alt="DRK Logo" width="240" style="display:block;width:240px;max-width:100%;height:auto;border:0;">
 </td></tr>
 <tr><td bgcolor="${DRK_RED}" style="background:${DRK_RED};padding:22px 22px 26px;">
 <p style="margin:0;font-size:24px;font-weight:bold;color:#ffffff;line-height:1.25;font-family:Arial,Helvetica,sans-serif;mso-line-height-rule:exactly;">${escapeHtml(bannerTitle)}</p>
@@ -322,17 +322,12 @@ ${portalOpenButtonWrappedHtml(p.ticketId, '18px 0 0')}`;
     const inner = `
 <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#333;font-family:Arial,Helvetica,sans-serif;"><strong>Ticketnummer: ${escapeHtml(p.ticketId)}</strong></p>
 <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#333;font-family:Arial,Helvetica,sans-serif;">Es gibt eine <strong>Neuigkeit</strong> zu Ihrer Meldung:</p>
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 18px;"><tr>
-<!--[if mso]>
-<td bgcolor="#faf7f2" style="border-left:4px solid ${DRK_RED};padding:16px 18px;">
-<![endif]-->
-<!--[if !mso]><!-->
-<td style="background:#faf7f2;border-left:4px solid ${DRK_RED};border-radius:0 10px 10px 0;padding:16px 18px;">
-<!--<![endif]-->
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px;">
+<tr><td bgcolor="#faf7f2" style="background:#faf7f2;border-left:4px solid ${DRK_RED};padding:16px 18px;">
 <p style="margin:0;font-size:15px;line-height:1.55;color:#222;white-space:pre-wrap;font-family:Arial,Helvetica,sans-serif;">${escapeHtml(p.noteText)}</p>
 </td></tr></table>
-<p style="margin:0;font-size:14px;line-height:1.55;color:#444;font-family:Arial,Helvetica,sans-serif;">Details und R&#252;ckmeldung erreichen Sie &#252;ber den Button &#8211; Ihre Ticketnummer ist im Link bereits hinterlegt.</p>
-${portalOpenButtonWrappedHtml(p.ticketId, '18px 0 0')}`;
+<p style="margin:0 0 20px;font-size:14px;line-height:1.55;color:#444;font-family:Arial,Helvetica,sans-serif;">Details und R&#252;ckmeldung erreichen Sie &#252;ber den Button &#8211; Ihre Ticketnummer ist im Link bereits hinterlegt.</p>
+${portalOpenButtonWrappedHtml(p.ticketId, '0')}`;
     return drkEmailShellHtml(title, inner, p.ticketId, '');
   }
   if (p.kind === 'admin_new_ticket') {
