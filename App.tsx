@@ -2082,6 +2082,7 @@ if (newTicketData.ticketType === 'reactive') {
             tickets,
             appSettings.routingRules
         );
+        if (assignedTechnician !== 'N/A') wasAutoAssigned = true;
     }
 
     // 3. Fälligkeit: reaktiv — mit Wunschtermin = Wunschdatum; sonst Kalender „Eingang + 5 Tage“ (z. B. 11.05. → 16.05.)
