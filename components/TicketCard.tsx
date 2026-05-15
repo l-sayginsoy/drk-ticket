@@ -198,19 +198,19 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     line-height: 1;
                     flex-shrink: 0;
                 }
-                .auto-chip {
+                .auto-badge {
                     display: inline-flex;
                     align-items: center;
-                    padding: 1px 6px;
-                    border-radius: 4px;
-                    font-size: 10px;
+                    justify-content: center;
+                    width: 20px;
+                    height: 20px;
+                    border-radius: 50%;
+                    background: #0d6efd;
+                    color: #fff;
+                    font-size: 11px;
                     font-weight: 700;
-                    background: rgba(13, 110, 253, 0.1);
-                    color: #0d6efd;
-                    border: 1px solid rgba(13, 110, 253, 0.25);
-                    margin-left: 5px;
-                    vertical-align: middle;
-                    letter-spacing: 0.02em;
+                    line-height: 1;
+                    flex-shrink: 0;
                 }
                 .card-location { font-size: 0.9rem; color: var(--text-secondary); font-weight: 500; }
                 .card-location span { font-weight: normal; color: var(--text-muted); }
@@ -276,6 +276,9 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     {badgeNumber !== undefined && (
                         <span className="unassigned-badge" title="Wartet auf Zuweisung">{badgeNumber}</span>
                     )}
+                    {ticket.autoAssigned && ticket.technician !== 'N/A' && badgeNumber === undefined && (
+                        <span className="auto-badge" title="Automatisch zugewiesen">A</span>
+                    )}
                     {ticket.is_reopened && (
                         <span title="Ticket wurde vom Melder wiedereröffnet" style={{
                             display: 'inline-flex', alignItems: 'center', gap: '3px',
@@ -321,11 +324,8 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     <div className="custom-dropdown">
                         <span>
                             {ticket.technician === 'N/A' ? 'Zuweisen' : displayNameShort(ticket.technician)}
-                        </span>
-                        {ticket.autoAssigned && ticket.technician !== 'N/A' && (
-                            <span className="auto-chip">Auto</span>
-                        )}
-                        {' '}<ChevronDownIcon />
+                        </span>{' '}
+                        <ChevronDownIcon />
                         <select value={ticket.technician} onChange={handleTechnicianSelectChange}>
                              {technicianOptions.map((opt) => {
                                  if (opt === 'N/A') {
