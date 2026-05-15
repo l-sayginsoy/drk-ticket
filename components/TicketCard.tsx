@@ -184,23 +184,19 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.5rem; }
                 .card-title { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem; flex-grow: 1;}
                 .unassigned-badge {
-                    position: absolute;
-                    top: -8px;
-                    right: -8px;
-                    width: 22px;
-                    height: 22px;
-                    border-radius: 50%;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-width: 20px;
+                    height: 20px;
+                    padding: 0 5px;
+                    border-radius: 10px;
                     background: #dc3545;
                     color: #fff;
                     font-size: 11px;
                     font-weight: 700;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    border: 2px solid var(--bg-secondary);
                     line-height: 1;
-                    pointer-events: none;
-                    z-index: 2;
+                    flex-shrink: 0;
                 }
                 .auto-chip {
                     display: inline-flex;
@@ -274,12 +270,12 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .custom-dropdown.priority-low:hover { filter: none; background-color: rgba(25, 135, 84, 0.14); border-color: rgba(25, 135, 84, 0.4); color: var(--accent-success); }
             `}</style>
             
-            {badgeNumber !== undefined && (
-                <div className="unassigned-badge" title="Wartet auf Zuweisung">{badgeNumber}</div>
-            )}
             <div className="card-header">
                 <h3 className="card-title">{ticket.title}</h3>
                 <div className="card-icons">
+                    {badgeNumber !== undefined && (
+                        <span className="unassigned-badge" title="Wartet auf Zuweisung">{badgeNumber}</span>
+                    )}
                     {ticket.is_reopened && (
                         <span title="Ticket wurde vom Melder wiedereröffnet" style={{
                             display: 'inline-flex', alignItems: 'center', gap: '3px',
