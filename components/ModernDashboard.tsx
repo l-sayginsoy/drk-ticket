@@ -422,7 +422,9 @@ const ModernDashboard: React.FC<ModernDashboardProps> = ({
             </div>
             <div style={{ position: 'relative', zIndex: 10 }}>
               <h1 className="hero-title">{appName}</h1>
-              <p className="hero-subtitle">{subtitle}</p>
+              <p className="hero-subtitle" style={maintenanceEnabled ? { color: '#ff9900', fontWeight: 600 } : undefined}>
+                {maintenanceEnabled ? maintenanceMessage : subtitle}
+              </p>
             </div>
           </div>
 
@@ -485,7 +487,9 @@ const ModernDashboard: React.FC<ModernDashboardProps> = ({
           <div className="hero">
             <div className="hero-content">
               <h1>{appName}</h1>
-              <p>{subtitle}</p>
+              <p style={maintenanceEnabled ? { color: '#ff9900', fontWeight: 600 } : undefined}>
+                {maintenanceEnabled ? maintenanceMessage : subtitle}
+              </p>
             </div>
             <div className="hero-halftone">
               <svg width="100%" height="100%">
