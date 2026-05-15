@@ -91,6 +91,14 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelect
           const dateB = dateBStr.split('.').reverse().join('-');
           if (dateA < dateB) return sortConfig.direction === 'ascending' ? -1 : 1;
           if (dateA > dateB) return sortConfig.direction === 'ascending' ? 1 : -1;
+
+          // Gleiches Datum → Uhrzeit als Tiebreaker
+          if (sortConfig.key === 'completionDate') {
+            const timeA = a.completionTime || '00:00';
+            const timeB = b.completionTime || '00:00';
+            if (timeA < timeB) return sortConfig.direction === 'ascending' ? -1 : 1;
+            if (timeA > timeB) return sortConfig.direction === 'ascending' ? 1 : -1;
+          }
           return 0;
         }
 
