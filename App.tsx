@@ -1467,41 +1467,29 @@ const App: React.FC = () => {
               const avgLoad = activeTechs.length > 0 ? totalActiveTickets / activeTechs.length : 0;
 
               openTickets.forEach(ticket => {
-                  // 1. Versuche Standard-Routing-Regeln (Stärken)
-                  let bestTech = assignTicket(
-                      { title: ticket.title, description: ticket.description },
-                      users,
-                      updatedTickets, 
-                      appSettings.routingRules
-                  );
+                  // Unzugewiesene Tickets werden NIE automatisch vergeben — nur manuelle Zuweisung erlaubt.
+                  if (!ticket.technician || ticket.technician === 'N/A') return;
 
-                  // 2. Wenn keine Regel passt ODER der Rückkehrer unter der Durchschnittslast liegt, 
-                  // forcieren wir die Zuweisung an den Rückkehrer um das Team zu entlasten.
-                  if (!returningTechnicians.some(rt => rt.name === bestTech)) {
-                      const eligibleReturnees = [...returningTechnicians].sort((a, b) => getLoad(a.name, updatedTickets) - getLoad(b.name, updatedTickets));
-                      if (eligibleReturnees.length > 0) {
-                          const candidate = eligibleReturnees[0];
-                          const candidateLoad = getLoad(candidate.name, updatedTickets);
-                          
-                          // Wenn der Rückkehrer noch Kapazität unter dem Durchschnitt hat, bekommt er das Ticket
-                          if (candidateLoad < avgLoad || ticket.technician === 'N/A') {
-                              bestTech = candidate.name;
-                          }
-                      }
-                  }
+                  // Nur Tickets eines abwesenden Technikers können an den Rückkehrer übergehen.
+                  const isAssignedToAbsentee = !returningTechnicians.some(rt => rt.name === ticket.technician) &&
+                      users.find(u => u.name === ticket.technician)?.availability?.status !== AvailabilityStatus.Available;
+                  if (!isAssignedToAbsentee) return;
 
-                  // 3. Zuweisung anwenden
-                  if (bestTech !== 'N/A' && returningTechnicians.some(rt => rt.name === bestTech) && ticket.technician !== bestTech) {
-                      const ticketIndex = updatedTickets.findIndex(t => t.id === ticket.id);
-                      if (ticketIndex !== -1) {
-                          updatedTickets[ticketIndex] = { 
-                              ...updatedTickets[ticketIndex], 
-                              technician: bestTech,
-                              notes: [...(updatedTickets[ticketIndex].notes || []), `AUTO-ZUWIESUNG: An Rückkehrer ${bestTech} zur Lastverteilung zugewiesen.`]
-                          };
-                          ticketsUpdated = true;
-                          reassignedCount++;
-                      }
+                  // Rückkehrer mit geringster Last als Ziel wählen, aber nur wenn er unter dem Durchschnitt liegt.
+                  const eligibleReturnees = [...returningTechnicians].sort((a, b) => getLoad(a.name, updatedTickets) - getLoad(b.name, updatedTickets));
+                  if (eligibleReturnees.length === 0) return;
+                  const candidate = eligibleReturnees[0];
+                  if (getLoad(candidate.name, updatedTickets) >= avgLoad) return;
+
+                  const ticketIndex = updatedTickets.findIndex(t => t.id === ticket.id);
+                  if (ticketIndex !== -1) {
+                      updatedTickets[ticketIndex] = {
+                          ...updatedTickets[ticketIndex],
+                          technician: candidate.name,
+                          notes: [...(updatedTickets[ticketIndex].notes || []), `AUTO-UMVERTEILUNG: Von ${ticket.technician} an ${candidate.name} (Rückkehr-Lastverteilung).`]
+                      };
+                      ticketsUpdated = true;
+                      reassignedCount++;
                   }
               });
 
