@@ -290,11 +290,13 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     {badgeNumber !== undefined && (
                         <span className="unassigned-badge" title="Wartet auf Zuweisung">{badgeNumber}</span>
                     )}
-                    {ticket.technician !== 'N/A' && badgeNumber === undefined && ticket.status === Status.Offen && (
-                        ticket.autoAssigned === true
+                    {ticket.technician !== 'N/A' && badgeNumber === undefined && ticket.status === Status.Offen && (() => {
+                        const isAuto = ticket.autoAssigned === true ||
+                            (ticket.ticketType === 'reactive' && ticket.autoAssigned !== false);
+                        return isAuto
                             ? <span className="auto-badge" title="Automatisch zugewiesen">A</span>
-                            : <span className="assigned-badge" title="Zugeteilt">✓</span>
-                    )}
+                            : <span className="assigned-badge" title="Manuell zugeteilt">✓</span>;
+                    })()}
                     {ticket.is_reopened && (
                         <span title="Ticket wurde vom Melder wiedereröffnet" style={{
                             display: 'inline-flex', alignItems: 'center', gap: '3px',

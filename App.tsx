@@ -1810,6 +1810,11 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     const ut: Ticket = { ...updatedTicket };
     const statusChanged = originalTicket.status !== ut.status;
 
+    // Manuelle Technikerzuweisung löscht Auto-Flag
+    if (ut.technician !== originalTicket.technician) {
+      ut.autoAssigned = false;
+    }
+
     // --- Prevent assignment to absent technicians ---
     if (ut.technician !== 'N/A' && (ut.technician !== originalTicket.technician || originalTicket.technician === 'N/A')) {
       const techUser = users.find((u) => u.name === ut.technician);
