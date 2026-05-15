@@ -233,8 +233,8 @@ const portalOpenButtonRowHtml = (ticketId: string) => {
   const href = portalDeepLink(ticketId);
   return `<tr><td align="left" style="padding:0;">
 <table role="presentation" cellspacing="0" cellpadding="0" border="0">
-<tr><td bgcolor="${DRK_RED}" style="background:${DRK_RED};border-radius:8px;mso-padding-alt:0;">
-<a href="${href}" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;mso-line-height-rule:exactly;line-height:1.2;">Ticket im Portal &#246;ffnen</a>
+<tr><td bgcolor="${DRK_RED}" style="background:${DRK_RED};border-radius:8px;padding:16px 36px;">
+<a href="${href}" style="display:block;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;white-space:nowrap;mso-line-height-rule:exactly;line-height:1.2;">Ticket im Portal &#246;ffnen</a>
 </td></tr>
 </table>
 </td></tr>`;
@@ -270,7 +270,7 @@ const drkEmailShellHtml = (
 <table role="presentation" align="center" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.06);">
 <tr><td bgcolor="${DRK_RED}" style="background:${DRK_RED};padding:0;height:6px;line-height:6px;font-size:1px;">&nbsp;</td></tr>
 <tr><td bgcolor="#ffffff" style="background:#ffffff;padding:18px 22px;">
-<img src="${DRK_LOGO_EMAIL_SRC}" alt="DRK Logo" width="240" style="display:block;width:240px;max-width:100%;height:auto;border:0;">
+<img src="${DRK_LOGO_EMAIL_SRC}" alt="DRK Logo" width="300" style="display:block;width:300px;max-width:100%;height:auto;border:0;">
 </td></tr>
 <tr><td bgcolor="${DRK_RED}" style="background:${DRK_RED};padding:22px 22px 26px;">
 <p style="margin:0;font-size:24px;font-weight:bold;color:#ffffff;line-height:1.25;font-family:Arial,Helvetica,sans-serif;mso-line-height-rule:exactly;">${escapeHtml(bannerTitle)}</p>
@@ -293,8 +293,8 @@ const buildDrkBrevoHtml = (p: DrkBrevoMailPayload) => {
     const inner = `
 <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#333;"><strong>Ticketnummer: ${escapeHtml(p.ticketId)}</strong></p>
 <p style="margin:0 0 16px;font-size:15px;line-height:1.55;color:#333;">Ihre Meldung ist bei uns eingegangen und befindet sich nun in der Bearbeitung.</p>
-${portalOpenButtonWrappedHtml(p.ticketId, '0 0 18px')}
-<p style="margin:0;font-size:14px;line-height:1.55;color:#444;">Mit diesem Button öffnen Sie das Meldeportal. Ihre Ticketnummer ist im Link bereits enthalten – Sie müssen sie <strong>nicht erneut eingeben</strong>.</p>`;
+${portalOpenButtonWrappedHtml(p.ticketId, '0 0 4px')}
+<p style="margin:18px 0 0;font-size:14px;line-height:1.55;color:#444;font-family:Arial,Helvetica,sans-serif;">Mit diesem Button öffnen Sie das Meldeportal. Ihre Ticketnummer ist im Link bereits enthalten – Sie müssen sie <strong>nicht erneut eingeben</strong>.</p>`;
     return drkEmailShellHtml(title, inner, p.ticketId, '');
   }
   if (p.kind === 'ticket_in_progress') {
