@@ -228,22 +228,15 @@ const buildDrkBrevoPlainText = (p: DrkBrevoMailPayload) => {
 const portalDeepLink = (ticketId: string) =>
   `${DRK_TICKET_PORTAL_URL}/?ticket=${encodeURIComponent(ticketId)}`;
 
-/** CTA-Button — Outlook-Windows-kompatibel via MSO Conditional Comments. */
+/** CTA-Button — bgcolor-Attribut für Outlook, background-CSS für moderne Clients. */
 const portalOpenButtonRowHtml = (ticketId: string) => {
   const href = portalDeepLink(ticketId);
   return `<tr><td align="left" style="padding:0;">
-<!--[if mso]>
 <table role="presentation" cellspacing="0" cellpadding="0" border="0">
-<tr><td bgcolor="${DRK_RED}" style="padding:0;">
+<tr><td bgcolor="${DRK_RED}" style="background:${DRK_RED};border-radius:8px;mso-padding-alt:0;">
 <a href="${href}" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;mso-line-height-rule:exactly;line-height:1.2;">Ticket im Portal &#246;ffnen</a>
-</td></tr></table>
-<![endif]-->
-<!--[if !mso]><!-->
-<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="left" style="border-collapse:separate;">
-<tr><td style="border-radius:10px;background:${DRK_RED};">
-<a href="${href}" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:700;color:#fff!important;text-decoration:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">Ticket im Portal &#246;ffnen</a>
-</td></tr></table>
-<!--<![endif]-->
+</td></tr>
+</table>
 </td></tr>`;
 };
 
@@ -271,64 +264,26 @@ const drkEmailShellHtml = (
 <!--[if mso]><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]-->
 <title>${escapeHtml(bannerTitle)}</title>
 </head>
-<!-- drk-facility-dashboard-mail:v4 outlook-compatible -->
 <body style="margin:0;padding:0;background:${DRK_PAGE_BG};font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:${DRK_PAGE_BG};">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="${DRK_PAGE_BG}" style="background:${DRK_PAGE_BG};">
 <tr><td align="center" style="padding:24px 12px;">
-
-<!--[if mso]>
-<table role="presentation" align="center" cellspacing="0" cellpadding="0" border="0" width="600" style="background:#ffffff;">
-<![endif]-->
-<!--[if !mso]><!-->
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.06);">
-<!--<![endif]-->
-
-<!--[if mso]>
-<tr><td bgcolor="${DRK_RED}" style="padding:0;height:20px;line-height:20px;font-size:1px;">&nbsp;</td></tr>
-<tr><td bgcolor="#ffffff" style="padding:18px 20px;">
-<![endif]-->
-<!--[if !mso]><!-->
-<tr><td style="background:${DRK_RED};padding:0;height:20px;line-height:20px;font-size:1px;">&nbsp;</td></tr>
-<tr><td style="padding:18px 20px;background:#ffffff;">
-<!--<![endif]-->
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>
-<td style="vertical-align:middle;text-align:left;padding:0;">
-<!--[if mso]><img src="${DRK_LOGO_EMAIL_SRC}" alt="DRK Logo" width="220" style="display:block;border:0;"><![endif]--><!--[if !mso]><!--><img src="${DRK_LOGO_EMAIL_SRC}" alt="DRK Logo" style="display:block;margin:0;max-height:72px;max-width:360px;width:auto;height:auto;border:0;"><!--<![endif]-->
-</td>
-</tr></table>
+<table role="presentation" align="center" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.06);">
+<tr><td bgcolor="${DRK_RED}" style="background:${DRK_RED};padding:0;height:6px;line-height:6px;font-size:1px;">&nbsp;</td></tr>
+<tr><td bgcolor="#ffffff" style="background:#ffffff;padding:18px 22px;">
+<img src="${DRK_LOGO_EMAIL_SRC}" alt="DRK Logo" width="200" style="display:block;width:200px;max-width:100%;height:auto;border:0;">
 </td></tr>
-
-<!--[if mso]>
-<tr><td bgcolor="#9d0a0e" style="padding:22px 22px 26px;">
-<p style="margin:0;font-size:26px;font-weight:bold;color:#ffffff;line-height:1.25;font-family:Arial,Helvetica,sans-serif;mso-line-height-rule:exactly;">${escapeHtml(bannerTitle)}</p>
+<tr><td bgcolor="${DRK_RED}" style="background:${DRK_RED};padding:22px 22px 26px;">
+<p style="margin:0;font-size:24px;font-weight:bold;color:#ffffff;line-height:1.25;font-family:Arial,Helvetica,sans-serif;mso-line-height-rule:exactly;">${escapeHtml(bannerTitle)}</p>
 </td></tr>
-<![endif]-->
-<!--[if !mso]><!-->
-<tr><td style="background-color:#9d0a0e;background-image:linear-gradient(to top right,#9d0a0e 0%,#9d0a0e 26%,rgba(157,10,14,0.35) 44%,rgba(157,10,14,0) 62%),radial-gradient(circle,rgba(255,255,255,.14) 1px,transparent 1.6px);background-size:100% 100%,14px 14px;padding:22px 22px 26px;min-height:92px;">
-<p style="margin:0;font-size:26px;font-weight:700;color:#ffffff;line-height:1.25;">${escapeHtml(bannerTitle)}</p>
-</td></tr>
-<!--<![endif]-->
-
 <tr><td style="padding:24px 22px 22px;font-family:Arial,Helvetica,sans-serif;">${innerBodyHtml}</td></tr>
 ${
   footerCtaHtml === ''
     ? ''
-    : `<tr><td style="padding:18px 22px 40px;background:#fafafa;border-top:1px solid #eeeeee;font-family:Arial,Helvetica,sans-serif;">${footerCtaHtml ?? portalCtaHtml(ticketId)}</td></tr>`
+    : `<tr><td bgcolor="#fafafa" style="padding:18px 22px 40px;background:#fafafa;border-top:1px solid #eeeeee;font-family:Arial,Helvetica,sans-serif;">${footerCtaHtml ?? portalCtaHtml(ticketId)}</td></tr>`
 }
 </table>
-
-<!--[if mso]>
-<table role="presentation" align="center" cellspacing="0" cellpadding="0" border="0" width="600"><tr>
-<td align="center" style="padding:14px 0 0;font-size:12px;color:#888888;font-family:Arial,Helvetica,sans-serif;line-height:1.45;">Automatische Nachricht &middot; bitte nicht auf diese E-Mail antworten</td>
-</tr><tr>
-<td align="center" style="padding:10px 0 0;font-size:13px;font-weight:bold;color:#666666;font-family:Arial,Helvetica,sans-serif;line-height:1.3;">DRK Serviceportal</td>
-</tr></table>
-<![endif]-->
-<!--[if !mso]><!-->
-<p style="max-width:600px;margin:14px auto 0;font-size:12px;color:#888;text-align:center;line-height:1.45;">Automatische Nachricht &middot; bitte nicht auf diese E-Mail antworten</p>
-<p style="max-width:600px;margin:10px auto 0;font-size:13px;font-weight:600;color:#666;text-align:center;line-height:1.3;">DRK Serviceportal</p>
-<!--<![endif]-->
-
+<p style="margin:14px auto 0;font-size:12px;color:#888888;text-align:center;line-height:1.45;font-family:Arial,Helvetica,sans-serif;">Automatische Nachricht &middot; bitte nicht auf diese E-Mail antworten</p>
+<p style="margin:8px auto 0;font-size:13px;font-weight:bold;color:#666666;text-align:center;line-height:1.3;font-family:Arial,Helvetica,sans-serif;">DRK Serviceportal</p>
 </td></tr></table>
 </body></html>`;
 
