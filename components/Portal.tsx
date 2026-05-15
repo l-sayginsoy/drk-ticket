@@ -181,7 +181,7 @@ const NewTicketForm: React.FC<{
             reporter: formState.reporter, reporter_email: formState.reporter_email, dueDate: '', // Will be auto-calculated
             technician: 'N/A',
             description: formState.description,
-            categoryId: appSettings.ticketCategories[0]?.id || '',
+            categoryId: '',
             wunschTermin: formattedWunschTermin, photos: formState.photos, notes: [],
         });
 
