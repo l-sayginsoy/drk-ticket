@@ -212,6 +212,20 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     line-height: 1;
                     flex-shrink: 0;
                 }
+                .assigned-badge {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 20px;
+                    height: 20px;
+                    border-radius: 50%;
+                    background: #198754;
+                    color: #fff;
+                    font-size: 13px;
+                    font-weight: 700;
+                    line-height: 1;
+                    flex-shrink: 0;
+                }
                 .card-location { font-size: 0.9rem; color: var(--text-secondary); font-weight: 500; }
                 .card-location span { font-weight: normal; color: var(--text-muted); }
                 .card-meta { font-size: 0.9rem; color: var(--text-secondary); font-weight: 500; margin-bottom: 1rem; }
@@ -276,10 +290,10 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     {badgeNumber !== undefined && (
                         <span className="unassigned-badge" title="Wartet auf Zuweisung">{badgeNumber}</span>
                     )}
-                    {ticket.technician !== 'N/A' && badgeNumber === undefined &&
-                     ticket.status === Status.Offen &&
-                     (ticket.autoAssigned === true || (ticket.ticketType === 'reactive' && ticket.autoAssigned !== false)) && (
-                        <span className="auto-badge" title="Automatisch zugewiesen">A</span>
+                    {ticket.technician !== 'N/A' && badgeNumber === undefined && ticket.status === Status.Offen && (
+                        ticket.autoAssigned === true
+                            ? <span className="auto-badge" title="Automatisch zugewiesen">A</span>
+                            : <span className="assigned-badge" title="Zugeteilt">✓</span>
                     )}
                     {ticket.is_reopened && (
                         <span title="Ticket wurde vom Melder wiedereröffnet" style={{
