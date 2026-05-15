@@ -233,15 +233,15 @@ const portalOpenButtonRowHtml = (ticketId: string) => {
   const href = portalDeepLink(ticketId);
   return `<tr><td align="left" style="padding:0;">
 <!--[if mso]>
-<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="${href}" style="height:48px;v-text-anchor:middle;width:230px;" arcsize="20%" stroke="f" fillcolor="${DRK_RED}">
-<w:anchorlock/>
-<center style="color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;">Ticket im Portal &#246;ffnen</center>
-</v:roundrect>
+<table role="presentation" cellspacing="0" cellpadding="0" border="0">
+<tr><td bgcolor="${DRK_RED}" style="padding:0;">
+<a href="${href}" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;mso-line-height-rule:exactly;line-height:1.2;">Ticket im Portal &#246;ffnen</a>
+</td></tr></table>
 <![endif]-->
 <!--[if !mso]><!-->
 <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="left" style="border-collapse:separate;">
 <tr><td style="border-radius:10px;background:${DRK_RED};">
-<a href="${href}" style="display:inline-block;padding:14px 26px;font-size:15px;font-weight:700;color:#fff!important;text-decoration:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">Ticket im Portal &#246;ffnen</a>
+<a href="${href}" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:700;color:#fff!important;text-decoration:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">Ticket im Portal &#246;ffnen</a>
 </td></tr></table>
 <!--<![endif]-->
 </td></tr>`;
@@ -293,7 +293,7 @@ const drkEmailShellHtml = (
 <!--<![endif]-->
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>
 <td style="vertical-align:middle;text-align:left;padding:0;">
-<!--[if mso]><img src="${DRK_LOGO_EMAIL_SRC}" alt="DRK Logo" width="160" style="display:block;border:0;"><![endif]--><!--[if !mso]><!--><img src="${DRK_LOGO_EMAIL_SRC}" alt="DRK Logo" style="display:block;margin:0;max-height:72px;max-width:360px;width:auto;height:auto;border:0;"><!--<![endif]-->
+<!--[if mso]><img src="${DRK_LOGO_EMAIL_SRC}" alt="DRK Logo" width="220" style="display:block;border:0;"><![endif]--><!--[if !mso]><!--><img src="${DRK_LOGO_EMAIL_SRC}" alt="DRK Logo" style="display:block;margin:0;max-height:72px;max-width:360px;width:auto;height:auto;border:0;"><!--<![endif]-->
 </td>
 </tr></table>
 </td></tr>
