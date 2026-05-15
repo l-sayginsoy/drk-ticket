@@ -228,24 +228,32 @@ const buildDrkBrevoPlainText = (p: DrkBrevoMailPayload) => {
 const portalDeepLink = (ticketId: string) =>
   `${DRK_TICKET_PORTAL_URL}/?ticket=${encodeURIComponent(ticketId)}`;
 
-/** Eine Tabellenzeile: CTA-Button (für Zusammensetzen mit äußerem margin). */
+/** CTA-Button — Outlook-Windows-kompatibel via MSO Conditional Comments. */
 const portalOpenButtonRowHtml = (ticketId: string) => {
   const href = portalDeepLink(ticketId);
   return `<tr><td align="left" style="padding:0;">
-<table role="presentation" cellspacing="0" cellpadding="0" align="left" style="border-collapse:separate;">
-<tr><td style="border-radius:10px;background:${DRK_RED};">
-<a href="${href}" style="display:inline-block;padding:14px 26px;font-size:15px;font-weight:700;color:#fff!important;text-decoration:none;">Ticket im Portal öffnen</a>
+<!--[if mso]>
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="left"><tr>
+<td bgcolor="${DRK_RED}" style="padding:14px 26px;mso-padding-alt:14px 26px;">
+<a href="${href}" style="color:#ffffff;text-decoration:none;font-size:15px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;display:inline-block;mso-line-height-rule:exactly;line-height:1.2;">Ticket im Portal &#246;ffnen</a>
 </td></tr></table>
+<![endif]-->
+<!--[if !mso]><!-->
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="left" style="border-collapse:separate;">
+<tr><td style="border-radius:10px;background:${DRK_RED};">
+<a href="${href}" style="display:inline-block;padding:14px 26px;font-size:15px;font-weight:700;color:#fff!important;text-decoration:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">Ticket im Portal &#246;ffnen</a>
+</td></tr></table>
+<!--<![endif]-->
 </td></tr>`;
 };
 
 const portalOpenButtonWrappedHtml = (ticketId: string, tableMargin: string) => `
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:${tableMargin};">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:${tableMargin};">
 ${portalOpenButtonRowHtml(ticketId)}
 </table>`;
 
 const portalCtaHtml = (ticketId: string) => `
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:8px 0 0;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:8px 0 0;">
 ${portalOpenButtonRowHtml(ticketId)}
 </table>`;
 
@@ -255,33 +263,72 @@ const drkEmailShellHtml = (
   ticketId: string,
   footerCtaHtml?: string,
 ) => `<!DOCTYPE html>
-<html lang="de">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(bannerTitle)}</title></head>
-<!-- drk-facility-dashboard-mail:v3 (Banner 1:1 wie public/email-vorschau.html) -->
-<body style="margin:0;padding:0;background:${DRK_PAGE_BG};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${DRK_PAGE_BG};padding:24px 12px;">
-<tr><td align="center">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:580px;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.06);">
+<html lang="de" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<!--[if mso]><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]-->
+<title>${escapeHtml(bannerTitle)}</title>
+</head>
+<!-- drk-facility-dashboard-mail:v4 outlook-compatible -->
+<body style="margin:0;padding:0;background:${DRK_PAGE_BG};font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:${DRK_PAGE_BG};">
+<tr><td align="center" style="padding:24px 12px;">
+
+<!--[if mso]>
+<table role="presentation" align="center" cellspacing="0" cellpadding="0" border="0" width="600" style="background:#ffffff;">
+<![endif]-->
+<!--[if !mso]><!-->
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.06);">
+<!--<![endif]-->
+
+<!--[if mso]>
+<tr><td bgcolor="${DRK_RED}" style="padding:0;height:20px;line-height:20px;font-size:1px;">&nbsp;</td></tr>
+<tr><td bgcolor="#ffffff" style="padding:18px 20px;">
+<![endif]-->
+<!--[if !mso]><!-->
 <tr><td style="background:${DRK_RED};padding:0;height:20px;line-height:20px;font-size:1px;">&nbsp;</td></tr>
 <tr><td style="padding:18px 20px;background:#ffffff;">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>
+<!--<![endif]-->
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>
 <td style="vertical-align:middle;text-align:left;padding:0;">
-<img src="${DRK_LOGO_EMAIL_SRC}" alt="DRK Logo" style="display:block;margin:0;max-height:72px;max-width:360px;width:auto;height:auto;border:0;">
+<img src="${DRK_LOGO_EMAIL_SRC}" alt="DRK Logo" width="200" style="display:block;margin:0;max-height:72px;max-width:360px;width:auto;height:auto;border:0;">
 </td>
 </tr></table>
 </td></tr>
+
+<!--[if mso]>
+<tr><td bgcolor="#9d0a0e" style="padding:22px 22px 26px;">
+<p style="margin:0;font-size:26px;font-weight:bold;color:#ffffff;line-height:1.25;font-family:Arial,Helvetica,sans-serif;mso-line-height-rule:exactly;">${escapeHtml(bannerTitle)}</p>
+</td></tr>
+<![endif]-->
+<!--[if !mso]><!-->
 <tr><td style="background-color:#9d0a0e;background-image:linear-gradient(to top right,#9d0a0e 0%,#9d0a0e 26%,rgba(157,10,14,0.35) 44%,rgba(157,10,14,0) 62%),radial-gradient(circle,rgba(255,255,255,.14) 1px,transparent 1.6px);background-size:100% 100%,14px 14px;padding:22px 22px 26px;min-height:92px;">
 <p style="margin:0;font-size:26px;font-weight:700;color:#ffffff;line-height:1.25;">${escapeHtml(bannerTitle)}</p>
 </td></tr>
-<tr><td style="padding:24px 22px 22px;">${innerBodyHtml}</td></tr>
+<!--<![endif]-->
+
+<tr><td style="padding:24px 22px 22px;font-family:Arial,Helvetica,sans-serif;">${innerBodyHtml}</td></tr>
 ${
   footerCtaHtml === ''
     ? ''
-    : `<tr><td style="padding:18px 22px 40px;background:#fafafa;border-top:1px solid #eee;">${footerCtaHtml ?? portalCtaHtml(ticketId)}</td></tr>`
+    : `<tr><td style="padding:18px 22px 40px;background:#fafafa;border-top:1px solid #eeeeee;font-family:Arial,Helvetica,sans-serif;">${footerCtaHtml ?? portalCtaHtml(ticketId)}</td></tr>`
 }
 </table>
-<p style="max-width:580px;margin:14px auto 0;font-size:12px;color:#888;text-align:center;line-height:1.45;">Automatische Nachricht · bitte nicht auf diese E-Mail antworten</p>
-<p style="max-width:580px;margin:10px auto 0;font-size:13px;font-weight:600;color:#666;text-align:center;line-height:1.3;">DRK Serviceportal</p>
+
+<!--[if mso]>
+<table role="presentation" align="center" cellspacing="0" cellpadding="0" border="0" width="600"><tr>
+<td align="center" style="padding:14px 0 0;font-size:12px;color:#888888;font-family:Arial,Helvetica,sans-serif;line-height:1.45;">Automatische Nachricht &middot; bitte nicht auf diese E-Mail antworten</td>
+</tr><tr>
+<td align="center" style="padding:10px 0 0;font-size:13px;font-weight:bold;color:#666666;font-family:Arial,Helvetica,sans-serif;line-height:1.3;">DRK Serviceportal</td>
+</tr></table>
+<![endif]-->
+<!--[if !mso]><!-->
+<p style="max-width:600px;margin:14px auto 0;font-size:12px;color:#888;text-align:center;line-height:1.45;">Automatische Nachricht &middot; bitte nicht auf diese E-Mail antworten</p>
+<p style="max-width:600px;margin:10px auto 0;font-size:13px;font-weight:600;color:#666;text-align:center;line-height:1.3;">DRK Serviceportal</p>
+<!--<![endif]-->
+
 </td></tr></table>
 </body></html>`;
 
@@ -318,12 +365,18 @@ ${portalOpenButtonWrappedHtml(p.ticketId, '18px 0 0')}`;
   }
   if (p.kind === 'staff_note') {
     const inner = `
-<p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#333;"><strong>Ticketnummer: ${escapeHtml(p.ticketId)}</strong></p>
-<p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#333;">Es gibt eine <strong>Neuigkeit</strong> zu Ihrer Meldung:</p>
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 18px;"><tr><td style="background:#faf7f2;border-left:4px solid ${DRK_RED};border-radius:0 10px 10px 0;padding:16px 18px;">
-<p style="margin:0;font-size:15px;line-height:1.55;color:#222;white-space:pre-wrap;">${escapeHtml(p.noteText)}</p>
+<p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#333;font-family:Arial,Helvetica,sans-serif;"><strong>Ticketnummer: ${escapeHtml(p.ticketId)}</strong></p>
+<p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#333;font-family:Arial,Helvetica,sans-serif;">Es gibt eine <strong>Neuigkeit</strong> zu Ihrer Meldung:</p>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 18px;"><tr>
+<!--[if mso]>
+<td bgcolor="#faf7f2" style="border-left:4px solid ${DRK_RED};padding:16px 18px;">
+<![endif]-->
+<!--[if !mso]><!-->
+<td style="background:#faf7f2;border-left:4px solid ${DRK_RED};border-radius:0 10px 10px 0;padding:16px 18px;">
+<!--<![endif]-->
+<p style="margin:0;font-size:15px;line-height:1.55;color:#222;white-space:pre-wrap;font-family:Arial,Helvetica,sans-serif;">${escapeHtml(p.noteText)}</p>
 </td></tr></table>
-<p style="margin:0;font-size:14px;line-height:1.55;color:#444;">Details und Rückmeldung erreichen Sie über den Button – Ihre Ticketnummer ist im Link bereits hinterlegt.</p>
+<p style="margin:0;font-size:14px;line-height:1.55;color:#444;font-family:Arial,Helvetica,sans-serif;">Details und R&#252;ckmeldung erreichen Sie &#252;ber den Button &#8211; Ihre Ticketnummer ist im Link bereits hinterlegt.</p>
 ${portalOpenButtonWrappedHtml(p.ticketId, '18px 0 0')}`;
     return drkEmailShellHtml(title, inner, p.ticketId, '');
   }
