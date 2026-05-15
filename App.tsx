@@ -2021,13 +2021,12 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     const isReactive = newTicketData.ticketType === 'reactive';
 
     // Kategorie automatisch aus Stichwörtern erkennen wenn keine angegeben
-    const fallbackCategoryId = appSettings.ticketCategories[0]?.id || '';
     const resolvedCategoryId = newTicketData.categoryId
       ? newTicketData.categoryId
       : inferCategoryFromText(
           `${newTicketData.title || ''} ${newTicketData.description || ''}`,
           appSettings.routingRules,
-          fallbackCategoryId
+          '' // kein Fallback auf erste Kategorie — lieber keine Kategorie als falsche Prio
         );
 
     const category = appSettings.ticketCategories.find(c => c.id === resolvedCategoryId);
