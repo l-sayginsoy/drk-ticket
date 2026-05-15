@@ -243,12 +243,10 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
             line-height: 1.2;
           }
           .routine-chip-past {
-            opacity: 0.55;
-            color: var(--text-muted) !important;
-            text-decoration: line-through;
-            font-weight: 600;
-            border-color: var(--border) !important;
-            background: var(--bg-secondary) !important;
+            color: ${ROUTINE_TEAL.dark} !important;
+            border-color: ${ROUTINE_TEAL.border} !important;
+            background: ${ROUTINE_TEAL.bg} !important;
+            font-weight: 700;
           }
           .routine-current {
             display: inline;

@@ -2036,10 +2036,10 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     const matchedRoutingRule = appSettings.routingRules.find(r =>
       r.keyword.split(',').some(kw => kw.trim() && fullText.includes(kw.trim().toLowerCase()))
     );
-    const routingPriority = matchedRoutingRule?.priority ?? null;
+    const routingPriority = matchedRoutingRule?.priority || null;
 
     const determinedPriority = isReactive
-      ? (routingPriority ?? category?.default_priority ?? Priority.Niedrig)
+      ? (routingPriority || category?.default_priority || Priority.Niedrig)
       : (newTicketData.priority || category?.default_priority || appSettings.defaultPriority);
 
     // 2. Load-Balancing Technician Assignment
