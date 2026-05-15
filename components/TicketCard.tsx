@@ -183,7 +183,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .card-title { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem; flex-grow: 1;}
                 .card-location { font-size: 0.9rem; color: var(--text-secondary); font-weight: 500; }
                 .card-location span { font-weight: normal; color: var(--text-muted); }
-                .card-meta { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem; }
+                .card-meta { font-size: 0.9rem; color: var(--text-secondary); font-weight: 500; margin-bottom: 1rem; }
                 
                 .card-icons { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; flex-shrink: 0; }
                 .urgent-icon { color: var(--accent-danger); }
