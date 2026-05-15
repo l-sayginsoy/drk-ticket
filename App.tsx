@@ -543,18 +543,21 @@ const assignTicket = (
         rule.keyword.toLowerCase().split(',').some(kw => fullText.includes(kw.trim()))
     );
 
+    const availableUsers = users.filter(u =>
+        (u.role === Role.Technician || u.role === Role.Housekeeping) &&
+        u.isActive &&
+        u.availability.status === AvailabilityStatus.Available
+    );
+
     if (matchedRule) {
-        // Kandidaten: direkt zugeordnete Mitarbeiter (assignees) oder Fallback über Skill
-        const pool = users.filter(u =>
-            (u.role === Role.Technician || u.role === Role.Housekeeping) &&
-            u.isActive &&
-            u.availability.status === AvailabilityStatus.Available &&
-            (
-                (matchedRule.assignees && matchedRule.assignees.length > 0)
-                    ? matchedRule.assignees.includes(u.name)
-                    : matchedRule.skill ? u.skills.includes(matchedRule.skill) : false
-            )
+        // Kandidaten: direkt zugeordnete Mitarbeiter (assignees), dann Fallback auf alle verfügbaren
+        let pool = availableUsers.filter(u =>
+            matchedRule.assignees && matchedRule.assignees.length > 0
+                ? matchedRule.assignees.includes(u.name)
+                : false
         );
+        // Fallback: wenn keine Assignees konfiguriert, alle verfügbaren Techniker nehmen
+        if (pool.length === 0) pool = availableUsers;
 
         if (pool.length > 0) {
             const withLoad = pool.map(tech => ({
@@ -564,6 +567,14 @@ const assignTicket = (
             withLoad.sort((a, b) => a.load - b.load);
             assignedTechnician = withLoad[0].name;
         }
+    } else if (availableUsers.length > 0) {
+        // Kein Keyword-Match: trotzdem dem Techniker mit der geringsten Last zuweisen
+        const withLoad = availableUsers.map(u => ({
+            ...u,
+            load: tickets.filter(t => t.technician === u.name && t.status !== Status.Abgeschlossen).length
+        }));
+        withLoad.sort((a, b) => a.load - b.load);
+        assignedTechnician = withLoad[0].name;
     }
     return assignedTechnician;
 };
