@@ -364,10 +364,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     </div>
                     <div className="pill-cell">
                         <div className="pill-lbl">Fällig bis</div>
-                        <div
-                            className={`pill pill-due${dueDateUrgency !== 'normal' ? ` ${dueDateUrgency}` : ''}`}
-                            onClick={e => { e.stopPropagation(); dateInputRef.current?.showPicker?.(); }}
-                        >
+                        <div className={`pill pill-due${dueDateUrgency !== 'normal' ? ` ${dueDateUrgency}` : ''}`}>
                             <i className="ti ti-calendar-due" aria-hidden="true" />
                             <span>{ticket.dueDate.slice(0,5)}.</span>
                             <input
@@ -375,7 +372,6 @@ const TicketCard: React.FC<TicketCardProps> = ({
                                 type="date"
                                 value={toInputDate(ticket.dueDate)}
                                 onChange={handleDueDateChange}
-                                style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
                             />
                         </div>
                     </div>
