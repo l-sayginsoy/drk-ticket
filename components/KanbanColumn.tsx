@@ -60,16 +60,23 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
   const technicians = techniciansProp ?? [];
   const [dragOverSlot, setDragOverSlot] = useState<{ ticketId: string; position: 'before' | 'after' } | null>(null);
   const [isDragOverColumn, setIsDragOverColumn] = useState(false);
+  const [scrollThumb, setScrollThumb] = useState<{ visible: boolean; top: number }>({ visible: false, top: 0 });
 
   const columnBodyRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = columnBodyRef.current;
     if (!el) return;
+    const THUMB_H = 88;
     let timer: ReturnType<typeof setTimeout>;
     const onScroll = () => {
-      el.classList.add('is-scrolling');
+      const { scrollTop, scrollHeight, clientHeight } = el;
+      const maxScroll = scrollHeight - clientHeight;
+      if (maxScroll <= 0) return;
+      const ratio = scrollTop / maxScroll;
+      const top = Math.max(0, Math.min(clientHeight - THUMB_H, ratio * (clientHeight - THUMB_H)));
+      setScrollThumb({ visible: true, top });
       clearTimeout(timer);
-      timer = setTimeout(() => el.classList.remove('is-scrolling'), 800);
+      timer = setTimeout(() => setScrollThumb(s => ({ ...s, visible: false })), 900);
     };
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => { el.removeEventListener('scroll', onScroll); clearTimeout(timer); };
@@ -211,24 +218,37 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
                   background: transparent;
                   color: var(--accent-danger);
               }
+              .column-body-wrap {
+                  position: relative;
+                  height: calc(100vh - 250px);
+                  overflow: hidden;
+              }
               .column-body {
                   padding-top: 1rem;
-                  height: calc(100vh - 250px);
+                  height: 100%;
                   overflow-y: auto;
+                  scrollbar-width: none;
               }
-               .column-body::-webkit-scrollbar { width: 4px; }
-               .column-body::-webkit-scrollbar-track { background: transparent; }
-               .column-body::-webkit-scrollbar-thumb { background: transparent; border-radius: 4px; transition: background 0.8s ease; }
-               .column-body.is-scrolling::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.18); transition: background 0s; }
-               .column-body::-webkit-scrollbar-thumb:active { background: rgba(0,0,0,0.28); }
-               [data-theme="dark"] .column-body.is-scrolling::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
-
-               @media (max-width: 768px) {
-                  .column-body {
-                      height: auto;
-                      overflow-y: visible;
-                  }
-               }
+              .column-body::-webkit-scrollbar { display: none; }
+              .scroll-thumb {
+                  position: absolute;
+                  right: 2px;
+                  top: 0;
+                  width: 3px;
+                  height: 88px;
+                  border-radius: 4px;
+                  background: rgba(0,0,0,0.16);
+                  pointer-events: none;
+                  transition: opacity 1s ease, transform 0.08s linear;
+              }
+              [data-theme="dark"] .scroll-thumb {
+                  background: rgba(255,255,255,0.18);
+              }
+              @media (max-width: 768px) {
+                  .column-body-wrap { height: auto; overflow: visible; }
+                  .column-body { height: auto; overflow-y: visible; }
+                  .scroll-thumb { display: none; }
+              }
 
               .empty-state {
                   border: 2px dashed var(--border);
@@ -270,36 +290,45 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
               <h2 className="column-title">{title}</h2>
               <span className={`column-count count-${statusKey}`}>{tickets.length}</span>
           </div>
-          <div className="column-body" ref={columnBodyRef}>
-              {tickets.length === 0 ? (
-                  <div className="empty-state">
-                      <div className="empty-icon">
-                          <EmptyStateIcon kind={emptyCopyForStatus(status).kind} />
+          <div className="column-body-wrap">
+              <div className="column-body" ref={columnBodyRef}>
+                  {tickets.length === 0 ? (
+                      <div className="empty-state">
+                          <div className="empty-icon">
+                              <EmptyStateIcon kind={emptyCopyForStatus(status).kind} />
+                          </div>
+                          <div className="empty-text">{emptyCopyForStatus(status).text}</div>
                       </div>
-                      <div className="empty-text">{emptyCopyForStatus(status).text}</div>
-                  </div>
-              ) : (
-                  tickets.map((ticket, idx) => (
-                      <div
-                          key={ticket.id}
-                          className="card-drop-slot"
-                          onDragOver={(e) => handleCardSlotDragOver(e, ticket)}
-                          onDragLeave={handleCardSlotDragLeave}
-                          onDrop={(e) => handleCardSlotDrop(e, ticket, idx)}
-                      >
-                          {showDropLine(ticket.id, 'before') && <div className="drop-line" />}
-                          <TicketCard
-                              ticket={ticket}
-                              technicians={technicians}
-                              onUpdateTicket={onUpdateTicket}
-                              onSelectTicket={onSelectTicket}
-                              selectedTicket={selectedTicket}
-                              badgeNumber={badgeNumbers?.[ticket.id]}
-                          />
-                          {showDropLine(ticket.id, 'after') && <div className="drop-line" />}
-                      </div>
-                  ))
-              )}
+                  ) : (
+                      tickets.map((ticket, idx) => (
+                          <div
+                              key={ticket.id}
+                              className="card-drop-slot"
+                              onDragOver={(e) => handleCardSlotDragOver(e, ticket)}
+                              onDragLeave={handleCardSlotDragLeave}
+                              onDrop={(e) => handleCardSlotDrop(e, ticket, idx)}
+                          >
+                              {showDropLine(ticket.id, 'before') && <div className="drop-line" />}
+                              <TicketCard
+                                  ticket={ticket}
+                                  technicians={technicians}
+                                  onUpdateTicket={onUpdateTicket}
+                                  onSelectTicket={onSelectTicket}
+                                  selectedTicket={selectedTicket}
+                                  badgeNumber={badgeNumbers?.[ticket.id]}
+                              />
+                              {showDropLine(ticket.id, 'after') && <div className="drop-line" />}
+                          </div>
+                      ))
+                  )}
+              </div>
+              <div
+                  className="scroll-thumb"
+                  style={{
+                      opacity: scrollThumb.visible ? 1 : 0,
+                      transform: `translateY(${scrollThumb.top}px)`,
+                  }}
+              />
           </div>
       </div>
   );
