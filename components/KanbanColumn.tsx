@@ -69,7 +69,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
     const onScroll = () => {
       el.classList.add('is-scrolling');
       clearTimeout(timer);
-      timer = setTimeout(() => el.classList.remove('is-scrolling'), 600);
+      timer = setTimeout(() => el.classList.remove('is-scrolling'), 800);
     };
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => { el.removeEventListener('scroll', onScroll); clearTimeout(timer); };
@@ -216,12 +216,12 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
                   height: calc(100vh - 250px);
                   overflow-y: auto;
               }
-               .column-body::-webkit-scrollbar { width: 6px; }
+               .column-body::-webkit-scrollbar { width: 4px; }
                .column-body::-webkit-scrollbar-track { background: transparent; }
-               .column-body::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px; transition: background 0.3s; }
-               .column-body.is-scrolling::-webkit-scrollbar-thumb { background: #ccc; }
-               .column-body::-webkit-scrollbar-thumb:active { background: #aaa; }
-               [data-theme="dark"] .column-body.is-scrolling::-webkit-scrollbar-thumb { background: #444; }
+               .column-body::-webkit-scrollbar-thumb { background: transparent; border-radius: 4px; transition: background 0.8s ease; }
+               .column-body.is-scrolling::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.18); transition: background 0s; }
+               .column-body::-webkit-scrollbar-thumb:active { background: rgba(0,0,0,0.28); }
+               [data-theme="dark"] .column-body.is-scrolling::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
 
                @media (max-width: 768px) {
                   .column-body {
