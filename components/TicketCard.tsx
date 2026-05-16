@@ -320,15 +320,17 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .card-footer:hover .footer-detail-btn { border-color: #378ADD; }
                 .footer-detail-btn i { font-size: 14px; }
 
-                .footer-msg-pill {
+                .footer-info-pill {
                     margin-left: auto;
-                    background: #E24B4A; color: #fff;
                     border-radius: 20px; padding: 5px 10px;
-                    font-size: 11px; font-weight: 500;
+                    font-size: 11px; font-weight: 600;
                     display: inline-flex; align-items: center; gap: 4px;
                     pointer-events: none; flex-shrink: 0;
                 }
-                .footer-msg-pill i { font-size: 11px; }
+                .footer-info-pill i { font-size: 11px; }
+                .footer-info-pill--msg      { background: #E24B4A; color: #fff; }
+                .footer-info-pill--emergency { background: #7F1D1D; color: #FEE2E2; }
+                .footer-info-pill--reopened  { background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; }
             `}</style>
 
             <div className="card-body">
@@ -437,10 +439,20 @@ const TicketCard: React.FC<TicketCardProps> = ({
                         })}
                     </select>
                 </div>
-                {ticket.hasNewNoteFromReporter ? (
-                    <div className="footer-msg-pill">
+                {isEmergency ? (
+                    <div className="footer-info-pill footer-info-pill--emergency">
+                        <i className="ti ti-alert-triangle" aria-hidden="true" />
+                        <span>Notfall</span>
+                    </div>
+                ) : ticket.hasNewNoteFromReporter ? (
+                    <div className="footer-info-pill footer-info-pill--msg">
                         <i className="ti ti-message" aria-hidden="true" />
                         <span>Neue Nachricht</span>
+                    </div>
+                ) : ticket.is_reopened ? (
+                    <div className="footer-info-pill footer-info-pill--reopened">
+                        <i className="ti ti-refresh" aria-hidden="true" />
+                        <span>Wiedereröffnet</span>
                     </div>
                 ) : (
                     <div className="footer-detail-btn">
