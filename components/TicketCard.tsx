@@ -233,7 +233,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     flex-shrink: 0;
                 }
                 .card-location { font-size: 0.95rem; color: var(--text-secondary); font-weight: 500; }
-                .reporter-name { display: block; margin-top: 0.15rem; font-size: 0.82rem; font-weight: 600; color: var(--text-muted); }
+                .reporter-name { display: block; margin-top: 0.15rem; font-size: 0.9rem; font-weight: 600; color: var(--text-muted); }
                 .card-location span { font-weight: normal; color: var(--text-muted); }
                 .card-meta { font-size: 0.9rem; color: var(--text-secondary); font-weight: 500; margin-bottom: 1rem; }
                 
