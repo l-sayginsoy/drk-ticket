@@ -259,6 +259,11 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     background: var(--bg-secondary); color: var(--text-secondary);
                     font-size: 0.8rem; font-weight: 600; cursor: pointer;
                     position: relative; height: 32px; box-sizing: border-box;
+                    width: 140px; flex-shrink: 0;
+                }
+                .assignee-chip-name {
+                    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+                    flex: 1; min-width: 0;
                 }
                 .assignee-chip:hover { filter: brightness(0.95); }
                 .assignee-chip select { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
@@ -281,10 +286,10 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     display: inline-flex; align-items: center; justify-content: center;
                     background: var(--bg-secondary);
                     border: 1.5px solid var(--border);
-                    padding: 0 0.75rem; border-radius: 999px;
+                    padding: 0; border-radius: 999px;
                     font-size: 0.8rem; font-weight: 500; color: var(--text-muted);
                     cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
-                    height: 32px; box-sizing: border-box;
+                    height: 32px; width: 64px; flex-shrink: 0; box-sizing: border-box;
                 }
                 .details-btn:hover { border-color: var(--accent-primary); color: var(--accent-primary); background: var(--bg-secondary); }
             `}</style>
@@ -357,7 +362,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                         const isAuto = ticket.autoAssigned === true || (ticket.ticketType === 'reactive' && ticket.autoAssigned !== false);
                         return <span className={`av${isAuto ? '' : ' av-manual'}`}>{initials}</span>;
                     })()}
-                    <span>{isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}</span>
+                    <span className="assignee-chip-name">{isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}</span>
                     {isAssigned && <ChevronDownIcon />}
                     <select value={ticket.technician} onChange={handleTechnicianSelectChange}>
                         {technicianOptions.map((opt) => {
