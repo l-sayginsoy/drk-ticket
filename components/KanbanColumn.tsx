@@ -13,6 +13,7 @@ interface KanbanColumnProps {
   selectedTicket: Ticket | null;
   panelEmbed?: boolean;
   badgeNumbers?: Record<string, number>;
+  currentUser?: User | null;
 }
 
 const EmptyStateIcon: React.FC<{ kind: 'ok' | 'idle' }> = ({ kind }) => {
@@ -56,6 +57,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
   selectedTicket,
   panelEmbed = false,
   badgeNumbers,
+  currentUser,
 }) => {
   const technicians = techniciansProp ?? [];
   const [dragOverSlot, setDragOverSlot] = useState<{ ticketId: string; position: 'before' | 'after' } | null>(null);
@@ -315,6 +317,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
                                   onSelectTicket={onSelectTicket}
                                   selectedTicket={selectedTicket}
                                   badgeNumber={badgeNumbers?.[ticket.id]}
+                                  currentUser={currentUser}
                               />
                               {showDropLine(ticket.id, 'after') && <div className="drop-line" />}
                           </div>

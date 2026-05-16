@@ -1,5 +1,5 @@
 import React, { useMemo, useRef } from 'react';
-import { Ticket, Priority, Status, User, AvailabilityStatus } from '../types';
+import { Ticket, Priority, Status, User, AvailabilityStatus, Role } from '../types';
 import { statusColorMap } from '../constants';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
 import { CheckIcon } from './icons/CheckIcon';
@@ -15,6 +15,7 @@ interface TicketCardProps {
   onSelectTicket: (ticket: Ticket) => void;
   selectedTicket: Ticket | null;
   badgeNumber?: number;
+  currentUser?: User | null;
 }
 
 const ExclamationTriangleIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
@@ -70,6 +71,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
     onSelectTicket,
     selectedTicket,
     badgeNumber,
+    currentUser,
 }) => {
     const technicians = techniciansProp ?? [];
     const dateInputRef = useRef<HTMLInputElement>(null);
@@ -203,6 +205,8 @@ const TicketCard: React.FC<TicketCardProps> = ({
         : ticket.status === Status.Ueberfaellig ? 'pill-s-ueberfaellig'
         : ticket.status === Status.Abgeschlossen ? 'pill-s-done'
         : 'pill-s-offen';
+
+    const canEditDate = !currentUser || currentUser.role === Role.Admin || ticket.technician === currentUser.name;
 
     const cardClasses = `ticket-card ${selectedTicket?.id === ticket.id ? 'selected' : ''} ${ticket.status === Status.Abgeschlossen ? 'status-done' : ''} ${isEmergency ? 'urgent-alert' : ''}`;
 
@@ -371,24 +375,31 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     </div>
                     <div className="pill-cell">
                         <div className="pill-lbl">Fällig bis</div>
-                        <div
-                            className={`pill pill-due${dueDateUrgency !== 'normal' ? ` ${dueDateUrgency}` : ''}`}
-                            onClick={e => {
-                                e.stopPropagation();
-                                if (Date.now() - lastSelectChangeRef.current < 800) return;
-                                dateInputRef.current?.showPicker?.();
-                            }}
-                        >
-                            <i className="ti ti-calendar-due" aria-hidden="true" />
-                            <span>{ticket.dueDate.slice(0,5)}.</span>
-                            <input
-                                ref={dateInputRef}
-                                type="date"
-                                value={toInputDate(ticket.dueDate)}
-                                onChange={handleDueDateChange}
-                                style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
-                            />
-                        </div>
+                        {canEditDate ? (
+                            <div
+                                className={`pill pill-due${dueDateUrgency !== 'normal' ? ` ${dueDateUrgency}` : ''}`}
+                                onClick={e => {
+                                    e.stopPropagation();
+                                    if (Date.now() - lastSelectChangeRef.current < 800) return;
+                                    dateInputRef.current?.showPicker?.();
+                                }}
+                            >
+                                <i className="ti ti-calendar-due" aria-hidden="true" />
+                                <span>{ticket.dueDate.slice(0,5)}.</span>
+                                <input
+                                    ref={dateInputRef}
+                                    type="date"
+                                    value={toInputDate(ticket.dueDate)}
+                                    onChange={handleDueDateChange}
+                                    style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
+                                />
+                            </div>
+                        ) : (
+                            <div className={`pill pill-due${dueDateUrgency !== 'normal' ? ` ${dueDateUrgency}` : ''}`}>
+                                <i className="ti ti-calendar-due" aria-hidden="true" />
+                                <span>{ticket.dueDate.slice(0,5)}.</span>
+                            </div>
+                        )}
                     </div>
                     <div className="pill-cell">
                         <div className="pill-lbl">Status</div>

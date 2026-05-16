@@ -9,6 +9,7 @@ interface KanbanBoardProps {
   onSelectTicket: (ticket: Ticket) => void;
   selectedTicket: Ticket | null;
   panelEmbed?: boolean;
+  currentUser?: User | null;
 }
 
 const parseGermanDate = (d: string) => d.split('.').reverse().join('-'); // DD.MM.YYYY → YYYY-MM-DD for string compare
@@ -45,6 +46,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   onSelectTicket,
   selectedTicket,
   panelEmbed = false,
+  currentUser,
 }) => {
   const technicians = techniciansProp ?? [];
   const columns: { title: string; status: Status }[] = [
@@ -152,6 +154,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
             selectedTicket={selectedTicket}
             panelEmbed={panelEmbed}
             badgeNumbers={column.status === Status.Offen ? unassignedBadgeNumbers : undefined}
+            currentUser={currentUser}
           />
         ))}
       </div>

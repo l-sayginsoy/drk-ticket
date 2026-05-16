@@ -2806,6 +2806,7 @@ if (newTicketData.ticketType === 'reactive') {
               onUpdateTicket={handleTicketUpdate}
               onSelectTicket={setSelectedTicket}
               selectedTicket={selectedTicket}
+              currentUser={currentUser}
             />
           );
         case 'tickets': return <TicketTableView tickets={filteredTickets} onUpdateTicket={handleTicketUpdate} onSelectTicket={setSelectedTicket} selectedTicketIds={selectedTicketIds} setSelectedTicketIds={setSelectedTicketIds} selectedTicket={selectedTicket} groupBy={groupBy} showRoutineSection={false} />;
@@ -2856,6 +2857,7 @@ if (newTicketData.ticketType === 'reactive') {
             onUpdateTicket={handleTicketUpdate}
             onSelectTicket={setSelectedTicket}
             selectedTicket={selectedTicket}
+            currentUser={currentUser}
           />
         );
     }
