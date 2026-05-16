@@ -161,28 +161,13 @@ const TicketCard: React.FC<TicketCardProps> = ({
         return p.length >= 2 ? (p[0][0] + p[p.length - 1][0]).toUpperCase() : n.slice(0, 2).toUpperCase();
     })();
 
-    // Avatar-Farbe: benannte Bearbeiter zuerst, dann hash-basiertes Fallback
-    const avColor = (() => {
-        const n = ticket.technician ?? '';
-        const first = n.trim().split(' ')[0];
-        const named: Record<string, { bg: string; text: string }> = {
-            'Heiko':   { bg: '#B5D4F4', text: '#185FA5' },
-            'Torsten': { bg: '#D4EAB5', text: '#3B6D11' },
-            'Jessica': { bg: '#FAD4F4', text: '#8B0D8B' },
-        };
-        if (named[first]) return named[first];
-        const palette = [
-            { bg: '#B5D4F4', text: '#185FA5' },
-            { bg: '#D4EAB5', text: '#3B6D11' },
-            { bg: '#FAC775', text: '#854F0B' },
-            { bg: '#FAD4F4', text: '#8B0D8B' },
-            { bg: '#C3B5F4', text: '#3D18A3' },
-            { bg: '#B5F4E6', text: '#186D54' },
-        ];
-        let h = 0;
-        for (let i = 0; i < n.length; i++) h = ((h * 31) + n.charCodeAt(i)) >>> 0;
-        return palette[h % palette.length];
-    })();
+    // Avatar-Farbe: auto=blau, manuell=orange
+    const isAutoAssigned = ticket.autoAssigned === true || (ticket.ticketType === 'reactive' && ticket.autoAssigned !== false);
+    const avColor = isAssigned
+        ? (isAutoAssigned
+            ? { bg: '#B5D4F4', text: '#185FA5' }   // blau
+            : { bg: '#FAC775', text: '#854F0B' })   // orange
+        : { bg: 'transparent', text: '#E24B4A' };
 
     const isOverdue = ticket.status === Status.Ueberfaellig;
 
@@ -251,7 +236,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 /* ── Pills ── */
                 .card-pills { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
                 .pill-cell { display: flex; flex-direction: column; }
-                .pill-lbl { font-size: 9.5px; color: #999; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; }
+                .pill-lbl { font-size: 9.5px; color: #999; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; text-align: center; }
                 .pill {
                     display: flex; align-items: center; justify-content: center; gap: 3px;
                     padding: 4px 8px; border-radius: 20px; font-size: 10.5px;
@@ -297,7 +282,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     font-size: 9px; font-weight: 700; flex-shrink: 0;
                 }
                 .av-un {
-                    background: transparent; border: 0.5px dashed #999; color: #999;
+                    background: transparent; border: 1.5px dashed #E24B4A; color: #E24B4A;
                 }
                 .av-un i { font-size: 10px; }
 
@@ -389,7 +374,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 <div className="assignee-chip" onClick={e => e.stopPropagation()}>
                     {isAssigned
                         ? <span className="av" style={{ background: avColor.bg, color: avColor.text }}>{initials}</span>
-                        : <span className="av av-un"><i className="ti ti-plus" aria-hidden="true" /></span>
+                        : <span className="av av-un"><i className="ti ti-plus" style={{ fontSize: 10 }} aria-hidden="true" /></span>
                     }
                     <span>{isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}</span>
                     <i className="ti ti-chevron-down chev" aria-hidden="true" />
