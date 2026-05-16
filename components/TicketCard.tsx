@@ -187,7 +187,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .ticket-card.dragging { opacity: 0.5; }
                 .ticket-card.selected { background-color: var(--border); box-shadow: 0 0 0 2px var(--accent-primary), var(--shadow-lg); }
                 
-                .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.5rem; }
+                .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.1rem; }
                 .card-title { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem; flex-grow: 1;}
                 .unassigned-badge {
                     display: inline-flex;
@@ -235,7 +235,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .card-location { font-size: 0.95rem; color: var(--text-secondary); font-weight: 500; display: flex; align-items: center; gap: 0.5rem; }
                 .location-divider { display: inline-block; width: 0; border-left: 1.5px solid #ccc; height: 0.9em; flex-shrink: 0; }
                 [data-theme="dark"] .location-divider { border-left-color: #555; }
-                .reporter-name { display: block; margin-top: 0.15rem; font-size: 0.85rem; font-weight: 600; color: var(--text-muted); }
+                .reporter-name { display: block; margin-top: 0.45rem; font-size: 0.85rem; font-weight: 600; color: var(--text-muted); }
                 .card-location span { font-weight: normal; color: var(--text-muted); }
                 .card-meta { font-size: 0.9rem; color: var(--text-secondary); font-weight: 500; margin-bottom: 1rem; }
                 
