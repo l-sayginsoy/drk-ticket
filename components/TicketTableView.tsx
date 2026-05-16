@@ -84,10 +84,10 @@ const ExclamationTriangleIcon: React.FC = () => (
 );
 
 const statusPillStyle: Record<string, React.CSSProperties> = {
-    [Status.Offen]:        { background: 'var(--bg-tertiary)',          color: 'var(--text-secondary)', borderColor: 'var(--border)' },
-    [Status.InArbeit]:     { background: 'rgba(13,110,253,0.1)',        color: '#1d4ed8',               borderColor: 'rgba(13,110,253,0.3)' },
-    [Status.Ueberfaellig]: { background: 'rgba(220,53,69,0.1)',         color: '#b91c2c',               borderColor: 'rgba(220,53,69,0.3)' },
-    [Status.Abgeschlossen]:{ background: 'rgba(25,135,84,0.1)',         color: '#166534',               borderColor: 'rgba(25,135,84,0.3)' },
+    [Status.Offen]:        { background: '#F1F0EC', color: '#5F5E5A', borderColor: '#D3D1C7' },
+    [Status.InArbeit]:     { background: '#E6F1FB', color: '#185FA5', borderColor: '#B5D4F4' },
+    [Status.Ueberfaellig]: { background: '#FCEBEB', color: '#A32D2D', borderColor: '#F7C1C1' },
+    [Status.Abgeschlossen]:{ background: '#EAF3DE', color: '#3B6D11', borderColor: '#C0DD97' },
 };
 
 const StatusPill: React.FC<{ status: Status }> = ({ status }) => (
@@ -572,9 +572,9 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
                     text-align: center;
                     white-space: nowrap;
                 }
-                .priority-pill.priority-high { background: rgba(220,53,69,0.1); color: #b91c2c; border-color: rgba(220,53,69,0.35); }
-                .priority-pill.priority-medium { background: rgba(255,152,0,0.12); color: #c05800; border-color: rgba(255,152,0,0.35); }
-                .priority-pill.priority-low { background: rgba(25,135,84,0.1); color: #166534; border-color: rgba(25,135,84,0.32); }
+                .priority-pill.priority-high { background: #FCEBEB; color: #A32D2D; border-color: #F7C1C1; }
+                .priority-pill.priority-medium { background: #FAEEDA; color: #854F0B; border-color: #FAC775; }
+                .priority-pill.priority-low { background: #EAF3DE; color: #3B6D11; border-color: #C0DD97; }
                 .reporter-name { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
                 .standort-cell { display: flex; flex-direction: column; gap: 1px; }
                 .standort-main { color: var(--text-secondary); }

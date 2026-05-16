@@ -265,9 +265,9 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelect
                 .ticket-title-cell { max-width: 280px; }
                 .reporter-name { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
                 .priority-pill { padding: 0.18rem 0.65rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; display: inline-block; border: 1.5px solid transparent; text-align: center; white-space: nowrap; }
-                .priority-pill.priority-high { background: rgba(220,53,69,0.1); color: #b91c2c; border-color: rgba(220,53,69,0.35); }
-                .priority-pill.priority-medium { background: rgba(255,152,0,0.12); color: #c05800; border-color: rgba(255,152,0,0.35); }
-                .priority-pill.priority-low { background: rgba(25,135,84,0.1); color: #166534; border-color: rgba(25,135,84,0.32); }
+                .priority-pill.priority-high { background: #FCEBEB; color: #A32D2D; border-color: #F7C1C1; }
+                .priority-pill.priority-medium { background: #FAEEDA; color: #854F0B; border-color: #FAC775; }
+                .priority-pill.priority-low { background: #EAF3DE; color: #3B6D11; border-color: #C0DD97; }
                 .actions-cell { text-align: center; }
                 .btn-delete {
                     background: none;
