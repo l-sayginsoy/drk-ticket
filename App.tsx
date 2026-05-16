@@ -7,7 +7,7 @@ import {
 } from './types';
 import { MOCK_TICKETS, MOCK_USERS, MOCK_LOCATIONS, STATUSES, DEFAULT_APP_SETTINGS, MOCK_ASSETS, MOCK_MAINTENANCE_PLANS } from './constants';
 import { db } from './firebase';
-import { collection, doc, setDoc, onSnapshot, getDocs } from 'firebase/firestore';
+import { collection, doc, setDoc, onSnapshot, getDocs, deleteDoc, arrayUnion } from 'firebase/firestore';
 
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -25,6 +25,7 @@ import SettingsView from './components/SettingsView';
 import RoutineSchedulesView from './components/RoutineSchedulesView';
 import RoutineNachweisView from './components/RoutineNachweisView';
 import CompleteOrderDialog from './components/CompleteOrderDialog';
+import ToastContainer, { type Toast } from './components/ToastContainer';
 import DashboardRoutineLinkBar from './components/DashboardRoutineLinkBar';
 import { localISODate, isRoutineDueOnCalendarDay } from './utils/routineHelpers';
 import { fetchRpHolidays } from './utils/rpHolidays';
@@ -70,6 +71,9 @@ const LOCAL_STORAGE_KEY_LOCATIONS = 'facility-management-locations';
 const LOCAL_STORAGE_KEY_ASSETS = 'facility-management-assets';
 const LOCAL_STORAGE_KEY_PLANS = 'facility-management-plans';
 const LOCAL_STORAGE_KEY_SETTINGS = 'facility-management-settings';
+const LOCAL_STORAGE_KEY_DELETED_IDS = 'facility-management-deleted-ticket-ids';
+const LOCAL_STORAGE_KEY_COMPLETED_TICKETS = 'facility-management-completed-tickets';
+const LOCAL_STORAGE_KEY_ROUTINE_TICKETS = 'facility-management-routine-tickets';
 
 const DRK_TICKET_PORTAL_URL = 'https://www.drk-ticket.de';
 /** An Portal-Farben angelehnt (Haustechnik Service) */
@@ -90,13 +94,28 @@ type DrkBrevoMailPayload =
   | { kind: 'staff_note'; ticketId: string; noteText: string }
   | { kind: 'ticket_closed'; ticketId: string }
   | {
-      kind: 'ticket_update';
+      kind: 'ticket_in_progress';
       ticketId: string;
-      status: string;
-      dueDate: string;
-      technician: string;
-      priority: string;
       title: string;
+      area: string;
+      location: string;
+      priority: string;
+      technician: string;
+      dueDate: string;
+      description: string;
+    }
+  | {
+      kind: 'admin_new_ticket';
+      ticketId: string;
+      title: string;
+      area: string;
+      location: string;
+      categoryName: string;
+      priority: string;
+      reporter: string;
+      description: string;
+      entryDate: string;
+      entryTime?: string;
     };
 
 const drkBrevoBannerTitle = (p: DrkBrevoMailPayload) => {
@@ -107,8 +126,10 @@ const drkBrevoBannerTitle = (p: DrkBrevoMailPayload) => {
       return 'Neuigkeit zu Ihrer Meldung';
     case 'ticket_closed':
       return 'Meldung abgeschlossen';
-    case 'ticket_update':
-      return 'Stand Ihrer Meldung';
+    case 'ticket_in_progress':
+      return 'Ihre Meldung wird bearbeitet';
+    case 'admin_new_ticket':
+      return 'Neue Meldung eingegangen';
   }
 };
 
@@ -116,7 +137,7 @@ const buildDrkBrevoPlainText = (p: DrkBrevoMailPayload) => {
   const line = '────────────────────────────';
   if (p.kind === 'ticket_created') {
     return [
-      'Haustechnik Service · DRK Ticket',
+      'DRK Serviceportal',
       '',
       `Ticketnummer: ${p.ticketId}`,
       '',
@@ -135,7 +156,7 @@ const buildDrkBrevoPlainText = (p: DrkBrevoMailPayload) => {
   }
   if (p.kind === 'staff_note') {
     return [
-      'Haustechnik Service · DRK Ticket',
+      'DRK Serviceportal',
       '',
       `Ticketnummer: ${p.ticketId}`,
       '',
@@ -152,19 +173,21 @@ const buildDrkBrevoPlainText = (p: DrkBrevoMailPayload) => {
       'Diese E-Mail wurde automatisch erzeugt. Bitte nicht antworten.',
     ].join('\n');
   }
-  if (p.kind === 'ticket_update') {
+  if (p.kind === 'ticket_in_progress') {
     return [
-      'Haustechnik Service · DRK Ticket',
+      'DRK Serviceportal',
       '',
       `Ticketnummer: ${p.ticketId}`,
       '',
-      'Es gibt eine Aktualisierung zu Ihrer Meldung (aktueller Stand):',
+      'Ihre Meldung wird jetzt bearbeitet. Hier alle Informationen auf einen Blick:',
       '',
-      `  Status:     ${p.status}`,
-      `  Fälligkeit: ${p.dueDate}`,
-      `  Bearbeiter: ${p.technician}`,
-      `  Priorität:  ${p.priority}`,
-      `  Betreff:    ${p.title}`,
+      `  Ticket-Nr.:  ${p.ticketId}`,
+      `  Betreff:     ${p.title}`,
+      `  Standort:    ${p.area}${p.location ? ` › ${p.location}` : ''}`,
+      `  Priorität:   ${p.priority}`,
+      `  Bearbeiter:  ${p.technician}`,
+      `  Fälligkeit:  ${p.dueDate}`,
+      ...(p.description ? ['', `  Beschreibung: ${p.description}`] : []),
       '',
       'Direktlink zu Ihrem Ticket:',
       `${DRK_TICKET_PORTAL_URL}/?ticket=${encodeURIComponent(p.ticketId)}`,
@@ -172,8 +195,26 @@ const buildDrkBrevoPlainText = (p: DrkBrevoMailPayload) => {
       'Diese E-Mail wurde automatisch erzeugt. Bitte nicht antworten.',
     ].join('\n');
   }
+  if (p.kind === 'admin_new_ticket') {
+    return [
+      'DRK Serviceportal · Neue Meldung',
+      '',
+      `Ticket-Nr.: ${p.ticketId}`,
+      `Betreff:    ${p.title}`,
+      `Gemeldet:   ${p.reporter}`,
+      `Standort:   ${p.area}`,
+      `Raum:       ${p.location}`,
+      `Kategorie:  ${p.categoryName}`,
+      `Priorität:  ${p.priority}`,
+      `Eingang:    ${p.entryDate}${p.entryTime ? ` | ${p.entryTime} Uhr` : ''}`,
+      '',
+      p.description ? `Beschreibung:\n${p.description}` : '',
+      '',
+      'Diese E-Mail wurde automatisch erzeugt.',
+    ].filter(l => l !== '').join('\n');
+  }
   return [
-    'Haustechnik Service · DRK Ticket',
+    'DRK Serviceportal',
     '',
     `Ihre Meldung mit der Ticketnummer: ${p.ticketId} wurde erfolgreich abgeschlossen.`,
     '',
@@ -189,7 +230,7 @@ const portalDeepLink = (ticketId: string) =>
 
 /**
  * CTA-Button: bgcolor für Outlook, background+border-radius für moderne Clients.
- * Wird in innerBodyHtml eingebettet – funktioniert in beiden Rendering-Pfaden.
+ * padding nur auf <td> (kein mso-padding-alt).
  */
 const portalOpenButtonRowHtml = (ticketId: string) => {
   const href = portalDeepLink(ticketId);
@@ -200,14 +241,14 @@ const portalOpenButtonRowHtml = (ticketId: string) => {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const portalOpenButtonWrappedHtml = (ticketId: string, _marginTop: string) => portalOpenButtonRowHtml(ticketId);
+const portalOpenButtonWrappedHtml = (ticketId: string, _margin: string) => portalOpenButtonRowHtml(ticketId);
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const portalCtaHtml = (ticketId: string) => portalOpenButtonRowHtml(ticketId);
 
 /**
  * Duales E-Mail-Layout:
- *  <!--[if mso]>        → Outlook Windows: sauberes Tabellen-Fallback (600px, kein Shadow/Radius)
- *  <!--[if !mso]><!-->  → Moderne Clients: volles CSS-Design (Shadow, Radius, schönes Layout)
+ *  <!--[if mso]>        → Outlook Windows: Tabellen-Fallback (600px fix, kein Shadow/Radius)
+ *  <!--[if !mso]><!-->  → Moderne Clients: CSS-Design (Shadow, Radius, schönes Layout)
  */
 const drkEmailShellHtml = (
   bannerTitle: string,
@@ -229,17 +270,17 @@ const drkEmailShellHtml = (
 <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" bgcolor="#ffffff" style="width:600px;border-collapse:collapse;">
 <tr><td bgcolor="${DRK_RED}" height="6" style="background:${DRK_RED};height:6px;line-height:6px;font-size:1px;mso-line-height-rule:exactly;">&nbsp;</td></tr>
 <tr><td bgcolor="#ffffff" style="background:#ffffff;padding:16px 22px;">
-  <img src="${DRK_LOGO_EMAIL_SRC}" alt="DRK Logo" width="240" style="display:block;border:0;width:240px;">
+<img src="${DRK_LOGO_EMAIL_SRC}" alt="DRK Logo" width="240" style="display:block;border:0;width:240px;">
 </td></tr>
 <tr><td bgcolor="${DRK_RED}" style="background:${DRK_RED};padding:20px 22px 24px;">
-  <p style="margin:0;font-size:24px;font-weight:bold;color:#ffffff;line-height:1.3;font-family:Arial,Helvetica,sans-serif;mso-line-height-rule:exactly;">${escapeHtml(bannerTitle)}</p>
+<p style="margin:0;font-size:24px;font-weight:bold;color:#ffffff;line-height:1.3;font-family:Arial,Helvetica,sans-serif;mso-line-height-rule:exactly;">${escapeHtml(bannerTitle)}</p>
 </td></tr>
 <tr><td bgcolor="#ffffff" style="background:#ffffff;padding:24px 22px;font-family:Arial,Helvetica,sans-serif;">
 ${innerBodyHtml}
 </td></tr>
 <tr><td bgcolor="#f5f5f5" style="background:#f5f5f5;padding:16px 22px;border-top:1px solid #e0e0e0;">
-  <p style="margin:0;font-size:12px;color:#888888;text-align:center;font-family:Arial,Helvetica,sans-serif;">Automatische Nachricht &middot; bitte nicht auf diese E-Mail antworten</p>
-  <p style="margin:8px 0 0;font-size:13px;font-weight:bold;color:#666666;text-align:center;font-family:Arial,Helvetica,sans-serif;">DRK Serviceportal</p>
+<p style="margin:0;font-size:12px;color:#888888;text-align:center;font-family:Arial,Helvetica,sans-serif;">Automatische Nachricht &middot; bitte nicht auf diese E-Mail antworten</p>
+<p style="margin:8px 0 0;font-size:13px;font-weight:bold;color:#666666;text-align:center;font-family:Arial,Helvetica,sans-serif;">DRK Serviceportal</p>
 </td></tr>
 </table>
 </td></tr></table>
@@ -268,42 +309,70 @@ const buildDrkBrevoHtml = (p: DrkBrevoMailPayload) => {
   const title = drkBrevoBannerTitle(p);
   if (p.kind === 'ticket_created') {
     const inner = `
-<p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#333;font-family:Arial,Helvetica,sans-serif;"><strong>Ticketnummer: ${escapeHtml(p.ticketId)}</strong></p>
-<p style="margin:0 0 20px;font-size:15px;line-height:1.55;color:#333;font-family:Arial,Helvetica,sans-serif;">Ihre Meldung ist bei uns eingegangen und befindet sich nun in der Bearbeitung.</p>
-${portalOpenButtonRowHtml(p.ticketId)}
+<p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#333;"><strong>Ticketnummer: ${escapeHtml(p.ticketId)}</strong></p>
+<p style="margin:0 0 16px;font-size:15px;line-height:1.55;color:#333;">Ihre Meldung ist bei uns eingegangen und befindet sich nun in der Bearbeitung.</p>
+${portalOpenButtonWrappedHtml(p.ticketId, '0 0 4px')}
 <p style="margin:18px 0 0;font-size:14px;line-height:1.55;color:#444;font-family:Arial,Helvetica,sans-serif;">Mit diesem Button öffnen Sie das Meldeportal. Ihre Ticketnummer ist im Link bereits enthalten – Sie müssen sie <strong>nicht erneut eingeben</strong>.</p>`;
     return drkEmailShellHtml(title, inner, p.ticketId, '');
   }
-  if (p.kind === 'ticket_update') {
+  if (p.kind === 'ticket_in_progress') {
+    const rows = [
+      ['Ticket-Nr.', p.ticketId],
+      ['Betreff', p.title],
+      ['Standort', p.location ? `${p.area} › ${p.location}` : p.area],
+      ['Priorität', p.priority],
+      ['Bearbeiter', p.technician],
+      ['Fälligkeit', p.dueDate],
+    ].map(([label, value]) =>
+      `<tr><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#555;white-space:nowrap;padding-right:16px;">${escapeHtml(label)}</td><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#222;font-weight:600;">${escapeHtml(value)}</td></tr>`
+    ).join('');
+    const descHtml = p.description
+      ? `<p style="margin:18px 0 6px;font-size:14px;color:#555;font-weight:600;">Beschreibung</p><p style="margin:0;font-size:14px;line-height:1.6;color:#333;white-space:pre-wrap;">${escapeHtml(p.description)}</p>`
+      : '';
     const inner = `
-<p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#333;font-family:Arial,Helvetica,sans-serif;"><strong>Ticketnummer: ${escapeHtml(p.ticketId)}</strong></p>
-<p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:#333;">Ihre Meldung wurde bearbeitet. <strong>Aktueller Stand:</strong></p>
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 18px;border-collapse:collapse;">
-<tr><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#555;">Status</td><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#222;font-weight:600;">${escapeHtml(p.status)}</td></tr>
-<tr><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#555;">Fälligkeit</td><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#222;">${escapeHtml(p.dueDate)}</td></tr>
-<tr><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#555;">Bearbeiter</td><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#222;">${escapeHtml(p.technician)}</td></tr>
-<tr><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#555;">Priorität</td><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#222;">${escapeHtml(p.priority)}</td></tr>
-<tr><td style="padding:8px 0;font-size:14px;color:#555;vertical-align:top;">Betreff</td><td style="padding:8px 0;font-size:14px;color:#222;">${escapeHtml(p.title)}</td></tr>
-</table>
-<p style="margin:0 0 20px;font-size:14px;line-height:1.55;color:#444;font-family:Arial,Helvetica,sans-serif;">Details im Portal – Ihre Ticketnummer ist im Link bereits hinterlegt.</p>
-${portalOpenButtonRowHtml(p.ticketId)}`;
+<p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:#333;">Ihre Meldung wird jetzt bearbeitet. Hier alle Informationen auf einen Blick:</p>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:4px;">${rows}</table>
+${descHtml}
+${portalOpenButtonWrappedHtml(p.ticketId, '18px 0 0')}`;
     return drkEmailShellHtml(title, inner, p.ticketId, '');
   }
   if (p.kind === 'staff_note') {
     const inner = `
 <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#333;font-family:Arial,Helvetica,sans-serif;"><strong>Ticketnummer: ${escapeHtml(p.ticketId)}</strong></p>
-<p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#333;">Es gibt eine <strong>Neuigkeit</strong> zu Ihrer Meldung:</p>
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 20px;"><tr><td bgcolor="#faf7f2" style="background:#faf7f2;border-left:4px solid ${DRK_RED};padding:16px 18px;">
-<p style="margin:0;font-size:15px;line-height:1.55;color:#222;font-family:Arial,Helvetica,sans-serif;white-space:pre-wrap;">${escapeHtml(p.noteText)}</p>
+<p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#333;font-family:Arial,Helvetica,sans-serif;">Es gibt eine <strong>Neuigkeit</strong> zu Ihrer Meldung:</p>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px;">
+<tr><td bgcolor="#faf7f2" style="background:#faf7f2;border-left:4px solid ${DRK_RED};padding:16px 18px;">
+<p style="margin:0;font-size:15px;line-height:1.55;color:#222;white-space:pre-wrap;font-family:Arial,Helvetica,sans-serif;">${escapeHtml(p.noteText)}</p>
 </td></tr></table>
-<p style="margin:0 0 20px;font-size:14px;line-height:1.55;color:#444;font-family:Arial,Helvetica,sans-serif;">Details und Rückmeldung erreichen Sie über den Button – Ihre Ticketnummer ist im Link bereits hinterlegt.</p>
-${portalOpenButtonRowHtml(p.ticketId)}`;
+<p style="margin:20px 0 28px;font-size:14px;line-height:1.55;color:#444;font-family:Arial,Helvetica,sans-serif;">Details und R&#252;ckmeldung erreichen Sie &#252;ber den Button &#8211; Ihre Ticketnummer ist im Link bereits hinterlegt.</p>
+${portalOpenButtonWrappedHtml(p.ticketId, '0')}`;
+    return drkEmailShellHtml(title, inner, p.ticketId, '');
+  }
+  if (p.kind === 'admin_new_ticket') {
+    const rows = [
+      ['Ticket-Nr.', p.ticketId],
+      ['Betreff', p.title],
+      ['Gemeldet von', p.reporter],
+      ['Standort', p.area],
+      ['Raum / Bereich', p.location],
+      ['Kategorie', p.categoryName],
+      ['Priorität', p.priority],
+      ['Eingang', p.entryTime ? `${p.entryDate} | ${p.entryTime} Uhr` : p.entryDate],
+    ].map(([label, value]) =>
+      `<tr><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#555;white-space:nowrap;padding-right:16px;">${escapeHtml(label)}</td><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#222;font-weight:600;">${escapeHtml(value)}</td></tr>`
+    ).join('');
+    const descHtml = p.description
+      ? `<p style="margin:18px 0 6px;font-size:14px;color:#555;font-weight:600;">Beschreibung</p><p style="margin:0;font-size:14px;line-height:1.6;color:#333;white-space:pre-wrap;">${escapeHtml(p.description)}</p>`
+      : '';
+    const inner = `
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:4px;">${rows}</table>
+${descHtml}`;
     return drkEmailShellHtml(title, inner, p.ticketId, '');
   }
   const inner = `
-<p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:#333;font-family:Arial,Helvetica,sans-serif;">Ihre Meldung mit der <strong>Ticketnummer: ${escapeHtml(p.ticketId)}</strong> wurde erfolgreich abgeschlossen.</p>
-<p style="margin:0 0 20px;font-size:14px;line-height:1.55;color:#444;font-family:Arial,Helvetica,sans-serif;">Zum Nachlesen oder bei Rückfragen nutzen Sie den Button – Ihr Ticket wird im Portal direkt geöffnet.</p>
-${portalOpenButtonRowHtml(p.ticketId)}`;
+<p style="margin:0;font-size:15px;line-height:1.55;color:#333;">Ihre Meldung mit der <strong>Ticketnummer: ${escapeHtml(p.ticketId)}</strong> wurde erfolgreich abgeschlossen.</p>
+<p style="margin:14px 0 0;font-size:14px;line-height:1.55;color:#444;">Zum Nachlesen oder bei Rückfragen nutzen Sie den Button – Ihr Ticket wird im Portal direkt geöffnet.</p>
+${portalOpenButtonWrappedHtml(p.ticketId, '18px 0 0')}`;
   return drkEmailShellHtml(title, inner, p.ticketId, '');
 };
 
@@ -333,7 +402,7 @@ const sendDrkBrevoMailAsync = async (
   const senderEmail =
     (import.meta.env.VITE_BREVO_SENDER_EMAIL as string | undefined)?.trim() || 'noreply@drk-ticket.de';
   const senderName =
-    (import.meta.env.VITE_BREVO_SENDER_NAME as string | undefined)?.trim() || 'DRK Haustechnik Service';
+    (import.meta.env.VITE_BREVO_SENDER_NAME as string | undefined)?.trim() || 'DRK Serviceportal';
   const textContent = buildDrkBrevoPlainText(payload);
   const htmlContent = buildDrkBrevoHtml(payload);
   try {
@@ -495,28 +564,53 @@ const assignTicket = (
         rule.keyword.toLowerCase().split(',').some(kw => fullText.includes(kw.trim()))
     );
 
+    const availableUsers = users.filter(u =>
+        (u.role === Role.Technician || u.role === Role.Housekeeping) &&
+        u.isActive &&
+        u.availability.status === AvailabilityStatus.Available
+    );
+
     if (matchedRule) {
-        // Find all active and available technicians with the required skill
-        const skilledTechnicians = users.filter(u => 
-            (u.role === Role.Technician || u.role === Role.Housekeeping) && 
-            u.isActive && 
-            u.availability.status === AvailabilityStatus.Available && 
-            u.skills.includes(matchedRule.skill)
+        // Kandidaten: direkt zugeordnete Mitarbeiter (assignees), dann Fallback auf alle verfügbaren
+        let pool = availableUsers.filter(u =>
+            matchedRule.assignees && matchedRule.assignees.length > 0
+                ? matchedRule.assignees.includes(u.name)
+                : false
         );
-        
-        if (skilledTechnicians.length > 0) {
-            // Calculate current load for each skilled technician
-            const techniciansWithLoad = skilledTechnicians.map(tech => ({
+        // Fallback: wenn keine Assignees konfiguriert, alle verfügbaren Techniker nehmen
+        if (pool.length === 0) pool = availableUsers;
+
+        if (pool.length > 0) {
+            const withLoad = pool.map(tech => ({
                 ...tech,
                 load: tickets.filter(t => t.technician === tech.name && t.status !== Status.Abgeschlossen).length
             }));
-            
-            // Sort by load, ascending, to find the least busy one
-            techniciansWithLoad.sort((a, b) => a.load - b.load);
-            assignedTechnician = techniciansWithLoad[0].name;
+            withLoad.sort((a, b) => a.load - b.load);
+            assignedTechnician = withLoad[0].name;
         }
+    } else if (availableUsers.length > 0) {
+        // Kein Keyword-Match: trotzdem dem Techniker mit der geringsten Last zuweisen
+        const withLoad = availableUsers.map(u => ({
+            ...u,
+            load: tickets.filter(t => t.technician === u.name && t.status !== Status.Abgeschlossen).length
+        }));
+        withLoad.sort((a, b) => a.load - b.load);
+        assignedTechnician = withLoad[0].name;
     }
     return assignedTechnician;
+};
+
+/** Erkennt die Kategorie automatisch aus Betreff + Beschreibung anhand der Routing-Regeln. */
+const inferCategoryFromText = (
+  text: string,
+  routingRules: RoutingRule[],
+  fallbackCategoryId: string
+): string => {
+  const lower = text.toLowerCase();
+  const matched = routingRules.find(r =>
+    r.categoryId && r.keyword.split(',').some(kw => kw.trim() && lower.includes(kw.trim().toLowerCase()))
+  );
+  return matched?.categoryId || fallbackCategoryId;
 };
 
 const safeJSONParse = <T,>(key: string, fallback: T): T => {
@@ -599,12 +693,12 @@ const normalizeTicket = (t: Ticket): Ticket => {
   return base;
 };
 const asTicketArray = (value: unknown): Ticket[] =>
-  Array.isArray(value) ? (value as Ticket[]).map(normalizeTicket) : MOCK_TICKETS.map(normalizeTicket);
+  Array.isArray(value) ? (value as Ticket[]).map(normalizeTicket) : [];
 const asLocationArray = (value: unknown): Location[] =>
-  Array.isArray(value) ? (value as Location[]) : MOCK_LOCATIONS;
-const asAssetArray = (value: unknown): Asset[] => (Array.isArray(value) ? (value as Asset[]) : MOCK_ASSETS);
+  Array.isArray(value) ? (value as Location[]) : [];
+const asAssetArray = (value: unknown): Asset[] => (Array.isArray(value) ? (value as Asset[]) : []);
 const asPlanArray = (value: unknown): MaintenancePlan[] =>
-  Array.isArray(value) ? (value as MaintenancePlan[]) : MOCK_MAINTENANCE_PLANS;
+  Array.isArray(value) ? (value as MaintenancePlan[]) : [];
 
 const mergeAppSettingsRemote = (value: unknown, prev: AppSettings): AppSettings => {
   if (!value || typeof value !== 'object') return prev;
@@ -616,7 +710,16 @@ const mergeAppSettingsRemote = (value: unknown, prev: AppSettings): AppSettings 
     ticketCategories: Array.isArray(v.ticketCategories) ? v.ticketCategories : prev.ticketCategories,
     slaMatrix: Array.isArray(v.slaMatrix) ? v.slaMatrix : prev.slaMatrix,
     routingRules: Array.isArray(v.routingRules) ? v.routingRules : prev.routingRules,
-    routineSchedules: Array.isArray(v.routineSchedules) ? v.routineSchedules : prev.routineSchedules ?? [],
+    routineSchedules: Array.isArray(v.routineSchedules)
+      ? v.routineSchedules.map((remoteS: RoutineSchedule) => {
+          const localS = prev.routineSchedules?.find(s => s.id === remoteS.id);
+          // Keep the more recent lastGenerated so a just-generated ticket isn't overwritten by stale remote data
+          if (localS && (localS.lastGenerated ?? '') > (remoteS.lastGenerated ?? '')) {
+            return { ...remoteS, lastGenerated: localS.lastGenerated, rotationCursor: localS.rotationCursor };
+          }
+          return remoteS;
+        })
+      : prev.routineSchedules ?? [],
     routineDayCompletions: Array.isArray(v.routineDayCompletions)
       ? v.routineDayCompletions
       : prev.routineDayCompletions ?? [],
@@ -639,12 +742,18 @@ const App: React.FC = () => {
 
   // --- Main Data State ---
   const [tickets, setTickets] = useState<Ticket[]>(() =>
-    safeJSONParse<Ticket[]>(LOCAL_STORAGE_KEY_TICKETS, MOCK_TICKETS).map(normalizeTicket)
+    safeJSONParse<Ticket[]>(LOCAL_STORAGE_KEY_TICKETS, []).map(normalizeTicket)
   );
-  const [users, setUsers] = useState<User[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_USERS, MOCK_USERS));
-  const [locations, setLocations] = useState<Location[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_LOCATIONS, MOCK_LOCATIONS));
-  const [assets, setAssets] = useState<Asset[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_ASSETS, MOCK_ASSETS));
-  const [maintenancePlans, setMaintenancePlans] = useState<MaintenancePlan[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_PLANS, MOCK_MAINTENANCE_PLANS));
+  const [completedTickets, setCompletedTickets] = useState<Ticket[]>(() =>
+    safeJSONParse<Ticket[]>(LOCAL_STORAGE_KEY_COMPLETED_TICKETS, []).map(normalizeTicket)
+  );
+  const [routineTickets, setRoutineTickets] = useState<Ticket[]>(() =>
+    safeJSONParse<Ticket[]>(LOCAL_STORAGE_KEY_ROUTINE_TICKETS, []).map(normalizeTicket)
+  );
+  const [users, setUsers] = useState<User[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_USERS, []));
+  const [locations, setLocations] = useState<Location[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_LOCATIONS, []));
+  const [assets, setAssets] = useState<Asset[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_ASSETS, []));
+  const [maintenancePlans, setMaintenancePlans] = useState<MaintenancePlan[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_PLANS, []));
   const [appSettings, setAppSettings] = useState<AppSettings>(() => ({ ...DEFAULT_APP_SETTINGS, ...safeJSONParse(LOCAL_STORAGE_KEY_SETTINGS, {}) }));
   const [isSyncing, setIsSyncing] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -653,10 +762,20 @@ const App: React.FC = () => {
   /** Admin: sichtbarer Hinweis wenn Brevo (Transaktions-Mail) nicht funktioniert */
   const [brevoAdminAlert, setBrevoAdminAlert] = useState<{ message: string; status: number } | null>(null);
   const [brevoAlertSuppressed, setBrevoAlertSuppressed] = useState(false);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const dismissToast = (id: string) => setToasts(prev => prev.filter(t => t.id !== id));
+  const addToast = (toast: Omit<Toast, 'id'>) => setToasts(prev => [...prev, { ...toast, id: `${Date.now()}-${Math.random()}` }]);
   /** Sidebar-Status wie „Synchronisiert“ */
   const [brevoMailOk, setBrevoMailOk] = useState<boolean | null>(null);
   const [brevoMailLastChecked, setBrevoMailLastChecked] = useState<Date | null>(null);
   const isRemoteUpdate = useRef(false);
+  const appDataReadyRef = useRef(false);
+  const ticketsSnapshotReadyRef = useRef(false);
+  const completedSnapshotReadyRef = useRef(false);
+  const routineSnapshotReadyRef = useRef(false);
+  const deletedTicketIdsRef = useRef<Set<string>>(
+    new Set<string>(safeJSONParse<string[]>(LOCAL_STORAGE_KEY_DELETED_IDS, []))
+  );
   const prevUsersRef = useRef<User[]>(users);
 
   useEffect(() => {
@@ -729,19 +848,23 @@ const App: React.FC = () => {
 
   // --- Firebase Sync Logic ---
   useEffect(() => {
+    const tryMarkInitialized = () => {
+      if (appDataReadyRef.current && ticketsSnapshotReadyRef.current && completedSnapshotReadyRef.current && routineSnapshotReadyRef.current) {
+        setIsInitialized(true);
+      }
+    };
+
     const fetchData = async () => {
       setIsSyncing(true);
       try {
+        // Load non-ticket app data
         const querySnapshot = await getDocs(collection(db, 'app_data'));
         if (!querySnapshot.empty) {
           isRemoteUpdate.current = true;
-          querySnapshot.forEach((doc) => {
-            const key = doc.id;
-            const value = doc.data().value;
+          querySnapshot.forEach((d) => {
+            const key = d.id;
+            const value = d.data().value;
             switch (key) {
-              case LOCAL_STORAGE_KEY_TICKETS:
-                setTickets(asTicketArray(value));
-                break;
               case LOCAL_STORAGE_KEY_USERS:
                 setUsers(asUserArray(value));
                 break;
@@ -757,16 +880,93 @@ const App: React.FC = () => {
               case LOCAL_STORAGE_KEY_SETTINGS:
                 setAppSettings((prev) => mergeAppSettingsRemote(value, prev));
                 break;
+              case 'deleted-ticket-ids':
+                (Array.isArray(value) ? value as string[] : []).forEach((id: string) => deletedTicketIdsRef.current.add(id));
+                persistDeletedIds();
+                break;
             }
           });
           setLastSyncTime(new Date());
           setTimeout(() => { isRemoteUpdate.current = false; }, 100);
         }
-        setIsInitialized(true);
+
+        // Load current state of all ticket collections
+        const [ticketsCollSnap, completedCollSnap, routineCollSnap] = await Promise.all([
+          getDocs(collection(db, 'tickets')),
+          getDocs(collection(db, 'completed_tickets')),
+          getDocs(collection(db, 'routine_tickets')),
+        ]);
+
+        // Migration from old app_data array format:
+        // Write any ticket from the old doc that doesn't yet exist in either collection
+        const oldDoc = querySnapshot.docs.find((d) => d.id === LOCAL_STORAGE_KEY_TICKETS);
+        if (oldDoc) {
+          const oldTickets = asTicketArray(oldDoc.data().value);
+          const existingIds = new Set([
+            ...ticketsCollSnap.docs.map((d) => d.id),
+            ...completedCollSnap.docs.map((d) => d.id),
+            ...routineCollSnap.docs.map((d) => d.id),
+          ]);
+          const missing = oldTickets.filter(
+            (t) => !existingIds.has(t.id) && !deletedTicketIdsRef.current.has(t.id)
+          );
+          if (missing.length > 0) {
+            console.log(`Migrating ${missing.length} missing tickets from old format…`);
+            await Promise.all(
+              missing.map((t) => {
+                let target: string;
+                if (t.status === Status.Abgeschlossen) {
+                  target = 'completed_tickets';
+                } else if (t.origin === 'routine') {
+                  target = 'routine_tickets';
+                } else {
+                  target = 'tickets';
+                }
+                return setDoc(doc(db, target, t.id), JSON.parse(JSON.stringify(t)));
+              })
+            );
+          }
+        }
+
+        // Migration: move any completed tickets still in tickets/ to completed_tickets/
+        const toMigrate = ticketsCollSnap.docs.filter((d) => {
+          const t = d.data() as Ticket;
+          return t.status === Status.Abgeschlossen && !deletedTicketIdsRef.current.has(d.id);
+        });
+        if (toMigrate.length > 0) {
+          console.log(`Moving ${toMigrate.length} completed tickets to completed_tickets/…`);
+          await Promise.all(
+            toMigrate.map(async (d) => {
+              await setDoc(doc(db, 'completed_tickets', d.id), d.data());
+              await deleteDoc(doc(db, 'tickets', d.id));
+            })
+          );
+        }
+
+        // Migration: move any routine tickets still in tickets/ to routine_tickets/
+        const routineToMigrate = ticketsCollSnap.docs.filter((d) => {
+          const t = d.data() as Ticket;
+          return t.origin === 'routine' && t.status !== Status.Abgeschlossen && !deletedTicketIdsRef.current.has(d.id);
+        });
+        if (routineToMigrate.length > 0) {
+          console.log(`Moving ${routineToMigrate.length} routine tickets to routine_tickets/…`);
+          await Promise.all(
+            routineToMigrate.map(async (d) => {
+              await setDoc(doc(db, 'routine_tickets', d.id), d.data());
+              await deleteDoc(doc(db, 'tickets', d.id));
+            })
+          );
+        }
+
+        // Migration: move any routine tickets still in completed_tickets/ to routine_tickets/ ...
+        // Actually completed routine tickets stay in completed_tickets/ per spec — no migration needed here.
+
+        appDataReadyRef.current = true;
+        tryMarkInitialized();
       } catch (err) {
         console.error('Error fetching from Firebase:', err);
-        // Even if it fails, we mark as initialized to allow local changes to sync
-        setIsInitialized(true);
+        appDataReadyRef.current = true;
+        tryMarkInitialized();
       } finally {
         setIsSyncing(false);
       }
@@ -774,33 +974,42 @@ const App: React.FC = () => {
 
     fetchData();
 
-    // Subscribe to realtime changes
-    const unsubscribe = onSnapshot(collection(db, 'app_data'), (snapshot) => {
+    // Real-time listener for non-ticket app data
+    const unsubscribeAppData = onSnapshot(collection(db, 'app_data'), (snapshot) => {
       isRemoteUpdate.current = true;
       let hasChanges = false;
       snapshot.docChanges().forEach((change) => {
         if (change.type === 'added' || change.type === 'modified') {
-          hasChanges = true;
           const key = change.doc.id;
           const value = change.doc.data().value;
           switch (key) {
-            case LOCAL_STORAGE_KEY_TICKETS:
-              setTickets(asTicketArray(value));
-              break;
             case LOCAL_STORAGE_KEY_USERS:
+              hasChanges = true;
               setUsers(asUserArray(value));
               break;
             case LOCAL_STORAGE_KEY_LOCATIONS:
+              hasChanges = true;
               setLocations(asLocationArray(value));
               break;
             case LOCAL_STORAGE_KEY_ASSETS:
+              hasChanges = true;
               setAssets(asAssetArray(value));
               break;
             case LOCAL_STORAGE_KEY_PLANS:
+              hasChanges = true;
               setMaintenancePlans(asPlanArray(value));
               break;
             case LOCAL_STORAGE_KEY_SETTINGS:
+              hasChanges = true;
               setAppSettings((prev) => mergeAppSettingsRemote(value, prev));
+              break;
+            case 'deleted-ticket-ids':
+              hasChanges = true;
+              (Array.isArray(value) ? value as string[] : []).forEach((id: string) => deletedTicketIdsRef.current.add(id));
+              persistDeletedIds();
+              setTickets((prev) => prev.filter((t) => !deletedTicketIdsRef.current.has(t.id)));
+              setCompletedTickets((prev) => prev.filter((t) => !deletedTicketIdsRef.current.has(t.id)));
+              setRoutineTickets((prev) => prev.filter((t) => !deletedTicketIdsRef.current.has(t.id)));
               break;
           }
         }
@@ -812,11 +1021,130 @@ const App: React.FC = () => {
         isRemoteUpdate.current = false;
       }
     }, (error) => {
-      console.error('Firebase onSnapshot error:', error);
+      console.error('Firebase app_data onSnapshot error:', error);
+    });
+
+    // Real-time listener for individual ticket documents
+    const unsubscribeTickets = onSnapshot(collection(db, 'tickets'), (snapshot) => {
+      isRemoteUpdate.current = true;
+      const changes = snapshot.docChanges();
+
+      if (!ticketsSnapshotReadyRef.current) {
+        // Initial snapshot: replace state with all tickets, filtered by deletion blocklist
+        const allTickets = snapshot.docs
+          .filter((d) => !deletedTicketIdsRef.current.has(d.id))
+          .map((d) => normalizeTicket(d.data() as Ticket));
+        setTickets(allTickets);
+        ticketsSnapshotReadyRef.current = true;
+        tryMarkInitialized();
+      } else if (changes.length > 0) {
+        setTickets((prev) => {
+          let next = [...prev];
+          changes.forEach((change) => {
+            if (change.type === 'added' || change.type === 'modified') {
+              if (deletedTicketIdsRef.current.has(change.doc.id)) return; // permanently deleted
+              const ticket = normalizeTicket(change.doc.data() as Ticket);
+              const idx = next.findIndex((t) => t.id === ticket.id);
+              if (idx >= 0) next[idx] = ticket;
+              else next = [ticket, ...next];
+            } else if (change.type === 'removed') {
+              next = next.filter((t) => t.id !== change.doc.id);
+            }
+          });
+          return next;
+        });
+        setLastSyncTime(new Date());
+      }
+      setTimeout(() => { isRemoteUpdate.current = false; }, 100);
+    }, (error) => {
+      console.error('Firebase tickets onSnapshot error:', error);
+      if (!ticketsSnapshotReadyRef.current) {
+        ticketsSnapshotReadyRef.current = true;
+        tryMarkInitialized();
+      }
+    });
+
+    const unsubscribeCompleted = onSnapshot(collection(db, 'completed_tickets'), (snapshot) => {
+      isRemoteUpdate.current = true;
+      const changes = snapshot.docChanges();
+
+      if (!completedSnapshotReadyRef.current) {
+        const allCompleted = snapshot.docs
+          .filter((d) => !deletedTicketIdsRef.current.has(d.id))
+          .map((d) => normalizeTicket(d.data() as Ticket));
+        setCompletedTickets(allCompleted);
+        completedSnapshotReadyRef.current = true;
+        tryMarkInitialized();
+      } else if (changes.length > 0) {
+        setCompletedTickets((prev) => {
+          let next = [...prev];
+          changes.forEach((change) => {
+            if (change.type === 'added' || change.type === 'modified') {
+              if (deletedTicketIdsRef.current.has(change.doc.id)) return;
+              const ticket = normalizeTicket(change.doc.data() as Ticket);
+              const idx = next.findIndex((t) => t.id === ticket.id);
+              if (idx >= 0) next[idx] = ticket;
+              else next = [ticket, ...next];
+            } else if (change.type === 'removed') {
+              next = next.filter((t) => t.id !== change.doc.id);
+            }
+          });
+          return next;
+        });
+        setLastSyncTime(new Date());
+      }
+      setTimeout(() => { isRemoteUpdate.current = false; }, 100);
+    }, (error) => {
+      console.error('Firebase completed_tickets onSnapshot error:', error);
+      if (!completedSnapshotReadyRef.current) {
+        completedSnapshotReadyRef.current = true;
+        tryMarkInitialized();
+      }
+    });
+
+    const unsubscribeRoutine = onSnapshot(collection(db, 'routine_tickets'), (snapshot) => {
+      isRemoteUpdate.current = true;
+      const changes = snapshot.docChanges();
+
+      if (!routineSnapshotReadyRef.current) {
+        const allRoutine = snapshot.docs
+          .filter((d) => !deletedTicketIdsRef.current.has(d.id))
+          .map((d) => normalizeTicket(d.data() as Ticket));
+        setRoutineTickets(allRoutine);
+        routineSnapshotReadyRef.current = true;
+        tryMarkInitialized();
+      } else if (changes.length > 0) {
+        setRoutineTickets((prev) => {
+          let next = [...prev];
+          changes.forEach((change) => {
+            if (change.type === 'added' || change.type === 'modified') {
+              if (deletedTicketIdsRef.current.has(change.doc.id)) return;
+              const ticket = normalizeTicket(change.doc.data() as Ticket);
+              const idx = next.findIndex((t) => t.id === ticket.id);
+              if (idx >= 0) next[idx] = ticket;
+              else next = [ticket, ...next];
+            } else if (change.type === 'removed') {
+              next = next.filter((t) => t.id !== change.doc.id);
+            }
+          });
+          return next;
+        });
+        setLastSyncTime(new Date());
+      }
+      setTimeout(() => { isRemoteUpdate.current = false; }, 100);
+    }, (error) => {
+      console.error('Firebase routine_tickets onSnapshot error:', error);
+      if (!routineSnapshotReadyRef.current) {
+        routineSnapshotReadyRef.current = true;
+        tryMarkInitialized();
+      }
     });
 
     return () => {
-      unsubscribe();
+      unsubscribeAppData();
+      unsubscribeTickets();
+      unsubscribeCompleted();
+      unsubscribeRoutine();
     };
   }, []);
 
@@ -832,7 +1160,7 @@ const App: React.FC = () => {
   };
 
   // --- UI State ---
-  const [filters, setFilters] = useState({ area: 'Alle', technician: 'Alle', priority: 'Alle', status: 'Alle', search: '' });
+  const [filters, setFilters] = useState({ area: 'Alle', technician: 'Alle', priority: 'Alle', status: 'Alle', reporter: 'Alle', search: '' });
   const [groupBy, setGroupBy] = useState<GroupableKey | 'none'>('none');
   const [currentView, setCurrentView] = useState('dashboard');
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -851,8 +1179,7 @@ const App: React.FC = () => {
       currentView === 'dashboard' ||
       currentView === 'reports' ||
       currentView === 'techniker' ||
-      currentView === 'settings' ||
-      currentView === 'erledigt'
+      currentView === 'settings'
     ) {
       setCurrentView('tech-dashboard');
     }
@@ -863,18 +1190,40 @@ const App: React.FC = () => {
 
   // Migration for old data
   useEffect(() => {
-    if (isInitialized) {
-      const officialName = 'DRK Haustechnik Service';
-      
-      // Update if appName is missing or still set to the old name
-      if (!appSettings.appName || appSettings.appName === 'DRK Facility Dashboard') {
-        setAppSettings(prev => ({
-          ...prev,
-          appName: officialName
-        }));
+    if (!isInitialized) return;
+
+    setAppSettings(prev => {
+      let changed = false;
+      const next = { ...prev };
+
+      // appName
+      if (!next.appName || next.appName === 'DRK Facility Dashboard') {
+        next.appName = 'DRK Serviceportal';
+        changed = true;
       }
-    }
-  }, [isInitialized, appSettings.appName]);
+
+      // Category name migrations
+      const catRenames: Record<string, string> = {
+        'Sicherheit': 'Sicherheit / Brandschutz',
+        'IT-Infrastruktur': 'IT / EDV',
+        'Komfort': 'Hauswirtschaft',
+        'Gebäudetechnik': 'Haustechnik',
+      };
+      const newCats = (next.ticketCategories || []).map(c => {
+        if (catRenames[c.name]) { changed = true; return { ...c, name: catRenames[c.name] }; }
+        return c;
+      });
+      // Add missing categories
+      const missingCats = [
+        { id: 'cat-garten', name: 'Garten / Außen', default_priority: Priority.Niedrig },
+        { id: 'cat-sonstiges', name: 'Sonstiges', default_priority: Priority.Niedrig },
+      ].filter(nc => !newCats.some(c => c.id === nc.id));
+      if (missingCats.length > 0) changed = true;
+      next.ticketCategories = [...newCats, ...missingCats];
+
+      return changed ? next : prev;
+    });
+  }, [isInitialized]);
 
   useEffect(() => {
     if (isInitialized) {
@@ -916,12 +1265,20 @@ const App: React.FC = () => {
 
   useEffect(() => { localStorage.setItem('currentUser', JSON.stringify(currentUser)); }, [currentUser]);
   
-  useEffect(() => { 
+  useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_KEY_TICKETS, JSON.stringify(tickets));
     // syncToFirebase(LOCAL_STORAGE_KEY_TICKETS, tickets);
   }, [tickets]);
-  
-  useEffect(() => { 
+
+  useEffect(() => {
+    localStorage.setItem(LOCAL_STORAGE_KEY_COMPLETED_TICKETS, JSON.stringify(completedTickets));
+  }, [completedTickets]);
+
+  useEffect(() => {
+    localStorage.setItem(LOCAL_STORAGE_KEY_ROUTINE_TICKETS, JSON.stringify(routineTickets));
+  }, [routineTickets]);
+
+  useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(users));
     // syncToFirebase(LOCAL_STORAGE_KEY_USERS, users);
   }, [users]);
@@ -1031,6 +1388,7 @@ const App: React.FC = () => {
 
               if (updated) {
                   alert(`Erfolg: ${movedTotal} Tickets wurden automatisch umverteilt.`);
+                  ticketsToUpdate.forEach((t, i) => { if (t !== currentTickets[i]) saveTicketToFirebase(t); });
                   return ticketsToUpdate;
               }
               return currentTickets;
@@ -1077,47 +1435,36 @@ const App: React.FC = () => {
               const avgLoad = activeTechs.length > 0 ? totalActiveTickets / activeTechs.length : 0;
 
               openTickets.forEach(ticket => {
-                  // 1. Versuche Standard-Routing-Regeln (Stärken)
-                  let bestTech = assignTicket(
-                      { title: ticket.title, description: ticket.description },
-                      users,
-                      updatedTickets, 
-                      appSettings.routingRules
-                  );
+                  // Unzugewiesene Tickets werden NIE automatisch vergeben — nur manuelle Zuweisung erlaubt.
+                  if (!ticket.technician || ticket.technician === 'N/A') return;
 
-                  // 2. Wenn keine Regel passt ODER der Rückkehrer unter der Durchschnittslast liegt, 
-                  // forcieren wir die Zuweisung an den Rückkehrer um das Team zu entlasten.
-                  if (!returningTechnicians.some(rt => rt.name === bestTech)) {
-                      const eligibleReturnees = [...returningTechnicians].sort((a, b) => getLoad(a.name, updatedTickets) - getLoad(b.name, updatedTickets));
-                      if (eligibleReturnees.length > 0) {
-                          const candidate = eligibleReturnees[0];
-                          const candidateLoad = getLoad(candidate.name, updatedTickets);
-                          
-                          // Wenn der Rückkehrer noch Kapazität unter dem Durchschnitt hat, bekommt er das Ticket
-                          if (candidateLoad < avgLoad || ticket.technician === 'N/A') {
-                              bestTech = candidate.name;
-                          }
-                      }
-                  }
+                  // Nur Tickets eines abwesenden Technikers können an den Rückkehrer übergehen.
+                  const isAssignedToAbsentee = !returningTechnicians.some(rt => rt.name === ticket.technician) &&
+                      users.find(u => u.name === ticket.technician)?.availability?.status !== AvailabilityStatus.Available;
+                  if (!isAssignedToAbsentee) return;
 
-                  // 3. Zuweisung anwenden
-                  if (bestTech !== 'N/A' && returningTechnicians.some(rt => rt.name === bestTech) && ticket.technician !== bestTech) {
-                      const ticketIndex = updatedTickets.findIndex(t => t.id === ticket.id);
-                      if (ticketIndex !== -1) {
-                          updatedTickets[ticketIndex] = { 
-                              ...updatedTickets[ticketIndex], 
-                              technician: bestTech,
-                              notes: [...(updatedTickets[ticketIndex].notes || []), `AUTO-ZUWIESUNG: An Rückkehrer ${bestTech} zur Lastverteilung zugewiesen.`]
-                          };
-                          ticketsUpdated = true;
-                          reassignedCount++;
-                      }
+                  // Rückkehrer mit geringster Last als Ziel wählen, aber nur wenn er unter dem Durchschnitt liegt.
+                  const eligibleReturnees = [...returningTechnicians].sort((a, b) => getLoad(a.name, updatedTickets) - getLoad(b.name, updatedTickets));
+                  if (eligibleReturnees.length === 0) return;
+                  const candidate = eligibleReturnees[0];
+                  if (getLoad(candidate.name, updatedTickets) >= avgLoad) return;
+
+                  const ticketIndex = updatedTickets.findIndex(t => t.id === ticket.id);
+                  if (ticketIndex !== -1) {
+                      updatedTickets[ticketIndex] = {
+                          ...updatedTickets[ticketIndex],
+                          technician: candidate.name,
+                          notes: [...(updatedTickets[ticketIndex].notes || []), `AUTO-UMVERTEILUNG: Von ${ticket.technician} an ${candidate.name} (Rückkehr-Lastverteilung).`]
+                      };
+                      ticketsUpdated = true;
+                      reassignedCount++;
                   }
               });
 
               if (ticketsUpdated) {
                   console.log(`RÜCKKEHR LOGIK: ${reassignedCount} Tickets neu zugewiesen.`);
                   alert(`Willkommen zurück! ${returningTechnicians.map((u) => displayNameShort(u.name)).join(', ')} ist wieder verfügbar. ${reassignedCount} offene Tickets wurden zur Lastverteilung automatisch zugewiesen.`);
+                  updatedTickets.forEach((t, i) => { if (t !== currentTickets[i]) saveTicketToFirebase(t); });
                   return updatedTickets;
               }
               return currentTickets;
@@ -1195,6 +1542,14 @@ const App: React.FC = () => {
     schedules.forEach((schedule, idx) => {
       if (schedule.lastGenerated === todayStr) return;
       if (!isRoutineDueOnCalendarDay(schedule, today, rpSet)) return;
+      // Safety: skip if a ticket for this schedule was already created today
+      // Use todayStr (ISO YYYY-MM-DD) to compare against entryDate stored as DD.MM.YYYY
+      const [y, m, d] = todayStr.split('-');
+      const todayDE = `${d}.${m}.${y}`;
+      const alreadyCreatedToday = routineTickets.some(
+        t => t.routineScheduleId === schedule.id && t.entryDate === todayDE
+      );
+      if (alreadyCreatedToday) return;
 
       const eligibleUsers = users
         .filter(u => u.isActive && u.role === schedule.targetRole)
@@ -1246,11 +1601,12 @@ const App: React.FC = () => {
     if (changed) {
       setAppSettings(prev => ({ ...prev, routineSchedules: updatedSchedules as any }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Serienlogik bewusst bei Schedule-/Feiertags-Änderung; Tickets über setTickets
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tickets intentionally accessed via closure; adding to deps would re-run on every ticket save
   }, [isInitialized, appSettings.routineSchedules, users, rpHolidayYmdList]);
 
   // Automatically set tickets to overdue and back
   useEffect(() => {
+    if (!isInitialized) return;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -1263,7 +1619,6 @@ const App: React.FC = () => {
         const dueDate = parseGermanDate(ticket.dueDate);
         if (!dueDate) return ticket;
 
-// FIX: Use .getTime() for robust date comparison to resolve arithmetic operation error.
         const isPastDue = dueDate.getTime() < today.getTime();
 
         if (isPastDue && ticket.status !== Status.Ueberfaellig) {
@@ -1273,15 +1628,50 @@ const App: React.FC = () => {
             wasChanged = true;
             return { ...ticket, status: Status.InArbeit };
         }
-        
+
         return ticket;
     });
 
     if (wasChanged) {
-  setTickets(updatedTickets);
-  saveTicketsSafely(updatedTickets);
-}
-  }, [tickets]); // Reruns whenever tickets change
+      setTickets(updatedTickets);
+      updatedTickets.forEach((t, i) => { if (t !== tickets[i]) saveTicketToFirebase(t); });
+    }
+  }, [tickets, isInitialized]);
+
+  // Automatically set routine tickets to overdue and back
+  useEffect(() => {
+    if (!isInitialized) return;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let wasChanged = false;
+    const updatedRoutineTickets = routineTickets.map(ticket => {
+        if (ticket.status === Status.Abgeschlossen) {
+            return ticket;
+        }
+
+        const dueDate = parseGermanDate(ticket.dueDate);
+        if (!dueDate) return ticket;
+
+        const isPastDue = dueDate.getTime() < today.getTime();
+
+        if (isPastDue && ticket.status !== Status.Ueberfaellig) {
+            wasChanged = true;
+            return { ...ticket, status: Status.Ueberfaellig };
+        } else if (!isPastDue && ticket.status === Status.Ueberfaellig) {
+            wasChanged = true;
+            return { ...ticket, status: Status.InArbeit };
+        }
+
+        return ticket;
+    });
+
+    if (wasChanged) {
+      setRoutineTickets(updatedRoutineTickets);
+      updatedRoutineTickets.forEach((t, i) => { if (t !== routineTickets[i]) saveTicketToFirebase(t); });
+    }
+  }, [routineTickets, isInitialized]);
+
 const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => {
   setAppSettings((prev) => {
     const next =
@@ -1315,54 +1705,84 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
   const handleRoutineDayComplete = (scheduleId: string) => {
     if (!currentUser) return;
     const ymd = localISODate(new Date());
-    setAppSettings((prev) => {
-      const rest = (prev.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd));
-      return {
-        ...prev,
-        routineDayCompletions: [
-          ...rest,
-          {
-            scheduleId,
-            date: ymd,
-            completedBy: currentUser.name,
-            completedAt: new Date().toISOString(),
-          },
-        ],
-      };
-    });
+    const rest = (appSettings.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd));
+    const next: AppSettings = {
+      ...appSettings,
+      routineDayCompletions: [
+        ...rest,
+        { scheduleId, date: ymd, completedBy: currentUser.name, completedAt: new Date().toISOString() },
+      ],
+    };
+    setAppSettings(next);
+    void setDoc(doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS), { value: JSON.parse(JSON.stringify(next)), updated_at: new Date().toISOString() });
   };
 
   const handleRoutineDayUncomplete = (scheduleId: string) => {
     const ymd = localISODate(new Date());
-    setAppSettings((prev) => ({
-      ...prev,
-      routineDayCompletions: (prev.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd)),
-    }));
+    const next: AppSettings = {
+      ...appSettings,
+      routineDayCompletions: (appSettings.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd)),
+    };
+    setAppSettings(next);
+    void setDoc(doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS), { value: JSON.parse(JSON.stringify(next)), updated_at: new Date().toISOString() });
   };
-const saveTicketsSafely = (nextTickets: Ticket[]) => {
+const persistDeletedIds = () => {
   localStorage.setItem(
-    LOCAL_STORAGE_KEY_TICKETS,
-    JSON.stringify(nextTickets)
+    LOCAL_STORAGE_KEY_DELETED_IDS,
+    JSON.stringify(Array.from(deletedTicketIdsRef.current))
   );
+};
 
-  void setDoc(
-    doc(db, 'app_data', LOCAL_STORAGE_KEY_TICKETS),
-    {
-      value: JSON.parse(JSON.stringify(nextTickets)),
-      updated_at: new Date().toISOString(),
-    }
-  )
-    .then(() => {
-      setLastSyncTime(new Date());
-      console.log('Tickets gespeichert');
-    })
-    .catch((err) => {
-      console.error('Fehler beim Speichern der Tickets:', err);
-    });
+const saveTicketToFirebase = (ticket: Ticket) => {
+  const coll = ticket.origin === 'routine' ? 'routine_tickets' : 'tickets';
+  void setDoc(doc(db, coll, ticket.id), JSON.parse(JSON.stringify(ticket)))
+    .then(() => setLastSyncTime(new Date()))
+    .catch((err) => console.error('Fehler beim Speichern des Tickets:', err));
+};
+
+const saveCompletedTicketToFirebase = (ticket: Ticket) => {
+  void setDoc(doc(db, 'completed_tickets', ticket.id), JSON.parse(JSON.stringify(ticket)))
+    .then(() => setLastSyncTime(new Date()))
+    .catch((err) => console.error('Fehler beim Speichern:', err));
+};
+
+const deleteFromActiveFirebase = (ticketId: string) => {
+  void deleteDoc(doc(db, 'tickets', ticketId))
+    .then(() => setLastSyncTime(new Date()))
+    .catch(() => {});
+  void deleteDoc(doc(db, 'routine_tickets', ticketId))
+    .catch(() => {});
+};
+
+const deleteFromCompletedFirebase = (ticketId: string) => {
+  void deleteDoc(doc(db, 'completed_tickets', ticketId))
+    .catch((err) => console.error('Fehler beim Löschen (abgeschlossen):', err));
+};
+
+const deleteTicketFromFirebase = (ticketId: string) => {
+  // Layer 1: localStorage — immediate, works offline, persists across restarts
+  deletedTicketIdsRef.current.add(ticketId);
+  persistDeletedIds();
+  // Layer 2: Firestore blocklist — cross-device sync
+  void setDoc(doc(db, 'app_data', 'deleted-ticket-ids'), { value: arrayUnion(ticketId) }, { merge: true });
+  // Layer 3: delete from all collections (ticket could be in any)
+  void deleteDoc(doc(db, 'tickets', ticketId))
+    .then(() => setLastSyncTime(new Date()))
+    .catch((err) => console.error('Fehler beim Löschen des Tickets:', err));
+  void deleteDoc(doc(db, 'completed_tickets', ticketId))
+    .catch(() => {}); // silently ignore if not there
+  void deleteDoc(doc(db, 'routine_tickets', ticketId))
+    .catch(() => {}); // silently ignore if not there
 };
   const commitTicketUpdate = (updatedTicket: Ticket, originalTicket: Ticket) => {
     const ut: Ticket = { ...updatedTicket };
     const statusChanged = originalTicket.status !== ut.status;
+    const originalDueDate = originalTicket.dueDate; // Sicherung: wird am Ende geprüft
+
+    // Manuelle Technikerzuweisung löscht Auto-Flag
+    if (ut.technician !== originalTicket.technician) {
+      ut.autoAssigned = false;
+    }
 
     // --- Prevent assignment to absent technicians ---
     if (ut.technician !== 'N/A' && (ut.technician !== originalTicket.technician || originalTicket.technician === 'N/A')) {
@@ -1429,20 +1849,24 @@ const saveTicketsSafely = (nextTickets: Ticket[]) => {
     }
 
     if (ut.ticketType === 'reactive' && !skipReactiveAutoDue) {
-      const w = ut.wunschTermin?.trim();
-      const w0 = originalTicket.wunschTermin?.trim();
-      if (w) {
-        ut.dueDate = w;
-      } else {
-        const wunschCleared = !!w0 && !w;
-        const catChanged = ut.categoryId !== originalTicket.categoryId;
-        if (wunschCleared || catChanged) {
-          ut.dueDate = computeReactiveDueDateWithoutWunsch(ut.entryDate, ut.categoryId, appSettings.slaMatrix);
-        }
-        if (catChanged) {
-          const slaP = inferStrictestSlaPriorityForCategory(ut.categoryId, appSettings.slaMatrix);
-          ut.priority = slaP ?? Priority.Niedrig;
-        }
+      const w  = ut.wunschTermin?.trim() || '';
+      const w0 = originalTicket.wunschTermin?.trim() || '';
+      const wunschChanged = w !== w0;
+      const catChanged    = ut.categoryId !== originalTicket.categoryId;
+
+      // dueDate NUR anpassen wenn Wunschtermin oder Kategorie sich geändert hat
+      if (wunschChanged) {
+        ut.dueDate = w
+          ? w  // neuer Wunschtermin gesetzt
+          : computeReactiveDueDateWithoutWunsch(ut.entryDate, ut.categoryId, appSettings.slaMatrix); // Wunschtermin gelöscht
+      } else if (catChanged) {
+        ut.dueDate = computeReactiveDueDateWithoutWunsch(ut.entryDate, ut.categoryId, appSettings.slaMatrix);
+      }
+      // Prio-, Status-, Techniker-Änderungen o.ä. → dueDate bleibt unberührt
+
+      if (catChanged) {
+        const slaP = inferStrictestSlaPriorityForCategory(ut.categoryId, appSettings.slaMatrix);
+        ut.priority = slaP ?? Priority.Niedrig;
       }
     }
 
@@ -1451,14 +1875,24 @@ const saveTicketsSafely = (nextTickets: Ticket[]) => {
     }
 
     const reporterMailTo = ut.reporter_email?.trim();
-    let reporterMailSent = false;
     if (reporterMailTo) {
       if (statusChanged && ut.status === Status.Abgeschlossen) {
         sendDrkBrevoMail(reporterMailTo, `Ihre Meldung wurde abgeschlossen – Ticket ${ut.id}`, {
           kind: 'ticket_closed',
           ticketId: ut.id,
         });
-        reporterMailSent = true;
+      } else if (statusChanged && ut.status === Status.InArbeit) {
+        sendDrkBrevoMail(reporterMailTo, `Ihre Meldung wird bearbeitet – Ticket ${ut.id}`, {
+          kind: 'ticket_in_progress',
+          ticketId: ut.id,
+          title: ut.title || '—',
+          area: ut.area || '—',
+          location: ut.location || '',
+          priority: String(ut.priority),
+          technician: ut.technician || 'N/A',
+          dueDate: ut.dueDate || '—',
+          description: ut.description || '',
+        });
       } else if ((ut.notes?.length || 0) > (originalTicket.notes?.length || 0)) {
         const latestNote = ut.notes![ut.notes!.length - 1];
         const isNoteFromReporter =
@@ -1469,37 +1903,58 @@ const saveTicketsSafely = (nextTickets: Ticket[]) => {
             ticketId: ut.id,
             noteText: latestNote,
           });
-          reporterMailSent = true;
         }
       }
     }
-    if (reporterMailTo && !reporterMailSent) {
-      const statusDiff = ut.status !== originalTicket.status;
-      const dueDiff = ut.dueDate !== originalTicket.dueDate;
-      const techDiff = ut.technician !== originalTicket.technician;
-      const prioDiff = ut.priority !== originalTicket.priority;
-      const titleDiff = ut.title !== originalTicket.title;
-      const descDiff = (ut.description || '') !== (originalTicket.description || '');
-      const wunschDiff = (ut.wunschTermin || '') !== (originalTicket.wunschTermin || '');
-      if (statusDiff || dueDiff || techDiff || prioDiff || titleDiff || descDiff || wunschDiff) {
-        sendDrkBrevoMail(reporterMailTo, `Aktualisierung zu Ihrem Ticket ${ut.id}`, {
-          kind: 'ticket_update',
-          ticketId: ut.id,
-          status: String(ut.status),
-          dueDate: ut.dueDate || '—',
-          technician: ut.technician || 'N/A',
-          priority: String(ut.priority),
-          title: ut.title || '—',
-        });
-      }
+
+    // Absoluter Sicherheitsanker: dueDate darf sich NUR ändern wenn der User
+    // es selbst geändert hat, oder wunschTermin/Kategorie/Überfällig-Status sich änderte.
+    const dueDateManuallyChanged = updatedTicket.dueDate !== originalTicket.dueDate;
+    const dueDateRelevantChange =
+      dueDateManuallyChanged ||
+      (ut.wunschTermin?.trim() || '') !== (originalTicket.wunschTermin?.trim() || '') ||
+      ut.categoryId !== originalTicket.categoryId ||
+      (originalTicket.status === Status.Ueberfaellig && statusChanged);
+    if (!dueDateRelevantChange) {
+      ut.dueDate = originalDueDate;
     }
 
-    const nextTickets = tickets.map((t) =>
-  t.id === ut.id ? ut : t
-);
+    const wasCompleted = originalTicket.status === Status.Abgeschlossen;
+    const isNowCompleted = ut.status === Status.Abgeschlossen;
 
-setTickets(nextTickets);
-saveTicketsSafely(nextTickets);
+    if (!wasCompleted && isNowCompleted) {
+      // Active → Completed
+      if (ut.origin === 'routine') {
+        setRoutineTickets((prev) => prev.filter((t) => t.id !== ut.id));
+      } else {
+        setTickets((prev) => prev.filter((t) => t.id !== ut.id));
+      }
+      setCompletedTickets((prev) => [ut, ...prev]);
+      saveCompletedTicketToFirebase(ut);
+      deleteFromActiveFirebase(ut.id);
+    } else if (wasCompleted && !isNowCompleted) {
+      // Reopened: Completed → Active
+      setCompletedTickets((prev) => prev.filter((t) => t.id !== ut.id));
+      if (ut.origin === 'routine') {
+        setRoutineTickets((prev) => [ut, ...prev]);
+      } else {
+        setTickets((prev) => [ut, ...prev]);
+      }
+      saveTicketToFirebase(ut);
+      deleteFromCompletedFirebase(ut.id);
+    } else if (wasCompleted) {
+      // Update within completed
+      setCompletedTickets((prev) => prev.map((t) => t.id === ut.id ? ut : t));
+      saveCompletedTicketToFirebase(ut);
+    } else {
+      // Update within active
+      if (ut.origin === 'routine') {
+        setRoutineTickets((prev) => prev.map((t) => t.id === ut.id ? ut : t));
+      } else {
+        setTickets((prev) => prev.map((t) => t.id === ut.id ? ut : t));
+      }
+      saveTicketToFirebase(ut);
+    }
 
     if (selectedTicket && selectedTicket.id === ut.id) {
       setSelectedTicket(ut);
@@ -1507,7 +1962,9 @@ saveTicketsSafely(nextTickets);
   };
 
   const handleTicketUpdate = (updatedTicket: Ticket) => {
-    const originalTicket = tickets.find((t) => t.id === updatedTicket.id);
+    const originalTicket = tickets.find((t) => t.id === updatedTicket.id)
+      ?? routineTickets.find((t) => t.id === updatedTicket.id)
+      ?? completedTickets.find((t) => t.id === updatedTicket.id);
     if (!originalTicket) return;
 
     const statusChanged = originalTicket.status !== updatedTicket.status;
@@ -1527,7 +1984,9 @@ saveTicketsSafely(nextTickets);
     if (!completeOrderDialog) return;
     const draft = completeOrderDialog.draft;
     setCompleteOrderDialog(null);
-    const originalTicket = tickets.find((t) => t.id === draft.id);
+    const originalTicket = tickets.find((t) => t.id === draft.id)
+      ?? routineTickets.find((t) => t.id === draft.id)
+      ?? completedTickets.find((t) => t.id === draft.id);
     if (!originalTicket) return;
     commitTicketUpdate(draft, originalTicket);
   };
@@ -1537,17 +1996,12 @@ saveTicketsSafely(nextTickets);
   };
 
   const handleDeleteTicket = (ticketId: string) => {
-  const nextTickets = tickets.filter(
-    (ticket) => ticket.id !== ticketId
-  );
-
-  setTickets(nextTickets);
-  saveTicketsSafely(nextTickets);
-
-  if (selectedTicket && selectedTicket.id === ticketId) {
-    setSelectedTicket(null);
-  }
-};
+    setTickets((prev) => prev.filter((t) => t.id !== ticketId));
+    setRoutineTickets((prev) => prev.filter((t) => t.id !== ticketId));
+    setCompletedTickets((prev) => prev.filter((t) => t.id !== ticketId));
+    deleteTicketFromFirebase(ticketId);
+    if (selectedTicket && selectedTicket.id === ticketId) setSelectedTicket(null);
+  };
 
   /** Nachhol-Bestätigungen (z. B. nach Brevo-Ausfall): gleiche Vorlage wie bei Meldung erfassen. */
   const handleResendConfirmationMailsForEntryDate = useCallback(async (entryDateDE: string) => {
@@ -1595,18 +2049,33 @@ saveTicketsSafely(nextTickets);
     const entryDateStr = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const entryTimeStr = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
-    const category = appSettings.ticketCategories.find(c => c.id === newTicketData.categoryId);
     const isReactive = newTicketData.ticketType === 'reactive';
-    const slaStrictPriority = inferStrictestSlaPriorityForCategory(newTicketData.categoryId, appSettings.slaMatrix);
 
-    // Reaktiv: immer Priorität „Niedrig“, außer die SLA-Matrix (kürzeste Frist je Kategorie) legt eine andere Prio fest.
-    // Keine Kategorie-Defaults, keine mitgeschickte priority aus Formularen.
+    // Kategorie automatisch aus Stichwörtern erkennen wenn keine angegeben
+    const resolvedCategoryId = newTicketData.categoryId
+      ? newTicketData.categoryId
+      : inferCategoryFromText(
+          `${newTicketData.title || ''} ${newTicketData.description || ''}`,
+          appSettings.routingRules,
+          '' // kein Fallback auf erste Kategorie — lieber keine Kategorie als falsche Prio
+        );
+
+    const category = appSettings.ticketCategories.find(c => c.id === resolvedCategoryId);
+
+    // Priorität: Routing-Regel hat Vorrang, dann Kategorie-Default, dann App-Default
+    const fullText = `${newTicketData.title || ''} ${newTicketData.description || ''}`.toLowerCase();
+    const matchedRoutingRule = appSettings.routingRules.find(r =>
+      r.keyword.split(',').some(kw => kw.trim() && fullText.includes(kw.trim().toLowerCase()))
+    );
+    const routingPriority = matchedRoutingRule?.priority || null;
+
     const determinedPriority = isReactive
-  ? (slaStrictPriority ?? Priority.Niedrig)
-  : (newTicketData.priority || category?.default_priority || appSettings.defaultPriority);
+      ? (routingPriority || category?.default_priority || Priority.Niedrig)
+      : (newTicketData.priority || category?.default_priority || appSettings.defaultPriority);
 
     // 2. Load-Balancing Technician Assignment
     let assignedTechnician = newTicketData.technician || 'N/A';
+    let wasAutoAssigned = false;
 
 if (newTicketData.ticketType === 'reactive') {
   assignedTechnician = newTicketData.technician || 'N/A';
@@ -1617,6 +2086,7 @@ if (newTicketData.ticketType === 'reactive') {
     tickets,
     appSettings.routingRules
   );
+  if (assignedTechnician !== 'N/A') wasAutoAssigned = true;
 }
     let autoCorrectionNote = '';
 
@@ -1636,18 +2106,14 @@ if (newTicketData.ticketType === 'reactive') {
             }
         }
     } else {
-        // Reaktive Meldungen (Portal + „Neues Ticket“): ohne explizite Wahl immer „Nicht zugewiesen“ — kein Keyword-Routing.
-        // Präventiv (Wartung/Serientermin): weiter automatisch zuweisen, wenn möglich.
-        if (newTicketData.ticketType === 'reactive') {
-            assignedTechnician = 'N/A';
-        } else {
-            assignedTechnician = assignTicket(
-                { title: newTicketData.title, description: newTicketData.description },
-                users,
-                tickets,
-                appSettings.routingRules
-            );
-        }
+        // Reaktiv + präventiv: Keyword-Routing für automatische Zuweisung nutzen.
+        assignedTechnician = assignTicket(
+            { title: newTicketData.title, description: newTicketData.description },
+            users,
+            tickets,
+            appSettings.routingRules
+        );
+        if (assignedTechnician !== 'N/A') wasAutoAssigned = true;
     }
 
     // 3. Fälligkeit: reaktiv — mit Wunschtermin = Wunschdatum; sonst Kalender „Eingang + 5 Tage“ (z. B. 11.05. → 16.05.)
@@ -1696,10 +2162,12 @@ if (newTicketData.ticketType === 'reactive') {
       status: Status.Offen,
       priority: determinedPriority,
       technician: assignedTechnician,
+      categoryId: resolvedCategoryId,
       dueDate: formattedDueDate,
       notes: autoCorrectionNote ? [...(newTicketData.notes || []), autoCorrectionNote] : (newTicketData.notes || []),
       hasNewNoteFromReporter: false,
       is_emergency: false,
+      autoAssigned: wasAutoAssigned,
     };
     if (reporterEmail) {
       newTicket.reporter_email = reporterEmail;
@@ -1707,11 +2175,12 @@ if (newTicketData.ticketType === 'reactive') {
       delete (newTicket as Partial<Ticket>).reporter_email;
     }
 
-    setTickets(prevTickets => {
-  const updatedTickets = [newTicket, ...prevTickets];
-  saveTicketsSafely(updatedTickets);
-  return updatedTickets;
-});
+    if (newTicket.origin === 'routine') {
+      setRoutineTickets((prevRoutine) => [newTicket, ...prevRoutine]);
+    } else {
+      setTickets((prevTickets) => [newTicket, ...prevTickets]);
+    }
+    saveTicketToFirebase(newTicket);
 
     if (reporterEmail) {
       sendDrkBrevoMail(reporterEmail, `Ihre Meldung wurde erfasst – Ticket ${newTicket.id}`, {
@@ -1719,7 +2188,30 @@ if (newTicketData.ticketType === 'reactive') {
         ticketId: newTicket.id,
       });
     }
-    
+
+    const adminEmail = appSettings.adminNotificationEmail?.trim();
+    if (adminEmail) {
+      const categoryName = appSettings.ticketCategories.find(c => c.id === newTicket.categoryId)?.name || 'N/A';
+      sendDrkBrevoMail(
+        adminEmail,
+        `Neue Meldung – Ticket ${newTicket.id}: ${newTicket.title}`,
+        {
+          kind: 'admin_new_ticket',
+          ticketId: newTicket.id,
+          title: newTicket.title,
+          area: newTicket.area,
+          location: newTicket.location,
+          categoryName,
+          priority: String(newTicket.priority),
+          reporter: newTicket.reporter,
+          description: newTicket.description || '',
+          entryDate: newTicket.entryDate,
+          entryTime: newTicket.entryTime,
+        },
+        { silent: true }
+      );
+    }
+
     if (!silent) setIsModalOpen(false);
     return newTicket.id;
   };
@@ -1734,26 +2226,66 @@ if (newTicketData.ticketType === 'reactive') {
       }
     }
 
+    const toComplete: Ticket[] = [];
+    const toUpdate: Ticket[] = [];
+    const toUpdateRoutine: Ticket[] = [];
     setTickets((prevTickets) =>
-      prevTickets.map((ticket) => {
-        if (selectedTicketIds.includes(ticket.id)) {
-          const updatedTicket = { ...ticket, [property]: value };
-          if (property === 'status' && value === Status.Abgeschlossen && !ticket.completionDate) {
+      prevTickets.filter((ticket) => {
+        if (!selectedTicketIds.includes(ticket.id)) return true;
+        const updatedTicket = { ...ticket, [property]: value } as Ticket;
+        if (property === 'status' && value === Status.Abgeschlossen) {
+          if (!ticket.completionDate) {
             const stamp = completionStampNow();
             updatedTicket.completionDate = stamp.completionDate;
             updatedTicket.completionTime = stamp.completionTime;
           }
-          return updatedTicket;
+          updatedTicket.is_reopened = false;
+          toComplete.push(updatedTicket);
+          return false; // remove from active
         }
-        return ticket;
+        toUpdate.push(updatedTicket);
+        return true; // keep in active (updated below)
+      }).map(ticket => {
+        const updated = toUpdate.find(t => t.id === ticket.id);
+        return updated ?? ticket;
       })
     );
+    setRoutineTickets((prevRoutine) =>
+      prevRoutine.filter((ticket) => {
+        if (!selectedTicketIds.includes(ticket.id)) return true;
+        const updatedTicket = { ...ticket, [property]: value } as Ticket;
+        if (property === 'status' && value === Status.Abgeschlossen) {
+          if (!ticket.completionDate) {
+            const stamp = completionStampNow();
+            updatedTicket.completionDate = stamp.completionDate;
+            updatedTicket.completionTime = stamp.completionTime;
+          }
+          updatedTicket.is_reopened = false;
+          toComplete.push(updatedTicket);
+          return false; // remove from routine active
+        }
+        toUpdateRoutine.push(updatedTicket);
+        return true; // keep in routine (updated below)
+      }).map(ticket => {
+        const updated = toUpdateRoutine.find(t => t.id === ticket.id);
+        return updated ?? ticket;
+      })
+    );
+    if (toComplete.length > 0) {
+      setCompletedTickets((prev) => [...toComplete, ...prev]);
+      toComplete.forEach(t => { saveCompletedTicketToFirebase(t); deleteFromActiveFirebase(t.id); });
+    }
+    toUpdate.forEach(t => saveTicketToFirebase(t));
+    toUpdateRoutine.forEach(t => saveTicketToFirebase(t));
     setSelectedTicketIds([]);
   };
 
   const handleBulkDelete = () => {
     if (window.confirm(`Sind Sie sicher, dass Sie ${selectedTicketIds.length} Tickets endgültig löschen möchten? Dieser Vorgang kann nicht rückgängig gemacht werden.`)) {
-      setTickets(prev => prev.filter(ticket => !selectedTicketIds.includes(ticket.id)));
+      selectedTicketIds.forEach((id) => deleteTicketFromFirebase(id));
+      setTickets((prev) => prev.filter((t) => !selectedTicketIds.includes(t.id)));
+      setRoutineTickets((prev) => prev.filter((t) => !selectedTicketIds.includes(t.id)));
+      setCompletedTickets((prev) => prev.filter((t) => !selectedTicketIds.includes(t.id)));
       setSelectedTicketIds([]);
     }
   };
@@ -1770,54 +2302,54 @@ if (newTicketData.ticketType === 'reactive') {
 
   /** Gleiche Grundmenge wie die Haupttabelle der Listenansicht: keine Serienaufträge (origin routine). */
   const listenBenchTickets = useMemo(() => {
-    return tickets.filter((ticket) => {
+    return [...tickets, ...routineTickets, ...completedTickets].filter((ticket) => {
       if (currentUser?.role && isServiceTeamRole(currentUser.role) && ticket.technician !== currentUser.name) {
         return false;
       }
       if (ticket.origin === 'routine') return false;
       return true;
     });
-  }, [tickets, currentUser]);
+  }, [tickets, routineTickets, completedTickets, currentUser]);
 
   const filteredTickets = useMemo(() => {
-    return tickets.filter(ticket => {
+    const source = currentView === 'erledigt' ? completedTickets : [...tickets, ...routineTickets];
+    return source.filter(ticket => {
         // Role-based pre-filtering: Service-Team should only see tickets assigned to them.
         if (currentUser?.role && isServiceTeamRole(currentUser.role) && ticket.technician !== currentUser.name) {
             return false;
         }
 
         const searchLower = filters.search.toLowerCase();
-        if (filters.search && !ticket.title.toLowerCase().includes(searchLower) && !ticket.id.toLowerCase().includes(searchLower) && !ticket.area.toLowerCase().includes(searchLower)) return false;
-        
+        if (filters.search && !ticket.title.toLowerCase().includes(searchLower) && !ticket.id.toLowerCase().includes(searchLower) && !ticket.area.toLowerCase().includes(searchLower) && !ticket.reporter.toLowerCase().includes(searchLower)) return false;
+
         if (filters.area !== 'Alle' && ticket.area !== filters.area) return false;
-        
+
         if (
           filters.technician !== 'Alle' &&
           normalizePersonName(ticket.technician) !== normalizePersonName(filters.technician)
         ) {
           return false;
         }
-        
-        if (filters.priority !== 'Alle' && ticket.priority !== filters.priority) return false;
-        
-        if (currentView === 'erledigt') {
-            if (filters.status !== 'Alle' && ticket.status !== filters.status) return false;
-            return ticket.status === Status.Abgeschlossen;
-        }
-        
-        // For dashboard & tickets views, hide completed tickets.
-        if (ticket.status === Status.Abgeschlossen) return false;
 
-        // Serienaufträge nicht im Kanban (nur in Listenansicht anzeigen)
-        if ((currentView === 'dashboard' || currentView === 'tech-dashboard') && ticket.origin === 'routine') {
-            return false;
+        if (filters.priority !== 'Alle' && ticket.priority !== filters.priority) return false;
+        if (filters.reporter && filters.reporter !== 'Alle' && ticket.reporter !== filters.reporter) return false;
+
+        if (currentView === 'erledigt') {
+          if (filters.status !== 'Alle' && ticket.status !== filters.status) return false;
         }
-        
-        if ((currentView === 'tickets' || currentView === 'dashboard' || currentView === 'tech-dashboard') && filters.status !== 'Alle' && ticket.status !== filters.status) return false;
-        
+
+        if (currentView !== 'erledigt') {
+          // Serienaufträge nicht im Kanban (nur in Listenansicht anzeigen)
+          if ((currentView === 'dashboard' || currentView === 'tech-dashboard') && ticket.origin === 'routine') {
+              return false;
+          }
+
+          if ((currentView === 'tickets' || currentView === 'dashboard' || currentView === 'tech-dashboard') && filters.status !== 'Alle' && ticket.status !== filters.status) return false;
+        }
+
         return true;
     });
-  }, [tickets, filters, currentView, currentUser]);
+  }, [tickets, routineTickets, completedTickets, filters, currentView, currentUser]);
 
     const handleExportCSV = () => {
         if (filteredTickets.length === 0) {
@@ -1890,22 +2422,68 @@ if (newTicketData.ticketType === 'reactive') {
     };
 
   const ticketsForUser = useMemo(() => {
-    if (!currentUser) return tickets;
+    const allActive = [...tickets, ...routineTickets];
+    if (!currentUser) return allActive;
     if (isServiceTeamRole(currentUser.role)) {
-      return tickets.filter((t) => t.technician === currentUser.name);
+      return allActive.filter((t) => t.technician === currentUser.name);
     }
-    return tickets;
-  }, [tickets, currentUser]);
+    return allActive;
+  }, [tickets, routineTickets, currentUser]);
 
   const newMeldungenCount = useMemo(() => {
-    return tickets.filter(t => t.status === Status.Offen && (t.technician === 'N/A' || !t.technician)).length;
+    return tickets.filter(t =>
+      (t.status === Status.Offen && (t.technician === 'N/A' || !t.technician)) || t.is_reopened
+    ).length;
   }, [tickets]);
+
+  const techOffeneCount = useMemo(() => {
+    if (!currentUser || !isServiceTeamRole(currentUser.role)) return 0;
+    return ticketsForUser.filter(t => t.status === Status.Offen && t.origin !== 'routine').length;
+  }, [ticketsForUser, currentUser]);
 
   useEffect(() => {
     document.title = newMeldungenCount > 0
-      ? `(${newMeldungenCount}) DRK Haustechnik Service`
-      : 'DRK Haustechnik Service';
+      ? `(${newMeldungenCount}) DRK Serviceportal`
+      : 'DRK Serviceportal';
   }, [newMeldungenCount]);
+
+  // Browser-Benachrichtigungs-Berechtigung beim Login anfordern
+  useEffect(() => {
+    if (currentUser && 'Notification' in window && Notification.permission === 'default') {
+      void Notification.requestPermission();
+    }
+  }, [currentUser?.id]);
+
+  // In-App-Toasts + Browser-Benachrichtigungen: neue Tickets (Admin) + neue Zuweisung (Techniker)
+  const prevTicketsRef = useRef<Ticket[] | null>(null);
+  useEffect(() => {
+    if (!currentUser) { prevTicketsRef.current = null; return; }
+    if (prevTicketsRef.current === null) { prevTicketsRef.current = tickets; return; }
+    const prev = prevTicketsRef.current;
+    prevTicketsRef.current = tickets;
+    const prevIds = new Set(prev.map(t => t.id));
+    if (currentUser.role === Role.Admin) {
+      tickets
+        .filter(t => !prevIds.has(t.id) && t.status !== Status.Abgeschlossen)
+        .forEach(t => {
+          addToast({ type: 'new-ticket', title: 'Neue Meldung', message: `Ticket ${t.id}: ${t.title} · ${t.area}` });
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('Neue Meldung', { body: `Ticket ${t.id}: ${t.title} · ${t.area}`, icon: '/favicon.ico' });
+          }
+        });
+    }
+    if (isServiceTeamRole(currentUser.role)) {
+      tickets.forEach(t => {
+        const p = prev.find(x => x.id === t.id);
+        if (p && p.technician !== currentUser.name && t.technician === currentUser.name) {
+          addToast({ type: 'assigned', title: 'Ticket zugewiesen', message: `Ticket ${t.id}: ${t.title}` });
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('Ticket zugewiesen', { body: `Ticket ${t.id}: ${t.title}`, icon: '/favicon.ico' });
+          }
+        }
+      });
+    }
+  }, [tickets, currentUser]);
 
   const allTechnicianNames = useMemo(
     () => [
@@ -1918,18 +2496,24 @@ if (newTicketData.ticketType === 'reactive') {
     [users]
   );
   
+  const reporterOptions = useMemo(() => {
+    const all = [...tickets, ...routineTickets, ...completedTickets];
+    const names = Array.from(new Set(all.map(t => t.reporter).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'de'));
+    return ['Alle', ...names];
+  }, [tickets, routineTickets, completedTickets]);
+
   const locationOptionsWithCounts = useMemo(() => {
-    const ticketsForCounts = tickets.filter(t => currentView === 'erledigt' ? t.status === Status.Abgeschlossen : t.status !== Status.Abgeschlossen);
+    const ticketsForCounts = currentView === 'erledigt' ? completedTickets : [...tickets, ...routineTickets];
     const counts = ticketsForCounts.reduce((acc, ticket) => {
         acc[ticket.area] = (acc[ticket.area] || 0) + 1;
         return acc;
     }, {} as Record<string, number>);
     const result = activeLocations.map(loc => ({ name: loc.name, count: counts[loc.name] || 0 }));
     return [{ name: 'Alle', count: ticketsForCounts.length }, ...result];
-  }, [tickets, activeLocations, currentView]);
+  }, [tickets, routineTickets, completedTickets, activeLocations, currentView]);
 
   const changeView = (view: string) => {
-    if (['dashboard', 'reports', 'techniker', 'settings', 'erledigt'].includes(view) && currentUser?.role !== Role.Admin) {
+    if (['dashboard', 'reports', 'techniker', 'settings'].includes(view) && currentUser?.role !== Role.Admin) {
       alert('Keine Berechtigung, auf diese Seite zuzugreifen.');
       return;
     }
@@ -2064,7 +2648,9 @@ if (newTicketData.ticketType === 'reactive') {
           });
 
           if (movedCount > 0) {
+              const originalTickets = tickets;
               setTickets(ticketsToUpdate);
+              ticketsToUpdate.forEach((t, i) => { if (t !== originalTickets[i]) saveTicketToFirebase(t); });
               alert(`ERFOLG: ${movedCount} Tickets von ${displayNameShort(user.name)} wurden automatisch auf ${availableTechnicians.length} verfügbare Kollegen verteilt.`);
           }
       }
@@ -2084,6 +2670,7 @@ if (newTicketData.ticketType === 'reactive') {
           return;
       }
 
+      const originalTickets = [...tickets];
       let ticketsToUpdate = [...tickets];
       let movedTotal = 0;
       let logMessages: string[] = [];
@@ -2176,6 +2763,7 @@ if (newTicketData.ticketType === 'reactive') {
 
       if (movedTotal > 0) {
           setTickets(ticketsToUpdate);
+          ticketsToUpdate.forEach((t, i) => { if (t !== originalTickets[i]) saveTicketToFirebase(t); });
           alert(`Erfolg: ${movedTotal} Tickets wurden umverteilt.\n\nDetails:\n${logMessages.join('\n')}`);
       } else {
           alert(`Prüfung abgeschlossen. Keine Tickets mussten umverteilt werden.\n\nDetails:\n${logMessages.join('\n')}`);
@@ -2193,7 +2781,7 @@ if (newTicketData.ticketType === 'reactive') {
     <Portal
       appSettings={appSettings}
       onLogin={handleLogin}
-      tickets={tickets}
+      tickets={[...tickets, ...routineTickets, ...completedTickets]}
       onAddTicket={handleAddNewTicket}
       onUpdateTicket={handleTicketUpdate}
       locations={activeLocations.map((a) => a.name)}
@@ -2218,6 +2806,7 @@ if (newTicketData.ticketType === 'reactive') {
               onUpdateTicket={handleTicketUpdate}
               onSelectTicket={setSelectedTicket}
               selectedTicket={selectedTicket}
+              currentUser={currentUser}
             />
           );
         case 'tickets': return <TicketTableView tickets={filteredTickets} onUpdateTicket={handleTicketUpdate} onSelectTicket={setSelectedTicket} selectedTicketIds={selectedTicketIds} setSelectedTicketIds={setSelectedTicketIds} selectedTicket={selectedTicket} groupBy={groupBy} showRoutineSection={false} />;
@@ -2255,11 +2844,9 @@ if (newTicketData.ticketType === 'reactive') {
               rpHolidayYmdList={rpHolidayYmdList}
             />
           );
-        case 'erledigt': return <ErledigtTableView tickets={filteredTickets} onSelectTicket={setSelectedTicket} selectedTicket={selectedTicket} onDeleteTicket={handleDeleteTicket} />;
+        case 'erledigt': return <ErledigtTableView tickets={filteredTickets} onSelectTicket={setSelectedTicket} selectedTicket={selectedTicket} onDeleteTicket={handleDeleteTicket} userRole={currentUser?.role} />;
         case 'reports': {
-          const activeTickets = listenBenchTickets.filter((t) => t.status !== Status.Abgeschlossen);
-          const completedTickets = listenBenchTickets.filter((t) => t.status === Status.Abgeschlossen);
-          return <ReportsView activeTickets={activeTickets} completedTickets={completedTickets} users={users} />;
+          return <ReportsView activeTickets={tickets} completedTickets={completedTickets} users={users} />;
         }
         case 'techniker': return <TechnicianView tickets={listenBenchTickets} technicians={users.filter(u => (u.role === Role.Technician || u.role === Role.Housekeeping) && u.isActive)} onTechnicianSelect={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} onFilter={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} />;
         case 'settings': return <SettingsView users={users} setUsers={setUsers} locations={locations} setLocations={setLocations} assets={assets} setAssets={setAssets} maintenancePlans={maintenancePlans} setMaintenancePlans={setMaintenancePlans} appSettings={appSettings} setAppSettings={handleAppSettingsChange} onResendConfirmationMailsForEntryDate={handleResendConfirmationMailsForEntryDate} />;
@@ -2270,6 +2857,7 @@ if (newTicketData.ticketType === 'reactive') {
             onUpdateTicket={handleTicketUpdate}
             onSelectTicket={setSelectedTicket}
             selectedTicket={selectedTicket}
+            currentUser={currentUser}
           />
         );
     }
@@ -2375,6 +2963,32 @@ if (newTicketData.ticketType === 'reactive') {
             </span>
           </div>
         )}
+        {currentView === 'tech-dashboard' && techOffeneCount > 0 && (
+          <div
+            role="alert"
+            style={{
+              margin: '0 0 12px',
+              padding: '12px 16px',
+              borderRadius: 10,
+              border: '1px solid rgba(234, 179, 8, 0.5)',
+              background: 'rgba(234, 179, 8, 0.1)',
+              color: 'var(--text-primary)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              fontWeight: 500,
+            }}
+          >
+            <span style={{ background: '#d97706', color: '#fff', borderRadius: '20px', padding: '0.1rem 0.65rem', fontWeight: 700, fontSize: '1rem', flexShrink: 0 }}>
+              {techOffeneCount}
+            </span>
+            <span>
+              {techOffeneCount === 1
+                ? 'Dir wurde 1 Ticket zugewiesen — bitte auf „In Arbeit" setzen'
+                : `Dir wurden ${techOffeneCount} Tickets zugewiesen — bitte auf „In Arbeit" setzen`}
+            </span>
+          </div>
+        )}
         {isKanbanWorkbench ? (
           <div className="kanban-workbench">
             <style>{`
@@ -2399,6 +3013,7 @@ if (newTicketData.ticketType === 'reactive') {
               locations={locationOptionsWithCounts}
               technicians={['Alle', ...activeTechnicians.map((t) => t.name)]}
               statuses={STATUSES}
+              reporters={reporterOptions}
               userRole={currentUser.role}
               groupBy={groupBy}
               setGroupBy={setGroupBy}
@@ -2413,7 +3028,7 @@ if (newTicketData.ticketType === 'reactive') {
               <BulkActionBar selectedCount={selectedTicketIds.length} technicians={allTechnicianNames} statuses={Object.values(Status)} onBulkUpdate={handleBulkUpdate} onBulkDelete={handleBulkDelete} onClearSelection={() => setSelectedTicketIds([])} />
             ) : (
               (currentView === 'tickets' || currentView === 'erledigt' || currentView === 'techniker') && (
-                <FilterBar filters={filters} setFilters={setFilters} locations={locationOptionsWithCounts} technicians={['Alle', ...activeTechnicians.map((t) => t.name)]} statuses={STATUSES} userRole={currentUser.role} groupBy={groupBy} setGroupBy={setGroupBy} currentView={currentView} />
+                <FilterBar filters={filters} setFilters={setFilters} locations={locationOptionsWithCounts} technicians={['Alle', ...activeTechnicians.map((t) => t.name)]} statuses={STATUSES} reporters={reporterOptions} userRole={currentUser.role} groupBy={groupBy} setGroupBy={setGroupBy} currentView={currentView} />
               )
             )}
             {renderCurrentView()}
@@ -2462,6 +3077,7 @@ if (newTicketData.ticketType === 'reactive') {
           </div>
         </div>
       )}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 };

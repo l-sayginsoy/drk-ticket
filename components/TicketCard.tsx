@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { Ticket, Priority, Status, User, AvailabilityStatus } from '../types';
+import React, { useMemo, useRef } from 'react';
+import { Ticket, Priority, Status, User, AvailabilityStatus, Role } from '../types';
 import { statusColorMap } from '../constants';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
 import { CheckIcon } from './icons/CheckIcon';
@@ -14,6 +14,8 @@ interface TicketCardProps {
   onUpdateTicket: (ticket: Ticket) => void;
   onSelectTicket: (ticket: Ticket) => void;
   selectedTicket: Ticket | null;
+  badgeNumber?: number;
+  currentUser?: User | null;
 }
 
 const ExclamationTriangleIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
@@ -68,8 +70,12 @@ const TicketCard: React.FC<TicketCardProps> = ({
     onUpdateTicket,
     onSelectTicket,
     selectedTicket,
+    badgeNumber,
+    currentUser,
 }) => {
     const technicians = techniciansProp ?? [];
+    const dateInputRef = useRef<HTMLInputElement>(null);
+    const lastSelectChangeRef = useRef<number>(0);
 
     const priorityClasses = {
         [Priority.Hoch]: 'priority-high',
@@ -90,15 +96,22 @@ const TicketCard: React.FC<TicketCardProps> = ({
     };
 
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+        const target = e.target as HTMLElement;
+        if (target.closest('select, input, button, a')) {
+            e.preventDefault();
+            return;
+        }
         e.dataTransfer.setData("ticketId", ticket.id);
-        e.currentTarget.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.currentTarget.style.opacity = '0.5';
     };
 
     const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
-        e.currentTarget.classList.remove('dragging');
+        e.currentTarget.style.opacity = '';
     };
     
     const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        lastSelectChangeRef.current = Date.now();
         onUpdateTicket({ ...ticket, status: e.target.value as Status });
     };
 
@@ -107,6 +120,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
     };
 
     const handlePriorityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        lastSelectChangeRef.current = Date.now();
         onUpdateTicket({ ...ticket, priority: e.target.value as Priority });
     };
     
@@ -145,170 +159,294 @@ const TicketCard: React.FC<TicketCardProps> = ({
         );
     };
 
+    const isAssigned = !!(ticket.technician && ticket.technician !== 'N/A');
+    const initials = (() => {
+        const n = ticket.technician;
+        if (!n || n === 'N/A') return '?';
+        const p = n.trim().split(' ');
+        return p.length >= 2 ? (p[0][0] + p[p.length - 1][0]).toUpperCase() : n.slice(0, 2).toUpperCase();
+    })();
+
+    // Avatar-Farbe: auto=blau, manuell=orange
+    const isAutoAssigned = ticket.autoAssigned === true || (ticket.ticketType === 'reactive' && ticket.autoAssigned !== false);
+    const avColor = isAssigned
+        ? (isAutoAssigned
+            ? { bg: '#B5D4F4', text: '#185FA5' }   // blau
+            : { bg: '#FAC775', text: '#854F0B' })   // orange
+        : { bg: 'transparent', text: '#E24B4A' };
+
+    // Fälligkeits-Dringlichkeit: rein datumbasiert, unabhängig vom Status
+    const dueDateUrgency: 'normal' | 'soon' | 'today' | 'overdue' = (() => {
+        if (ticket.status === Status.Ueberfaellig) return 'overdue';
+        const due = parseGermanDate(ticket.dueDate);
+        if (!due) return 'normal';
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        due.setHours(0, 0, 0, 0);
+        const diff = Math.floor((due.getTime() - today.getTime()) / 86_400_000);
+        if (diff < 0)  return 'overdue';
+        if (diff === 0) return 'today';
+        if (diff <= 3)  return 'soon';
+        return 'normal';
+    })();
+
+    const statusBorderColor: Record<string, string> = {
+        [Status.Offen]:        '#888780',
+        [Status.InArbeit]:     '#378ADD',
+        [Status.Ueberfaellig]: '#E24B4A',
+        [Status.Abgeschlossen]:'#639922',
+    };
+
+    const priorityPillClass = isEmergency ? 'pill-p-hoch'
+        : ticket.priority === Priority.Hoch   ? 'pill-p-hoch'
+        : ticket.priority === Priority.Mittel ? 'pill-p-mittel'
+        : 'pill-p-niedrig';
+
+    const statusPillClass = ticket.status === Status.InArbeit     ? 'pill-s-inarbeit'
+        : ticket.status === Status.Ueberfaellig ? 'pill-s-ueberfaellig'
+        : ticket.status === Status.Abgeschlossen ? 'pill-s-done'
+        : 'pill-s-offen';
+
+    const canEditDate = !currentUser || currentUser.role === Role.Admin || ticket.technician === currentUser.name;
+
     const cardClasses = `ticket-card ${selectedTicket?.id === ticket.id ? 'selected' : ''} ${ticket.status === Status.Abgeschlossen ? 'status-done' : ''} ${isEmergency ? 'urgent-alert' : ''}`;
 
     return (
-        <div 
+        <div
             className={cardClasses}
-            style={{ borderLeftColor: `var(${statusColorMap[ticket.status]})` }}
+            style={{ borderLeftColor: statusBorderColor[ticket.status] ?? '#888780', cursor: 'grab' }}
             draggable="true"
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
         >
             <style>{`
                 @keyframes pulse-border {
-                    0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.8); }
-                    70% { box-shadow: 0 0 0 8px rgba(220, 53, 69, 0); }
-                    100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+                    0%   { box-shadow: 0 0 0 0   rgba(226,75,74,0.7); }
+                    70%  { box-shadow: 0 0 0 8px rgba(226,75,74,0);   }
+                    100% { box-shadow: 0 0 0 0   rgba(226,75,74,0);   }
                 }
                 .ticket-card {
                     background: var(--bg-secondary);
-                    border-radius: var(--radius-md);
-                    margin-bottom: 1.5rem;
-                    border: 1px solid var(--border);
-                    border-left-width: 5px;
+                    border-radius: 12px;
+                    margin-bottom: 8px;
+                    border: 0.5px solid #E5E5E5;
+                    border-left-width: 3px;
                     border-left-style: solid;
-                    border-left-color: transparent;
-                    box-shadow: var(--shadow-sm);
-                    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out, background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
-                    padding: 1rem 1.25rem;
+                    overflow: hidden;
+                    transition: transform 0.15s ease;
                     position: relative;
                 }
-                .ticket-card.urgent-alert { animation: pulse-border 1.5s infinite; border-color: var(--accent-danger) !important; }
-                .ticket-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
-                .ticket-card.dragging { opacity: 0.5; transform: rotate(3deg); }
-                .ticket-card.selected { background-color: var(--border); box-shadow: 0 0 0 2px var(--accent-primary), var(--shadow-lg); }
-                
-                .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.5rem; }
-                .card-title { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem; flex-grow: 1;}
-                .card-location { font-size: 0.9rem; color: var(--text-secondary); font-weight: 500; }
-                .card-location span { font-weight: normal; color: var(--text-muted); }
-                .card-meta { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem; }
-                
-                .card-icons { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; flex-shrink: 0; }
-                .urgent-icon { color: var(--accent-danger); }
-                .stagnating-icon { color: var(--accent-primary); }
-                .reopen-icon { color: var(--accent-warning); }
-                
-                .card-actions-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; margin-top: 1rem; }
-                .action-item { font-size: 0.8rem; position: relative; }
-                .action-label { color: var(--text-muted); margin-bottom: 0.25rem; font-size: 0.75rem; text-align: center; }
-                /* Einheitliche Pill-Form wie in der Listenansicht (alle Raster-Felder) */
-                .action-value-box,
-                .details-btn,
-                .custom-dropdown,
-                .date-input-wrapper {
-                    padding: 0.25rem 0.75rem;
-                    border-radius: 6px;
-                    font-size: 0.85rem;
-                    font-weight: 600;
-                    color: var(--text-secondary);
-                    background: var(--bg-tertiary);
-                    border: 1px solid transparent;
-                    width: 100%;
-                    text-align: center;
-                    min-height: 29px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+                [data-theme="dark"] .ticket-card { border-color: var(--border); }
+                .ticket-card:hover { transform: translateY(-1px); }
+                .ticket-card.urgent-alert { animation: pulse-border 1.5s infinite; }
+                .ticket-card.selected { outline: 2px solid #378ADD; outline-offset: 1px; }
+
+                /* ── Body ── */
+                .card-body { padding: 12px 14px 12px; }
+                .card-row1 { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 3px; }
+                .card-title { font-size: 13px; font-weight: 500; color: var(--text-primary); flex: 1; line-height: 1.35; margin: 0; }
+                .card-icons { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
+                .card-tnum { font-size: 10px; color: #999; white-space: nowrap; margin-top: 2px; }
+                .urgent-icon { color: #E24B4A; }
+                .stagnating-icon { color: #378ADD; }
+
+                .card-loc { font-size: 12px; color: #555; font-weight: 500; margin-bottom: 3px; }
+                .card-who { display: flex; align-items: center; gap: 3px; font-size: 11px; color: #666; margin-bottom: 11px; flex-wrap: nowrap; }
+                .card-who i { font-size: 11px; color: #999; flex-shrink: 0; }
+
+                /* ── Pills ── */
+                .card-pills { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
+                .pill-cell { display: flex; flex-direction: column; }
+                .pill-lbl { font-size: 9.5px; color: #999; letter-spacing: 0; margin-bottom: 3px; text-align: center; }
+                .pill {
+                    display: flex; align-items: center; justify-content: center; gap: 3px;
+                    padding: 4px 8px; border-radius: 20px; font-size: 10.5px;
+                    border: 0.5px solid; width: 100%; box-sizing: border-box;
+                    position: relative; cursor: pointer; white-space: nowrap;
                 }
-                .action-value-box.emergency { background-color: rgba(220, 53, 69, 0.1); color: #c82333; border-color: rgba(220, 53, 69, 0.3); font-weight: 600; }
-                .date-input-wrapper { position: relative; }
-                .date-input-wrapper input[type="date"] { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
-                .date-input-wrapper input[type="date"]::-webkit-calendar-picker-indicator { width: 100%; height: 100%; cursor: pointer; }
-                .custom-dropdown { display: flex; align-items: center; justify-content: center; gap: 0.25rem; position: relative; cursor: pointer; }
-                .custom-dropdown.priority-high { background-color: rgba(220, 53, 69, 0.1); color: #c82333; border-color: rgba(220, 53, 69, 0.3); font-weight: 600; }
-                .custom-dropdown.priority-medium { background-color: rgba(255, 193, 7, 0.1); color: #d97706; border-color: rgba(255, 193, 7, 0.3); font-weight: 600; }
-                .custom-dropdown.priority-low { background-color: rgba(25, 135, 84, 0.1); color: var(--accent-success); border-color: rgba(25, 135, 84, 0.3); font-weight: 600; }
-                .custom-dropdown span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-                .custom-dropdown select { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
-                .custom-dropdown svg { width: 14px; height: 14px; flex-shrink: 0; }
-                .details-btn { cursor: pointer; }
-                .details-btn:hover, .date-input-wrapper:hover {
-                    background: var(--border);
-                    border-color: rgba(13, 110, 253, 0.22);
-                    color: var(--text-primary);
+                .pill i, .pill span { pointer-events: none; }
+                .pill select, .pill input[type="date"] { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; z-index: 1; }
+
+                .pill-p-hoch     { background: #FCEBEB; color: #A32D2D; border-color: #F7C1C1; }
+                .pill-p-mittel   { background: #FAEEDA; color: #854F0B; border-color: #FAC775; }
+                .pill-p-niedrig  { background: #EAF3DE; color: #3B6D11; border-color: #C0DD97; }
+                .pill-s-inarbeit     { background: #E6F1FB; color: #185FA5; border-color: #B5D4F4; }
+                .pill-s-offen        { background: #F1F0EC; color: #5F5E5A; border-color: #D3D1C7; }
+                .pill-s-ueberfaellig { background: #FCEBEB; color: #A32D2D; border-color: #F7C1C1; }
+                .pill-s-done         { background: #EAF3DE; color: #3B6D11; border-color: #C0DD97; }
+                .pill-due         { background: #F1F0EC; color: #5F5E5A; border-color: #D3D1C7; }
+                .pill-due.soon    { background: #FFFBEB; color: #92400E; border-color: #FDE68A; }
+                .pill-due.today   { background: #FEF2F2; color: #B91C1C; border-color: #FECACA; }
+                .pill-due.overdue { background: #FCEBEB; color: #A32D2D; border-color: #F7C1C1; }
+
+                /* ── Footer ── */
+                .card-footer {
+                    background: #F8F8F7;
+                    border-top: 0.5px solid #E5E5E5;
+                    padding: 8px 14px;
+                    display: flex; align-items: center;
+                    cursor: pointer; transition: background 0.12s;
                 }
-                .custom-dropdown:hover {
-                    filter: brightness(0.96);
-                    border-color: rgba(13, 110, 253, 0.22);
+                [data-theme="dark"] .card-footer { background: var(--bg-tertiary); border-top-color: var(--border); }
+                .card-footer:hover { background: #F1F0EC; }
+                [data-theme="dark"] .card-footer:hover { background: var(--border); }
+
+                .assignee-chip {
+                    display: inline-flex; align-items: center; gap: 5px;
+                    font-size: 11px; font-weight: 500; color: var(--text-primary);
+                    position: relative; cursor: pointer;
                 }
-                .custom-dropdown.priority-high:hover { filter: none; background-color: rgba(220, 53, 69, 0.16); border-color: rgba(220, 53, 69, 0.45); color: #c82333; }
-                .custom-dropdown.priority-medium:hover { filter: none; background-color: rgba(255, 193, 7, 0.18); border-color: rgba(255, 193, 7, 0.45); color: #d97706; }
-                .custom-dropdown.priority-low:hover { filter: none; background-color: rgba(25, 135, 84, 0.14); border-color: rgba(25, 135, 84, 0.4); color: var(--accent-success); }
+                .assignee-chip select { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+                .assignee-chip .chev { font-size: 10px; color: #999; }
+
+                .av {
+                    width: 22px; height: 22px; border-radius: 50%;
+                    display: inline-flex; align-items: center; justify-content: center;
+                    font-size: 9px; font-weight: 700; flex-shrink: 0;
+                }
+                .av-un {
+                    background: transparent; border: 1.5px dashed #E24B4A; color: #E24B4A;
+                }
+                .av-un i { font-size: 10px; }
+
+                .footer-detail-btn {
+                    margin-left: auto; width: 28px; height: 28px; border-radius: 50%;
+                    background: #fff; border: 0.5px solid #E5E5E5;
+                    display: flex; align-items: center; justify-content: center;
+                    color: #185FA5; pointer-events: none; flex-shrink: 0;
+                    transition: border-color 0.12s;
+                }
+                [data-theme="dark"] .footer-detail-btn { background: var(--bg-secondary); border-color: var(--border); }
+                .card-footer:hover .footer-detail-btn { border-color: #378ADD; }
+                .footer-detail-btn i { font-size: 14px; }
+
+                .footer-msg-pill {
+                    margin-left: auto;
+                    background: #E24B4A; color: #fff;
+                    border-radius: 20px; padding: 5px 10px;
+                    font-size: 11px; font-weight: 500;
+                    display: inline-flex; align-items: center; gap: 4px;
+                    pointer-events: none; flex-shrink: 0;
+                }
+                .footer-msg-pill i { font-size: 11px; }
             `}</style>
-            
-            <div className="card-header">
-                <h3 className="card-title">{ticket.title}</h3>
-                <div className="card-icons">
-                    {ticket.is_reopened && <span title="Ticket wurde vom Melder wiedereröffnet"><RefreshIcon className="reopen-icon" width="24" height="24" /></span>}
-                    {isTicketStagnating && <span title="Ticket stagniert (> 5 Tage keine Notiz)"><ClockIcon className="stagnating-icon" width="24" height="24" /></span>}
-                    {isEmergency && <span className="urgent-icon" title="Notfall"><ExclamationTriangleIcon width="24" height="24" /></span>}
-                    {ticket.hasNewNoteFromReporter && <span className="new-note-indicator" title="Neue Nachricht vom Melder"></span>}
+
+            <div className="card-body">
+                {/* Zeile 1: Titel + Badges + Ticketnummer */}
+                <div className="card-row1">
+                    <h3 className="card-title">{ticket.title}</h3>
+                    <div className="card-icons">
+                        {ticket.is_reopened && (
+                            <span title="Wiedereröffnet" style={{ display:'inline-flex', alignItems:'center', fontSize:'0.6rem', fontWeight:700, padding:'1px 4px', borderRadius:999, background:'#fff3e0', color:'#e65100', border:'0.5px solid #ff9800' }}>↩</span>
+                        )}
+                        {isTicketStagnating && <span title="Ticket stagniert"><ClockIcon className="stagnating-icon" width="13" height="13" /></span>}
+                        {isEmergency && <span className="urgent-icon" title="Notfall"><ExclamationTriangleIcon width="13" height="13" /></span>}
+                        {ticket.hasNewNoteFromReporter && <span className="new-note-indicator" title="Neue Nachricht vom Melder" />}
+                        <span className="card-tnum">#{ticket.id}</span>
+                    </div>
+                </div>
+
+                {/* Zeile 2: Standort */}
+                <div className="card-loc">{ticket.area} · {ticket.location}</div>
+
+                {/* Zeile 3: Melder + Datum + Uhrzeit */}
+                <div className="card-who">
+                    <i className="ti ti-user" aria-hidden="true" />
+                    <span>{ticket.reporter} · {ticket.entryDate.slice(0,5)}.{ticket.entryTime ? ` · ${ticket.entryTime}` : ''}</span>
+                </div>
+
+                {/* Zeile 4: Pills */}
+                <div className="card-pills" onClick={e => e.stopPropagation()}>
+                    <div className="pill-cell">
+                        <div className="pill-lbl">Priorität</div>
+                        {isEmergency ? (
+                            <div className="pill pill-p-hoch">Notfall</div>
+                        ) : (
+                            <div className={`pill ${priorityPillClass}`}>
+                                {ticket.priority}
+                                <select
+                                    value={ticket.priority}
+                                    onChange={handlePriorityChange}
+                                    onMouseDown={() => { lastSelectChangeRef.current = Date.now(); }}
+                                >
+                                    {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
+                                </select>
+                            </div>
+                        )}
+                    </div>
+                    <div className="pill-cell">
+                        <div className="pill-lbl">Fällig bis</div>
+                        {canEditDate ? (
+                            <div
+                                className={`pill pill-due${dueDateUrgency !== 'normal' ? ` ${dueDateUrgency}` : ''}`}
+                                onClick={e => {
+                                    e.stopPropagation();
+                                    if (Date.now() - lastSelectChangeRef.current < 800) return;
+                                    dateInputRef.current?.showPicker?.();
+                                }}
+                            >
+                                <i className="ti ti-calendar-due" aria-hidden="true" />
+                                <span>{ticket.dueDate.slice(0,5)}.</span>
+                                <input
+                                    ref={dateInputRef}
+                                    type="date"
+                                    value={toInputDate(ticket.dueDate)}
+                                    onChange={handleDueDateChange}
+                                    style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
+                                />
+                            </div>
+                        ) : (
+                            <div className={`pill pill-due${dueDateUrgency !== 'normal' ? ` ${dueDateUrgency}` : ''}`}>
+                                <i className="ti ti-calendar-due" aria-hidden="true" />
+                                <span>{ticket.dueDate.slice(0,5)}.</span>
+                            </div>
+                        )}
+                    </div>
+                    <div className="pill-cell">
+                        <div className="pill-lbl">Status</div>
+                        <div className={`pill ${statusPillClass}`}>
+                            {ticket.status}
+                            <select
+                                value={ticket.status}
+                                onChange={handleStatusChange}
+                                onMouseDown={() => { lastSelectChangeRef.current = Date.now(); }}
+                            >
+                                {Object.values(Status).filter(s => s !== Status.Ueberfaellig).map(s => (
+                                    <option key={s} value={s}>{s === Status.Abgeschlossen ? 'Abschließen' : s}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <p className="card-location">{ticket.area} <span>›</span> {ticket.location}</p>
-            <p className="card-meta">Gemeldet: {ticket.reporter}</p>
 
-            <div className="card-actions-grid">
-                <div className="action-item">
-                    <div className="action-label">Eingang</div>
-                    <div className="action-value-box">{ticket.entryDate}</div>
+            {/* Footer: klickbar → Detailansicht */}
+            <div className="card-footer" onClick={() => onSelectTicket(ticket)}>
+                <div className="assignee-chip" onClick={e => e.stopPropagation()}>
+                    {isAssigned
+                        ? <span className="av" style={{ background: avColor.bg, color: avColor.text }}>{initials}</span>
+                        : <span className="av av-un"><i className="ti ti-plus" style={{ fontSize: 10 }} aria-hidden="true" /></span>
+                    }
+                    <span>{isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}</span>
+                    <i className="ti ti-chevron-down chev" aria-hidden="true" />
+                    <select value={ticket.technician} onChange={handleTechnicianSelectChange}>
+                        {technicianOptions.map((opt) => {
+                            if (opt === 'N/A') return <option key={opt} value={opt}>Nicht zugewiesen</option>;
+                            const u = technicians.find((t) => t.name === opt);
+                            const absent = u?.availability.status === AvailabilityStatus.OnLeave;
+                            return <option key={opt} value={opt} disabled={!!absent}>{displayNameShort(opt)}{absent ? ' (Abwesend)' : ''}</option>;
+                        })}
+                    </select>
                 </div>
-                <div className="action-item">
-                    <div className="action-label">Fällig bis</div>
-                    <div className="date-input-wrapper">
-                        <span>{ticket.dueDate}</span>
-                        <input type="date" value={toInputDate(ticket.dueDate)} onChange={handleDueDateChange} onClick={e => e.stopPropagation()} />
+                {ticket.hasNewNoteFromReporter ? (
+                    <div className="footer-msg-pill">
+                        <i className="ti ti-message" aria-hidden="true" />
+                        <span>Neue Nachricht</span>
                     </div>
-                </div>
-                <div className="action-item">
-                    <div className="action-label">Priorität</div>
-                     {isEmergency ? (
-                        <div className="action-value-box emergency">Notfall</div>
-                    ) : (
-                        <Dropdown options={Object.values(Priority)} selected={ticket.priority} onChange={handlePriorityChange} className={priorityClasses[ticket.priority]} />
-                    )}
-                </div>
-                <div className="action-item">
-                    <div className="action-label">Status</div>
-                    <Dropdown options={Object.values(Status).filter(s => s !== Status.Ueberfaellig)} selected={ticket.status} onChange={handleStatusChange} />
-                </div>
-                 <div className="action-item">
-                    <div className="action-label">Bearbeiter</div>
-                    <div className="custom-dropdown">
-                        <span>
-                            {ticket.technician === 'N/A' ? 'Zuweisen' : displayNameShort(ticket.technician)}
-                        </span>{' '}
-                        <ChevronDownIcon />
-                        <select value={ticket.technician} onChange={handleTechnicianSelectChange}>
-                             {technicianOptions.map((opt) => {
-                                 if (opt === 'N/A') {
-                                     return (
-                                         <option key={opt} value={opt}>
-                                             Nicht zugewiesen
-                                         </option>
-                                     );
-                                 }
-                                 const u = technicians.find((t) => t.name === opt);
-                                 const absent = u?.availability.status === AvailabilityStatus.OnLeave;
-                                 return (
-                                     <option key={opt} value={opt} disabled={!!absent}>
-                                         {displayNameShort(opt)}
-                                         {absent ? ' (Abwesend)' : ''}
-                                     </option>
-                                 );
-                             })}
-                        </select>
+                ) : (
+                    <div className="footer-detail-btn">
+                        <i className="ti ti-chevron-right" aria-hidden="true" />
                     </div>
-                </div>
-                <div className="action-item">
-                    <div className="action-label">Ticket</div>
-                    <button className="details-btn" onClick={() => onSelectTicket(ticket)}>
-                        {ticket.id}
-                    </button>
-                </div>
+                )}
             </div>
         </div>
     );
