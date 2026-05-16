@@ -1848,8 +1848,8 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     }
 
     if (ut.ticketType === 'reactive' && !skipReactiveAutoDue) {
-      const w  = ut.wunschTermin?.trim();
-      const w0 = originalTicket.wunschTermin?.trim();
+      const w  = ut.wunschTermin?.trim() || '';
+      const w0 = originalTicket.wunschTermin?.trim() || '';
       const wunschChanged = w !== w0;
       const catChanged    = ut.categoryId !== originalTicket.categoryId;
 
