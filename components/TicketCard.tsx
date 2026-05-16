@@ -246,10 +246,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
 
                 /* Footer */
                 .card-footer {
-                    display: grid;
-                    grid-template-columns: 1fr auto;
-                    gap: 1rem;
-                    align-items: center;
+                    display: flex; align-items: center; justify-content: space-between;
                     margin: 0 -1rem;
                     padding: 0.6rem 1rem;
                     background: var(--bg-tertiary);
@@ -262,7 +259,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     background: var(--bg-secondary); color: var(--text-secondary);
                     font-size: 0.8rem; font-weight: 600; cursor: pointer;
                     position: relative; height: 32px; box-sizing: border-box;
-                    min-width: 0; width: 100%;
+                    width: calc((100% - 2rem) / 3); flex-shrink: 0;
                 }
                 .assignee-chip-name {
                     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
