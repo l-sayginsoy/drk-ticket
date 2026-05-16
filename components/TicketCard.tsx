@@ -317,7 +317,6 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 </div>
             </div>
             <p className="card-location">{ticket.area} <span>›</span> {ticket.location}</p>
-            <p className="card-meta">Gemeldet: {ticket.reporter}</p>
 
             <div className="card-actions-grid">
                 <div className="action-item">
