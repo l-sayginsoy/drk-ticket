@@ -233,7 +233,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     flex-shrink: 0;
                 }
                 .card-location { font-size: 0.95rem; color: var(--text-secondary); font-weight: 500; }
-                .reporter-chip { display: inline-block; margin-top: 0.3rem; font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 999px; padding: 1px 10px; }
+                .reporter-chip { display: inline-block; margin-top: 0.3rem; font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); background: var(--bg-tertiary); border: 1px solid transparent; border-radius: 6px; padding: 0.25rem 0.75rem; }
                 .card-location span { font-weight: normal; color: var(--text-muted); }
                 .card-meta { font-size: 0.9rem; color: var(--text-secondary); font-weight: 500; margin-bottom: 1rem; }
                 
