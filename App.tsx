@@ -1850,18 +1850,23 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     if (ut.ticketType === 'reactive' && !skipReactiveAutoDue) {
       const w = ut.wunschTermin?.trim();
       const w0 = originalTicket.wunschTermin?.trim();
-      if (w) {
+      const wunschChanged = w !== w0;
+      const catChanged = ut.categoryId !== originalTicket.categoryId;
+      const dueDateManuallyChanged = ut.dueDate !== originalTicket.dueDate;
+
+      if (dueDateManuallyChanged && !wunschChanged && !catChanged) {
+        // Benutzer hat Fälligkeitsdatum manuell gesetzt → nicht überschreiben
+      } else if (w) {
         ut.dueDate = w;
       } else {
         const wunschCleared = !!w0 && !w;
-        const catChanged = ut.categoryId !== originalTicket.categoryId;
         if (wunschCleared || catChanged) {
           ut.dueDate = computeReactiveDueDateWithoutWunsch(ut.entryDate, ut.categoryId, appSettings.slaMatrix);
         }
-        if (catChanged) {
-          const slaP = inferStrictestSlaPriorityForCategory(ut.categoryId, appSettings.slaMatrix);
-          ut.priority = slaP ?? Priority.Niedrig;
-        }
+      }
+      if (catChanged) {
+        const slaP = inferStrictestSlaPriorityForCategory(ut.categoryId, appSettings.slaMatrix);
+        ut.priority = slaP ?? Priority.Niedrig;
       }
     }
 

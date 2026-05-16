@@ -150,12 +150,9 @@ const TicketCard: React.FC<TicketCardProps> = ({
     const cardClasses = `ticket-card ${selectedTicket?.id === ticket.id ? 'selected' : ''} ${ticket.status === Status.Abgeschlossen ? 'status-done' : ''} ${isEmergency ? 'urgent-alert' : ''}`;
 
     return (
-        <div 
+        <div
             className={cardClasses}
             style={{ borderLeftColor: `var(${statusColorMap[ticket.status]})` }}
-            draggable="true"
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
         >
             <style>{`
                 @keyframes pulse-border {
@@ -179,6 +176,9 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .ticket-card.urgent-alert { animation: pulse-border 1.5s infinite; border-color: var(--accent-danger) !important; }
                 .ticket-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
                 .ticket-card.dragging { opacity: 0.5; transform: rotate(3deg); }
+                .drag-handle { position: absolute; top: 0.5rem; right: 0.6rem; cursor: grab; color: var(--text-muted); opacity: 0.4; line-height: 1; font-size: 1rem; padding: 2px 4px; border-radius: 4px; user-select: none; }
+                .drag-handle:hover { opacity: 0.9; background: var(--bg-tertiary); }
+                .drag-handle:active { cursor: grabbing; }
                 .ticket-card.selected { background-color: var(--border); box-shadow: 0 0 0 2px var(--accent-primary), var(--shadow-lg); }
                 
                 .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.5rem; }
@@ -284,6 +284,13 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .custom-dropdown.priority-low:hover { filter: none; background-color: rgba(25, 135, 84, 0.14); border-color: rgba(25, 135, 84, 0.4); color: var(--accent-success); }
             `}</style>
             
+            <div
+                className="drag-handle"
+                draggable="true"
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                title="Ziehen zum Verschieben"
+            >⠿</div>
             <div className="card-header">
                 <h3 className="card-title">{ticket.title}</h3>
                 <div className="card-icons">
