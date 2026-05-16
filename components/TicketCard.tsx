@@ -125,8 +125,8 @@ const TicketCard: React.FC<TicketCardProps> = ({
     };
     
     const handleDueDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        e.target.blur();
         onUpdateTicket({ ...ticket, dueDate: fromInputDate(e.target.value) });
-        setTimeout(() => dateInputRef.current?.blur(), 0);
     };
 
     const technicianOptions = useMemo(() => {
@@ -392,7 +392,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                                     type="date"
                                     value={toInputDate(ticket.dueDate)}
                                     onChange={handleDueDateChange}
-                                    style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
+                                    style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', pointerEvents: 'none', cursor: 'pointer' }}
                                 />
                             </div>
                         ) : (
