@@ -344,7 +344,7 @@ ${portalOpenButtonWrappedHtml(p.ticketId, '18px 0 0')}`;
 <tr><td bgcolor="#faf7f2" style="background:#faf7f2;border-left:4px solid ${DRK_RED};padding:16px 18px;">
 <p style="margin:0;font-size:15px;line-height:1.55;color:#222;white-space:pre-wrap;font-family:Arial,Helvetica,sans-serif;">${escapeHtml(p.noteText)}</p>
 </td></tr></table>
-<p style="margin:0 0 28px;font-size:14px;line-height:1.55;color:#444;font-family:Arial,Helvetica,sans-serif;">Details und R&#252;ckmeldung erreichen Sie &#252;ber den Button &#8211; Ihre Ticketnummer ist im Link bereits hinterlegt.</p>
+<p style="margin:20px 0 28px;font-size:14px;line-height:1.55;color:#444;font-family:Arial,Helvetica,sans-serif;">Details und R&#252;ckmeldung erreichen Sie &#252;ber den Button &#8211; Ihre Ticketnummer ist im Link bereits hinterlegt.</p>
 ${portalOpenButtonWrappedHtml(p.ticketId, '0')}`;
     return drkEmailShellHtml(title, inner, p.ticketId, '');
   }
