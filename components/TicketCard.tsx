@@ -222,7 +222,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .card-reporter { display: flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.85rem; }
 
                 /* Pills-Zeile */
-                .card-pills { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin-bottom: 0.85rem; padding: 0 1rem; }
+                .card-pills { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.9rem; margin-bottom: 0.85rem; padding: 0 1rem; }
                 .pill-cell { display: flex; flex-direction: column; gap: 0.15rem; }
                 .pill-label { font-size: 0.62rem; color: var(--text-muted); text-align: center; font-weight: 400; }
                 .grid-pill {
