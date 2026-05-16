@@ -228,11 +228,11 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .grid-pill {
                     display: flex; align-items: center; justify-content: center; gap: 0.2rem;
                     padding: 0 0.45rem; border-radius: 999px;
-                    font-size: 0.75rem; font-weight: 600;
+                    font-size: 0.7rem; font-weight: 600;
                     border: 1.5px solid var(--border);
                     background: var(--bg-tertiary); color: var(--text-secondary);
                     position: relative; cursor: pointer; white-space: nowrap;
-                    height: 26px; width: 100%; box-sizing: border-box;
+                    height: 22px; width: 100%; box-sizing: border-box;
                 }
                 .grid-pill:hover { filter: brightness(0.93); }
                 .grid-pill select, .grid-pill input[type="date"] { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
