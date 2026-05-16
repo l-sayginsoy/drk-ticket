@@ -233,7 +233,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     flex-shrink: 0;
                 }
                 .card-location { font-size: 0.95rem; color: var(--text-secondary); font-weight: 500; }
-                .reporter-chip { display: inline-block; margin-top: 0.3rem; font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); background: var(--bg-tertiary); border: 1px solid transparent; border-radius: 6px; padding: 0.25rem 0.75rem; }
+                .reporter-name { display: block; margin-top: 0.15rem; font-size: 0.82rem; font-weight: 600; color: var(--text-muted); }
                 .card-location span { font-weight: normal; color: var(--text-muted); }
                 .card-meta { font-size: 0.9rem; color: var(--text-secondary); font-weight: 500; margin-bottom: 1rem; }
                 
@@ -318,7 +318,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 </div>
             </div>
             <p className="card-location">{ticket.area} <span>›</span> {ticket.location}</p>
-            <span className="reporter-chip">{ticket.reporter}</span>
+            <span className="reporter-name">{ticket.reporter}</span>
 
             <div className="card-actions-grid">
                 <div className="action-item">
