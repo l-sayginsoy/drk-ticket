@@ -221,7 +221,6 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
               .column-body-wrap {
                   position: relative;
                   height: calc(100vh - 250px);
-                  overflow: hidden;
               }
               .column-body {
                   padding-top: 1rem;
@@ -232,9 +231,9 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
               .column-body::-webkit-scrollbar { display: none; }
               .scroll-thumb {
                   position: absolute;
-                  right: 3px;
+                  right: -7px;
                   top: 0;
-                  width: 5px;
+                  width: 4px;
                   height: 88px;
                   border-radius: 6px;
                   background: rgba(0,0,0,0.22);
