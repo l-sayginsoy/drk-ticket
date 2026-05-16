@@ -1777,6 +1777,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
   const commitTicketUpdate = (updatedTicket: Ticket, originalTicket: Ticket) => {
     const ut: Ticket = { ...updatedTicket };
     const statusChanged = originalTicket.status !== ut.status;
+    const originalDueDate = originalTicket.dueDate; // Sicherung: wird am Ende geprüft
 
     // Manuelle Technikerzuweisung löscht Auto-Flag
     if (ut.technician !== originalTicket.technician) {
@@ -1904,6 +1905,18 @@ const deleteTicketFromFirebase = (ticketId: string) => {
           });
         }
       }
+    }
+
+    // Absoluter Sicherheitsanker: dueDate darf sich NUR ändern wenn der User
+    // es selbst geändert hat, oder wunschTermin/Kategorie/Überfällig-Status sich änderte.
+    const dueDateManuallyChanged = updatedTicket.dueDate !== originalTicket.dueDate;
+    const dueDateRelevantChange =
+      dueDateManuallyChanged ||
+      (ut.wunschTermin?.trim() || '') !== (originalTicket.wunschTermin?.trim() || '') ||
+      ut.categoryId !== originalTicket.categoryId ||
+      (originalTicket.status === Status.Ueberfaellig && statusChanged);
+    if (!dueDateRelevantChange) {
+      ut.dueDate = originalDueDate;
     }
 
     const wasCompleted = originalTicket.status === Status.Abgeschlossen;
