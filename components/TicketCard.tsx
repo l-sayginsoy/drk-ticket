@@ -359,7 +359,11 @@ const TicketCard: React.FC<TicketCardProps> = ({
                         ) : (
                             <div className={`pill ${priorityPillClass}`}>
                                 {ticket.priority}
-                                <select value={ticket.priority} onChange={handlePriorityChange}>
+                                <select
+                                    value={ticket.priority}
+                                    onChange={handlePriorityChange}
+                                    onMouseDown={() => { lastSelectChangeRef.current = Date.now(); }}
+                                >
                                     {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
                                 </select>
                             </div>
@@ -371,7 +375,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                             className={`pill pill-due${dueDateUrgency !== 'normal' ? ` ${dueDateUrgency}` : ''}`}
                             onClick={e => {
                                 e.stopPropagation();
-                                if (Date.now() - lastSelectChangeRef.current < 400) return;
+                                if (Date.now() - lastSelectChangeRef.current < 800) return;
                                 dateInputRef.current?.showPicker?.();
                             }}
                         >
@@ -390,7 +394,11 @@ const TicketCard: React.FC<TicketCardProps> = ({
                         <div className="pill-lbl">Status</div>
                         <div className={`pill ${statusPillClass}`}>
                             {ticket.status}
-                            <select value={ticket.status} onChange={handleStatusChange}>
+                            <select
+                                value={ticket.status}
+                                onChange={handleStatusChange}
+                                onMouseDown={() => { lastSelectChangeRef.current = Date.now(); }}
+                            >
                                 {Object.values(Status).filter(s => s !== Status.Ueberfaellig).map(s => (
                                     <option key={s} value={s}>{s === Status.Abgeschlossen ? 'Abschließen' : s}</option>
                                 ))}
