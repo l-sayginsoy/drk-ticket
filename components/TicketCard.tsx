@@ -236,7 +236,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 /* ── Pills ── */
                 .card-pills { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
                 .pill-cell { display: flex; flex-direction: column; }
-                .pill-lbl { font-size: 9.5px; color: #999; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; text-align: center; }
+                .pill-lbl { font-size: 9.5px; color: #999; letter-spacing: 0; margin-bottom: 3px; text-align: center; }
                 .pill {
                     display: flex; align-items: center; justify-content: center; gap: 3px;
                     padding: 4px 8px; border-radius: 20px; font-size: 10.5px;
