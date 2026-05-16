@@ -317,7 +317,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     {ticket.hasNewNoteFromReporter && <span className="new-note-indicator" title="Neue Nachricht vom Melder"></span>}
                 </div>
             </div>
-            <p className="card-location">{ticket.area} <span>›</span> {ticket.location}</p>
+            <p className="card-location">{ticket.area} <span>|</span> {ticket.location}</p>
             <span className="reporter-name">{ticket.reporter}</span>
 
             <div className="card-actions-grid">
