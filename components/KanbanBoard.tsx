@@ -11,8 +11,32 @@ interface KanbanBoardProps {
   panelEmbed?: boolean;
 }
 
-const parseGermanDate = (d: string) => d.split('.').reverse().join('-'); // DD.MM.YYYY → YYYY-MM-DD
+const parseGermanDate = (d: string) => d.split('.').reverse().join('-'); // DD.MM.YYYY → YYYY-MM-DD for string compare
 const isUnassigned = (t: Ticket) => !t.technician || t.technician === 'N/A';
+
+const parseDateObj = (dateStr: string): Date => {
+    const [day, month, year] = dateStr.split('.').map(Number);
+    return new Date(year, month - 1, day);
+};
+const formatDate = (date: Date): string => {
+    const d = date.getDate().toString().padStart(2, '0');
+    const m = (date.getMonth() + 1).toString().padStart(2, '0');
+    return `${d}.${m}.${date.getFullYear()}`;
+};
+const addDays = (date: Date, days: number): Date => {
+    const r = new Date(date); r.setDate(r.getDate() + days); return r;
+};
+const computeInsertionDueDate = (otherTickets: Ticket[], insertBeforeId: string | null, fallback: string): string => {
+    if (otherTickets.length === 0) return fallback;
+    if (insertBeforeId === null) return formatDate(addDays(parseDateObj(otherTickets[otherTickets.length - 1].dueDate), 1));
+    const idx = otherTickets.findIndex(t => t.id === insertBeforeId);
+    if (idx === -1) return fallback;
+    if (idx === 0) return formatDate(addDays(parseDateObj(otherTickets[0].dueDate), -1));
+    const prev = parseDateObj(otherTickets[idx - 1].dueDate);
+    const next = parseDateObj(otherTickets[idx].dueDate);
+    const diff = Math.round((next.getTime() - prev.getTime()) / 86400000);
+    return diff <= 1 ? otherTickets[idx].dueDate : formatDate(addDays(prev, 1));
+};
 
 const KanbanBoard: React.FC<KanbanBoardProps> = ({
   tickets,
@@ -28,13 +52,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     { title: Status.InArbeit, status: Status.InArbeit },
     { title: Status.Ueberfaellig, status: Status.Ueberfaellig },
   ];
-
-  const handleDropTicket = (ticketId: string, newStatus: Status) => {
-    const ticketToUpdate = tickets.find(t => t.id === ticketId);
-    if (ticketToUpdate && ticketToUpdate.status !== newStatus) {
-      onUpdateTicket({ ...ticketToUpdate, status: newStatus });
-    }
-  };
 
   const getTicketsForColumn = (status: Status) => {
     const col = tickets.filter(t => t.status === status && t.status !== Status.Abgeschlossen);
@@ -55,6 +72,29 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
       const dateB = b.dueDate.split('.').reverse().join('-');
       return dateA.localeCompare(dateB);
     });
+  };
+
+  const handleDropTicket = (ticketId: string, newStatus: Status, insertBeforeTicketId: string | null) => {
+    const ticketToUpdate = tickets.find(t => t.id === ticketId);
+    if (!ticketToUpdate) return;
+
+    if (ticketToUpdate.status !== newStatus) {
+      onUpdateTicket({ ...ticketToUpdate, status: newStatus });
+      return;
+    }
+
+    const columnTickets = getTicketsForColumn(newStatus);
+    const currentIdx = columnTickets.findIndex(t => t.id === ticketId);
+    const nextTicket = currentIdx < columnTickets.length - 1 ? columnTickets[currentIdx + 1] : null;
+    if (insertBeforeTicketId === ticketId) return;
+    if (insertBeforeTicketId === nextTicket?.id) return;
+    if (insertBeforeTicketId === null && currentIdx === columnTickets.length - 1) return;
+
+    const otherTickets = columnTickets.filter(t => t.id !== ticketId);
+    const newDueDate = computeInsertionDueDate(otherTickets, insertBeforeTicketId, ticketToUpdate.dueDate);
+    if (newDueDate !== ticketToUpdate.dueDate) {
+      onUpdateTicket({ ...ticketToUpdate, dueDate: newDueDate });
+    }
   };
 
   const unassignedBadgeNumbers: Record<string, number> = {};
