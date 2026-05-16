@@ -73,6 +73,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
 }) => {
     const technicians = techniciansProp ?? [];
     const dateInputRef = useRef<HTMLInputElement>(null);
+    const lastSelectChangeRef = useRef<number>(0);
 
     const priorityClasses = {
         [Priority.Hoch]: 'priority-high',
@@ -108,6 +109,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
     };
     
     const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        lastSelectChangeRef.current = Date.now();
         onUpdateTicket({ ...ticket, status: e.target.value as Status });
     };
 
@@ -116,6 +118,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
     };
 
     const handlePriorityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        lastSelectChangeRef.current = Date.now();
         onUpdateTicket({ ...ticket, priority: e.target.value as Priority });
     };
     
@@ -364,7 +367,14 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     </div>
                     <div className="pill-cell">
                         <div className="pill-lbl">Fällig bis</div>
-                        <div className={`pill pill-due${dueDateUrgency !== 'normal' ? ` ${dueDateUrgency}` : ''}`}>
+                        <div
+                            className={`pill pill-due${dueDateUrgency !== 'normal' ? ` ${dueDateUrgency}` : ''}`}
+                            onClick={e => {
+                                e.stopPropagation();
+                                if (Date.now() - lastSelectChangeRef.current < 400) return;
+                                dateInputRef.current?.showPicker?.();
+                            }}
+                        >
                             <i className="ti ti-calendar-due" aria-hidden="true" />
                             <span>{ticket.dueDate.slice(0,5)}.</span>
                             <input
@@ -372,6 +382,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                                 type="date"
                                 value={toInputDate(ticket.dueDate)}
                                 onChange={handleDueDateChange}
+                                style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
                             />
                         </div>
                     </div>
