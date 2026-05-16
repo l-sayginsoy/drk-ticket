@@ -18,7 +18,7 @@ interface TicketTableViewProps {
   showRoutineSection?: boolean;
 }
 
-type SortableKeys = keyof Ticket | 'entryDate' | 'dueDate';
+type SortableKeys = keyof Ticket | 'entryDate' | 'dueDate' | 'location';
 
 interface FlatTickets {
   type: 'flat';
@@ -83,15 +83,15 @@ const ExclamationTriangleIcon: React.FC = () => (
     </svg>
 );
 
+const statusPillStyle: Record<string, React.CSSProperties> = {
+    [Status.Offen]:        { background: 'var(--bg-tertiary)',          color: 'var(--text-secondary)', borderColor: 'var(--border)' },
+    [Status.InArbeit]:     { background: 'rgba(13,110,253,0.1)',        color: '#1d4ed8',               borderColor: 'rgba(13,110,253,0.3)' },
+    [Status.Ueberfaellig]: { background: 'rgba(220,53,69,0.1)',         color: '#b91c2c',               borderColor: 'rgba(220,53,69,0.3)' },
+    [Status.Abgeschlossen]:{ background: 'rgba(25,135,84,0.1)',         color: '#166534',               borderColor: 'rgba(25,135,84,0.3)' },
+};
+
 const StatusPill: React.FC<{ status: Status }> = ({ status }) => (
-    <span 
-        className="status-pill"
-        style={{
-            color: `var(${statusColorMap[status]})`,
-            backgroundColor: statusBgColorMap[status],
-            borderColor: statusBorderColorMap[status],
-        }}
-    >
+    <span className="status-pill" style={statusPillStyle[status] ?? statusPillStyle[Status.Offen]}>
         {status}
     </span>
 );
@@ -272,16 +272,13 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
                 </td>
                 <td>
                     <div className="ticket-title-cell">
-                        <div>
-                            <div className="ticket-title">{ticket.title}</div>
-                            <small style={{color: 'var(--text-muted)'}}>{ticket.location}</small>
-                        </div>
+                        <div className="ticket-title">{ticket.title}</div>
+                        <div className="reporter-name">{ticket.reporter}</div>
                     </div>
                 </td>
-                <td>
-                    <div className="area-cell">
-                        <span>{ticket.area}</span>
-                    </div>
+                <td style={{maxWidth: 180}}>
+                    <div style={{overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{ticket.area}</div>
+                    <div style={{fontSize:'0.78rem', color:'var(--text-muted)', marginTop:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{ticket.location}</div>
                 </td>
                 <td>{technicianCell(ticket.technician)}</td>
                 <td><StatusPill status={ticket.status} /></td>
@@ -292,8 +289,13 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
                         <PriorityPill priority={ticket.priority} />
                     )}
                 </td>
-                <td>{ticket.entryDate}</td>
-                <td>{ticket.dueDate}</td>
+                <td style={{whiteSpace:'nowrap', verticalAlign:'top'}}>
+                    <div style={{fontWeight:500, color:'var(--text-primary)'}}>{ticket.entryDate.slice(0,5)}.</div>
+                    {ticket.entryTime && <div style={{fontSize:'0.72rem', color:'var(--text-muted)', marginTop:'0.25rem', letterSpacing:'0.02em'}}>{ticket.entryTime}</div>}
+                </td>
+                <td style={{verticalAlign:'top'}}>
+                    <div style={{fontWeight:500, color:'var(--text-primary)'}}>{ticket.dueDate.slice(0,5)}.</div>
+                </td>
             </tr>
         );
      }
@@ -477,7 +479,12 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
                 .ticket-title {
                     font-weight: 500;
                     color: var(--text-primary);
+                    max-width: 260px;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
                 }
+                .ticket-title-cell { max-width: 280px; }
                 .group-header td {
                     background-color: var(--bg-primary);
                     font-weight: 600;
@@ -556,18 +563,22 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
                     background-color: white;
                 }
                 .status-pill, .priority-pill {
-                    padding: 0.25rem 0.75rem;
-                    border-radius: 6px;
-                    font-size: 0.85rem;
+                    padding: 0.18rem 0.65rem;
+                    border-radius: 999px;
+                    font-size: 0.75rem;
                     font-weight: 600;
                     display: inline-block;
-                    border: 1px solid transparent;
-                    min-width: 100px;
+                    border: 1.5px solid transparent;
                     text-align: center;
+                    white-space: nowrap;
                 }
-                .priority-pill.priority-high { background-color: rgba(220, 53, 69, 0.1); color: #c82333; border-color: rgba(220, 53, 69, 0.3); }
-                .priority-pill.priority-medium { background-color: rgba(255, 193, 7, 0.1); color: #d97706; border-color: rgba(255, 193, 7, 0.3); }
-                .priority-pill.priority-low { background-color: rgba(25, 135, 84, 0.1); color: var(--accent-success); border-color: rgba(25, 135, 84, 0.3); }
+                .priority-pill.priority-high { background: rgba(220,53,69,0.1); color: #b91c2c; border-color: rgba(220,53,69,0.35); }
+                .priority-pill.priority-medium { background: rgba(255,152,0,0.12); color: #c05800; border-color: rgba(255,152,0,0.35); }
+                .priority-pill.priority-low { background: rgba(25,135,84,0.1); color: #166534; border-color: rgba(25,135,84,0.32); }
+                .reporter-name { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+                .standort-cell { display: flex; flex-direction: column; gap: 1px; }
+                .standort-main { color: var(--text-secondary); }
+                .standort-sub { font-size: 0.78rem; color: var(--text-muted); }
             `}</style>
             <table className="ticket-table">
                 <thead>

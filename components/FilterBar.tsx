@@ -10,6 +10,7 @@ interface FilterBarProps {
     locations: Array<{ name: string; count: number }>;
     technicians: string[];
     statuses: string[];
+    reporters?: string[];
     groupBy: GroupableKey | 'none';
     setGroupBy: (value: GroupableKey | 'none') => void;
     currentView: string;
@@ -18,7 +19,7 @@ interface FilterBarProps {
     panelEmbed?: boolean;
 }
 
-const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, technicians, statuses, groupBy, setGroupBy, currentView, userRole, panelEmbed = false }) => {
+const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, technicians, statuses, reporters = [], groupBy, setGroupBy, currentView, userRole, panelEmbed = false }) => {
     
     if (currentView === 'techniker' || currentView === 'reports' || currentView === 'routines' || currentView === 'routine-nachweis') {
         return null;
@@ -36,6 +37,7 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
             technician: isServiceTeamUser ? filters.technician : 'Alle',
             priority: 'Alle',
             status: 'Alle',
+            reporter: 'Alle',
             search: filters.search,
         });
         setGroupBy('none');
@@ -113,6 +115,9 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                         <FilterChip label="Standort" name="area" options={locations} value={filters.area} />
                         <FilterChip label="Status" name="status" options={statuses} value={filters.status} />
                         <FilterChip label="Priorität" name="priority" options={PRIORITIES} value={filters.priority} />
+                        {reporters.length > 1 && (
+                            <FilterChip label="Melder" name="reporter" options={reporters} value={filters.reporter ?? 'Alle'} />
+                        )}
                         {!isServiceTeamUser ? (
                             <div className="filter-bearbeiter-reset">
                                 <FilterChip

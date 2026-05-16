@@ -261,11 +261,13 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelect
                 .ticket-table tbody tr.selected { background-color: var(--border); }
                 .ticket-table tbody tr.selected:hover { background-color: var(--border-active); }
                 .ticket-table tbody tr:not(.selected):hover { background-color: var(--bg-tertiary); }
-                .ticket-title { font-weight: 500; color: var(--text-primary); }
-                .priority-pill { padding: 0.25rem 0.75rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; display: inline-block; border: 1px solid transparent; min-width: 100px; text-align: center; }
-                .priority-pill.priority-high { background-color: rgba(220, 53, 69, 0.1); color: #c82333; border-color: rgba(220, 53, 69, 0.3); }
-                .priority-pill.priority-medium { background-color: rgba(255, 193, 7, 0.1); color: #d97706; border-color: rgba(255, 193, 7, 0.3); }
-                .priority-pill.priority-low { background-color: rgba(25, 135, 84, 0.1); color: var(--accent-success); border-color: rgba(25, 135, 84, 0.3); }
+                .ticket-title { font-weight: 500; color: var(--text-primary); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                .ticket-title-cell { max-width: 280px; }
+                .reporter-name { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+                .priority-pill { padding: 0.18rem 0.65rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; display: inline-block; border: 1.5px solid transparent; text-align: center; white-space: nowrap; }
+                .priority-pill.priority-high { background: rgba(220,53,69,0.1); color: #b91c2c; border-color: rgba(220,53,69,0.35); }
+                .priority-pill.priority-medium { background: rgba(255,152,0,0.12); color: #c05800; border-color: rgba(255,152,0,0.35); }
+                .priority-pill.priority-low { background: rgba(25,135,84,0.1); color: #166534; border-color: rgba(25,135,84,0.32); }
                 .actions-cell { text-align: center; }
                 .btn-delete {
                     background: none;
@@ -336,17 +338,29 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelect
                   className={selectedTicket?.id === ticket.id ? 'selected' : ''}
                 >
                   <td>{ticket.id}</td>
-                  <td>
+                  <td className="ticket-title-cell">
                     <div className="ticket-title">{ticket.title}</div>
-                    <small style={{ color: 'var(--text-muted)' }}>{ticket.location}</small>
+                    <div className="reporter-name">{ticket.reporter}</div>
                   </td>
-                  <td>{ticket.area}</td>
+                  <td style={{maxWidth: 180}}>
+                    <div style={{overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{ticket.area}</div>
+                    <div style={{fontSize:'0.78rem', color:'var(--text-muted)', marginTop:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{ticket.location}</div>
+                  </td>
                   <td>{technicianCell(ticket.technician)}</td>
                   <td>
                     <PriorityPill priority={ticket.priority} />
                   </td>
-                  <td>{ticket.entryDate}</td>
-                  <td>{ticket.dueDate}</td>
+                  <td className="completion-cell">
+                    <div className="completion-stack">
+                      <span className="completion-date-line">{ticket.entryDate.slice(0,5)}.</span>
+                      {ticket.entryTime && <span className="completion-time-line">{ticket.entryTime}</span>}
+                    </div>
+                  </td>
+                  <td className="completion-cell">
+                    <div className="completion-stack">
+                      <span className="completion-date-line">{ticket.dueDate.slice(0,5)}.</span>
+                    </div>
+                  </td>
                   <td className="completion-cell">
                     <div className="completion-stack">
                       <span className="completion-date-line">{ticket.completionDate || 'N/A'}</span>

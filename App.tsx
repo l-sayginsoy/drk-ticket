@@ -1160,7 +1160,7 @@ const App: React.FC = () => {
   };
 
   // --- UI State ---
-  const [filters, setFilters] = useState({ area: 'Alle', technician: 'Alle', priority: 'Alle', status: 'Alle', search: '' });
+  const [filters, setFilters] = useState({ area: 'Alle', technician: 'Alle', priority: 'Alle', status: 'Alle', reporter: 'Alle', search: '' });
   const [groupBy, setGroupBy] = useState<GroupableKey | 'none'>('none');
   const [currentView, setCurrentView] = useState('dashboard');
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -2308,7 +2308,7 @@ if (newTicketData.ticketType === 'reactive') {
         }
 
         const searchLower = filters.search.toLowerCase();
-        if (filters.search && !ticket.title.toLowerCase().includes(searchLower) && !ticket.id.toLowerCase().includes(searchLower) && !ticket.area.toLowerCase().includes(searchLower)) return false;
+        if (filters.search && !ticket.title.toLowerCase().includes(searchLower) && !ticket.id.toLowerCase().includes(searchLower) && !ticket.area.toLowerCase().includes(searchLower) && !ticket.reporter.toLowerCase().includes(searchLower)) return false;
 
         if (filters.area !== 'Alle' && ticket.area !== filters.area) return false;
 
@@ -2320,6 +2320,7 @@ if (newTicketData.ticketType === 'reactive') {
         }
 
         if (filters.priority !== 'Alle' && ticket.priority !== filters.priority) return false;
+        if (filters.reporter && filters.reporter !== 'Alle' && ticket.reporter !== filters.reporter) return false;
 
         if (currentView === 'erledigt') {
           if (filters.status !== 'Alle' && ticket.status !== filters.status) return false;
@@ -2483,6 +2484,12 @@ if (newTicketData.ticketType === 'reactive') {
     [users]
   );
   
+  const reporterOptions = useMemo(() => {
+    const all = [...tickets, ...routineTickets, ...completedTickets];
+    const names = Array.from(new Set(all.map(t => t.reporter).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'de'));
+    return ['Alle', ...names];
+  }, [tickets, routineTickets, completedTickets]);
+
   const locationOptionsWithCounts = useMemo(() => {
     const ticketsForCounts = currentView === 'erledigt' ? completedTickets : [...tickets, ...routineTickets];
     const counts = ticketsForCounts.reduce((acc, ticket) => {
@@ -2992,6 +2999,7 @@ if (newTicketData.ticketType === 'reactive') {
               locations={locationOptionsWithCounts}
               technicians={['Alle', ...activeTechnicians.map((t) => t.name)]}
               statuses={STATUSES}
+              reporters={reporterOptions}
               userRole={currentUser.role}
               groupBy={groupBy}
               setGroupBy={setGroupBy}
@@ -3006,7 +3014,7 @@ if (newTicketData.ticketType === 'reactive') {
               <BulkActionBar selectedCount={selectedTicketIds.length} technicians={allTechnicianNames} statuses={Object.values(Status)} onBulkUpdate={handleBulkUpdate} onBulkDelete={handleBulkDelete} onClearSelection={() => setSelectedTicketIds([])} />
             ) : (
               (currentView === 'tickets' || currentView === 'erledigt' || currentView === 'techniker') && (
-                <FilterBar filters={filters} setFilters={setFilters} locations={locationOptionsWithCounts} technicians={['Alle', ...activeTechnicians.map((t) => t.name)]} statuses={STATUSES} userRole={currentUser.role} groupBy={groupBy} setGroupBy={setGroupBy} currentView={currentView} />
+                <FilterBar filters={filters} setFilters={setFilters} locations={locationOptionsWithCounts} technicians={['Alle', ...activeTechnicians.map((t) => t.name)]} statuses={STATUSES} reporters={reporterOptions} userRole={currentUser.role} groupBy={groupBy} setGroupBy={setGroupBy} currentView={currentView} />
               )
             )}
             {renderCurrentView()}
