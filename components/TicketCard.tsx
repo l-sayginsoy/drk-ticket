@@ -153,233 +153,204 @@ const TicketCard: React.FC<TicketCardProps> = ({
         );
     };
 
+    const isAssigned = !!(ticket.technician && ticket.technician !== 'N/A');
+    const initials = (() => {
+        const n = ticket.technician;
+        if (!n || n === 'N/A') return '?';
+        const p = n.trim().split(' ');
+        return p.length >= 2 ? (p[0][0] + p[p.length - 1][0]).toUpperCase() : n.slice(0, 2).toUpperCase();
+    })();
+
+    const statusBorderColor: Record<string, string> = {
+        [Status.Offen]: '#adb5bd',
+        [Status.InArbeit]: '#0d6efd',
+        [Status.Ueberfaellig]: '#dc3545',
+        [Status.Abgeschlossen]: '#198754',
+    };
+
+    const priorityPillClass = isEmergency ? 'pill-priority-high'
+        : ticket.priority === Priority.Hoch ? 'pill-priority-high'
+        : ticket.priority === Priority.Mittel ? 'pill-priority-medium'
+        : 'pill-priority-low';
+
+    const statusPillClass = ticket.status === Status.InArbeit ? 'pill-status-inarbeit'
+        : ticket.status === Status.Ueberfaellig ? 'pill-status-ueberfaellig'
+        : ticket.status === Status.Abgeschlossen ? 'pill-status-done'
+        : 'pill-status-offen';
+
     const cardClasses = `ticket-card ${selectedTicket?.id === ticket.id ? 'selected' : ''} ${ticket.status === Status.Abgeschlossen ? 'status-done' : ''} ${isEmergency ? 'urgent-alert' : ''}`;
 
     return (
         <div
             className={cardClasses}
-            style={{ borderLeftColor: `var(${statusColorMap[ticket.status]})`, cursor: 'grab' }}
+            style={{ borderLeftColor: statusBorderColor[ticket.status] ?? '#adb5bd', cursor: 'grab' }}
             draggable="true"
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
         >
             <style>{`
                 @keyframes pulse-border {
-                    0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.8); }
-                    70% { box-shadow: 0 0 0 8px rgba(220, 53, 69, 0); }
-                    100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+                    0% { box-shadow: 0 0 0 0 rgba(220,53,69,0.8); }
+                    70% { box-shadow: 0 0 0 8px rgba(220,53,69,0); }
+                    100% { box-shadow: 0 0 0 0 rgba(220,53,69,0); }
                 }
                 .ticket-card {
                     background: var(--bg-secondary);
                     border-radius: var(--radius-md);
-                    margin-bottom: 1.5rem;
+                    margin-bottom: 0.85rem;
                     border: 1px solid var(--border);
-                    border-left-width: 5px;
+                    border-left-width: 3px;
                     border-left-style: solid;
-                    border-left-color: transparent;
                     box-shadow: var(--shadow-sm);
-                    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out, background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
-                    padding: 1rem 1.25rem;
+                    transition: transform 0.15s ease, box-shadow 0.15s ease;
+                    padding: 0.85rem 1rem;
                     position: relative;
                 }
-                .ticket-card.urgent-alert { animation: pulse-border 1.5s infinite; border-color: var(--accent-danger) !important; }
-                .ticket-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
-                .ticket-card.dragging { opacity: 0.5; }
-                .ticket-card.selected { background-color: var(--border); box-shadow: 0 0 0 2px var(--accent-primary), var(--shadow-lg); }
-                
-                .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0; }
-                .card-title { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0; flex-grow: 1;}
-                .unassigned-badge {
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                    min-width: 20px;
-                    height: 20px;
-                    padding: 0 5px;
-                    border-radius: 10px;
-                    background: #dc3545;
-                    color: #fff;
-                    font-size: 11px;
-                    font-weight: 700;
-                    line-height: 1;
-                    flex-shrink: 0;
-                }
-                .auto-badge {
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                    width: 20px;
-                    height: 20px;
-                    border-radius: 50%;
-                    background: #0d6efd;
-                    color: #fff;
-                    font-size: 11px;
-                    font-weight: 700;
-                    line-height: 1;
-                    flex-shrink: 0;
-                }
-                .assigned-badge {
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                    width: 20px;
-                    height: 20px;
-                    border-radius: 50%;
-                    background: #198754;
-                    color: #fff;
-                    font-size: 13px;
-                    font-weight: 700;
-                    line-height: 1;
-                    flex-shrink: 0;
-                }
-                .card-location { font-size: 0.95rem; color: var(--text-secondary); font-weight: 500; display: flex; align-items: center; gap: 0.5rem; }
-                .location-divider { display: inline-block; width: 0; border-left: 1.5px solid #ccc; height: 0.9em; flex-shrink: 0; }
-                [data-theme="dark"] .location-divider { border-left-color: #555; }
-                .reporter-name { display: block; margin-top: 0.45rem; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
-                .reporter-label { font-weight: 400; color: var(--text-muted); }
-                .card-location span { font-weight: normal; color: var(--text-muted); }
-                .card-meta { font-size: 0.9rem; color: var(--text-secondary); font-weight: 500; margin-bottom: 1rem; }
-                
-                .card-icons { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; flex-shrink: 0; }
+                .ticket-card.urgent-alert { animation: pulse-border 1.5s infinite; }
+                .ticket-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+                .ticket-card.selected { box-shadow: 0 0 0 2px var(--accent-primary), var(--shadow-lg); }
+
+                .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.15rem; }
+                .card-title { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin: 0; flex-grow: 1; line-height: 1.35; }
+                .card-icons { display: flex; align-items: center; gap: 0.3rem; flex-shrink: 0; }
+                .card-id { font-size: 0.72rem; color: var(--text-muted); font-weight: 500; cursor: pointer; padding: 2px 6px; border-radius: 6px; transition: background 0.15s, color 0.15s; }
+                .card-id:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+                .unassigned-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: #dc3545; color: #fff; font-size: 10px; font-weight: 700; }
+                .auto-badge { display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; border-radius: 50%; background: #0d6efd; color: #fff; font-size: 10px; font-weight: 700; }
+                .assigned-badge { display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; border-radius: 50%; background: #198754; color: #fff; font-size: 11px; font-weight: 700; }
                 .urgent-icon { color: var(--accent-danger); }
                 .stagnating-icon { color: var(--accent-primary); }
-                .reopen-icon { color: var(--accent-warning); }
-                
-                .card-actions-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; margin-top: 1rem; }
-                .action-item { font-size: 0.8rem; position: relative; }
-                .action-label { color: var(--text-muted); margin-bottom: 0.25rem; font-size: 0.75rem; text-align: center; }
-                /* Einheitliche Pill-Form wie in der Listenansicht (alle Raster-Felder) */
-                .action-value-box,
-                .details-btn,
-                .custom-dropdown,
-                .date-input-wrapper {
-                    padding: 0.25rem 0.75rem;
-                    border-radius: 6px;
-                    font-size: 0.85rem;
-                    font-weight: 600;
-                    color: var(--text-secondary);
-                    background: var(--bg-tertiary);
-                    border: 1px solid transparent;
-                    width: 100%;
-                    text-align: center;
-                    min-height: 29px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+
+                .card-location { font-size: 0.92rem; color: var(--text-secondary); margin: 0 0 0.45rem 0; }
+                .card-reporter { display: flex; align-items: center; gap: 0.3rem; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.7rem; }
+
+                /* Pill-Zeile mit Labels */
+                .card-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; margin-bottom: 0.6rem; }
+                .grid-cell { display: flex; flex-direction: column; gap: 0.18rem; }
+                .grid-label { font-size: 0.62rem; font-weight: 400; color: var(--text-muted); text-align: center; }
+                .grid-pill {
+                    display: flex; align-items: center; justify-content: center; gap: 0.2rem;
+                    padding: 0.18rem 0.6rem; border-radius: 999px;
+                    font-size: 0.75rem; font-weight: 600;
+                    border: 1.5px solid var(--border);
+                    background: var(--bg-tertiary); color: var(--text-secondary);
+                    position: relative; cursor: pointer; white-space: nowrap;
+                    height: 24px; width: 100%; box-sizing: border-box;
                 }
-                .action-value-box.emergency { background-color: rgba(220, 53, 69, 0.1); color: #c82333; border-color: rgba(220, 53, 69, 0.3); font-weight: 600; }
-                .date-input-wrapper { position: relative; }
-                .date-input-wrapper input[type="date"] { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
-                .date-input-wrapper input[type="date"]::-webkit-calendar-picker-indicator { width: 100%; height: 100%; cursor: pointer; }
-                .custom-dropdown { display: flex; align-items: center; justify-content: center; gap: 0.25rem; position: relative; cursor: pointer; }
-                .custom-dropdown.priority-high { background-color: rgba(220, 53, 69, 0.1); color: #c82333; border-color: rgba(220, 53, 69, 0.3); font-weight: 600; }
-                .custom-dropdown.priority-medium { background-color: rgba(255, 193, 7, 0.1); color: #d97706; border-color: rgba(255, 193, 7, 0.3); font-weight: 600; }
-                .custom-dropdown.priority-low { background-color: rgba(25, 135, 84, 0.1); color: var(--accent-success); border-color: rgba(25, 135, 84, 0.3); font-weight: 600; }
-                .custom-dropdown > span:not(.auto-chip) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-                .custom-dropdown select { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
-                .custom-dropdown svg { width: 14px; height: 14px; flex-shrink: 0; }
-                .details-btn { cursor: pointer; }
-                .details-btn:hover, .date-input-wrapper:hover {
-                    background: var(--border);
-                    border-color: rgba(13, 110, 253, 0.22);
-                    color: var(--text-primary);
+                .grid-pill:hover { filter: brightness(0.93); }
+                .grid-pill select, .grid-pill input[type="date"] { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+                .pill-priority-high { background: rgba(220,53,69,0.1); color: #c82333; border-color: rgba(220,53,69,0.3); }
+                .pill-priority-medium { background: rgba(255,152,0,0.12); color: #e65100; border-color: rgba(255,152,0,0.3); }
+                .pill-priority-low { background: rgba(25,135,84,0.1); color: #198754; border-color: rgba(25,135,84,0.28); }
+                .pill-status-inarbeit { background: rgba(13,110,253,0.1); color: #0d6efd; border-color: rgba(13,110,253,0.25); }
+                .pill-status-ueberfaellig { background: rgba(220,53,69,0.1); color: #c82333; border-color: rgba(220,53,69,0.25); }
+                .pill-status-done { background: rgba(25,135,84,0.1); color: #198754; border-color: rgba(25,135,84,0.25); }
+                .pill-status-offen { background: var(--bg-tertiary); color: var(--text-secondary); border-color: var(--border); }
+
+                /* Trennlinie */
+                .card-divider { height: 1px; background: var(--border); margin-bottom: 0.55rem; }
+
+                /* Footer */
+                .card-footer { display: flex; align-items: center; justify-content: space-between; }
+                .assignee-chip {
+                    display: inline-flex; align-items: center; gap: 0.3rem;
+                    padding: 0.18rem 0.5rem 0.18rem 0.2rem;
+                    border-radius: 999px; border: 1.5px solid var(--border);
+                    background: var(--bg-tertiary); color: var(--text-secondary);
+                    font-size: 0.75rem; font-weight: 600; cursor: pointer;
+                    position: relative; white-space: nowrap;
                 }
-                .custom-dropdown:hover {
-                    filter: brightness(0.96);
-                    border-color: rgba(13, 110, 253, 0.22);
-                }
-                .custom-dropdown.priority-high:hover { filter: none; background-color: rgba(220, 53, 69, 0.16); border-color: rgba(220, 53, 69, 0.45); color: #c82333; }
-                .custom-dropdown.priority-medium:hover { filter: none; background-color: rgba(255, 193, 7, 0.18); border-color: rgba(255, 193, 7, 0.45); color: #d97706; }
-                .custom-dropdown.priority-low:hover { filter: none; background-color: rgba(25, 135, 84, 0.14); border-color: rgba(25, 135, 84, 0.4); color: var(--accent-success); }
+                .assignee-chip:hover { filter: brightness(0.93); }
+                .assignee-chip select { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+                .av { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: #0d6efd; color: #fff; font-size: 0.6rem; font-weight: 700; flex-shrink: 0; }
+                .av.unassigned { background: #6c757d; }
             `}</style>
-            
+
+            {/* Zeile 1: Titel + Badges + ID */}
             <div className="card-header">
                 <h3 className="card-title">{ticket.title}</h3>
                 <div className="card-icons">
-                    {badgeNumber !== undefined && (
-                        <span className="unassigned-badge" title="Wartet auf Zuweisung">{badgeNumber}</span>
-                    )}
+                    {badgeNumber !== undefined && <span className="unassigned-badge" title="Wartet auf Zuweisung">{badgeNumber}</span>}
                     {ticket.technician !== 'N/A' && badgeNumber === undefined && ticket.status === Status.Offen && (() => {
-                        const isAuto = ticket.autoAssigned === true ||
-                            (ticket.ticketType === 'reactive' && ticket.autoAssigned !== false);
+                        const isAuto = ticket.autoAssigned === true || (ticket.ticketType === 'reactive' && ticket.autoAssigned !== false);
                         return isAuto
                             ? <span className="auto-badge" title="Automatisch zugewiesen">A</span>
                             : <span className="assigned-badge" title="Manuell zugeteilt">✓</span>;
                     })()}
                     {ticket.is_reopened && (
-                        <span title="Ticket wurde vom Melder wiedereröffnet" style={{
-                            display: 'inline-flex', alignItems: 'center', gap: '3px',
-                            fontSize: '0.68rem', fontWeight: 700, padding: '2px 7px',
-                            borderRadius: 999, background: '#fff3e0', color: '#e65100',
-                            border: '1.5px solid #ff9800', whiteSpace: 'nowrap', lineHeight: 1.4,
-                        }}>↩ Wiedereröffnet</span>
+                        <span title="Wiedereröffnet" style={{ display:'inline-flex', alignItems:'center', fontSize:'0.65rem', fontWeight:700, padding:'1px 5px', borderRadius:999, background:'#fff3e0', color:'#e65100', border:'1.5px solid #ff9800' }}>↩</span>
                     )}
-                    {isTicketStagnating && <span title="Ticket stagniert (> 5 Tage keine Notiz)"><ClockIcon className="stagnating-icon" width="24" height="24" /></span>}
-                    {isEmergency && <span className="urgent-icon" title="Notfall"><ExclamationTriangleIcon width="24" height="24" /></span>}
-                    {ticket.hasNewNoteFromReporter && <span className="new-note-indicator" title="Neue Nachricht vom Melder"></span>}
+                    {isTicketStagnating && <span title="Ticket stagniert"><ClockIcon className="stagnating-icon" width="15" height="15" /></span>}
+                    {isEmergency && <span className="urgent-icon" title="Notfall"><ExclamationTriangleIcon width="15" height="15" /></span>}
+                    {ticket.hasNewNoteFromReporter && <span className="new-note-indicator" title="Neue Nachricht vom Melder" />}
+                    <span className="card-id" onClick={() => onSelectTicket(ticket)}>#{ticket.id}</span>
                 </div>
             </div>
-            <p className="card-location">{ticket.area} <span className="location-divider" /> {ticket.location}</p>
-            <span className="reporter-name">{ticket.reporter}</span>
 
-            <div className="card-actions-grid">
-                <div className="action-item">
-                    <div className="action-label">Eingang</div>
-                    <div className="action-value-box">{ticket.entryDate}</div>
-                </div>
-                <div className="action-item">
-                    <div className="action-label">Fällig bis</div>
-                    <div className="date-input-wrapper">
-                        <span>{ticket.dueDate}</span>
-                        <input type="date" value={toInputDate(ticket.dueDate)} onChange={handleDueDateChange} onClick={e => e.stopPropagation()} />
+            {/* Zeile 2: Standort */}
+            <p className="card-location">{ticket.area} · {ticket.location}</p>
+
+            {/* Zeile 3: Reporter + Datum + Uhrzeit */}
+            <div className="card-reporter">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0, opacity:0.65 }}><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                <span>{ticket.reporter}</span>
+                <span>·</span>
+                <span>{ticket.entryDate.slice(0,5)}{ticket.entryTime ? ` · ${ticket.entryTime}` : ''}</span>
+            </div>
+
+            {/* Zeile 4: Fällig bis | Priorität | Status */}
+            <div className="card-grid" onClick={e => e.stopPropagation()}>
+                <div className="grid-cell">
+                    <span className="grid-label">Fällig bis</span>
+                    <div className="grid-pill">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+                        {ticket.dueDate.slice(0,5)}
+                        <input type="date" value={toInputDate(ticket.dueDate)} onChange={handleDueDateChange} />
                     </div>
                 </div>
-                <div className="action-item">
-                    <div className="action-label">Priorität</div>
-                     {isEmergency ? (
-                        <div className="action-value-box emergency">Notfall</div>
+                <div className="grid-cell">
+                    <span className="grid-label">Priorität</span>
+                    {isEmergency ? (
+                        <div className="grid-pill pill-priority-high">Notfall</div>
                     ) : (
-                        <Dropdown options={Object.values(Priority)} selected={ticket.priority} onChange={handlePriorityChange} className={priorityClasses[ticket.priority]} />
+                        <div className={`grid-pill ${priorityPillClass}`}>
+                            {ticket.priority}
+                            <select value={ticket.priority} onChange={handlePriorityChange}>
+                                {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
+                            </select>
+                        </div>
                     )}
                 </div>
-                <div className="action-item">
-                    <div className="action-label">Status</div>
-                    <Dropdown options={Object.values(Status).filter(s => s !== Status.Ueberfaellig)} selected={ticket.status} onChange={handleStatusChange} />
-                </div>
-                 <div className="action-item">
-                    <div className="action-label">Bearbeiter</div>
-                    <div className="custom-dropdown">
-                        <span>
-                            {ticket.technician === 'N/A' ? 'Zuweisen' : displayNameShort(ticket.technician)}
-                        </span>{' '}
-                        <ChevronDownIcon />
-                        <select value={ticket.technician} onChange={handleTechnicianSelectChange}>
-                             {technicianOptions.map((opt) => {
-                                 if (opt === 'N/A') {
-                                     return (
-                                         <option key={opt} value={opt}>
-                                             Nicht zugewiesen
-                                         </option>
-                                     );
-                                 }
-                                 const u = technicians.find((t) => t.name === opt);
-                                 const absent = u?.availability.status === AvailabilityStatus.OnLeave;
-                                 return (
-                                     <option key={opt} value={opt} disabled={!!absent}>
-                                         {displayNameShort(opt)}
-                                         {absent ? ' (Abwesend)' : ''}
-                                     </option>
-                                 );
-                             })}
+                <div className="grid-cell">
+                    <span className="grid-label">Status</span>
+                    <div className={`grid-pill ${statusPillClass}`}>
+                        {ticket.status}
+                        <select value={ticket.status} onChange={handleStatusChange}>
+                            {Object.values(Status).filter(s => s !== Status.Ueberfaellig).map(s => (
+                                <option key={s} value={s}>{s === Status.Abgeschlossen ? 'Abschließen' : s}</option>
+                            ))}
                         </select>
                     </div>
                 </div>
-                <div className="action-item">
-                    <div className="action-label">Ticket</div>
-                    <button className="details-btn" onClick={() => onSelectTicket(ticket)}>
-                        {ticket.id}
-                    </button>
+            </div>
+
+            {/* Trennlinie */}
+            <div className="card-divider" />
+
+            {/* Zeile 5: Bearbeiter */}
+            <div className="card-footer" onClick={e => e.stopPropagation()}>
+                <div className="assignee-chip">
+                    <span className={`av${isAssigned ? '' : ' unassigned'}`}>{initials}</span>
+                    <span>{isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}</span>
+                    <ChevronDownIcon />
+                    <select value={ticket.technician} onChange={handleTechnicianSelectChange}>
+                        {technicianOptions.map((opt) => {
+                            if (opt === 'N/A') return <option key={opt} value={opt}>Nicht zugewiesen</option>;
+                            const u = technicians.find((t) => t.name === opt);
+                            const absent = u?.availability.status === AvailabilityStatus.OnLeave;
+                            return <option key={opt} value={opt} disabled={!!absent}>{displayNameShort(opt)}{absent ? ' (Abwesend)' : ''}</option>;
+                        })}
+                    </select>
                 </div>
             </div>
         </div>
