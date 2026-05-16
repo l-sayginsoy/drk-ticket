@@ -232,7 +232,9 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     line-height: 1;
                     flex-shrink: 0;
                 }
-                .card-location { font-size: 0.95rem; color: var(--text-secondary); font-weight: 500; }
+                .card-location { font-size: 0.95rem; color: var(--text-secondary); font-weight: 500; display: flex; align-items: center; gap: 0.5rem; }
+                .location-divider { display: inline-block; width: 0; border-left: 1.5px solid #ccc; height: 0.9em; flex-shrink: 0; }
+                [data-theme="dark"] .location-divider { border-left-color: #555; }
                 .reporter-name { display: block; margin-top: 0.15rem; font-size: 0.85rem; font-weight: 600; color: var(--text-muted); }
                 .card-location span { font-weight: normal; color: var(--text-muted); }
                 .card-meta { font-size: 0.9rem; color: var(--text-secondary); font-weight: 500; margin-bottom: 1rem; }
@@ -317,7 +319,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     {ticket.hasNewNoteFromReporter && <span className="new-note-indicator" title="Neue Nachricht vom Melder"></span>}
                 </div>
             </div>
-            <p className="card-location">{ticket.area} <span>›</span> {ticket.location}</p>
+            <p className="card-location">{ticket.area} <span className="location-divider" /> {ticket.location}</p>
             <span className="reporter-name">{ticket.reporter}</span>
 
             <div className="card-actions-grid">
