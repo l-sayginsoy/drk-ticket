@@ -1848,23 +1848,21 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     }
 
     if (ut.ticketType === 'reactive' && !skipReactiveAutoDue) {
-      const w = ut.wunschTermin?.trim();
+      const w  = ut.wunschTermin?.trim();
       const w0 = originalTicket.wunschTermin?.trim();
       const wunschChanged = w !== w0;
-      const catChanged = ut.categoryId !== originalTicket.categoryId;
-      const dueDateManuallyChanged = ut.dueDate !== originalTicket.dueDate;
+      const catChanged    = ut.categoryId !== originalTicket.categoryId;
 
-      if (dueDateManuallyChanged && !wunschChanged && !catChanged) {
-        // Benutzer hat Fälligkeitsdatum manuell gesetzt → nicht überschreiben
-      } else if (wunschChanged && w) {
-        // Wunschtermin neu gesetzt → als Fälligkeit übernehmen
-        ut.dueDate = w;
-      } else {
-        const wunschCleared = !!w0 && !w && wunschChanged;
-        if (wunschCleared || catChanged) {
-          ut.dueDate = computeReactiveDueDateWithoutWunsch(ut.entryDate, ut.categoryId, appSettings.slaMatrix);
-        }
+      // dueDate NUR anpassen wenn Wunschtermin oder Kategorie sich geändert hat
+      if (wunschChanged) {
+        ut.dueDate = w
+          ? w  // neuer Wunschtermin gesetzt
+          : computeReactiveDueDateWithoutWunsch(ut.entryDate, ut.categoryId, appSettings.slaMatrix); // Wunschtermin gelöscht
+      } else if (catChanged) {
+        ut.dueDate = computeReactiveDueDateWithoutWunsch(ut.entryDate, ut.categoryId, appSettings.slaMatrix);
       }
+      // Prio-, Status-, Techniker-Änderungen o.ä. → dueDate bleibt unberührt
+
       if (catChanged) {
         const slaP = inferStrictestSlaPriorityForCategory(ut.categoryId, appSettings.slaMatrix);
         ut.priority = slaP ?? Priority.Niedrig;
