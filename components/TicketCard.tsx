@@ -218,21 +218,21 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .urgent-icon { color: var(--accent-danger); }
                 .stagnating-icon { color: var(--accent-primary); }
 
-                .card-location { font-size: 0.85rem; color: var(--text-secondary); margin: 0 0 0.35rem 0; font-weight: 400; }
+                .card-location { font-size: 0.85rem; color: var(--text-secondary); margin: 0 0 0.55rem 0; font-weight: 400; }
                 .card-reporter { display: flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.85rem; }
 
                 /* Pills-Zeile */
-                .card-pills { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin-bottom: 0.85rem; padding: 0 0.5rem; }
+                .card-pills { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin-bottom: 0.85rem; padding: 0 1rem; }
                 .pill-cell { display: flex; flex-direction: column; gap: 0.15rem; }
                 .pill-label { font-size: 0.62rem; color: var(--text-muted); text-align: center; font-weight: 400; }
                 .grid-pill {
                     display: flex; align-items: center; justify-content: center; gap: 0.2rem;
                     padding: 0 0.45rem; border-radius: 999px;
-                    font-size: 0.7rem; font-weight: 600;
+                    font-size: 0.75rem; font-weight: 600;
                     border: 1.5px solid var(--border);
                     background: var(--bg-tertiary); color: var(--text-secondary);
                     position: relative; cursor: pointer; white-space: nowrap;
-                    height: 22px; width: 100%; box-sizing: border-box;
+                    height: 26px; width: 100%; box-sizing: border-box;
                 }
                 .grid-pill:hover { filter: brightness(0.93); }
                 .grid-pill select, .grid-pill input[type="date"] { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
