@@ -204,8 +204,10 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
               }
                .column-body::-webkit-scrollbar { width: 6px; }
                .column-body::-webkit-scrollbar-track { background: transparent; }
-               .column-body::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
-               [data-theme="dark"] .column-body::-webkit-scrollbar-thumb { background: #444; }
+               .column-body::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px; transition: background 0.3s; }
+               .column-body:hover::-webkit-scrollbar-thumb { background: #ccc; }
+               .column-body::-webkit-scrollbar-thumb:active { background: #aaa; }
+               [data-theme="dark"] .column-body:hover::-webkit-scrollbar-thumb { background: #444; }
 
                @media (max-width: 768px) {
                   .column-body {
