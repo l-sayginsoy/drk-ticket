@@ -275,7 +275,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     background: transparent;
                     border: 2px dashed #dc3545;
                     color: #dc3545;
-                    font-size: 1.1rem; line-height: 1;
+                    font-size: 1rem; line-height: 0; padding-bottom: 1px;
                 }
                 .details-btn {
                     display: inline-flex; align-items: center; justify-content: center;
