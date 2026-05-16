@@ -236,6 +236,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .location-divider { display: inline-block; width: 0; border-left: 1.5px solid #ccc; height: 0.9em; flex-shrink: 0; }
                 [data-theme="dark"] .location-divider { border-left-color: #555; }
                 .reporter-name { display: block; margin-top: 0.45rem; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
+                .reporter-label { font-weight: 400; color: var(--text-muted); }
                 .card-location span { font-weight: normal; color: var(--text-muted); }
                 .card-meta { font-size: 0.9rem; color: var(--text-secondary); font-weight: 500; margin-bottom: 1rem; }
                 
@@ -320,7 +321,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 </div>
             </div>
             <p className="card-location">{ticket.area} <span className="location-divider" /> {ticket.location}</p>
-            <span className="reporter-name">{ticket.reporter}</span>
+            <span className="reporter-name"><span className="reporter-label">Melder:</span> {ticket.reporter}</span>
 
             <div className="card-actions-grid">
                 <div className="action-item">
