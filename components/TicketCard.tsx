@@ -215,9 +215,6 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .card-title { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin: 0; flex-grow: 1; line-height: 1.4; }
                 .card-icons { display: flex; align-items: center; gap: 0.3rem; flex-shrink: 0; padding-top: 2px; }
                 .card-id { font-size: 0.72rem; color: var(--text-muted); font-weight: 500; }
-                .unassigned-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: #dc3545; color: #fff; font-size: 10px; font-weight: 700; }
-                .auto-badge { display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; border-radius: 50%; background: #0d6efd; color: #fff; font-size: 10px; font-weight: 700; }
-                .assigned-badge { display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; border-radius: 50%; background: #198754; color: #fff; font-size: 11px; font-weight: 700; }
                 .urgent-icon { color: var(--accent-danger); }
                 .stagnating-icon { color: var(--accent-primary); }
 
@@ -271,10 +268,13 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     background: #0d6efd; color: #fff;
                     font-size: 0.65rem; font-weight: 700; flex-shrink: 0;
                 }
+                .av.av-manual {
+                    background: #f97316;
+                }
                 .av.unassigned {
                     background: transparent;
-                    border: 2px dashed #adb5bd;
-                    color: #adb5bd;
+                    border: 2px dashed #dc3545;
+                    color: #dc3545;
                     font-size: 1.1rem; line-height: 1;
                 }
                 .details-btn {
@@ -293,13 +293,6 @@ const TicketCard: React.FC<TicketCardProps> = ({
             <div className="card-header">
                 <h3 className="card-title">{ticket.title}</h3>
                 <div className="card-icons">
-                    {badgeNumber !== undefined && <span className="unassigned-badge" title="Wartet auf Zuweisung">{badgeNumber}</span>}
-                    {ticket.technician !== 'N/A' && badgeNumber === undefined && ticket.status === Status.Offen && (() => {
-                        const isAuto = ticket.autoAssigned === true || (ticket.ticketType === 'reactive' && ticket.autoAssigned !== false);
-                        return isAuto
-                            ? <span className="auto-badge" title="Automatisch zugewiesen">A</span>
-                            : <span className="assigned-badge" title="Manuell zugeteilt">✓</span>;
-                    })()}
                     {ticket.is_reopened && (
                         <span title="Wiedereröffnet" style={{ display:'inline-flex', alignItems:'center', fontSize:'0.65rem', fontWeight:700, padding:'1px 5px', borderRadius:999, background:'#fff3e0', color:'#e65100', border:'1.5px solid #ff9800' }}>↩</span>
                     )}
@@ -359,9 +352,11 @@ const TicketCard: React.FC<TicketCardProps> = ({
             {/* Footer: Bearbeiter + Details */}
             <div className="card-footer" onClick={e => e.stopPropagation()}>
                 <div className="assignee-chip">
-                    <span className={`av${isAssigned ? '' : ' unassigned'}`}>
-                        {isAssigned ? initials : '+'}
-                    </span>
+                    {(() => {
+                        if (!isAssigned) return <span className="av unassigned">+</span>;
+                        const isAuto = ticket.autoAssigned === true || (ticket.ticketType === 'reactive' && ticket.autoAssigned !== false);
+                        return <span className={`av${isAuto ? '' : ' av-manual'}`}>{initials}</span>;
+                    })()}
                     <span>{isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}</span>
                     {isAssigned && <ChevronDownIcon />}
                     <select value={ticket.technician} onChange={handleTechnicianSelectChange}>
