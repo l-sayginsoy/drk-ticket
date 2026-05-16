@@ -246,20 +246,23 @@ const TicketCard: React.FC<TicketCardProps> = ({
 
                 /* Footer */
                 .card-footer {
-                    display: flex; align-items: center; justify-content: space-between;
+                    display: grid;
+                    grid-template-columns: 1fr auto;
+                    gap: 1rem;
+                    align-items: center;
                     margin: 0 -1rem;
                     padding: 0.6rem 1rem;
                     background: var(--bg-tertiary);
                     border-top: 1px solid var(--border);
                 }
                 .assignee-chip {
-                    display: inline-flex; align-items: center; gap: 0.4rem;
+                    display: flex; align-items: center; gap: 0.4rem;
                     padding: 0.22rem 0.6rem 0.22rem 0.22rem;
                     border-radius: 999px; border: 1.5px solid var(--border);
                     background: var(--bg-secondary); color: var(--text-secondary);
                     font-size: 0.8rem; font-weight: 600; cursor: pointer;
                     position: relative; height: 32px; box-sizing: border-box;
-                    min-width: 0; max-width: 55%;
+                    min-width: 0; width: 100%;
                 }
                 .assignee-chip-name {
                     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
