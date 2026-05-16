@@ -187,8 +187,8 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .ticket-card.dragging { opacity: 0.5; }
                 .ticket-card.selected { background-color: var(--border); box-shadow: 0 0 0 2px var(--accent-primary), var(--shadow-lg); }
                 
-                .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.1rem; }
-                .card-title { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem; flex-grow: 1;}
+                .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0; }
+                .card-title { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0; flex-grow: 1;}
                 .unassigned-badge {
                     display: inline-flex;
                     align-items: center;
