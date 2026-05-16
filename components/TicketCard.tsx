@@ -196,77 +196,100 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 }
                 .ticket-card {
                     background: var(--bg-secondary);
-                    border-radius: var(--radius-md);
-                    margin-bottom: 0.85rem;
+                    border-radius: 12px;
+                    margin-bottom: 0.9rem;
                     border: 1px solid var(--border);
-                    border-left-width: 3px;
+                    border-left-width: 4px;
                     border-left-style: solid;
-                    box-shadow: var(--shadow-sm);
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
                     transition: transform 0.15s ease, box-shadow 0.15s ease;
-                    padding: 0.85rem 1rem;
+                    padding: 1rem 1rem 0;
                     position: relative;
+                    overflow: hidden;
                 }
                 .ticket-card.urgent-alert { animation: pulse-border 1.5s infinite; }
-                .ticket-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
-                .ticket-card.selected { box-shadow: 0 0 0 2px var(--accent-primary), var(--shadow-lg); }
+                .ticket-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.12); }
+                .ticket-card.selected { box-shadow: 0 0 0 2px var(--accent-primary), 0 6px 18px rgba(0,0,0,0.12); }
 
-                .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.15rem; }
-                .card-title { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin: 0; flex-grow: 1; line-height: 1.35; }
-                .card-icons { display: flex; align-items: center; gap: 0.3rem; flex-shrink: 0; }
-                .card-id { font-size: 0.72rem; color: var(--text-muted); font-weight: 500; cursor: pointer; padding: 2px 6px; border-radius: 6px; transition: background 0.15s, color 0.15s; }
-                .card-id:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+                .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.25rem; }
+                .card-title { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin: 0; flex-grow: 1; line-height: 1.4; }
+                .card-icons { display: flex; align-items: center; gap: 0.3rem; flex-shrink: 0; padding-top: 2px; }
+                .card-id { font-size: 0.72rem; color: var(--text-muted); font-weight: 500; }
                 .unassigned-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: #dc3545; color: #fff; font-size: 10px; font-weight: 700; }
                 .auto-badge { display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; border-radius: 50%; background: #0d6efd; color: #fff; font-size: 10px; font-weight: 700; }
                 .assigned-badge { display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; border-radius: 50%; background: #198754; color: #fff; font-size: 11px; font-weight: 700; }
                 .urgent-icon { color: var(--accent-danger); }
                 .stagnating-icon { color: var(--accent-primary); }
 
-                .card-location { font-size: 0.92rem; color: var(--text-secondary); margin: 0 0 0.45rem 0; }
-                .card-reporter { display: flex; align-items: center; gap: 0.3rem; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.7rem; }
+                .card-location { font-size: 0.85rem; color: var(--text-secondary); margin: 0 0 0.35rem 0; font-weight: 400; }
+                .card-reporter { display: flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.85rem; }
 
-                /* Pill-Zeile mit Labels */
-                .card-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; margin-bottom: 0.6rem; }
-                .grid-cell { display: flex; flex-direction: column; gap: 0.18rem; }
-                .grid-label { font-size: 0.62rem; font-weight: 400; color: var(--text-muted); text-align: center; }
+                /* Pills-Zeile */
+                .card-pills { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; margin-bottom: 0.85rem; }
+                .pill-cell { display: flex; flex-direction: column; gap: 0.15rem; }
+                .pill-label { font-size: 0.62rem; color: var(--text-muted); text-align: center; font-weight: 400; }
                 .grid-pill {
                     display: flex; align-items: center; justify-content: center; gap: 0.2rem;
-                    padding: 0.18rem 0.6rem; border-radius: 999px;
+                    padding: 0 0.45rem; border-radius: 999px;
                     font-size: 0.75rem; font-weight: 600;
                     border: 1.5px solid var(--border);
                     background: var(--bg-tertiary); color: var(--text-secondary);
                     position: relative; cursor: pointer; white-space: nowrap;
-                    height: 24px; width: 100%; box-sizing: border-box;
+                    height: 26px; width: 100%; box-sizing: border-box;
                 }
                 .grid-pill:hover { filter: brightness(0.93); }
                 .grid-pill select, .grid-pill input[type="date"] { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
-                .pill-priority-high { background: rgba(220,53,69,0.1); color: #c82333; border-color: rgba(220,53,69,0.3); }
-                .pill-priority-medium { background: rgba(255,152,0,0.12); color: #e65100; border-color: rgba(255,152,0,0.3); }
-                .pill-priority-low { background: rgba(25,135,84,0.1); color: #198754; border-color: rgba(25,135,84,0.28); }
-                .pill-status-inarbeit { background: rgba(13,110,253,0.1); color: #0d6efd; border-color: rgba(13,110,253,0.25); }
-                .pill-status-ueberfaellig { background: rgba(220,53,69,0.1); color: #c82333; border-color: rgba(220,53,69,0.25); }
-                .pill-status-done { background: rgba(25,135,84,0.1); color: #198754; border-color: rgba(25,135,84,0.25); }
+                .pill-priority-high { background: rgba(220,53,69,0.1); color: #b91c2c; border-color: rgba(220,53,69,0.35); }
+                .pill-priority-medium { background: rgba(255,152,0,0.13); color: #c05800; border-color: rgba(255,152,0,0.35); }
+                .pill-priority-low { background: rgba(25,135,84,0.1); color: #166534; border-color: rgba(25,135,84,0.32); }
+                .pill-status-inarbeit { background: rgba(13,110,253,0.1); color: #1d4ed8; border-color: rgba(13,110,253,0.3); }
+                .pill-status-ueberfaellig { background: rgba(220,53,69,0.1); color: #b91c2c; border-color: rgba(220,53,69,0.3); }
+                .pill-status-done { background: rgba(25,135,84,0.1); color: #166534; border-color: rgba(25,135,84,0.3); }
                 .pill-status-offen { background: var(--bg-tertiary); color: var(--text-secondary); border-color: var(--border); }
 
-                /* Trennlinie */
-                .card-divider { height: 1px; background: var(--border); margin-bottom: 0.55rem; }
-
                 /* Footer */
-                .card-footer { display: flex; align-items: center; justify-content: space-between; }
-                .assignee-chip {
-                    display: inline-flex; align-items: center; gap: 0.3rem;
-                    padding: 0.18rem 0.5rem 0.18rem 0.2rem;
-                    border-radius: 999px; border: 1.5px solid var(--border);
-                    background: var(--bg-tertiary); color: var(--text-secondary);
-                    font-size: 0.75rem; font-weight: 600; cursor: pointer;
-                    position: relative; white-space: nowrap;
+                .card-footer {
+                    display: flex; align-items: center; justify-content: space-between;
+                    margin: 0 -1rem;
+                    padding: 0.6rem 1rem;
+                    background: var(--bg-tertiary);
+                    border-top: 1px solid var(--border);
                 }
-                .assignee-chip:hover { filter: brightness(0.93); }
+                .assignee-chip {
+                    display: inline-flex; align-items: center; gap: 0.4rem;
+                    padding: 0.22rem 0.6rem 0.22rem 0.22rem;
+                    border-radius: 999px; border: 1.5px solid var(--border);
+                    background: var(--bg-secondary); color: var(--text-secondary);
+                    font-size: 0.8rem; font-weight: 600; cursor: pointer;
+                    position: relative; height: 32px; box-sizing: border-box;
+                }
+                .assignee-chip:hover { filter: brightness(0.95); }
                 .assignee-chip select { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
-                .av { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: #0d6efd; color: #fff; font-size: 0.6rem; font-weight: 700; flex-shrink: 0; }
-                .av.unassigned { background: #6c757d; }
+                .av {
+                    display: inline-flex; align-items: center; justify-content: center;
+                    width: 26px; height: 26px; border-radius: 50%;
+                    background: #0d6efd; color: #fff;
+                    font-size: 0.65rem; font-weight: 700; flex-shrink: 0;
+                }
+                .av.unassigned {
+                    background: transparent;
+                    border: 2px dashed #adb5bd;
+                    color: #adb5bd;
+                    font-size: 1.1rem; line-height: 1;
+                }
+                .details-btn {
+                    display: inline-flex; align-items: center; justify-content: center;
+                    background: var(--bg-secondary);
+                    border: 1.5px solid var(--border);
+                    padding: 0 0.75rem; border-radius: 999px;
+                    font-size: 0.8rem; font-weight: 500; color: var(--text-muted);
+                    cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
+                    height: 32px; box-sizing: border-box;
+                }
+                .details-btn:hover { border-color: var(--accent-primary); color: var(--accent-primary); background: var(--bg-secondary); }
             `}</style>
 
-            {/* Zeile 1: Titel + Badges + ID */}
+            {/* Zeile 1: Titel + Badges + #ID */}
             <div className="card-header">
                 <h3 className="card-title">{ticket.title}</h3>
                 <div className="card-icons">
@@ -283,7 +306,6 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     {isTicketStagnating && <span title="Ticket stagniert"><ClockIcon className="stagnating-icon" width="15" height="15" /></span>}
                     {isEmergency && <span className="urgent-icon" title="Notfall"><ExclamationTriangleIcon width="15" height="15" /></span>}
                     {ticket.hasNewNoteFromReporter && <span className="new-note-indicator" title="Neue Nachricht vom Melder" />}
-                    <span className="card-id" onClick={() => onSelectTicket(ticket)}>#{ticket.id}</span>
                 </div>
             </div>
 
@@ -298,18 +320,10 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 <span>{ticket.entryDate.slice(0,5)}{ticket.entryTime ? ` · ${ticket.entryTime}` : ''}</span>
             </div>
 
-            {/* Zeile 4: Fällig bis | Priorität | Status */}
-            <div className="card-grid" onClick={e => e.stopPropagation()}>
-                <div className="grid-cell">
-                    <span className="grid-label">Fällig bis</span>
-                    <div className="grid-pill">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
-                        {ticket.dueDate.slice(0,5)}
-                        <input type="date" value={toInputDate(ticket.dueDate)} onChange={handleDueDateChange} />
-                    </div>
-                </div>
-                <div className="grid-cell">
-                    <span className="grid-label">Priorität</span>
+            {/* Zeile 4: Fällig | Priorität | Status */}
+            <div className="card-pills" onClick={e => e.stopPropagation()}>
+                <div className="pill-cell">
+                    <span className="pill-label">Priorität</span>
                     {isEmergency ? (
                         <div className="grid-pill pill-priority-high">Notfall</div>
                     ) : (
@@ -321,8 +335,16 @@ const TicketCard: React.FC<TicketCardProps> = ({
                         </div>
                     )}
                 </div>
-                <div className="grid-cell">
-                    <span className="grid-label">Status</span>
+                <div className="pill-cell">
+                    <span className="pill-label">Fällig bis</span>
+                    <div className="grid-pill">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        {ticket.dueDate.slice(0,5)}
+                        <input type="date" value={toInputDate(ticket.dueDate)} onChange={handleDueDateChange} />
+                    </div>
+                </div>
+                <div className="pill-cell">
+                    <span className="pill-label">Status</span>
                     <div className={`grid-pill ${statusPillClass}`}>
                         {ticket.status}
                         <select value={ticket.status} onChange={handleStatusChange}>
@@ -334,15 +356,14 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 </div>
             </div>
 
-            {/* Trennlinie */}
-            <div className="card-divider" />
-
-            {/* Zeile 5: Bearbeiter */}
+            {/* Footer: Bearbeiter + Details */}
             <div className="card-footer" onClick={e => e.stopPropagation()}>
                 <div className="assignee-chip">
-                    <span className={`av${isAssigned ? '' : ' unassigned'}`}>{initials}</span>
+                    <span className={`av${isAssigned ? '' : ' unassigned'}`}>
+                        {isAssigned ? initials : '+'}
+                    </span>
                     <span>{isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}</span>
-                    <ChevronDownIcon />
+                    {isAssigned && <ChevronDownIcon />}
                     <select value={ticket.technician} onChange={handleTechnicianSelectChange}>
                         {technicianOptions.map((opt) => {
                             if (opt === 'N/A') return <option key={opt} value={opt}>Nicht zugewiesen</option>;
@@ -352,6 +373,9 @@ const TicketCard: React.FC<TicketCardProps> = ({
                         })}
                     </select>
                 </div>
+                <button className="details-btn" onClick={() => onSelectTicket(ticket)}>
+                    {ticket.id}
+                </button>
             </div>
         </div>
     );
