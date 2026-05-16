@@ -271,8 +271,16 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .assignee-chip:hover { filter: brightness(0.95); }
                 .assignee-chip select { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
                 @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.3} }
-                .footer-msg { display: flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; font-weight: 600; color: #dc3545; pointer-events: none; }
+                .footer-msg { display: flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; font-weight: 600; color: #dc3545; pointer-events: none; flex-shrink: 0; }
                 .footer-msg-dot { width: 7px; height: 7px; border-radius: 50%; background: #dc3545; animation: pulse-dot 1.2s infinite; flex-shrink: 0; }
+                .footer-detail-icon {
+                    width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+                    background: var(--bg-secondary); border: 1.5px solid var(--border);
+                    display: flex; align-items: center; justify-content: center;
+                    color: var(--accent-primary); pointer-events: none;
+                    transition: border-color 0.15s;
+                }
+                .card-footer:hover .footer-detail-icon { border-color: var(--accent-primary); }
                 .av {
                     display: inline-flex; align-items: center; justify-content: center;
                     width: 26px; height: 26px; border-radius: 50%;
@@ -370,10 +378,16 @@ const TicketCard: React.FC<TicketCardProps> = ({
                         })}
                     </select>
                 </div>
-                {ticket.hasNewNoteFromReporter && (
+                {ticket.hasNewNoteFromReporter ? (
                     <div className="footer-msg">
                         <span className="footer-msg-dot" />
                         <span>Neue Nachricht</span>
+                    </div>
+                ) : (
+                    <div className="footer-detail-icon">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="9 18 15 12 9 6" />
+                        </svg>
                     </div>
                 )}
             </div>
