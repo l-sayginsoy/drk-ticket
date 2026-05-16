@@ -9,15 +9,19 @@
     h1 { font-size: 1.25rem; margin: 0 0 8px; }
     p.meta { color: #555; margin: 0 0 24px; font-size: 0.9rem; max-width: 640px; }
     section { margin-bottom: 48px; }
-    h2 { font-size: 1rem; margin: 0 0 12px; color: #333; }
+    h2 { font-size: 1rem; margin: 0 0 4px; color: #333; }
+    .label { font-size: 0.78rem; color: #888; margin: 0 0 10px; }
     .frame { background: #9d9d9d; padding: 16px; border-radius: 12px; max-width: 660px; }
+    .frame-outlook { background: #c8c8c8; padding: 16px; border-radius: 12px; max-width: 660px; margin-top: 20px; }
   </style>
 </head>
 <body>
   <h1>E-Mail-Vorschau (lokal)</h1>
   <p class="meta">
-    <strong>So öffnen:</strong> <code>npm run dev</code> starten, dann:<br />
-    <code>http://localhost:5173/email-vorschau.html</code>
+    <strong>So öffnen:</strong> <code>npm run dev</code> starten, dann:
+    <code>http://localhost:5173/email-vorschau.html</code><br>
+    <strong>Grauer Rahmen</strong> = Moderner Client (Gmail, Apple Mail, OWA) &nbsp;|&nbsp;
+    <strong>Heller Rahmen</strong> = Outlook Windows Fallback
   </p>
 
   <!-- ============================================================
@@ -25,6 +29,8 @@
   ============================================================ -->
   <section>
     <h2>1) Meldung erfasst</h2>
+
+    <p class="label">Moderner Client (Gmail, Apple Mail, OWA …)</p>
     <div class="frame">
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#f0f2f5" style="background:#f0f2f5;">
       <tr><td align="center" style="padding:24px 12px;">
@@ -39,15 +45,44 @@
         <tr><td style="padding:24px 22px 22px;font-family:Arial,Helvetica,sans-serif;">
           <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#333;font-family:Arial,Helvetica,sans-serif;"><strong>Ticketnummer: 38979</strong></p>
           <p style="margin:0 0 20px;font-size:15px;line-height:1.55;color:#333;font-family:Arial,Helvetica,sans-serif;">Ihre Meldung ist bei uns eingegangen und befindet sich nun in der Bearbeitung.</p>
-          <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 4px;">
-          <tr><td bgcolor="#9d0a0e" style="background:#9d0a0e;border-radius:8px;padding:16px 36px;">
-            <a href="https://www.drk-ticket.de/?ticket=38979" style="display:block;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;white-space:nowrap;line-height:1.2;mso-line-height-rule:exactly;">Ticket im Portal &#246;ffnen</a>
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr>
+          <td bgcolor="#9d0a0e" style="background:#9d0a0e;border-radius:6px;padding:14px 32px;">
+            <a href="#" style="display:block;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;white-space:nowrap;line-height:1.2;">Ticket im Portal &#246;ffnen</a>
           </td></tr></table>
           <p style="margin:18px 0 0;font-size:14px;line-height:1.55;color:#444;font-family:Arial,Helvetica,sans-serif;">Mit diesem Button öffnen Sie das Meldeportal. Ihre Ticketnummer ist im Link bereits enthalten – Sie müssen sie <strong>nicht erneut eingeben</strong>.</p>
         </td></tr>
       </table>
       <p style="margin:14px auto 0;font-size:12px;color:#888888;text-align:center;line-height:1.45;font-family:Arial,Helvetica,sans-serif;">Automatische Nachricht &middot; bitte nicht auf diese E-Mail antworten</p>
       <p style="margin:8px auto 0;font-size:13px;font-weight:bold;color:#666666;text-align:center;line-height:1.3;font-family:Arial,Helvetica,sans-serif;">DRK Serviceportal</p>
+      </td></tr></table>
+    </div>
+
+    <p class="label" style="margin-top:16px;">Outlook Windows Fallback (600px Tabellen-Layout, kein Shadow/Radius)</p>
+    <div class="frame-outlook">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#f0f2f5" style="background:#f0f2f5;">
+      <tr><td align="center" style="padding:24px 12px;">
+      <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" bgcolor="#ffffff" style="width:600px;border-collapse:collapse;">
+        <tr><td bgcolor="#9d0a0e" height="6" style="background:#9d0a0e;height:6px;line-height:6px;font-size:1px;">&nbsp;</td></tr>
+        <tr><td bgcolor="#ffffff" style="background:#ffffff;padding:16px 22px;">
+          <img src="/drk-logo-wide.png" alt="DRK Logo" width="240" style="display:block;border:0;width:240px;">
+        </td></tr>
+        <tr><td bgcolor="#9d0a0e" style="background:#9d0a0e;padding:20px 22px 24px;">
+          <p style="margin:0;font-size:24px;font-weight:bold;color:#ffffff;line-height:1.3;font-family:Arial,Helvetica,sans-serif;">Meldung erfasst</p>
+        </td></tr>
+        <tr><td bgcolor="#ffffff" style="background:#ffffff;padding:24px 22px;font-family:Arial,Helvetica,sans-serif;">
+          <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#333;font-family:Arial,Helvetica,sans-serif;"><strong>Ticketnummer: 38979</strong></p>
+          <p style="margin:0 0 20px;font-size:15px;line-height:1.55;color:#333;font-family:Arial,Helvetica,sans-serif;">Ihre Meldung ist bei uns eingegangen und befindet sich nun in der Bearbeitung.</p>
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr>
+          <td bgcolor="#9d0a0e" style="background:#9d0a0e;padding:14px 32px;">
+            <a href="#" style="display:block;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;white-space:nowrap;line-height:1.2;">Ticket im Portal &#246;ffnen</a>
+          </td></tr></table>
+          <p style="margin:18px 0 0;font-size:14px;line-height:1.55;color:#444;font-family:Arial,Helvetica,sans-serif;">Mit diesem Button öffnen Sie das Meldeportal. Ihre Ticketnummer ist im Link bereits enthalten – Sie müssen sie <strong>nicht erneut eingeben</strong>.</p>
+        </td></tr>
+        <tr><td bgcolor="#f5f5f5" style="background:#f5f5f5;padding:16px 22px;border-top:1px solid #e0e0e0;">
+          <p style="margin:0;font-size:12px;color:#888888;text-align:center;font-family:Arial,Helvetica,sans-serif;">Automatische Nachricht &middot; bitte nicht auf diese E-Mail antworten</p>
+          <p style="margin:8px 0 0;font-size:13px;font-weight:bold;color:#666666;text-align:center;font-family:Arial,Helvetica,sans-serif;">DRK Serviceportal</p>
+        </td></tr>
+      </table>
       </td></tr></table>
     </div>
   </section>
@@ -57,6 +92,8 @@
   ============================================================ -->
   <section>
     <h2>2) Neuigkeit (Notiz)</h2>
+
+    <p class="label">Moderner Client</p>
     <div class="frame">
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#f0f2f5" style="background:#f0f2f5;">
       <tr><td align="center" style="padding:24px 12px;">
@@ -71,19 +108,52 @@
         <tr><td style="padding:24px 22px 22px;font-family:Arial,Helvetica,sans-serif;">
           <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#333;font-family:Arial,Helvetica,sans-serif;"><strong>Ticketnummer: 38979</strong></p>
           <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#333;font-family:Arial,Helvetica,sans-serif;">Es gibt eine <strong>Neuigkeit</strong> zu Ihrer Meldung:</p>
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 20px;">
           <tr><td bgcolor="#faf7f2" style="background:#faf7f2;border-left:4px solid #9d0a0e;padding:16px 18px;">
             <p style="margin:0;font-size:15px;line-height:1.55;color:#222;font-family:Arial,Helvetica,sans-serif;">Lampen im Flur ausgetauscht. (admin am 4.5.2026, 23:45)</p>
           </td></tr></table>
-          <p style="margin:0 0 20px;font-size:14px;line-height:1.55;color:#444;font-family:Arial,Helvetica,sans-serif;">Details und R&#252;ckmeldung erreichen Sie &#252;ber den Button &#8211; Ihre Ticketnummer ist im Link bereits hinterlegt.</p>
-          <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0;">
-          <tr><td bgcolor="#9d0a0e" style="background:#9d0a0e;border-radius:8px;padding:16px 36px;">
-            <a href="https://www.drk-ticket.de/?ticket=38979" style="display:block;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;white-space:nowrap;line-height:1.2;mso-line-height-rule:exactly;">Ticket im Portal &#246;ffnen</a>
+          <p style="margin:0 0 20px;font-size:14px;line-height:1.55;color:#444;font-family:Arial,Helvetica,sans-serif;">Details und R&#252;ckmeldung erreichen Sie &#252;ber den Button – Ihre Ticketnummer ist im Link bereits hinterlegt.</p>
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr>
+          <td bgcolor="#9d0a0e" style="background:#9d0a0e;border-radius:6px;padding:14px 32px;">
+            <a href="#" style="display:block;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;white-space:nowrap;line-height:1.2;">Ticket im Portal &#246;ffnen</a>
           </td></tr></table>
         </td></tr>
       </table>
       <p style="margin:14px auto 0;font-size:12px;color:#888888;text-align:center;line-height:1.45;font-family:Arial,Helvetica,sans-serif;">Automatische Nachricht &middot; bitte nicht auf diese E-Mail antworten</p>
       <p style="margin:8px auto 0;font-size:13px;font-weight:bold;color:#666666;text-align:center;line-height:1.3;font-family:Arial,Helvetica,sans-serif;">DRK Serviceportal</p>
+      </td></tr></table>
+    </div>
+
+    <p class="label" style="margin-top:16px;">Outlook Windows Fallback</p>
+    <div class="frame-outlook">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#f0f2f5" style="background:#f0f2f5;">
+      <tr><td align="center" style="padding:24px 12px;">
+      <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" bgcolor="#ffffff" style="width:600px;border-collapse:collapse;">
+        <tr><td bgcolor="#9d0a0e" height="6" style="background:#9d0a0e;height:6px;line-height:6px;font-size:1px;">&nbsp;</td></tr>
+        <tr><td bgcolor="#ffffff" style="background:#ffffff;padding:16px 22px;">
+          <img src="/drk-logo-wide.png" alt="DRK Logo" width="240" style="display:block;border:0;width:240px;">
+        </td></tr>
+        <tr><td bgcolor="#9d0a0e" style="background:#9d0a0e;padding:20px 22px 24px;">
+          <p style="margin:0;font-size:24px;font-weight:bold;color:#ffffff;line-height:1.3;font-family:Arial,Helvetica,sans-serif;">Neuigkeit zu Ihrer Meldung</p>
+        </td></tr>
+        <tr><td bgcolor="#ffffff" style="background:#ffffff;padding:24px 22px;font-family:Arial,Helvetica,sans-serif;">
+          <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#333;font-family:Arial,Helvetica,sans-serif;"><strong>Ticketnummer: 38979</strong></p>
+          <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#333;font-family:Arial,Helvetica,sans-serif;">Es gibt eine <strong>Neuigkeit</strong> zu Ihrer Meldung:</p>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 20px;">
+          <tr><td bgcolor="#faf7f2" style="background:#faf7f2;border-left:4px solid #9d0a0e;padding:16px 18px;">
+            <p style="margin:0;font-size:15px;line-height:1.55;color:#222;font-family:Arial,Helvetica,sans-serif;">Lampen im Flur ausgetauscht. (admin am 4.5.2026, 23:45)</p>
+          </td></tr></table>
+          <p style="margin:0 0 20px;font-size:14px;line-height:1.55;color:#444;font-family:Arial,Helvetica,sans-serif;">Details und R&#252;ckmeldung erreichen Sie &#252;ber den Button – Ihre Ticketnummer ist im Link bereits hinterlegt.</p>
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr>
+          <td bgcolor="#9d0a0e" style="background:#9d0a0e;padding:14px 32px;">
+            <a href="#" style="display:block;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;white-space:nowrap;line-height:1.2;">Ticket im Portal &#246;ffnen</a>
+          </td></tr></table>
+        </td></tr>
+        <tr><td bgcolor="#f5f5f5" style="background:#f5f5f5;padding:16px 22px;border-top:1px solid #e0e0e0;">
+          <p style="margin:0;font-size:12px;color:#888888;text-align:center;font-family:Arial,Helvetica,sans-serif;">Automatische Nachricht &middot; bitte nicht auf diese E-Mail antworten</p>
+          <p style="margin:8px 0 0;font-size:13px;font-weight:bold;color:#666666;text-align:center;font-family:Arial,Helvetica,sans-serif;">DRK Serviceportal</p>
+        </td></tr>
+      </table>
       </td></tr></table>
     </div>
   </section>
@@ -93,6 +163,8 @@
   ============================================================ -->
   <section>
     <h2>3) Meldung abgeschlossen</h2>
+
+    <p class="label">Moderner Client</p>
     <div class="frame">
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#f0f2f5" style="background:#f0f2f5;">
       <tr><td align="center" style="padding:24px 12px;">
@@ -106,15 +178,43 @@
         </td></tr>
         <tr><td style="padding:24px 22px 22px;font-family:Arial,Helvetica,sans-serif;">
           <p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:#333;font-family:Arial,Helvetica,sans-serif;">Ihre Meldung mit der <strong>Ticketnummer: 38979</strong> wurde erfolgreich abgeschlossen.</p>
-          <p style="margin:0 0 20px;font-size:14px;line-height:1.55;color:#444;font-family:Arial,Helvetica,sans-serif;">Zum Nachlesen oder bei R&#252;ckfragen nutzen Sie den Button.</p>
-          <table role="presentation" cellspacing="0" cellpadding="0" border="0">
-          <tr><td bgcolor="#9d0a0e" style="background:#9d0a0e;border-radius:8px;padding:16px 36px;">
-            <a href="https://www.drk-ticket.de/?ticket=38979" style="display:block;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;white-space:nowrap;line-height:1.2;mso-line-height-rule:exactly;">Ticket im Portal &#246;ffnen</a>
+          <p style="margin:0 0 20px;font-size:14px;line-height:1.55;color:#444;font-family:Arial,Helvetica,sans-serif;">Zum Nachlesen oder bei R&#252;ckfragen nutzen Sie den Button – Ihr Ticket wird im Portal direkt ge&#246;ffnet.</p>
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr>
+          <td bgcolor="#9d0a0e" style="background:#9d0a0e;border-radius:6px;padding:14px 32px;">
+            <a href="#" style="display:block;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;white-space:nowrap;line-height:1.2;">Ticket im Portal &#246;ffnen</a>
           </td></tr></table>
         </td></tr>
       </table>
       <p style="margin:14px auto 0;font-size:12px;color:#888888;text-align:center;line-height:1.45;font-family:Arial,Helvetica,sans-serif;">Automatische Nachricht &middot; bitte nicht auf diese E-Mail antworten</p>
       <p style="margin:8px auto 0;font-size:13px;font-weight:bold;color:#666666;text-align:center;line-height:1.3;font-family:Arial,Helvetica,sans-serif;">DRK Serviceportal</p>
+      </td></tr></table>
+    </div>
+
+    <p class="label" style="margin-top:16px;">Outlook Windows Fallback</p>
+    <div class="frame-outlook">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#f0f2f5" style="background:#f0f2f5;">
+      <tr><td align="center" style="padding:24px 12px;">
+      <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" bgcolor="#ffffff" style="width:600px;border-collapse:collapse;">
+        <tr><td bgcolor="#9d0a0e" height="6" style="background:#9d0a0e;height:6px;line-height:6px;font-size:1px;">&nbsp;</td></tr>
+        <tr><td bgcolor="#ffffff" style="background:#ffffff;padding:16px 22px;">
+          <img src="/drk-logo-wide.png" alt="DRK Logo" width="240" style="display:block;border:0;width:240px;">
+        </td></tr>
+        <tr><td bgcolor="#9d0a0e" style="background:#9d0a0e;padding:20px 22px 24px;">
+          <p style="margin:0;font-size:24px;font-weight:bold;color:#ffffff;line-height:1.3;font-family:Arial,Helvetica,sans-serif;">Meldung abgeschlossen</p>
+        </td></tr>
+        <tr><td bgcolor="#ffffff" style="background:#ffffff;padding:24px 22px;font-family:Arial,Helvetica,sans-serif;">
+          <p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:#333;font-family:Arial,Helvetica,sans-serif;">Ihre Meldung mit der <strong>Ticketnummer: 38979</strong> wurde erfolgreich abgeschlossen.</p>
+          <p style="margin:0 0 20px;font-size:14px;line-height:1.55;color:#444;font-family:Arial,Helvetica,sans-serif;">Zum Nachlesen oder bei R&#252;ckfragen nutzen Sie den Button – Ihr Ticket wird im Portal direkt ge&#246;ffnet.</p>
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr>
+          <td bgcolor="#9d0a0e" style="background:#9d0a0e;padding:14px 32px;">
+            <a href="#" style="display:block;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;white-space:nowrap;line-height:1.2;">Ticket im Portal &#246;ffnen</a>
+          </td></tr></table>
+        </td></tr>
+        <tr><td bgcolor="#f5f5f5" style="background:#f5f5f5;padding:16px 22px;border-top:1px solid #e0e0e0;">
+          <p style="margin:0;font-size:12px;color:#888888;text-align:center;font-family:Arial,Helvetica,sans-serif;">Automatische Nachricht &middot; bitte nicht auf diese E-Mail antworten</p>
+          <p style="margin:8px 0 0;font-size:13px;font-weight:bold;color:#666666;text-align:center;font-family:Arial,Helvetica,sans-serif;">DRK Serviceportal</p>
+        </td></tr>
+      </table>
       </td></tr></table>
     </div>
   </section>

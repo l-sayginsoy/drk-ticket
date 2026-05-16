@@ -228,63 +228,81 @@ const buildDrkBrevoPlainText = (p: DrkBrevoMailPayload) => {
 const portalDeepLink = (ticketId: string) =>
   `${DRK_TICKET_PORTAL_URL}/?ticket=${encodeURIComponent(ticketId)}`;
 
-/** CTA-Button — bgcolor-Attribut für Outlook, background-CSS für moderne Clients. */
+/**
+ * CTA-Button: bgcolor für Outlook, background+border-radius für moderne Clients.
+ * padding nur auf <td> (kein mso-padding-alt).
+ */
 const portalOpenButtonRowHtml = (ticketId: string) => {
   const href = portalDeepLink(ticketId);
-  return `<tr><td align="left" style="padding:0;">
-<table role="presentation" cellspacing="0" cellpadding="0" border="0">
-<tr><td bgcolor="${DRK_RED}" style="background:${DRK_RED};border-radius:8px;padding:16px 36px;">
+  return `<table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr>
+<td bgcolor="${DRK_RED}" style="background:${DRK_RED};border-radius:6px;padding:14px 32px;">
 <a href="${href}" style="display:block;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;white-space:nowrap;mso-line-height-rule:exactly;line-height:1.2;">Ticket im Portal &#246;ffnen</a>
-</td></tr>
-</table>
-</td></tr>`;
+</td></tr></table>`;
 };
 
-const portalOpenButtonWrappedHtml = (ticketId: string, tableMargin: string) => `
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:${tableMargin};">
-${portalOpenButtonRowHtml(ticketId)}
-</table>`;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const portalOpenButtonWrappedHtml = (ticketId: string, _margin: string) => portalOpenButtonRowHtml(ticketId);
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const portalCtaHtml = (ticketId: string) => portalOpenButtonRowHtml(ticketId);
 
-const portalCtaHtml = (ticketId: string) => `
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:8px 0 0;">
-${portalOpenButtonRowHtml(ticketId)}
-</table>`;
-
+/**
+ * Duales E-Mail-Layout:
+ *  <!--[if mso]>        → Outlook Windows: Tabellen-Fallback (600px fix, kein Shadow/Radius)
+ *  <!--[if !mso]><!-->  → Moderne Clients: CSS-Design (Shadow, Radius, schönes Layout)
+ */
 const drkEmailShellHtml = (
   bannerTitle: string,
   innerBodyHtml: string,
-  ticketId: string,
-  footerCtaHtml?: string,
+  _ticketId: string,
+  _footerCtaHtml?: string,
 ) => `<!DOCTYPE html>
 <html lang="de" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="X-UA-Compatible" content="IE=edge">
-<!--[if mso]><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]-->
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${escapeHtml(bannerTitle)}</title>
+<!--[if mso]><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch><o:AllowPNG/></o:OfficeDocumentSettings></xml><![endif]-->
 </head>
-<body style="margin:0;padding:0;background:${DRK_PAGE_BG};font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="${DRK_PAGE_BG}" style="background:${DRK_PAGE_BG};">
+<body style="margin:0;padding:0;background:${DRK_PAGE_BG};">
+
+<!--[if mso]>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="${DRK_PAGE_BG}">
+<tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" bgcolor="#ffffff" style="width:600px;border-collapse:collapse;">
+<tr><td bgcolor="${DRK_RED}" height="6" style="background:${DRK_RED};height:6px;line-height:6px;font-size:1px;mso-line-height-rule:exactly;">&nbsp;</td></tr>
+<tr><td bgcolor="#ffffff" style="background:#ffffff;padding:16px 22px;">
+<img src="${DRK_LOGO_EMAIL_SRC}" alt="DRK Logo" width="240" style="display:block;border:0;width:240px;">
+</td></tr>
+<tr><td bgcolor="${DRK_RED}" style="background:${DRK_RED};padding:20px 22px 24px;">
+<p style="margin:0;font-size:24px;font-weight:bold;color:#ffffff;line-height:1.3;font-family:Arial,Helvetica,sans-serif;mso-line-height-rule:exactly;">${escapeHtml(bannerTitle)}</p>
+</td></tr>
+<tr><td bgcolor="#ffffff" style="background:#ffffff;padding:24px 22px;font-family:Arial,Helvetica,sans-serif;">
+${innerBodyHtml}
+</td></tr>
+<tr><td bgcolor="#f5f5f5" style="background:#f5f5f5;padding:16px 22px;border-top:1px solid #e0e0e0;">
+<p style="margin:0;font-size:12px;color:#888888;text-align:center;font-family:Arial,Helvetica,sans-serif;">Automatische Nachricht &middot; bitte nicht auf diese E-Mail antworten</p>
+<p style="margin:8px 0 0;font-size:13px;font-weight:bold;color:#666666;text-align:center;font-family:Arial,Helvetica,sans-serif;">DRK Serviceportal</p>
+</td></tr>
+</table>
+</td></tr></table>
+<![endif]-->
+
+<!--[if !mso]><!--><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="${DRK_PAGE_BG}" style="background:${DRK_PAGE_BG};">
 <tr><td align="center" style="padding:24px 12px;">
 <table role="presentation" align="center" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.06);">
-<tr><td bgcolor="${DRK_RED}" style="background:${DRK_RED};padding:0;height:6px;line-height:6px;font-size:1px;">&nbsp;</td></tr>
-<tr><td bgcolor="#ffffff" style="background:#ffffff;padding:18px 22px;">
-<img src="${DRK_LOGO_EMAIL_SRC}" alt="DRK Logo" width="300" style="display:block;width:300px;max-width:100%;height:auto;border:0;">
-</td></tr>
-<tr><td bgcolor="${DRK_RED}" style="background:${DRK_RED};padding:22px 22px 26px;">
-<p style="margin:0;font-size:24px;font-weight:bold;color:#ffffff;line-height:1.25;font-family:Arial,Helvetica,sans-serif;mso-line-height-rule:exactly;">${escapeHtml(bannerTitle)}</p>
-</td></tr>
-<tr><td style="padding:24px 22px 22px;font-family:Arial,Helvetica,sans-serif;">${innerBodyHtml}</td></tr>
-${
-  footerCtaHtml === ''
-    ? ''
-    : `<tr><td bgcolor="#fafafa" style="padding:18px 22px 40px;background:#fafafa;border-top:1px solid #eeeeee;font-family:Arial,Helvetica,sans-serif;">${footerCtaHtml ?? portalCtaHtml(ticketId)}</td></tr>`
-}
+  <tr><td bgcolor="${DRK_RED}" style="background:${DRK_RED};padding:0;height:6px;line-height:6px;font-size:1px;">&nbsp;</td></tr>
+  <tr><td bgcolor="#ffffff" style="background:#ffffff;padding:18px 22px;">
+    <img src="${DRK_LOGO_EMAIL_SRC}" alt="DRK Logo" width="300" style="display:block;width:300px;max-width:100%;height:auto;border:0;">
+  </td></tr>
+  <tr><td bgcolor="${DRK_RED}" style="background:${DRK_RED};padding:22px 22px 26px;">
+    <p style="margin:0;font-size:24px;font-weight:bold;color:#ffffff;line-height:1.25;font-family:Arial,Helvetica,sans-serif;">${escapeHtml(bannerTitle)}</p>
+  </td></tr>
+  <tr><td style="padding:24px 22px 22px;font-family:Arial,Helvetica,sans-serif;">${innerBodyHtml}</td></tr>
 </table>
 <p style="margin:14px auto 0;font-size:12px;color:#888888;text-align:center;line-height:1.45;font-family:Arial,Helvetica,sans-serif;">Automatische Nachricht &middot; bitte nicht auf diese E-Mail antworten</p>
 <p style="margin:8px auto 0;font-size:13px;font-weight:bold;color:#666666;text-align:center;line-height:1.3;font-family:Arial,Helvetica,sans-serif;">DRK Serviceportal</p>
 </td></tr></table>
+<!--<![endif]-->
+
 </body></html>`;
 
 const buildDrkBrevoHtml = (p: DrkBrevoMailPayload) => {
