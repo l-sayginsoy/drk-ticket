@@ -126,6 +126,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
     
     const handleDueDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         onUpdateTicket({ ...ticket, dueDate: fromInputDate(e.target.value) });
+        setTimeout(() => dateInputRef.current?.blur(), 0);
     };
 
     const technicianOptions = useMemo(() => {
