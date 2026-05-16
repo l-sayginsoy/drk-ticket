@@ -1856,10 +1856,11 @@ const deleteTicketFromFirebase = (ticketId: string) => {
 
       if (dueDateManuallyChanged && !wunschChanged && !catChanged) {
         // Benutzer hat Fälligkeitsdatum manuell gesetzt → nicht überschreiben
-      } else if (w) {
+      } else if (wunschChanged && w) {
+        // Wunschtermin neu gesetzt → als Fälligkeit übernehmen
         ut.dueDate = w;
       } else {
-        const wunschCleared = !!w0 && !w;
+        const wunschCleared = !!w0 && !w && wunschChanged;
         if (wunschCleared || catChanged) {
           ut.dueDate = computeReactiveDueDateWithoutWunsch(ut.entryDate, ut.categoryId, appSettings.slaMatrix);
         }
