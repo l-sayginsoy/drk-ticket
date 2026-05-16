@@ -214,7 +214,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.25rem; }
                 .card-title { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin: 0; flex-grow: 1; line-height: 1.4; }
                 .card-icons { display: flex; align-items: center; gap: 0.3rem; flex-shrink: 0; padding-top: 2px; }
-                .card-id { font-size: 0.72rem; color: var(--text-muted); font-weight: 500; }
+                .card-ticket-id { font-size: 0.68rem; color: var(--text-muted); font-weight: 500; white-space: nowrap; }
                 .urgent-icon { color: var(--accent-danger); }
                 .stagnating-icon { color: var(--accent-primary); }
 
@@ -251,7 +251,10 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     padding: 0.6rem 1rem;
                     background: var(--bg-tertiary);
                     border-top: 1px solid var(--border);
+                    cursor: pointer;
+                    transition: background 0.15s;
                 }
+                .card-footer:hover { background: var(--border); }
                 .assignee-chip {
                     display: flex; align-items: center; gap: 0.4rem;
                     padding: 0.22rem 0.6rem 0.22rem 0.22rem;
@@ -259,7 +262,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     background: var(--bg-secondary); color: var(--text-secondary);
                     font-size: 0.8rem; font-weight: 600; cursor: pointer;
                     position: relative; height: 32px; box-sizing: border-box;
-                    width: calc((100% - 2rem) / 3); flex-shrink: 0;
+                    min-width: 110px; flex-shrink: 0;
                 }
                 .assignee-chip-name {
                     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -267,6 +270,9 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 }
                 .assignee-chip:hover { filter: brightness(0.95); }
                 .assignee-chip select { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+                @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.3} }
+                .footer-msg { display: flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; font-weight: 600; color: #dc3545; pointer-events: none; }
+                .footer-msg-dot { width: 7px; height: 7px; border-radius: 50%; background: #dc3545; animation: pulse-dot 1.2s infinite; flex-shrink: 0; }
                 .av {
                     display: inline-flex; align-items: center; justify-content: center;
                     width: 26px; height: 26px; border-radius: 50%;
@@ -282,19 +288,9 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     color: #dc3545;
                     font-size: 1rem; line-height: 0; padding-bottom: 1px;
                 }
-                .details-btn {
-                    display: inline-flex; align-items: center; justify-content: center;
-                    background: var(--bg-secondary);
-                    border: 1.5px solid var(--border);
-                    padding: 0; border-radius: 999px;
-                    font-size: 0.8rem; font-weight: 500; color: var(--text-muted);
-                    cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
-                    height: 32px; width: 64px; flex-shrink: 0; box-sizing: border-box;
-                }
-                .details-btn:hover { border-color: var(--accent-primary); color: var(--accent-primary); background: var(--bg-secondary); }
             `}</style>
 
-            {/* Zeile 1: Titel + Badges + #ID */}
+            {/* Zeile 1: Titel + Icons + #ID */}
             <div className="card-header">
                 <h3 className="card-title">{ticket.title}</h3>
                 <div className="card-icons">
@@ -304,6 +300,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     {isTicketStagnating && <span title="Ticket stagniert"><ClockIcon className="stagnating-icon" width="15" height="15" /></span>}
                     {isEmergency && <span className="urgent-icon" title="Notfall"><ExclamationTriangleIcon width="15" height="15" /></span>}
                     {ticket.hasNewNoteFromReporter && <span className="new-note-indicator" title="Neue Nachricht vom Melder" />}
+                    <span className="card-ticket-id">#{ticket.id}</span>
                 </div>
             </div>
 
@@ -354,9 +351,9 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 </div>
             </div>
 
-            {/* Footer: Bearbeiter + Details */}
-            <div className="card-footer" onClick={e => e.stopPropagation()}>
-                <div className="assignee-chip">
+            {/* Footer: klickbar → Detailansicht */}
+            <div className="card-footer" onClick={() => onSelectTicket(ticket)}>
+                <div className="assignee-chip" onClick={e => e.stopPropagation()}>
                     {(() => {
                         if (!isAssigned) return <span className="av unassigned">+</span>;
                         const isAuto = ticket.autoAssigned === true || (ticket.ticketType === 'reactive' && ticket.autoAssigned !== false);
@@ -373,9 +370,12 @@ const TicketCard: React.FC<TicketCardProps> = ({
                         })}
                     </select>
                 </div>
-                <button className="details-btn" onClick={() => onSelectTicket(ticket)}>
-                    {ticket.id}
-                </button>
+                {ticket.hasNewNoteFromReporter && (
+                    <div className="footer-msg">
+                        <span className="footer-msg-dot" />
+                        <span>Neue Nachricht</span>
+                    </div>
+                )}
             </div>
         </div>
     );
