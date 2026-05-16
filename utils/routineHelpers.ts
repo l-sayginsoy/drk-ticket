@@ -39,6 +39,21 @@ export function weekdayKeyToMondayIndex(k: WeekdayKey): number {
 }
 
 /**
+ * Gibt das Referenzdatum für die "Arbeitswoche" zurück.
+ * Sa/So → nächster Montag (neue Woche beginnt), sonst heute.
+ * Damit werden am Wochenende die Chips der kommenden Woche angezeigt und
+ * Erledigungen der abgelaufenen Woche erscheinen nicht mehr als abgehakt.
+ */
+export function workWeekRefDate(today: Date): Date {
+  const d = new Date(today);
+  d.setHours(0, 0, 0, 0);
+  const dow = d.getDay(); // 0=So, 6=Sa
+  if (dow === 6) d.setDate(d.getDate() + 2); // Sa → Mo
+  if (dow === 0) d.setDate(d.getDate() + 1); // So → Mo
+  return d;
+}
+
+/**
  * Lokales Datum (YYYY-MM-DD) für einen Wochentag in derselben Kalenderwoche wie `anyDateInWeek`
  * (Woche ab Montag, wie mondayBasedWeekdayIndex).
  */

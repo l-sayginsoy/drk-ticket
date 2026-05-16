@@ -5,6 +5,7 @@ import {
   getRoutinePool,
   isRoutineDueOnCalendarDay,
   localISODate,
+  workWeekRefDate,
   ymdForWeekdayInWeekContaining,
 } from '../utils/routineHelpers';
 import { ROUTINE_TEAL } from '../utils/routineUiPalette';
@@ -128,7 +129,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
               <span style={{ color: 'var(--text-muted)' }}>—</span>
             ) : (
               days.map((d: WeekdayKey) => {
-                const chipYmd = ymdForWeekdayInWeekContaining(d, new Date());
+                const chipYmd = ymdForWeekdayInWeekContaining(d, workWeekRefDate(new Date()));
                 const doneThisDay = (completions || []).some(
                   (c) => c.scheduleId === s.id && c.date === chipYmd
                 );
