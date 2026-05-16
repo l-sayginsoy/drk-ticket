@@ -259,7 +259,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     background: var(--bg-secondary); color: var(--text-secondary);
                     font-size: 0.8rem; font-weight: 600; cursor: pointer;
                     position: relative; height: 32px; box-sizing: border-box;
-                    width: 140px; flex-shrink: 0;
+                    min-width: 0; max-width: 55%;
                 }
                 .assignee-chip-name {
                     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
