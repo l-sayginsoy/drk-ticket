@@ -321,7 +321,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 </div>
             </div>
             <p className="card-location">{ticket.area} <span className="location-divider" /> {ticket.location}</p>
-            <span className="reporter-name"><span className="reporter-label">Melder:</span> {ticket.reporter}</span>
+            <span className="reporter-name">{ticket.reporter}</span>
 
             <div className="card-actions-grid">
                 <div className="action-item">
