@@ -169,7 +169,19 @@ const TicketCard: React.FC<TicketCardProps> = ({
             : { bg: '#FAC775', text: '#854F0B' })   // orange
         : { bg: 'transparent', text: '#E24B4A' };
 
-    const isOverdue = ticket.status === Status.Ueberfaellig;
+    // Fälligkeits-Dringlichkeit: rein datumbasiert, unabhängig vom Status
+    const dueDateUrgency: 'normal' | 'soon' | 'today' | 'overdue' = (() => {
+        if (ticket.status === Status.Ueberfaellig) return 'overdue';
+        const due = parseGermanDate(ticket.dueDate);
+        if (!due) return 'normal';
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        due.setHours(0, 0, 0, 0);
+        const diff = Math.floor((due.getTime() - today.getTime()) / 86_400_000);
+        if (diff < 0)  return 'overdue';
+        if (diff === 0) return 'today';
+        if (diff <= 3)  return 'soon';
+        return 'normal';
+    })();
 
     const statusBorderColor: Record<string, string> = {
         [Status.Offen]:        '#888780',
@@ -253,8 +265,10 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .pill-s-offen        { background: #F1F0EC; color: #5F5E5A; border-color: #D3D1C7; }
                 .pill-s-ueberfaellig { background: #FCEBEB; color: #A32D2D; border-color: #F7C1C1; }
                 .pill-s-done         { background: #EAF3DE; color: #3B6D11; border-color: #C0DD97; }
-                .pill-due            { background: #F1F0EC; color: #5F5E5A; border-color: #D3D1C7; }
-                .pill-due.overdue    { background: #FCEBEB; color: #A32D2D; border-color: #F7C1C1; }
+                .pill-due         { background: #F1F0EC; color: #5F5E5A; border-color: #D3D1C7; }
+                .pill-due.soon    { background: #FFFBEB; color: #92400E; border-color: #FDE68A; }
+                .pill-due.today   { background: #FEF2F2; color: #B91C1C; border-color: #FECACA; }
+                .pill-due.overdue { background: #FCEBEB; color: #A32D2D; border-color: #F7C1C1; }
 
                 /* ── Footer ── */
                 .card-footer {
@@ -349,7 +363,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     </div>
                     <div className="pill-cell">
                         <div className="pill-lbl">Fällig bis</div>
-                        <div className={`pill pill-due${isOverdue ? ' overdue' : ''}`}>
+                        <div className={`pill pill-due${dueDateUrgency !== 'normal' ? ` ${dueDateUrgency}` : ''}`}>
                             <i className="ti ti-calendar-due" aria-hidden="true" />
                             {ticket.dueDate.slice(0,5)}.
                             <input type="date" value={toInputDate(ticket.dueDate)} onChange={handleDueDateChange} />
