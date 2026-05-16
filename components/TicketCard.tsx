@@ -243,8 +243,8 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     border: 0.5px solid; width: 100%; box-sizing: border-box;
                     position: relative; cursor: pointer; white-space: nowrap;
                 }
-                .pill i { font-size: 10px; flex-shrink: 0; }
-                .pill select, .pill input[type="date"] { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+                .pill i, .pill span { pointer-events: none; }
+                .pill select, .pill input[type="date"] { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; z-index: 1; }
 
                 .pill-p-hoch     { background: #FCEBEB; color: #A32D2D; border-color: #F7C1C1; }
                 .pill-p-mittel   { background: #FAEEDA; color: #854F0B; border-color: #FAC775; }
