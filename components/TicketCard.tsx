@@ -244,7 +244,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .urgent-icon { color: #E24B4A; }
                 .stagnating-icon { color: #378ADD; }
 
-                .card-loc { font-size: 11px; color: #999; margin-bottom: 3px; }
+                .card-loc { font-size: 12px; color: #555; font-weight: 500; margin-bottom: 3px; }
                 .card-who { display: flex; align-items: center; gap: 3px; font-size: 11px; color: #666; margin-bottom: 11px; flex-wrap: nowrap; }
                 .card-who i { font-size: 11px; color: #999; flex-shrink: 0; }
 
