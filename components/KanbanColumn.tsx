@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Ticket, Status, User } from '../types';
 import TicketCard from './TicketCard';
 
@@ -60,6 +60,20 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
   const technicians = techniciansProp ?? [];
   const [dragOverSlot, setDragOverSlot] = useState<{ ticketId: string; position: 'before' | 'after' } | null>(null);
   const [isDragOverColumn, setIsDragOverColumn] = useState(false);
+
+  const columnBodyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = columnBodyRef.current;
+    if (!el) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const onScroll = () => {
+      el.classList.add('is-scrolling');
+      clearTimeout(timer);
+      timer = setTimeout(() => el.classList.remove('is-scrolling'), 600);
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => { el.removeEventListener('scroll', onScroll); clearTimeout(timer); };
+  }, []);
 
   const statusKey =
       status === Status.Offen ? 'offen' : status === Status.InArbeit ? 'inarbeit' : status === Status.Ueberfaellig ? 'ueberfaellig' : 'other';
@@ -205,9 +219,9 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
                .column-body::-webkit-scrollbar { width: 6px; }
                .column-body::-webkit-scrollbar-track { background: transparent; }
                .column-body::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px; transition: background 0.3s; }
-               .column-body:hover::-webkit-scrollbar-thumb { background: #ccc; }
+               .column-body.is-scrolling::-webkit-scrollbar-thumb { background: #ccc; }
                .column-body::-webkit-scrollbar-thumb:active { background: #aaa; }
-               [data-theme="dark"] .column-body:hover::-webkit-scrollbar-thumb { background: #444; }
+               [data-theme="dark"] .column-body.is-scrolling::-webkit-scrollbar-thumb { background: #444; }
 
                @media (max-width: 768px) {
                   .column-body {
@@ -256,7 +270,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
               <h2 className="column-title">{title}</h2>
               <span className={`column-count count-${statusKey}`}>{tickets.length}</span>
           </div>
-          <div className="column-body">
+          <div className="column-body" ref={columnBodyRef}>
               {tickets.length === 0 ? (
                   <div className="empty-state">
                       <div className="empty-icon">
