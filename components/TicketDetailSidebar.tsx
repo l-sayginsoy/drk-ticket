@@ -666,7 +666,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 const pillColor = isAssigned ? (isAuto ? '#185FA5' : '#854F0B') : '#5F5E5A';
                 const pillBorder = isAssigned ? (isAuto ? '#B5D4F4' : '#FAC775') : '#D3D1C7';
                 return (
-                    <div style={{ marginTop: '6px', position: 'relative', display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, border: '0.5px solid', background: pillBg, color: pillColor, borderColor: pillBorder, cursor: 'pointer', boxSizing: 'border-box' }}>
+                    <div style={{ marginTop: '6px', position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px 5px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, border: '0.5px solid', background: pillBg, color: pillColor, borderColor: pillBorder, cursor: 'pointer', boxSizing: 'border-box', maxWidth: '100%' }}>
                         {isAssigned
                             ? <span className="ds-av" style={{ background: avBg, color: avColor, flexShrink: 0 }}>{initials}</span>
                             : <span className="ds-av ds-av-un" style={{ flexShrink: 0 }}><i className="ti ti-plus" aria-hidden="true" /></span>
