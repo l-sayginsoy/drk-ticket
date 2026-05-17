@@ -104,7 +104,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                 max-width: none;
                 width: 100%;
                 box-sizing: border-box;
-                background: transparent;
+                background: var(--bg-secondary);
                 padding: 0 16px 20px;
             }
             .kanban-board {
