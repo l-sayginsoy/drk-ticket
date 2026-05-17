@@ -632,7 +632,7 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                         )}
 
                         {/* Beschreibung */}
-                        {foundTicket.description && foundTicket.description.trim() && (
+                        {!!foundTicket.description?.trim() && (
                             <div>
                                 <p className="sr-desc-lbl">Ihre Beschreibung</p>
                                 <div className="sr-desc">{foundTicket.description}</div>
