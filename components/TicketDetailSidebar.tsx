@@ -182,7 +182,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             /* --- New Compact Layout --- */
             .sidebar-header-compact {
                 display: flex; justify-content: space-between; align-items: center;
-                padding: 0.75rem 1.5rem; flex-shrink: 0;
+                padding: 0.4rem 1.5rem; flex-shrink: 0;
             }
             .sidebar-ticket-id {
                 font-size: 0.78rem; font-weight: 600; color: var(--text-muted);
@@ -208,10 +208,10 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 0.5rem; margin: -0.5rem;
             }
             .close-btn:hover { color: var(--text-primary); }
-            .close-btn svg { width: 24px; height: 24px; }
+            .close-btn svg { width: 18px; height: 18px; }
             
             .sidebar-body-compact {
-                flex-grow: 1; overflow-y: auto; padding: 0.5rem 1.5rem 1.5rem;
+                flex-grow: 1; overflow-y: auto; padding: 0.25rem 1.5rem 1.5rem;
             }
             .sidebar-body-compact::-webkit-scrollbar { width: 6px; }
             .sidebar-body-compact::-webkit-scrollbar-track { background: transparent; }
@@ -547,15 +547,15 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
         <div className="sidebar-body-compact">
 
             {/* ── 1. TITEL + TICKET-ID ── */}
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.2rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.2rem' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     {isEditing ? (
                         <textarea className="edit-title-input" value={editDraft.title} onChange={e => setEditDraft(d => ({ ...d, title: e.target.value }))} rows={2} />
                     ) : (
-                        <p className="detail-subject-text">{ticket.title}</p>
+                        <p className="detail-subject-text" style={{ margin: 0 }}>{ticket.title}</p>
                     )}
                 </div>
-                <span className="sidebar-ticket-id" style={{ flexShrink: 0, marginTop: '0.25rem' }}>
+                <span className="sidebar-ticket-id" style={{ flexShrink: 0 }}>
                     {ticket.is_emergency && <ExclamationTriangleIcon className="urgent-sidebar-icon" width={10} height={10} />}
                     #{ticket.id}
                 </span>
