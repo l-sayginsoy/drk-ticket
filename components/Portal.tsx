@@ -609,27 +609,66 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                     ) : foundTicket && (
                       <>
                       <div className="status-result-box">
-                        <div className="status-result-id">{foundTicket.id}</div>
-                        <div className="status-details-box">
-                            <div className="status-detail-item"><strong>Status:</strong> <span className="status-detail-value">{foundTicket.status}</span></div>
-                            <div className="status-detail-item"><strong>Betreff:</strong> <span className="status-detail-value">{foundTicket.title}</span></div>
-                            {foundTicket.description && foundTicket.description.trim() && (
-                                <div className="status-detail-item"><strong>Beschreibung:</strong> <span className="status-detail-value" style={{ whiteSpace: 'pre-wrap' }}>{foundTicket.description}</span></div>
-                            )}
-                            {(foundTicket.entryDate || foundTicket.entryTime) && (
-                                <div className="status-detail-item" style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                                    <strong>Gesendet:</strong> <span>{foundTicket.entryDate ? `${foundTicket.entryDate.slice(0,5)}.${foundTicket.entryDate.slice(5)}` : ''}{foundTicket.entryTime ? ` · ${foundTicket.entryTime}` : ''} Uhr</span>
-                                </div>
-                            )}
-                            <div className="status-detail-item"><strong>Bearbeiter:</strong> <span className="status-detail-value">{foundTicket.technician === 'N/A' ? 'Noch nicht zugewiesen' : foundTicket.technician}</span></div>
-                            <div className="portal-notes-container">
-                                <p className="notes-title"><strong>Letzte Notizen:</strong></p>
-                                {foundTicket.notes && foundTicket.notes.length > 0 ? (
-                                    [...foundTicket.notes].reverse().slice(0, 3).map((note, index) => (
-                                         <div className="portal-note-item" key={index}>{formatNote(note)}</div>
-                                    ))
-                                ) : <span className="no-notes">Keine Notizen vorhanden.</span>}
+                        {/* Ticket-ID + Status-Pill */}
+                        <div className="sr-toprow">
+                            <span className="sr-id-chip">Ticket #{foundTicket.id}</span>
+                            <span className={`sr-status-pill ${
+                                foundTicket.status === 'In Arbeit' ? 'sr-status-inarbeit'
+                                : foundTicket.status === 'Überfällig' ? 'sr-status-ueberfaellig'
+                                : foundTicket.status === 'Abgeschlossen' ? 'sr-status-done'
+                                : 'sr-status-offen'
+                            }`}>{foundTicket.status}</span>
+                        </div>
+
+                        {/* Betreff */}
+                        <p className="sr-title">{foundTicket.title}</p>
+
+                        {/* Sendedatum */}
+                        {(foundTicket.entryDate || foundTicket.entryTime) && (
+                            <div className="sr-meta">
+                                <i className="ti ti-clock" style={{ fontSize: 12 }} />
+                                <span>Gesendet am {foundTicket.entryDate || ''}{foundTicket.entryTime ? ` · ${foundTicket.entryTime} Uhr` : ''}</span>
                             </div>
+                        )}
+
+                        {/* Beschreibung */}
+                        {foundTicket.description && foundTicket.description.trim() && (
+                            <div>
+                                <p className="sr-desc-lbl">Ihre Beschreibung</p>
+                                <div className="sr-desc">{foundTicket.description}</div>
+                            </div>
+                        )}
+
+                        {/* Bearbeiter */}
+                        <div className="sr-assignee-row">
+                            <span className="sr-assignee-lbl">Bearbeiter</span>
+                            {foundTicket.technician && foundTicket.technician !== 'N/A' ? (() => {
+                                const p = foundTicket.technician.trim().split(' ');
+                                const initials = p.length >= 2 ? (p[0][0] + p[p.length-1][0]).toUpperCase() : foundTicket.technician.slice(0,2).toUpperCase();
+                                return (
+                                    <span className="sr-assignee-chip">
+                                        <span className="sr-av">{initials}</span>
+                                        {foundTicket.technician}
+                                    </span>
+                                );
+                            })() : (
+                                <span className="sr-assignee-chip">
+                                    <span className="sr-av sr-av-un">—</span>
+                                    Noch nicht zugewiesen
+                                </span>
+                            )}
+                        </div>
+
+                        <hr className="sr-divider" />
+
+                        {/* Verlauf */}
+                        <div className="portal-notes-container">
+                            <p className="notes-title">Verlauf</p>
+                            {foundTicket.notes && foundTicket.notes.length > 0 ? (
+                                [...foundTicket.notes].reverse().slice(0, 3).map((note, index) => (
+                                    <div className="portal-note-item" key={index}>{formatNote(note)}</div>
+                                ))
+                            ) : <span className="no-notes">Noch keine Nachrichten.</span>}
                         </div>
                       </div>
                       <div className="note-add-section" style={{ paddingBottom: '1rem' }}>
@@ -959,21 +998,47 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                 .copy-btn:hover { background: white; color: var(--drk-red); }
 
                 /* Result Details */
-                .status-result-box { padding: 1.5rem; }
-                .status-result-id { font-size: 1.5rem; font-weight: 800; color: var(--drk-red); text-align: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid var(--bg-tertiary); }
                 .search-result-text.error { text-align: center; padding: 2rem 1.5rem; color: var(--text-secondary); width: 100%; display: block; }
-                .status-details-box { display: flex; flex-direction: column; gap: 1rem; }
-                .status-detail-item { display: flex; justify-content: space-between; align-items: center; padding-bottom: 0.75rem; border-bottom: 1px solid var(--bg-tertiary); }
-                .status-detail-item strong { color: var(--text-secondary); font-size: 0.9rem; }
-                .status-detail-value { font-weight: 600; }
-                
-                .portal-notes-container { margin-top: 1rem; }
-                .notes-title { font-size: 0.9rem; margin-bottom: 0.75rem; display: block; }
-                .portal-note-item { background: var(--bg-tertiary); padding: 0.75rem; border-radius: 8px; font-size: 0.9rem; margin-bottom: 0.5rem; }
-                .note-meta { display: block; font-size: 0.75rem; color: var(--text-muted); text-align: right; margin-top: 0.25rem; font-style: italic; }
-                
-                .note-add-section { padding: 1.5rem; border-top: 2px solid var(--bg-tertiary); display: flex; flex-direction: column; gap: 1rem; }
-                .note-add-section label { font-weight: 600; font-size: 0.9rem; }
+                .status-result-box { padding: 1.25rem 1.5rem 0; display: flex; flex-direction: column; gap: 0.85rem; }
+
+                /* Ticket-ID Chip + Status-Pill nebeneinander oben */
+                .sr-toprow { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+                .sr-id-chip { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 999px; padding: 0.2rem 0.7rem; letter-spacing: 0.01em; }
+                .sr-status-pill { font-size: 0.75rem; font-weight: 700; border-radius: 999px; padding: 0.2rem 0.8rem; border: 1px solid; }
+                .sr-status-offen     { background: #F1F0EC; color: #5F5E5A; border-color: #D3D1C7; }
+                .sr-status-inarbeit  { background: #E6F1FB; color: #185FA5; border-color: #B5D4F4; }
+                .sr-status-ueberfaellig { background: #FCEBEB; color: #A32D2D; border-color: #F7C1C1; }
+                .sr-status-done      { background: #EAF3DE; color: #3B6D11; border-color: #C0DD97; }
+
+                /* Betreff */
+                .sr-title { font-size: 1.2rem; font-weight: 700; color: var(--text-primary); line-height: 1.3; margin: 0; }
+
+                /* Sendedatum */
+                .sr-meta { font-size: 0.78rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+
+                /* Beschreibung */
+                .sr-desc-lbl { font-size: 0.75rem; font-weight: 500; color: var(--text-muted); margin-bottom: 0.25rem; }
+                .sr-desc { background: var(--bg-tertiary); border-radius: 10px; padding: 0.65rem 0.85rem; font-size: 0.9rem; color: var(--text-primary); line-height: 1.55; white-space: pre-wrap; }
+
+                /* Bearbeiter */
+                .sr-assignee-row { display: flex; align-items: center; gap: 7px; }
+                .sr-assignee-lbl { font-size: 0.75rem; font-weight: 500; color: var(--text-muted); }
+                .sr-assignee-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px 3px 4px; font-size: 0.82rem; font-weight: 600; color: var(--text-primary); }
+                .sr-av { width: 20px; height: 20px; border-radius: 50%; background: #FAC775; color: #854F0B; font-size: 8px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+                .sr-av-un { background: transparent; border: 1.5px dashed #9ca3af; color: #9ca3af; font-size: 10px; }
+
+                /* Trennlinie vor Notizen */
+                .sr-divider { border: 0; height: 1px; background: var(--bg-tertiary); margin: 0.25rem 0; }
+
+                /* Notizen */
+                .portal-notes-container { display: flex; flex-direction: column; gap: 0.4rem; }
+                .notes-title { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.4rem; }
+                .portal-note-item { background: var(--bg-tertiary); padding: 0.65rem 0.85rem; border-radius: 10px; font-size: 0.875rem; color: var(--text-primary); line-height: 1.5; }
+                .note-meta { display: block; font-size: 0.72rem; color: var(--text-muted); text-align: right; margin-top: 0.25rem; }
+                .no-notes { font-size: 0.85rem; color: var(--text-muted); font-style: italic; }
+
+                .note-add-section { padding: 1rem 1.5rem 1.5rem; display: flex; flex-direction: column; gap: 0.75rem; }
+                .note-add-section label { font-weight: 600; font-size: 0.88rem; color: var(--text-primary); }
 
                 /* Menu & Selection */
                 .portal-menu { display: flex; flex-direction: column; gap: 1rem; }
