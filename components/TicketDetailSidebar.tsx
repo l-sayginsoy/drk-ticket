@@ -462,7 +462,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.25rem', fontWeight: 600 }}>
                                 Melder: {ticket.reporter}
                             </p>
-                            {ticket.reporter_email && (
+                            {ticket.reporter_email ? (
                                 <a
                                     href={`mailto:${ticket.reporter_email}`}
                                     style={{ fontSize: '0.82rem', color: 'var(--accent-inprogress)', marginTop: '0.15rem', display: 'inline-block', textDecoration: 'none', fontWeight: 500 }}
@@ -470,6 +470,10 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                                 >
                                     {ticket.reporter_email}
                                 </a>
+                            ) : (
+                                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.15rem', display: 'inline-block', fontStyle: 'italic' }}>
+                                    Keine E-Mail angegeben
+                                </span>
                             )}
                         </>
                     )}
