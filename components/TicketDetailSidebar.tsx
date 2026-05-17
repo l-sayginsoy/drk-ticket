@@ -488,6 +488,26 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 gap: 5px; margin-bottom: 0.75rem; flex-wrap: wrap;
             }
             .ds-meta-row i { font-size: 12px; }
+
+            /* ── Assignee chip (wie Karte) ── */
+            .ds-assignee-field {
+                position: relative; display: flex; align-items: center; gap: 7px;
+                background: var(--bg-secondary); border: 1px solid var(--border);
+                border-radius: var(--radius-md); height: 34px; padding: 0 0.75rem;
+                cursor: pointer; transition: border-color 0.2s ease, background-color 0.2s ease;
+            }
+            .ds-assignee-field:hover { border-color: var(--border-active); background: var(--bg-tertiary); }
+            .ds-assignee-field select {
+                position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer;
+            }
+            .ds-av {
+                width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+                display: inline-flex; align-items: center; justify-content: center;
+                font-size: 8px; font-weight: 700;
+            }
+            .ds-av-un { background: transparent; border: 1.5px dashed #E24B4A; color: #E24B4A; }
+            .ds-av-un i { font-size: 9px; }
+            .ds-assignee-name { font-size: 0.9rem; font-weight: 500; color: var(--text-primary); flex: 1; }
         `}</style>
         <div className="sidebar-header-compact">
             <span className="sidebar-ticket-id">
@@ -606,18 +626,34 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             <div className="ds-fields-grid">
                 <div>
                     <p className="detail-label-compact">Bearbeiter</p>
-                    <div className="editable-field-compact">
-                        <span>{ticket.technician === 'N/A' ? 'Zuweisen' : displayNameShort(ticket.technician)}</span>
-                        <ChevronDownIcon />
-                        <select value={ticket.technician} onChange={e => handleFieldChange('technician', e.target.value)}>
-                            <option value="N/A">Zuweisen</option>
-                            {technicians.map(t => (
-                                <option key={t.id} value={t.name} disabled={t.availability.status === AvailabilityStatus.OnLeave}>
-                                    {displayNameShort(t.name)}{t.availability.status === AvailabilityStatus.OnLeave ? ' (Abwesend)' : ''}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+                    {(() => {
+                        const isAssigned = ticket.technician && ticket.technician !== 'N/A';
+                        const initials = isAssigned ? (() => {
+                            const p = ticket.technician.trim().split(' ');
+                            return p.length >= 2 ? (p[0][0] + p[p.length-1][0]).toUpperCase() : ticket.technician.slice(0,2).toUpperCase();
+                        })() : '?';
+                        const isAuto = ticket.autoAssigned === true || (ticket.ticketType === 'reactive' && ticket.autoAssigned !== false);
+                        const avBg = isAssigned ? (isAuto ? '#B5D4F4' : '#FAC775') : 'transparent';
+                        const avColor = isAssigned ? (isAuto ? '#185FA5' : '#854F0B') : '#E24B4A';
+                        return (
+                            <div className="ds-assignee-field">
+                                {isAssigned
+                                    ? <span className="ds-av" style={{ background: avBg, color: avColor }}>{initials}</span>
+                                    : <span className="ds-av ds-av-un"><i className="ti ti-plus" aria-hidden="true" /></span>
+                                }
+                                <span className="ds-assignee-name">{isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}</span>
+                                <ChevronDownIcon />
+                                <select value={ticket.technician} onChange={e => handleFieldChange('technician', e.target.value)}>
+                                    <option value="N/A">Zuweisen</option>
+                                    {technicians.map(t => (
+                                        <option key={t.id} value={t.name} disabled={t.availability.status === AvailabilityStatus.OnLeave}>
+                                            {displayNameShort(t.name)}{t.availability.status === AvailabilityStatus.OnLeave ? ' (Abwesend)' : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        );
+                    })()}
                 </div>
                 <div>
                     <p className="detail-label-compact">Kategorie</p>
