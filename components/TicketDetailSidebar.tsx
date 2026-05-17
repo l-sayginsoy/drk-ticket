@@ -388,7 +388,18 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             }
             .edit-btn:hover { color: var(--text-primary); background: var(--bg-tertiary); }
             .edit-btn svg { width: 20px; height: 20px; }
-            .header-actions { display: flex; align-items: center; gap: 0.25rem; }
+            .header-actions { display: flex; align-items: center; gap: 0.25rem; width: 100%; justify-content: flex-end; }
+
+            /* Notfall: fast unsichtbar, nur als Geisterschaltfläche */
+            .notfall-ghost-btn {
+                background: none; border: none; cursor: pointer; padding: 0.4rem;
+                border-radius: var(--radius-sm); color: var(--border);
+                transition: color 0.2s ease, background-color 0.2s ease;
+                display: flex; align-items: center; justify-content: center;
+            }
+            .notfall-ghost-btn:hover { color: var(--text-muted); background: var(--bg-tertiary); }
+            .notfall-ghost-btn.is-active { color: var(--accent-danger); }
+            .notfall-ghost-btn.is-active:hover { color: var(--accent-danger); background: rgba(220,53,69,0.08); }
             .edit-save-btn, .edit-cancel-btn {
                 padding: 0.3rem 0.8rem; border-radius: var(--radius-sm); font-size: 0.82rem;
                 font-weight: 600; cursor: pointer; border: 1px solid transparent;
@@ -508,10 +519,6 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             .ds-assignee-name { font-size: 0.9rem; font-weight: 500; color: var(--text-primary); flex: 1; }
         `}</style>
         <div className="sidebar-header-compact">
-            <span className="sidebar-ticket-id">
-                {ticket.is_emergency && <ExclamationTriangleIcon className="urgent-sidebar-icon" width={12} height={12} />}
-                #{ticket.id}
-            </span>
             <div className="header-actions">
                 {canEdit && !isEditing && (
                     <button className="edit-btn" onClick={startEdit} title="Ticket bearbeiten">
@@ -524,12 +531,22 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                         <button className="edit-save-btn" onClick={saveEdit}>Speichern</button>
                     </>
                 )}
+                {/* Notfall: winziges dezentes Icon, nur für Admin */}
+                {currentUser?.role === Role.Admin && (
+                    <button
+                        onClick={handleToggleEmergency}
+                        className={`notfall-ghost-btn${ticket.is_emergency ? ' is-active' : ''}`}
+                        title={ticket.is_emergency ? 'Notfall aufheben' : 'Als Notfall markieren'}
+                    >
+                        <ExclamationTriangleIcon width={16} height={16} />
+                    </button>
+                )}
                 <button className="close-btn" onClick={onClose}><XIcon /></button>
             </div>
         </div>
         <div className="sidebar-body-compact">
 
-            {/* ── 1. TITEL + NOTFALL ── */}
+            {/* ── 1. TITEL + TICKET-ID ── */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.75rem' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     {isEditing ? (
@@ -538,17 +555,10 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                         <p className="detail-subject-text">{ticket.title}</p>
                     )}
                 </div>
-                {currentUser?.role === Role.Admin && (
-                    ticket.is_emergency ? (
-                        <button onClick={handleToggleEmergency} style={{ flexShrink: 0, marginTop: '0.2rem', padding: '0.2rem 0.6rem', fontSize: '0.72rem', fontWeight: 500, background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                            Notfall aufheben
-                        </button>
-                    ) : (
-                        <button onClick={handleToggleEmergency} style={{ flexShrink: 0, marginTop: '0.2rem', padding: '0.2rem 0.6rem', fontSize: '0.72rem', fontWeight: 500, background: 'transparent', color: 'var(--accent-danger)', border: '1px solid var(--accent-danger)', borderRadius: 'var(--radius-md)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                            ⚠ Notfall
-                        </button>
-                    )
-                )}
+                <span className="sidebar-ticket-id" style={{ flexShrink: 0, marginTop: '0.25rem' }}>
+                    {ticket.is_emergency && <ExclamationTriangleIcon className="urgent-sidebar-icon" width={10} height={10} />}
+                    #{ticket.id}
+                </span>
             </div>
 
             {/* ── 2. STANDORT | BEREICH ── */}
@@ -657,7 +667,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                     const avBg = isAssigned ? (isAuto ? '#B5D4F4' : '#FAC775') : 'transparent';
                     const avColor = isAssigned ? (isAuto ? '#185FA5' : '#854F0B') : '#E24B4A';
                     return (
-                        <div className="ds-assignee-field" style={{ maxWidth: '220px' }}>
+                        <div className="ds-assignee-field">
                             {isAssigned
                                 ? <span className="ds-av" style={{ background: avBg, color: avColor }}>{initials}</span>
                                 : <span className="ds-av ds-av-un"><i className="ti ti-plus" aria-hidden="true" /></span>
