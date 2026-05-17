@@ -184,7 +184,11 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
                   align-items: center;
                   gap: 0.45rem;
                   padding: 0 6px 12px 6px;
-                  border-bottom: 1px solid var(--border);
+              }
+              .column-header-line {
+                  flex: 1;
+                  height: 1px;
+                  background: var(--border);
               }
               .column-dot {
                   font-size: 10px;
@@ -298,6 +302,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
               <span className={`column-dot count-${statusKey}`} aria-hidden>●</span>
               <h2 className="column-title">{title}</h2>
               <span className={`column-count count-${statusKey}`}>{tickets.length}</span>
+              <span className="column-header-line" aria-hidden />
           </div>
           <div className="column-body-wrap">
               <div className="column-body" ref={columnBodyRef}>
