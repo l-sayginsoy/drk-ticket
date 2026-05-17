@@ -609,19 +609,11 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                     ) : foundTicket && (
                       <>
                       <div className="status-result-box">
-                        {/* Ticket-ID + Status-Pill */}
+                        {/* Ticketnummer oben rechts */}
                         <div className="sr-toprow">
-                            <span className="sr-id-chip">Ticket #{foundTicket.id}</span>
-                            <span className={`sr-status-pill ${
-                                foundTicket.status === 'In Arbeit' ? 'sr-status-inarbeit'
-                                : foundTicket.status === 'Überfällig' ? 'sr-status-ueberfaellig'
-                                : foundTicket.status === 'Abgeschlossen' ? 'sr-status-done'
-                                : 'sr-status-offen'
-                            }`}>{foundTicket.status}</span>
+                            <p className="sr-title">{foundTicket.title}</p>
+                            <span className="sr-id-chip" style={{ flexShrink: 0, marginTop: '0.2rem' }}>#{foundTicket.id}</span>
                         </div>
-
-                        {/* Betreff */}
-                        <p className="sr-title">{foundTicket.title}</p>
 
                         {/* Sendedatum */}
                         {(foundTicket.entryDate || foundTicket.entryTime) && (
@@ -639,25 +631,47 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                             </div>
                         )}
 
-                        {/* Bearbeiter */}
-                        <div className="sr-assignee-row">
-                            <span className="sr-assignee-lbl">Bearbeiter</span>
-                            {foundTicket.technician && foundTicket.technician !== 'N/A' ? (() => {
-                                const p = foundTicket.technician.trim().split(' ');
-                                const initials = p.length >= 2 ? (p[0][0] + p[p.length-1][0]).toUpperCase() : foundTicket.technician.slice(0,2).toUpperCase();
-                                return (
+                        {/* Bearbeiter | Status — 2-Spalten wie Dashboard */}
+                        <div className="sr-grid2">
+                            <div>
+                                <p className="sr-desc-lbl">Bearbeiter</p>
+                                {foundTicket.technician && foundTicket.technician !== 'N/A' ? (() => {
+                                    const p = foundTicket.technician.trim().split(' ');
+                                    const initials = p.length >= 2 ? (p[0][0] + p[p.length-1][0]).toUpperCase() : foundTicket.technician.slice(0,2).toUpperCase();
+                                    return (
+                                        <span className="sr-assignee-chip">
+                                            <span className="sr-av">{initials}</span>
+                                            {foundTicket.technician}
+                                        </span>
+                                    );
+                                })() : (
                                     <span className="sr-assignee-chip">
-                                        <span className="sr-av">{initials}</span>
-                                        {foundTicket.technician}
+                                        <span className="sr-av sr-av-un">—</span>
+                                        Nicht zugewiesen
                                     </span>
-                                );
-                            })() : (
-                                <span className="sr-assignee-chip">
-                                    <span className="sr-av sr-av-un">—</span>
-                                    Noch nicht zugewiesen
-                                </span>
-                            )}
+                                )}
+                            </div>
+                            <div>
+                                <p className="sr-desc-lbl">Status</p>
+                                <span className={`sr-status-pill ${
+                                    foundTicket.status === 'In Arbeit' ? 'sr-status-inarbeit'
+                                    : foundTicket.status === 'Überfällig' ? 'sr-status-ueberfaellig'
+                                    : foundTicket.status === 'Abgeschlossen' ? 'sr-status-done'
+                                    : 'sr-status-offen'
+                                }`}>{foundTicket.status}</span>
+                            </div>
                         </div>
+
+                        {/* Fällig bis */}
+                        {foundTicket.dueDate && foundTicket.dueDate !== 'N/A' && (
+                            <div>
+                                <p className="sr-desc-lbl">Fällig bis</p>
+                                <span className="sr-assignee-chip" style={{ gap: 5 }}>
+                                    <i className="ti ti-calendar-due" style={{ fontSize: 13 }} />
+                                    {foundTicket.dueDate.slice(0,5)}.
+                                </span>
+                            </div>
+                        )}
 
                         <hr className="sr-divider" />
 
@@ -1021,6 +1035,7 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                 .sr-desc { background: var(--bg-tertiary); border-radius: 10px; padding: 0.65rem 0.85rem; font-size: 0.9rem; color: var(--text-primary); line-height: 1.55; white-space: pre-wrap; }
 
                 /* Bearbeiter */
+                .sr-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
                 .sr-assignee-row { display: flex; align-items: center; gap: 7px; }
                 .sr-assignee-lbl { font-size: 0.75rem; font-weight: 500; color: var(--text-muted); }
                 .sr-assignee-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px 3px 4px; font-size: 0.82rem; font-weight: 600; color: var(--text-primary); }
