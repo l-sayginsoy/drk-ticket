@@ -68,7 +68,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
   useEffect(() => {
     const el = columnBodyRef.current;
     if (!el) return;
-    const THUMB_H = 88;
+    const THUMB_H = 36;
     let timer: ReturnType<typeof setTimeout>;
     const onScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = el;
@@ -235,15 +235,15 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
                   position: absolute;
                   right: -7px;
                   top: 0;
-                  width: 4px;
-                  height: 88px;
+                  width: 3px;
+                  height: 36px;
                   border-radius: 6px;
-                  background: rgba(0,0,0,0.22);
+                  background: rgba(0,0,0,0.13);
                   pointer-events: none;
                   transition: opacity 1s ease;
               }
               [data-theme="dark"] .scroll-thumb {
-                  background: rgba(255,255,255,0.25);
+                  background: rgba(255,255,255,0.15);
               }
               @media (max-width: 768px) {
                   .column-body-wrap { height: auto; overflow: visible; }
