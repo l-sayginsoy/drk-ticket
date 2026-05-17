@@ -547,7 +547,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
         <div className="sidebar-body-compact">
 
             {/* ── 1. TITEL + TICKET-ID ── */}
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.2rem' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     {isEditing ? (
                         <textarea className="edit-title-input" value={editDraft.title} onChange={e => setEditDraft(d => ({ ...d, title: e.target.value }))} rows={2} />
@@ -561,7 +561,26 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 </span>
             </div>
 
-            {/* ── 2. STANDORT | BEREICH ── */}
+            {/* ── 2. MELDER direkt unter Titel ── */}
+            {isEditing ? (
+                <input className="edit-reporter-input" value={editDraft.reporter} onChange={e => setEditDraft(d => ({ ...d, reporter: e.target.value }))} placeholder="Name des Melders..." style={{ marginBottom: '0.6rem' }} />
+            ) : (
+                <div style={{ marginBottom: '0.6rem' }}>
+                    <div className="ds-melder-row">
+                        <i className="ti ti-user" aria-hidden="true" />
+                        <span>{ticket.reporter}{ticket.entryDate ? ` · ${ticket.entryDate.slice(0,5)}.` : ''}{ticket.entryTime ? ` · ${ticket.entryTime}` : ''}</span>
+                    </div>
+                    {ticket.reporter_email ? (
+                        <a href={`mailto:${ticket.reporter_email}`} style={{ fontSize: '0.82rem', color: 'var(--accent-inprogress)', marginTop: '0.1rem', display: 'inline-block', textDecoration: 'none', fontWeight: 500 }} title="E-Mail schreiben">
+                            <i className="ti ti-mail" style={{ fontSize: '11px', marginRight: 4 }} aria-hidden="true" />{ticket.reporter_email}
+                        </a>
+                    ) : (
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.1rem', display: 'inline-block', fontStyle: 'italic' }}>Keine E-Mail angegeben</span>
+                    )}
+                </div>
+            )}
+
+            {/* ── 3. STANDORT | BEREICH ── */}
             <div className="ds-fields-grid">
                 <div>
                     <p className="detail-label-compact">
@@ -597,31 +616,10 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 )}
             </div>
 
-            {/* ── 4. MELDER + E-MAIL (unter Beschreibung) ── */}
-            <div style={{ marginTop: '0.6rem', marginBottom: '0.15rem' }}>
-                {isEditing ? (
-                    <input className="edit-reporter-input" value={editDraft.reporter} onChange={e => setEditDraft(d => ({ ...d, reporter: e.target.value }))} placeholder="Name des Melders..." />
-                ) : (
-                    <div className="ds-melder-row">
-                        <i className="ti ti-user" aria-hidden="true" />
-                        <span>{ticket.reporter}{ticket.entryDate ? ` · ${ticket.entryDate.slice(0,5)}.` : ''}{ticket.entryTime ? ` · ${ticket.entryTime}` : ''}</span>
-                    </div>
-                )}
-                {!isEditing && (
-                    ticket.reporter_email ? (
-                        <a href={`mailto:${ticket.reporter_email}`} style={{ fontSize: '0.82rem', color: 'var(--accent-inprogress)', marginTop: '0.15rem', display: 'inline-block', textDecoration: 'none', fontWeight: 500 }} title="E-Mail schreiben">
-                            <i className="ti ti-mail" style={{ fontSize: '11px', marginRight: 4 }} aria-hidden="true" />{ticket.reporter_email}
-                        </a>
-                    ) : (
-                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.15rem', display: 'inline-block', fontStyle: 'italic' }}>Keine E-Mail angegeben</span>
-                    )
-                )}
-            </div>
+            <hr className="section-separator" style={{ margin: '0.75rem 0' }} />
 
-            <hr className="section-separator" style={{ margin: '0.9rem 0 0.75rem' }} />
-
-            {/* ── 5+6. PILLS: Priorität | Fällig bis | Status | Bearbeiter ── */}
-            <div className="ds-pill-row" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr' }}>
+            {/* ── 5. PILLS: Priorität | Fällig bis | Status ── */}
+            <div className="ds-pill-row">
                 <div className="ds-pill-cell">
                     <div className="ds-pill-lbl">Priorität</div>
                     {ticket.is_emergency ? (
@@ -652,43 +650,40 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                         </select>
                     </div>
                 </div>
-                {/* Bearbeiter als 4. Pill-Zelle */}
-                {(() => {
-                    const isAssigned = ticket.technician && ticket.technician !== 'N/A';
-                    const initials = isAssigned ? (() => {
-                        const p = ticket.technician.trim().split(' ');
-                        return p.length >= 2 ? (p[0][0] + p[p.length-1][0]).toUpperCase() : ticket.technician.slice(0,2).toUpperCase();
-                    })() : '';
-                    const isAuto = ticket.autoAssigned === true || (ticket.ticketType === 'reactive' && ticket.autoAssigned !== false);
-                    const avBg = isAssigned ? (isAuto ? '#B5D4F4' : '#FAC775') : 'transparent';
-                    const avColor = isAssigned ? (isAuto ? '#185FA5' : '#854F0B') : '#E24B4A';
-                    const pillBg = isAssigned ? (isAuto ? '#E6F1FB' : '#FAEEDA') : '#F1F0EC';
-                    const pillColor = isAssigned ? (isAuto ? '#185FA5' : '#854F0B') : '#5F5E5A';
-                    const pillBorder = isAssigned ? (isAuto ? '#B5D4F4' : '#FAC775') : '#D3D1C7';
-                    return (
-                        <div className="ds-pill-cell">
-                            <div className="ds-pill-lbl">Bearbeiter</div>
-                            <div className="ds-pill" style={{ background: pillBg, color: pillColor, borderColor: pillBorder, gap: 4, position: 'relative', cursor: 'pointer' }}>
-                                {isAssigned
-                                    ? <span className="ds-av" style={{ background: avBg, color: avColor, flexShrink: 0 }}>{initials}</span>
-                                    : <span className="ds-av ds-av-un" style={{ flexShrink: 0 }}><i className="ti ti-plus" aria-hidden="true" /></span>
-                                }
-                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 }}>
-                                    {isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}
-                                </span>
-                                <select style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }} value={ticket.technician} onChange={e => handleFieldChange('technician', e.target.value)}>
-                                    <option value="N/A">Nicht zugewiesen</option>
-                                    {technicians.map(t => (
-                                        <option key={t.id} value={t.name} disabled={t.availability.status === AvailabilityStatus.OnLeave}>
-                                            {displayNameShort(t.name)}{t.availability.status === AvailabilityStatus.OnLeave ? ' (Abwesend)' : ''}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-                    );
-                })()}
             </div>
+
+            {/* ── 6. BEARBEITER: volle Breite, gleiche Pill-Optik ── */}
+            {(() => {
+                const isAssigned = ticket.technician && ticket.technician !== 'N/A';
+                const initials = isAssigned ? (() => {
+                    const p = ticket.technician.trim().split(' ');
+                    return p.length >= 2 ? (p[0][0] + p[p.length-1][0]).toUpperCase() : ticket.technician.slice(0,2).toUpperCase();
+                })() : '';
+                const isAuto = ticket.autoAssigned === true || (ticket.ticketType === 'reactive' && ticket.autoAssigned !== false);
+                const avBg = isAssigned ? (isAuto ? '#B5D4F4' : '#FAC775') : 'transparent';
+                const avColor = isAssigned ? (isAuto ? '#185FA5' : '#854F0B') : '#E24B4A';
+                const pillBg = isAssigned ? (isAuto ? '#E6F1FB' : '#FAEEDA') : '#F1F0EC';
+                const pillColor = isAssigned ? (isAuto ? '#185FA5' : '#854F0B') : '#5F5E5A';
+                const pillBorder = isAssigned ? (isAuto ? '#B5D4F4' : '#FAC775') : '#D3D1C7';
+                return (
+                    <div style={{ marginTop: '6px', position: 'relative', display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, border: '0.5px solid', background: pillBg, color: pillColor, borderColor: pillBorder, cursor: 'pointer', boxSizing: 'border-box' }}>
+                        {isAssigned
+                            ? <span className="ds-av" style={{ background: avBg, color: avColor, flexShrink: 0 }}>{initials}</span>
+                            : <span className="ds-av ds-av-un" style={{ flexShrink: 0 }}><i className="ti ti-plus" aria-hidden="true" /></span>
+                        }
+                        <span style={{ flex: 1 }}>{isAssigned ? displayNameShort(ticket.technician) : 'Bearbeiter zuweisen'}</span>
+                        <ChevronDownIcon />
+                        <select style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }} value={ticket.technician} onChange={e => handleFieldChange('technician', e.target.value)}>
+                            <option value="N/A">Nicht zugewiesen</option>
+                            {technicians.map(t => (
+                                <option key={t.id} value={t.name} disabled={t.availability.status === AvailabilityStatus.OnLeave}>
+                                    {displayNameShort(t.name)}{t.availability.status === AvailabilityStatus.OnLeave ? ' (Abwesend)' : ''}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                );
+            })()}
 
             {/* ── 8. META: nur optionale Felder (Wunschtermin, Abgeschlossen) ── */}
             {(ticket.wunschTermin || ticket.completionDate) && (
