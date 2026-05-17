@@ -162,6 +162,8 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
         : ticket.status === Status.Abgeschlossen ? 'ds-pill-s-done'
         : 'ds-pill-s-offen';
 
+    const categoryName = appSettings.ticketCategories.find(c => c.id === ticket.categoryId)?.name || 'N/A';
+
   return (
     <>
       <div className="detail-sidebar-overlay" onClick={onClose}></div>
@@ -666,35 +668,49 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 </div>
             </div>
 
-            {/* ── 6. BEARBEITER ── */}
-            {(() => {
-                const isAssigned = ticket.technician && ticket.technician !== 'N/A';
-                const initials = isAssigned ? (() => {
-                    const p = ticket.technician.trim().split(' ');
-                    return p.length >= 2 ? (p[0][0] + p[p.length-1][0]).toUpperCase() : ticket.technician.slice(0,2).toUpperCase();
-                })() : '';
-                const isAuto = ticket.autoAssigned === true || (ticket.ticketType === 'reactive' && ticket.autoAssigned !== false);
-                const avBg = isAssigned ? (isAuto ? '#B5D4F4' : '#FAC775') : 'transparent';
-                const avColor = isAssigned ? (isAuto ? '#185FA5' : '#854F0B') : '#E24B4A';
-                return (
-                    <div className="ds-bearbeiter-wrap"><div className="ds-bearbeiter-row">
-                        {isAssigned
-                            ? <span className="ds-av" style={{ background: avBg, color: avColor, flexShrink: 0, width: 22, height: 22, fontSize: 9 }}>{initials}</span>
-                            : <span className="ds-av ds-av-un" style={{ flexShrink: 0, width: 22, height: 22 }}><i className="ti ti-plus" aria-hidden="true" /></span>
-                        }
-                        <span className="ds-bearbeiter-name">{isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}</span>
-                        <ChevronDownIcon />
-                        <select style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }} value={ticket.technician} onChange={e => handleFieldChange('technician', e.target.value)}>
-                            <option value="N/A">Nicht zugewiesen</option>
-                            {technicians.map(t => (
-                                <option key={t.id} value={t.name} disabled={t.availability.status === AvailabilityStatus.OnLeave}>
-                                    {displayNameShort(t.name)}{t.availability.status === AvailabilityStatus.OnLeave ? ' (Abwesend)' : ''}
-                                </option>
-                            ))}
+            {/* ── 6. BEARBEITER | KATEGORIE ── */}
+            <div className="ds-fields-grid" style={{ marginTop: '6px' }}>
+                <div>
+                    <p className="detail-label-compact">Bearbeiter</p>
+                    {(() => {
+                        const isAssigned = ticket.technician && ticket.technician !== 'N/A';
+                        const initials = isAssigned ? (() => {
+                            const p = ticket.technician.trim().split(' ');
+                            return p.length >= 2 ? (p[0][0] + p[p.length-1][0]).toUpperCase() : ticket.technician.slice(0,2).toUpperCase();
+                        })() : '';
+                        const isAuto = ticket.autoAssigned === true || (ticket.ticketType === 'reactive' && ticket.autoAssigned !== false);
+                        const avBg = isAssigned ? (isAuto ? '#B5D4F4' : '#FAC775') : 'transparent';
+                        const avColor = isAssigned ? (isAuto ? '#185FA5' : '#854F0B') : '#E24B4A';
+                        return (
+                            <div className="ds-assignee-field">
+                                {isAssigned
+                                    ? <span className="ds-av" style={{ background: avBg, color: avColor }}>{initials}</span>
+                                    : <span className="ds-av ds-av-un"><i className="ti ti-plus" aria-hidden="true" /></span>
+                                }
+                                <span className="ds-assignee-name">{isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}</span>
+                                <ChevronDownIcon />
+                                <select style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }} value={ticket.technician} onChange={e => handleFieldChange('technician', e.target.value)}>
+                                    <option value="N/A">Nicht zugewiesen</option>
+                                    {technicians.map(t => (
+                                        <option key={t.id} value={t.name} disabled={t.availability.status === AvailabilityStatus.OnLeave}>
+                                            {displayNameShort(t.name)}{t.availability.status === AvailabilityStatus.OnLeave ? ' (Abwesend)' : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        );
+                    })()}
+                </div>
+                <div>
+                    <p className="detail-label-compact">Kategorie</p>
+                    <div className="editable-field-compact">
+                        <span>{categoryName}</span><ChevronDownIcon />
+                        <select value={ticket.categoryId} onChange={e => handleFieldChange('categoryId', e.target.value)}>
+                            {appSettings.ticketCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
-                    </div></div>
-                );
-            })()}
+                    </div>
+                </div>
+            </div>
 
             {/* ── 8. META: nur optionale Felder (Wunschtermin, Abgeschlossen) ── */}
             {(ticket.wunschTermin || ticket.completionDate) && (
