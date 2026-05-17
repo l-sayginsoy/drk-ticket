@@ -574,7 +574,25 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 )
             )}
 
-            {/* ── 4. BESCHREIBUNG (vor den Aktionsfeldern) ── */}
+            {/* ── 4. STANDORT | RAUM (sofort sichtbar wo das Problem ist) ── */}
+            <div className="ds-fields-grid" style={{ marginTop: '0.75rem' }}>
+                <div>
+                    <p className="detail-label-compact">Standort</p>
+                    {isEditing
+                        ? <input className="edit-input-compact" value={editDraft.area} onChange={e => setEditDraft(d => ({ ...d, area: e.target.value }))} />
+                        : <p className="detail-value-compact">{ticket.area}</p>
+                    }
+                </div>
+                <div>
+                    <p className="detail-label-compact">Raum / Bereich</p>
+                    {isEditing
+                        ? <input className="edit-input-compact" value={editDraft.location} onChange={e => setEditDraft(d => ({ ...d, location: e.target.value }))} />
+                        : <p className="detail-value-compact" title={ticket.location} style={{ overflow: 'hidden' }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ticket.location}</span></p>
+                    }
+                </div>
+            </div>
+
+            {/* ── 5. BESCHREIBUNG ── */}
             {isEditing ? (
                 <div style={{ marginTop: '0.75rem' }}>
                     <p className="detail-label-compact">Beschreibung</p>
@@ -663,24 +681,6 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                             {appSettings.ticketCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                     </div>
-                </div>
-            </div>
-
-            {/* ── 7. STANDORT | RAUM ── */}
-            <div className="ds-fields-grid">
-                <div>
-                    <p className="detail-label-compact">Standort</p>
-                    {isEditing
-                        ? <input className="edit-input-compact" value={editDraft.area} onChange={e => setEditDraft(d => ({ ...d, area: e.target.value }))} />
-                        : <p className="detail-value-compact">{ticket.area}</p>
-                    }
-                </div>
-                <div>
-                    <p className="detail-label-compact">Raum / Bereich</p>
-                    {isEditing
-                        ? <input className="edit-input-compact" value={editDraft.location} onChange={e => setEditDraft(d => ({ ...d, location: e.target.value }))} />
-                        : <p className="detail-value-compact" title={ticket.location} style={{ overflow: 'hidden' }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ticket.location}</span></p>
-                    }
                 </div>
             </div>
 
