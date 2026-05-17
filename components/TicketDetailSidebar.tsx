@@ -388,7 +388,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             }
             .edit-btn:hover { color: var(--text-primary); background: var(--bg-tertiary); }
             .edit-btn svg { width: 20px; height: 20px; }
-            .header-actions { display: flex; align-items: center; gap: 0.25rem; width: 100%; justify-content: flex-end; }
+            .header-actions { display: flex; align-items: center; gap: 0.25rem; flex-shrink: 0; }
 
             /* Notfall: fast unsichtbar, nur als Geisterschaltfläche */
             .notfall-ghost-btn {
