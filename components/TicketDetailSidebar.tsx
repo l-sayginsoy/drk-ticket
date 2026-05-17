@@ -535,7 +535,15 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             }
         `}</style>
         <div className="sidebar-header-compact">
-            <div className="header-actions">
+            {/* Titel im Header, gleiche Höhe wie X */}
+            <div style={{ flex: 1, minWidth: 0, marginRight: '0.5rem' }}>
+                {isEditing ? (
+                    <textarea className="edit-title-input" value={editDraft.title} onChange={e => setEditDraft(d => ({ ...d, title: e.target.value }))} rows={1} style={{ fontSize: '1rem' }} />
+                ) : (
+                    <p className="detail-subject-text" style={{ margin: 0, fontSize: '1.15rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ticket.title}</p>
+                )}
+            </div>
+            <div className="header-actions" style={{ flexShrink: 0 }}>
                 {canEdit && !isEditing && (
                     <button className="edit-btn" onClick={startEdit} title="Ticket bearbeiten">
                         <PencilIcon />
@@ -547,7 +555,6 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                         <button className="edit-save-btn" onClick={saveEdit}>Speichern</button>
                     </>
                 )}
-                {/* Notfall: winziges dezentes Icon, nur für Admin */}
                 {currentUser?.role === Role.Admin && (
                     <button
                         onClick={handleToggleEmergency}
@@ -561,15 +568,6 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             </div>
         </div>
         <div className="sidebar-body-compact">
-
-            {/* ── 1. TITEL ── */}
-            <div style={{ marginBottom: '0.15rem' }}>
-                {isEditing ? (
-                    <textarea className="edit-title-input" value={editDraft.title} onChange={e => setEditDraft(d => ({ ...d, title: e.target.value }))} rows={2} />
-                ) : (
-                    <p className="detail-subject-text" style={{ margin: 0 }}>{ticket.title}</p>
-                )}
-            </div>
 
             {/* ── 2. MELDER + TICKET-ID rechts (gleiche Texthöhe) ── */}
             {isEditing ? (
