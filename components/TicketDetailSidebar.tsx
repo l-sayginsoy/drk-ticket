@@ -562,29 +562,29 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
         </div>
         <div className="sidebar-body-compact">
 
-            {/* ── 1. TITEL + TICKET-ID ── */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.2rem' }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    {isEditing ? (
-                        <textarea className="edit-title-input" value={editDraft.title} onChange={e => setEditDraft(d => ({ ...d, title: e.target.value }))} rows={2} />
-                    ) : (
-                        <p className="detail-subject-text" style={{ margin: 0 }}>{ticket.title}</p>
-                    )}
-                </div>
-                <span className="sidebar-ticket-id" style={{ flexShrink: 0 }}>
-                    {ticket.is_emergency && <ExclamationTriangleIcon className="urgent-sidebar-icon" width={10} height={10} />}
-                    #{ticket.id}
-                </span>
+            {/* ── 1. TITEL ── */}
+            <div style={{ marginBottom: '0.15rem' }}>
+                {isEditing ? (
+                    <textarea className="edit-title-input" value={editDraft.title} onChange={e => setEditDraft(d => ({ ...d, title: e.target.value }))} rows={2} />
+                ) : (
+                    <p className="detail-subject-text" style={{ margin: 0 }}>{ticket.title}</p>
+                )}
             </div>
 
-            {/* ── 2. MELDER direkt unter Titel ── */}
+            {/* ── 2. MELDER + TICKET-ID rechts (gleiche Texthöhe) ── */}
             {isEditing ? (
                 <input className="edit-reporter-input" value={editDraft.reporter} onChange={e => setEditDraft(d => ({ ...d, reporter: e.target.value }))} placeholder="Name des Melders..." style={{ marginBottom: '0.6rem' }} />
             ) : (
                 <div style={{ marginBottom: '0.6rem' }}>
-                    <div className="ds-melder-row">
-                        <i className="ti ti-user" aria-hidden="true" />
-                        <span>{ticket.reporter}{ticket.entryDate ? ` · ${ticket.entryDate.slice(0,5)}.` : ''}{ticket.entryTime ? ` · ${ticket.entryTime}` : ''}</span>
+                    <div className="ds-melder-row" style={{ justifyContent: 'space-between' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <i className="ti ti-user" aria-hidden="true" />
+                            <span>{ticket.reporter}{ticket.entryDate ? ` · ${ticket.entryDate.slice(0,5)}.` : ''}{ticket.entryTime ? ` · ${ticket.entryTime}` : ''}</span>
+                        </span>
+                        <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-muted)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 3 }}>
+                            {ticket.is_emergency && <ExclamationTriangleIcon className="urgent-sidebar-icon" width={11} height={11} />}
+                            #{ticket.id}
+                        </span>
                     </div>
                     {ticket.reporter_email ? (
                         <a href={`mailto:${ticket.reporter_email}`} style={{ fontSize: '0.82rem', color: 'var(--accent-inprogress)', marginTop: '0.1rem', display: 'inline-block', textDecoration: 'none', fontWeight: 500 }} title="E-Mail schreiben">
