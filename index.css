@@ -89,9 +89,12 @@ input, select, textarea, button {
     background: var(--text-muted);
 }
 
-/* Sidebar: nativen Scrollbalken komplett ausblenden */
-.sidebar { scrollbar-width: none; }
-.sidebar::-webkit-scrollbar { display: none !important; width: 0 !important; }
+/* Sidebar + nav-menu + main: alle nativen Scrollbalken ausblenden */
+.sidebar, .sidebar-body, .sidebar-inner, .nav-menu { scrollbar-width: none !important; }
+.sidebar::-webkit-scrollbar,
+.sidebar-body::-webkit-scrollbar,
+.sidebar-inner::-webkit-scrollbar,
+.nav-menu::-webkit-scrollbar { display: none !important; width: 0 !important; }
 
 .app-layout {
     display: flex;

@@ -363,7 +363,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                     overflow-y: auto;
                     overflow-x: hidden;
                     margin-top: 0;
+                    scrollbar-width: none;
                 }
+                .nav-menu::-webkit-scrollbar { display: none; }
                 .sidebar.collapsed .nav-menu {
                     overflow: visible; /* Allow popovers to show */
                 }
