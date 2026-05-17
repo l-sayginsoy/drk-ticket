@@ -648,13 +648,13 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 </div>
             </div>
 
-            {/* ── 8. META: Eingang + optionale Felder ── */}
-            <div className="ds-meta-row">
-                <i className="ti ti-login" aria-hidden="true" />
-                <span>Eingang {ticket.entryDate}{ticket.entryTime ? ` · ${ticket.entryTime}` : ''}</span>
-                {ticket.wunschTermin && <><span>·</span><i className="ti ti-calendar-event" aria-hidden="true" /><span>Wunsch {ticket.wunschTermin}</span></>}
-                {ticket.completionDate && <><span>·</span><i className="ti ti-circle-check" aria-hidden="true" style={{ color: '#3B6D11' }} /><span style={{ color: '#3B6D11' }}>Erledigt {ticket.completionDate}{ticket.completionTime ? ` ${ticket.completionTime}` : ''}</span></>}
-            </div>
+            {/* ── 8. META: nur optionale Felder (Wunschtermin, Abgeschlossen) ── */}
+            {(ticket.wunschTermin || ticket.completionDate) && (
+                <div className="ds-meta-row">
+                    {ticket.wunschTermin && <><i className="ti ti-calendar-event" aria-hidden="true" /><span>Wunsch {ticket.wunschTermin}</span></>}
+                    {ticket.completionDate && <><i className="ti ti-circle-check" aria-hidden="true" style={{ color: '#3B6D11' }} /><span style={{ color: '#3B6D11' }}>Erledigt {ticket.completionDate}{ticket.completionTime ? ` ${ticket.completionTime}` : ''}</span></>}
+                </div>
+            )}
 
             {/* ── 9. FOTOS ── */}
             {ticket.photos && ticket.photos.length > 0 && (
@@ -672,9 +672,9 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
 
             <hr className="section-separator" />
 
-            {/* ── 10. NOTIZEN ── */}
+            {/* ── 10. VERLAUF ── */}
             <div className="notes-section">
-                <h3 className="notes-title-compact">Notizen</h3>
+                <h3 className="notes-title-compact">Verlauf</h3>
                 {ticket.notes && ticket.notes.length > 0 && (
                     <div className="notes-list-compact">
                         {[...ticket.notes].reverse().map((note, index) => (
@@ -683,8 +683,8 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                     </div>
                 )}
                 <div className="new-note-form">
-                    <textarea className="note-textarea-compact" rows={2} placeholder="Neue Notiz eingeben..." value={newNote} onChange={e => setNewNote(e.target.value)} />
-                    <button className="add-note-btn-compact" onClick={handleAddNote} disabled={!newNote.trim()}>Notiz speichern</button>
+                    <textarea className="note-textarea-compact" rows={2} placeholder="Eintrag hinzufügen..." value={newNote} onChange={e => setNewNote(e.target.value)} />
+                    <button className="add-note-btn-compact" onClick={handleAddNote} disabled={!newNote.trim()}>Eintrag hinzufügen</button>
                 </div>
             </div>
         </div>
