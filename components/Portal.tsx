@@ -685,7 +685,7 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                       </div>
                       <div className="note-add-section" style={{ paddingBottom: '1rem' }}>
                         <label>Neue Notiz hinzufügen</label>
-                        <textarea value={newNote} onChange={e => setNewNote(e.target.value)} placeholder="Schreiben Sie hier eine Nachricht an die Haustechnik..."></textarea>
+                        <textarea value={newNote} onChange={e => setNewNote(e.target.value)} placeholder="Schreiben Sie hier eine Nachricht..."></textarea>
                         
                         {foundTicket.status === Status.Abgeschlossen ? (
                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1029,7 +1029,7 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                 .sr-meta { font-size: 0.78rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
 
                 /* Beschreibung */
-                .sr-desc-lbl { font-size: 0.75rem; font-weight: 500; color: var(--text-muted); margin-bottom: 0.25rem; }
+                .sr-desc-lbl { font-size: 0.82rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.25rem; }
                 .sr-desc { background: var(--bg-tertiary); border-radius: 10px; padding: 0.65rem 0.85rem; font-size: 0.9rem; color: var(--text-primary); line-height: 1.55; white-space: pre-wrap; }
 
                 /* 3-Pill-Reihe (Bearbeiter | Fällig bis | Status) */
@@ -1050,7 +1050,7 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
 
                 /* Notizen */
                 .portal-notes-container { display: flex; flex-direction: column; gap: 0.4rem; }
-                .notes-title { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.4rem; }
+                .notes-title { font-size: 0.82rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.4rem; }
                 .portal-note-item { background: var(--bg-tertiary); padding: 0.65rem 0.85rem; border-radius: 10px; font-size: 0.875rem; color: var(--text-primary); line-height: 1.5; }
                 .note-meta { display: block; font-size: 0.72rem; color: var(--text-muted); text-align: right; margin-top: 0.25rem; }
                 .no-notes { font-size: 0.85rem; color: var(--text-muted); font-style: italic; }
