@@ -573,14 +573,17 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             </div>
 
             {/* ── 3. BESCHREIBUNG ── */}
-            <div style={{ marginTop: '0.75rem' }}>
+            <div style={{ marginTop: '0.5rem' }}>
                 <p className="detail-label-compact">Beschreibung</p>
                 {isEditing ? (
                     <textarea className="edit-description-textarea" value={editDraft.description} onChange={e => setEditDraft(d => ({ ...d, description: e.target.value }))} placeholder="Beschreibung..." rows={4} />
                 ) : (
-                    ticket.description && ticket.description.trim()
-                        ? <div className="description-box-compact">{ticket.description}</div>
-                        : <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontStyle: 'italic', margin: 0 }}>Keine Beschreibung</p>
+                    <p className="detail-value-compact" style={{ height: 'auto', minHeight: '34px', whiteSpace: 'pre-wrap', alignItems: 'flex-start', paddingTop: '0.5rem', paddingBottom: '0.5rem' }}>
+                        {ticket.description && ticket.description.trim()
+                            ? ticket.description
+                            : <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontWeight: 400 }}>Keine Beschreibung</span>
+                        }
+                    </p>
                 )}
             </div>
 
