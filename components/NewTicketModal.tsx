@@ -69,6 +69,7 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
     const emailTrim = reporterEmail.trim();
     onSave({
       ticketType: 'reactive',
+      origin: 'manual',
       title,
       area,
       location,
