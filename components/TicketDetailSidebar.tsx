@@ -519,18 +519,21 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             .ds-assignee-name { font-size: 0.9rem; font-weight: 500; color: var(--text-primary); flex: 1; }
 
             /* ── Bearbeiter-Zeile (wie Melder-Zeile, aber klickbar) ── */
+            .ds-bearbeiter-wrap {
+                display: flex; justify-content: center; margin-top: 8px;
+            }
             .ds-bearbeiter-row {
-                position: relative; display: inline-flex; align-items: center; gap: 7px;
-                margin-top: 6px; padding: 4px 8px 4px 4px;
+                position: relative; display: inline-flex; align-items: center; gap: 8px;
+                padding: 6px 14px 6px 6px;
                 border-radius: 999px; border: 1px solid var(--border);
                 background: var(--bg-tertiary);
                 cursor: pointer; max-width: 100%;
                 transition: border-color 0.15s ease, background 0.15s ease;
             }
             .ds-bearbeiter-row:hover { border-color: var(--border-active); background: var(--bg-secondary); }
-            .ds-bearbeiter-row svg { width: 13px; height: 13px; color: var(--text-muted); flex-shrink: 0; }
+            .ds-bearbeiter-row svg { width: 14px; height: 14px; color: var(--text-muted); flex-shrink: 0; }
             .ds-bearbeiter-name {
-                font-size: 0.82rem; font-weight: 600; color: var(--text-primary);
+                font-size: 0.88rem; font-weight: 600; color: var(--text-primary);
                 white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
             }
         `}</style>
@@ -677,7 +680,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 const avBg = isAssigned ? (isAuto ? '#B5D4F4' : '#FAC775') : 'transparent';
                 const avColor = isAssigned ? (isAuto ? '#185FA5' : '#854F0B') : '#E24B4A';
                 return (
-                    <div className="ds-bearbeiter-row">
+                    <div className="ds-bearbeiter-wrap"><div className="ds-bearbeiter-row">
                         {isAssigned
                             ? <span className="ds-av" style={{ background: avBg, color: avColor, flexShrink: 0, width: 22, height: 22, fontSize: 9 }}>{initials}</span>
                             : <span className="ds-av ds-av-un" style={{ flexShrink: 0, width: 22, height: 22 }}><i className="ti ti-plus" aria-hidden="true" /></span>
@@ -692,7 +695,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                                 </option>
                             ))}
                         </select>
-                    </div>
+                    </div></div>
                 );
             })()}
 
