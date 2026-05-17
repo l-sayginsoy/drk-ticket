@@ -140,7 +140,28 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
         [Priority.Mittel]: 'priority-medium',
         [Priority.Niedrig]: 'priority-low',
     };
-    
+
+    const dueDateUrgency: 'normal' | 'soon' | 'today' | 'overdue' = (() => {
+        if (ticket.status === Status.Ueberfaellig) return 'overdue';
+        const p = ticket.dueDate?.split('.');
+        if (!p || p.length !== 3) return 'normal';
+        const due = new Date(parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0]));
+        const today = new Date(); today.setHours(0,0,0,0); due.setHours(0,0,0,0);
+        const diff = Math.floor((due.getTime() - today.getTime()) / 86400000);
+        if (diff < 0) return 'overdue';
+        if (diff === 0) return 'today';
+        if (diff <= 3) return 'soon';
+        return 'normal';
+    })();
+
+    const priorityPillClass = ticket.priority === Priority.Hoch ? 'ds-pill-p-hoch'
+        : ticket.priority === Priority.Mittel ? 'ds-pill-p-mittel' : 'ds-pill-p-niedrig';
+
+    const statusPillClass = ticket.status === Status.InArbeit ? 'ds-pill-s-inarbeit'
+        : ticket.status === Status.Ueberfaellig ? 'ds-pill-s-ueberfaellig'
+        : ticket.status === Status.Abgeschlossen ? 'ds-pill-s-done'
+        : 'ds-pill-s-offen';
+
     const categoryName = appSettings.ticketCategories.find(c => c.id === ticket.categoryId)?.name || 'N/A';
 
   return (
@@ -416,6 +437,57 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 transition: border-color 0.2s ease; min-height: 80px;
             }
             .edit-description-textarea:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px rgba(179,0,12,0.1); }
+
+            /* ── Melder row ── */
+            .ds-melder-row {
+                display: flex; align-items: center; gap: 5px;
+                font-size: 13px; color: var(--text-secondary); font-weight: 500;
+                margin: 0.3rem 0 0.15rem;
+            }
+            .ds-melder-row i { color: var(--text-muted); font-size: 13px; flex-shrink: 0; }
+
+            /* ── Pill row (3-col, wie Karten) ── */
+            .ds-pill-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 0.6rem; }
+            .ds-pill-cell { display: flex; flex-direction: column; }
+            .ds-pill-lbl { font-size: 0.7rem; color: var(--text-muted); font-weight: 500; margin-bottom: 3px; text-align: center; letter-spacing: 0.01em; }
+            .ds-pill {
+                display: flex; align-items: center; justify-content: center; gap: 3px;
+                padding: 5px 6px; border-radius: 20px; font-size: 11px; font-weight: 600;
+                border: 0.5px solid; position: relative; cursor: pointer; white-space: nowrap;
+                width: 100%; box-sizing: border-box;
+            }
+            .ds-pill select, .ds-pill input[type="date"] {
+                position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer;
+            }
+            .ds-pill-p-hoch     { background: #FCEBEB; color: #A32D2D; border-color: #F7C1C1; }
+            .ds-pill-p-mittel   { background: #FAEEDA; color: #854F0B; border-color: #FAC775; }
+            .ds-pill-p-niedrig  { background: #EAF3DE; color: #3B6D11; border-color: #C0DD97; }
+            .ds-pill-s-inarbeit     { background: #E6F1FB; color: #185FA5; border-color: #B5D4F4; }
+            .ds-pill-s-offen        { background: #F1F0EC; color: #5F5E5A; border-color: #D3D1C7; }
+            .ds-pill-s-ueberfaellig { background: #FCEBEB; color: #A32D2D; border-color: #F7C1C1; }
+            .ds-pill-s-done         { background: #EAF3DE; color: #3B6D11; border-color: #C0DD97; }
+            .ds-pill-due            { background: #F1F0EC; color: #5F5E5A; border-color: #D3D1C7; }
+            .ds-pill-due.soon       { background: #FFFBEB; color: #92400E; border-color: #FDE68A; }
+            .ds-pill-due.today      { background: #FEF2F2; color: #B91C1C; border-color: #FECACA; }
+            .ds-pill-due.overdue    { background: #FCEBEB; color: #A32D2D; border-color: #F7C1C1; }
+            [data-theme="dark"] .ds-pill-p-hoch     { background: rgba(163,45,45,0.18); color: #f87171; border-color: rgba(163,45,45,0.35); }
+            [data-theme="dark"] .ds-pill-p-mittel   { background: rgba(133,79,11,0.18); color: #fbbf24; border-color: rgba(133,79,11,0.35); }
+            [data-theme="dark"] .ds-pill-p-niedrig  { background: rgba(59,109,17,0.18); color: #86efac; border-color: rgba(59,109,17,0.35); }
+            [data-theme="dark"] .ds-pill-s-inarbeit { background: rgba(24,95,165,0.18); color: #93c5fd; border-color: rgba(24,95,165,0.35); }
+            [data-theme="dark"] .ds-pill-s-offen    { background: rgba(95,94,90,0.18); color: #b0b3b8; border-color: rgba(95,94,90,0.35); }
+            [data-theme="dark"] .ds-pill-s-ueberfaellig { background: rgba(163,45,45,0.18); color: #f87171; border-color: rgba(163,45,45,0.35); }
+            [data-theme="dark"] .ds-pill-s-done     { background: rgba(59,109,17,0.18); color: #86efac; border-color: rgba(59,109,17,0.35); }
+            [data-theme="dark"] .ds-pill-due        { background: rgba(95,94,90,0.18); color: #b0b3b8; border-color: rgba(95,94,90,0.35); }
+
+            /* ── 2-col fields ── */
+            .ds-fields-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 0.6rem; }
+
+            /* ── Meta info row (Eingang) ── */
+            .ds-meta-row {
+                font-size: 0.78rem; color: var(--text-muted); display: flex; align-items: center;
+                gap: 5px; margin-bottom: 0.75rem; flex-wrap: wrap;
+            }
+            .ds-meta-row i { font-size: 12px; }
         `}</style>
         <div className="sidebar-header-compact">
             <span className="sidebar-ticket-id">
@@ -438,171 +510,155 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             </div>
         </div>
         <div className="sidebar-body-compact">
-            
-            <div className="detail-group" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
+
+            {/* ── 1. TITEL + NOTFALL ── */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.1rem' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     {isEditing ? (
-                        <>
-                            <textarea
-                                className="edit-title-input"
-                                value={editDraft.title}
-                                onChange={e => setEditDraft(d => ({ ...d, title: e.target.value }))}
-                                rows={2}
-                            />
-                            <input
-                                className="edit-reporter-input"
-                                value={editDraft.reporter}
-                                onChange={e => setEditDraft(d => ({ ...d, reporter: e.target.value }))}
-                                placeholder="Gemeldet von..."
-                            />
-                        </>
+                        <textarea className="edit-title-input" value={editDraft.title} onChange={e => setEditDraft(d => ({ ...d, title: e.target.value }))} rows={2} />
                     ) : (
-                        <>
-                            <p className="detail-subject-text">{ticket.title}</p>
-                            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.25rem', fontWeight: 600 }}>
-                                Melder: {ticket.reporter}
-                            </p>
-                            {ticket.reporter_email ? (
-                                <a
-                                    href={`mailto:${ticket.reporter_email}`}
-                                    style={{ fontSize: '0.82rem', color: 'var(--accent-inprogress)', marginTop: '0.15rem', display: 'inline-block', textDecoration: 'none', fontWeight: 500 }}
-                                    title="E-Mail schreiben"
-                                >
-                                    {ticket.reporter_email}
-                                </a>
-                            ) : (
-                                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.15rem', display: 'inline-block', fontStyle: 'italic' }}>
-                                    Keine E-Mail angegeben
-                                </span>
-                            )}
-                        </>
+                        <p className="detail-subject-text">{ticket.title}</p>
                     )}
                 </div>
                 {currentUser?.role === Role.Admin && (
                     ticket.is_emergency ? (
-                        <button
-                            onClick={handleToggleEmergency}
-                            style={{ flexShrink: 0, marginTop: '0.15rem', padding: '0.2rem 0.6rem', fontSize: '0.72rem', fontWeight: 500, background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                        >
+                        <button onClick={handleToggleEmergency} style={{ flexShrink: 0, marginTop: '0.2rem', padding: '0.2rem 0.6rem', fontSize: '0.72rem', fontWeight: 500, background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                             Notfall aufheben
                         </button>
                     ) : (
-                        <button
-                            onClick={handleToggleEmergency}
-                            style={{ flexShrink: 0, marginTop: '0.15rem', padding: '0.2rem 0.6rem', fontSize: '0.72rem', fontWeight: 500, background: 'transparent', color: 'var(--accent-danger)', border: '1px solid var(--accent-danger)', borderRadius: 'var(--radius-md)', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                        >
+                        <button onClick={handleToggleEmergency} style={{ flexShrink: 0, marginTop: '0.2rem', padding: '0.2rem 0.6rem', fontSize: '0.72rem', fontWeight: 500, background: 'transparent', color: 'var(--accent-danger)', border: '1px solid var(--accent-danger)', borderRadius: 'var(--radius-md)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                             ⚠ Notfall
                         </button>
                     )
                 )}
             </div>
 
-            <div className="auftrag-grid">
-                <div className="grid-item">
-                    <p className="detail-label-compact">Standort</p>
-                    {isEditing ? (
-                        <input className="edit-input-compact" value={editDraft.area} onChange={e => setEditDraft(d => ({ ...d, area: e.target.value }))} />
+            {/* ── 2. MELDER: Icon + Name · Datum · Uhrzeit ── */}
+            {isEditing ? (
+                <input className="edit-reporter-input" value={editDraft.reporter} onChange={e => setEditDraft(d => ({ ...d, reporter: e.target.value }))} placeholder="Name des Melders..." />
+            ) : (
+                <div className="ds-melder-row">
+                    <i className="ti ti-user" aria-hidden="true" />
+                    <span>{ticket.reporter}{ticket.entryDate ? ` · ${ticket.entryDate.slice(0,5)}.` : ''}{ticket.entryTime ? ` · ${ticket.entryTime}` : ''}</span>
+                </div>
+            )}
+
+            {/* ── 3. E-MAIL ── */}
+            {!isEditing && (
+                ticket.reporter_email ? (
+                    <a href={`mailto:${ticket.reporter_email}`} style={{ fontSize: '0.82rem', color: 'var(--accent-inprogress)', marginTop: '0.1rem', display: 'inline-block', textDecoration: 'none', fontWeight: 500 }} title="E-Mail schreiben">
+                        <i className="ti ti-mail" style={{ fontSize: '11px', marginRight: 4 }} aria-hidden="true" />{ticket.reporter_email}
+                    </a>
+                ) : (
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.1rem', display: 'inline-block', fontStyle: 'italic' }}>Keine E-Mail angegeben</span>
+                )
+            )}
+
+            {/* ── 4. BESCHREIBUNG (vor den Aktionsfeldern) ── */}
+            {isEditing ? (
+                <div style={{ marginTop: '0.75rem' }}>
+                    <p className="detail-label-compact">Beschreibung</p>
+                    <textarea className="edit-description-textarea" value={editDraft.description} onChange={e => setEditDraft(d => ({ ...d, description: e.target.value }))} placeholder="Beschreibung..." rows={4} />
+                </div>
+            ) : (
+                ticket.description && ticket.description.trim()
+                    ? <div className="description-box-compact" style={{ marginTop: '0.75rem' }}>{ticket.description}</div>
+                    : null
+            )}
+
+            <hr className="section-separator" style={{ margin: '0.9rem 0 0.75rem' }} />
+
+            {/* ── 5. PILLS: Priorität | Fällig bis | Status ── */}
+            <div className="ds-pill-row">
+                <div className="ds-pill-cell">
+                    <div className="ds-pill-lbl">Priorität</div>
+                    {ticket.is_emergency ? (
+                        <div className="ds-pill ds-pill-p-hoch">Notfall</div>
                     ) : (
-                        <p className="detail-value-compact">{ticket.area}</p>
+                        <div className={`ds-pill ${priorityPillClass}`}>
+                            <span>{ticket.priority}</span>
+                            <select value={ticket.priority} onChange={e => handleFieldChange('priority', e.target.value as Priority)}>
+                                {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
+                            </select>
+                        </div>
                     )}
                 </div>
-                <div className="grid-item">
-                    <p className="detail-label-compact">Raum / Bereich</p>
-                    {isEditing ? (
-                        <input className="edit-input-compact" value={editDraft.location} onChange={e => setEditDraft(d => ({ ...d, location: e.target.value }))} />
-                    ) : (
-                        <p className="detail-value-compact" title={ticket.location} style={{ overflow: 'hidden' }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ticket.location}</span></p>
-                    )}
+                <div className="ds-pill-cell">
+                    <div className="ds-pill-lbl">Fällig bis</div>
+                    <div className={`ds-pill ds-pill-due${dueDateUrgency !== 'normal' ? ` ${dueDateUrgency}` : ''}`}>
+                        <i className="ti ti-calendar-due" aria-hidden="true" style={{ pointerEvents: 'none', fontSize: 11 }} />
+                        <span style={{ pointerEvents: 'none' }}>{ticket.dueDate.slice(0,5)}.</span>
+                        <input type="date" value={toInputDate(ticket.dueDate)} onChange={e => handleFieldChange('dueDate', fromInputDate(e.target.value))} />
+                    </div>
                 </div>
-                <div className="grid-item">
+                <div className="ds-pill-cell">
+                    <div className="ds-pill-lbl">Status</div>
+                    <div className={`ds-pill ${statusPillClass}`}>
+                        <span>{ticket.status}</span>
+                        <select value={ticket.status} onChange={e => handleFieldChange('status', e.target.value as Status)}>
+                            {statuses.map(s => <option key={s} value={s}>{s === Status.Abgeschlossen ? 'Abschließen' : s}</option>)}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            {/* ── 6. BEARBEITER | KATEGORIE ── */}
+            <div className="ds-fields-grid">
+                <div>
                     <p className="detail-label-compact">Bearbeiter</p>
-                    <div className={`editable-field-compact`}>
-                        <span>
-                            {ticket.technician === 'N/A' ? 'Zuweisen' : displayNameShort(ticket.technician)}
-                        </span>
+                    <div className="editable-field-compact">
+                        <span>{ticket.technician === 'N/A' ? 'Zuweisen' : displayNameShort(ticket.technician)}</span>
                         <ChevronDownIcon />
-                        <select value={ticket.technician} onChange={(e) => handleFieldChange('technician', e.target.value)}>
+                        <select value={ticket.technician} onChange={e => handleFieldChange('technician', e.target.value)}>
                             <option value="N/A">Zuweisen</option>
                             {technicians.map(t => (
                                 <option key={t.id} value={t.name} disabled={t.availability.status === AvailabilityStatus.OnLeave}>
-                                    {displayNameShort(t.name)}{' '}
-                                    {t.availability.status === AvailabilityStatus.OnLeave ? '(Abwesend)' : ''}
+                                    {displayNameShort(t.name)}{t.availability.status === AvailabilityStatus.OnLeave ? ' (Abwesend)' : ''}
                                 </option>
                             ))}
                         </select>
                     </div>
                 </div>
-                <div className="grid-item">
-                    <p className="detail-label-compact">Priorität</p>
-                    <div className={`editable-field-compact ${priorityClasses[ticket.priority]}`}>
-                        <span>{ticket.priority}</span><ChevronDownIcon />
-                        <select value={ticket.priority} onChange={(e) => handleFieldChange('priority', e.target.value as Priority)}>
-                            {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
-                        </select>
-                    </div>
-                </div>
-                <div className="grid-item">
+                <div>
                     <p className="detail-label-compact">Kategorie</p>
                     <div className="editable-field-compact">
                         <span>{categoryName}</span><ChevronDownIcon />
-                        <select value={ticket.categoryId} onChange={(e) => handleFieldChange('categoryId', e.target.value)}>
+                        <select value={ticket.categoryId} onChange={e => handleFieldChange('categoryId', e.target.value)}>
                             {appSettings.ticketCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                     </div>
                 </div>
-                <div className="grid-item">
-                    <p className="detail-label-compact">Status</p>
-                    <div className="editable-field-compact" style={{ backgroundColor: statusBgColorMap[ticket.status], borderColor: `var(${statusColorMap[ticket.status]})`, color: `var(${statusColorMap[ticket.status]})` }}>
-                        <span>{ticket.status}</span><ChevronDownIcon />
-                        <select value={ticket.status} onChange={(e) => handleFieldChange('status', e.target.value as Status)}>
-                            {statuses.map(s => <option key={s} value={s}>{s === Status.Abgeschlossen ? 'Abschließen' : s}</option>)}
-                        </select>
-                    </div>
-                </div>
-                <div className="grid-item">
-                    <p className="detail-label-compact">Eingang</p>
-                    <p className="detail-value-compact">
-                        {ticket.entryDate}
-                        {ticket.entryTime && <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400, marginLeft: '0.35rem' }}>({ticket.entryTime})</span>}
-                    </p>
-                </div>
-                <div className="grid-item">
-                    <p className="detail-label-compact">Fällig bis</p>
-                    <div className="editable-field-compact" style={ticket.status === Status.Ueberfaellig ? { borderColor: `var(${statusColorMap[Status.Ueberfaellig]})`, backgroundColor: statusBgColorMap[Status.Ueberfaellig] } : {}}>
-                        <span>{ticket.dueDate}</span>
-                        <input type="date" value={toInputDate(ticket.dueDate)} onChange={(e) => handleFieldChange('dueDate', fromInputDate(e.target.value))} />
-                    </div>
-                </div>
-                {ticket.wunschTermin && <div className="grid-item"><p className="detail-label-compact">Wunsch-Termin</p><p className="detail-value-compact">{ticket.wunschTermin}</p></div>}
-                {ticket.completionDate && (
-                  <div className="grid-item">
-                    <p className="detail-label-compact">Abgeschlossen am</p>
-                    <p className="detail-value-compact">
-                      {ticket.completionDate}
-                      {ticket.completionTime && <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400, marginLeft: '0.35rem' }}>({ticket.completionTime})</span>}
-                    </p>
-                  </div>
-                )}
             </div>
 
-            {isEditing ? (
-                <div style={{ marginTop: '1rem' }}>
-                    <p className="detail-label-compact">Beschreibung</p>
-                    <textarea
-                        className="edit-description-textarea"
-                        value={editDraft.description}
-                        onChange={e => setEditDraft(d => ({ ...d, description: e.target.value }))}
-                        placeholder="Beschreibung..."
-                        rows={4}
-                    />
+            {/* ── 7. STANDORT | RAUM ── */}
+            <div className="ds-fields-grid">
+                <div>
+                    <p className="detail-label-compact">Standort</p>
+                    {isEditing
+                        ? <input className="edit-input-compact" value={editDraft.area} onChange={e => setEditDraft(d => ({ ...d, area: e.target.value }))} />
+                        : <p className="detail-value-compact">{ticket.area}</p>
+                    }
                 </div>
-            ) : (
-                ticket.description && ticket.description.trim() && (
-                    <div className="description-box-compact">{ticket.description}</div>
-                )
-            )}
-             {ticket.photos && ticket.photos.length > 0 && (
-                <div className="detail-group" style={{marginTop: '1rem'}}>
+                <div>
+                    <p className="detail-label-compact">Raum / Bereich</p>
+                    {isEditing
+                        ? <input className="edit-input-compact" value={editDraft.location} onChange={e => setEditDraft(d => ({ ...d, location: e.target.value }))} />
+                        : <p className="detail-value-compact" title={ticket.location} style={{ overflow: 'hidden' }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ticket.location}</span></p>
+                    }
+                </div>
+            </div>
+
+            {/* ── 8. META: Eingang + optionale Felder ── */}
+            <div className="ds-meta-row">
+                <i className="ti ti-login" aria-hidden="true" />
+                <span>Eingang {ticket.entryDate}{ticket.entryTime ? ` · ${ticket.entryTime}` : ''}</span>
+                {ticket.wunschTermin && <><span>·</span><i className="ti ti-calendar-event" aria-hidden="true" /><span>Wunsch {ticket.wunschTermin}</span></>}
+                {ticket.completionDate && <><span>·</span><i className="ti ti-circle-check" aria-hidden="true" style={{ color: '#3B6D11' }} /><span style={{ color: '#3B6D11' }}>Erledigt {ticket.completionDate}{ticket.completionTime ? ` ${ticket.completionTime}` : ''}</span></>}
+            </div>
+
+            {/* ── 9. FOTOS ── */}
+            {ticket.photos && ticket.photos.length > 0 && (
+                <div style={{ marginBottom: '0.75rem' }}>
                     <p className="detail-label-compact">Fotos</p>
                     <div className="photo-gallery">
                         {ticket.photos.map((photo, index) => (
@@ -613,18 +669,21 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                     </div>
                 </div>
             )}
-            
+
             <hr className="section-separator" />
-            
+
+            {/* ── 10. NOTIZEN ── */}
             <div className="notes-section">
                 <h3 className="notes-title-compact">Notizen</h3>
                 {ticket.notes && ticket.notes.length > 0 && (
-                     <div className="notes-list-compact">
-                        {[...ticket.notes].reverse().map((note, index) => (<div className="note-item-compact" key={index}>{formatNote(note)}</div>))}
-                     </div>
+                    <div className="notes-list-compact">
+                        {[...ticket.notes].reverse().map((note, index) => (
+                            <div className="note-item-compact" key={index}>{formatNote(note)}</div>
+                        ))}
+                    </div>
                 )}
-                 <div className="new-note-form">
-                    <textarea className="note-textarea-compact" rows={2} placeholder="Neue Notiz eingeben..." value={newNote} onChange={(e) => setNewNote(e.target.value)}></textarea>
+                <div className="new-note-form">
+                    <textarea className="note-textarea-compact" rows={2} placeholder="Neue Notiz eingeben..." value={newNote} onChange={e => setNewNote(e.target.value)} />
                     <button className="add-note-btn-compact" onClick={handleAddNote} disabled={!newNote.trim()}>Notiz speichern</button>
                 </div>
             </div>
