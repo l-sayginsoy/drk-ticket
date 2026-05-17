@@ -182,7 +182,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             /* --- New Compact Layout --- */
             .sidebar-header-compact {
                 display: flex; justify-content: space-between; align-items: center;
-                padding: 0.4rem 1.5rem; flex-shrink: 0;
+                padding: 1rem 1.5rem 0.5rem; flex-shrink: 0;
             }
             .sidebar-ticket-id {
                 font-size: 0.78rem; font-weight: 600; color: var(--text-muted);
