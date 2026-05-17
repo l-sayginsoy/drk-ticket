@@ -106,7 +106,9 @@ main {
     height: 100%;
     overflow-y: auto;
     position: relative;
+    scrollbar-width: none;
 }
+main::-webkit-scrollbar { display: none; }
  @media (max-width: 768px) {
     main {
         padding: 1rem;

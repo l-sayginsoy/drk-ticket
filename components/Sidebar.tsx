@@ -165,31 +165,33 @@ const Sidebar: React.FC<SidebarProps> = ({
                     flex-direction: column;
                     transition: width 0.3s ease, background-color 0.3s ease, padding 0.3s ease;
                     flex-shrink: 0;
-                    overflow: hidden;
                     height: 100%;
                     position: relative;
                 }
-                .sidebar-inner {
+                .sidebar-body-wrap {
+                    position: relative;
+                    flex: 1;
+                    height: 100%;
+                }
+                .sidebar-body {
                     display: flex;
                     flex-direction: column;
-                    flex: 1;
-                    overflow-y: scroll;
                     height: 100%;
+                    overflow-y: auto;
                     padding: 0.75rem;
-                    box-sizing: border-box;
-                    /* Scrollbalken physisch außerhalb der Sidebar schieben */
-                    width: calc(100% + 20px);
+                    scrollbar-width: none;
                 }
+                .sidebar-body::-webkit-scrollbar { display: none; }
                 .sidebar-scroll-thumb {
                     position: absolute;
-                    right: 3px;
+                    right: 2px;
+                    top: 0;
                     width: 5px;
                     height: 40px;
                     border-radius: 6px;
                     background: rgba(0,0,0,0.18);
                     pointer-events: none;
                     transition: opacity 1s ease;
-                    z-index: 100;
                 }
                 [data-theme="dark"] .sidebar-scroll-thumb {
                     background: rgba(255,255,255,0.22);
@@ -197,9 +199,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                 .sidebar.collapsed {
                     width: 70px;
                 }
-                .sidebar.collapsed .sidebar-inner {
+                .sidebar.collapsed .sidebar-body {
                     padding: 0.75rem 0.5rem;
-                    width: calc(100% + 20px);
                 }
                 .sidebar-header {
                     display: flex;
@@ -588,7 +589,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                     transform: rotate(180deg);
                 }
             `}</style>
-            <div className="sidebar-inner" ref={sidebarRef}>
+            <div className="sidebar-body-wrap">
+            <div className="sidebar-body" ref={sidebarRef}>
             <div className="sidebar-header">
                 <div className="sidebar-logo-container">
                     {!isCollapsed ? (
@@ -711,7 +713,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     <span className="nav-tooltip">Abmelden</span>
                 </button>
             </div>
-            </div>{/* end sidebar-inner */}
+            </div>{/* end sidebar-body */}
             <div
                 className="sidebar-scroll-thumb"
                 style={{
@@ -719,6 +721,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     top: scrollThumb.top,
                 }}
             />
+            </div>{/* end sidebar-body-wrap */}
         </aside>
     );
 };
