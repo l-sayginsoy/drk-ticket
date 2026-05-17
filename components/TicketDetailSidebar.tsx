@@ -44,9 +44,36 @@ interface TicketDetailSidebarProps {
   appSettings: AppSettings;
 }
 
+const PencilIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+    </svg>
+);
+
 const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClose, onUpdateTicket, users, statuses, currentUser, appSettings }) => {
     const [viewingImageSrc, setViewingImageSrc] = useState<string | null>(null);
     const [newNote, setNewNote] = useState('');
+    const [isEditing, setIsEditing] = useState(false);
+    const [editDraft, setEditDraft] = useState({ title: '', area: '', location: '', description: '', reporter: '' });
+
+    const canEdit = ticket.origin === 'manual' &&
+        (currentUser?.role === Role.Admin || currentUser?.role === Role.Technician);
+
+    const startEdit = () => {
+        setEditDraft({
+            title: ticket.title,
+            area: ticket.area,
+            location: ticket.location,
+            description: ticket.description || '',
+            reporter: ticket.reporter,
+        });
+        setIsEditing(true);
+    };
+    const saveEdit = () => {
+        onUpdateTicket({ ...ticket, ...editDraft });
+        setIsEditing(false);
+    };
+    const cancelEdit = () => setIsEditing(false);
 
     // Filter service-team users from users (alphabetisch nach gespeichertem Namen)
     const technicians = users
@@ -332,22 +359,109 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 width: 20px;
                 height: 20px;
             }
+
+            .edit-btn {
+                background: none; border: none; cursor: pointer; color: var(--text-muted);
+                padding: 0.5rem; margin: -0.5rem; border-radius: var(--radius-sm);
+                transition: color 0.2s ease, background-color 0.2s ease;
+            }
+            .edit-btn:hover { color: var(--text-primary); background: var(--bg-tertiary); }
+            .edit-btn svg { width: 20px; height: 20px; }
+            .header-actions { display: flex; align-items: center; gap: 0.25rem; }
+            .edit-save-btn, .edit-cancel-btn {
+                padding: 0.3rem 0.8rem; border-radius: var(--radius-sm); font-size: 0.82rem;
+                font-weight: 600; cursor: pointer; border: 1px solid transparent;
+                transition: opacity 0.2s ease;
+            }
+            .edit-save-btn {
+                background: var(--accent-primary); color: #fff; border-color: var(--accent-primary);
+            }
+            .edit-save-btn:hover { opacity: 0.88; }
+            .edit-cancel-btn {
+                background: var(--bg-tertiary); color: var(--text-secondary); border-color: var(--border);
+            }
+            .edit-cancel-btn:hover { border-color: var(--border-active); }
+
+            .edit-input-compact {
+                width: 100%; font-size: 0.9rem; font-weight: 500; color: var(--text-primary);
+                background: var(--bg-secondary); border: 1px solid var(--border-active);
+                border-radius: var(--radius-md); padding: 0 0.75rem; height: 34px;
+                font-family: inherit; outline: none;
+                transition: border-color 0.2s ease;
+            }
+            .edit-input-compact:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px rgba(179,0,12,0.1); }
+            .edit-title-input {
+                width: 100%; font-size: 1.1rem; font-weight: 700; color: var(--text-primary);
+                background: var(--bg-secondary); border: 1px solid var(--border-active);
+                border-radius: var(--radius-md); padding: 0.4rem 0.75rem;
+                font-family: inherit; outline: none; resize: vertical; line-height: 1.4;
+                transition: border-color 0.2s ease;
+            }
+            .edit-title-input:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px rgba(179,0,12,0.1); }
+            .edit-reporter-input {
+                font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);
+                background: var(--bg-secondary); border: 1px solid var(--border-active);
+                border-radius: var(--radius-sm); padding: 0.2rem 0.5rem; height: 28px;
+                font-family: inherit; outline: none; width: 100%; margin-top: 0.25rem;
+                transition: border-color 0.2s ease;
+            }
+            .edit-reporter-input:focus { border-color: var(--accent-primary); }
+            .edit-description-textarea {
+                width: 100%; font-size: 0.9rem; color: var(--text-primary);
+                background: var(--bg-secondary); border: 1px solid var(--border-active);
+                border-radius: var(--radius-md); padding: 0.6rem 0.75rem;
+                font-family: inherit; outline: none; resize: vertical; line-height: 1.6;
+                transition: border-color 0.2s ease; min-height: 80px;
+            }
+            .edit-description-textarea:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px rgba(179,0,12,0.1); }
         `}</style>
         <div className="sidebar-header-compact">
             <h2 className="sidebar-title-compact">
                 {ticket.is_emergency && <ExclamationTriangleIcon className="urgent-sidebar-icon" width={20} height={20} />}
                 Ticket {ticket.id}
             </h2>
-            <button className="close-btn" onClick={onClose}><XIcon /></button>
+            <div className="header-actions">
+                {canEdit && !isEditing && (
+                    <button className="edit-btn" onClick={startEdit} title="Ticket bearbeiten">
+                        <PencilIcon />
+                    </button>
+                )}
+                {isEditing && (
+                    <>
+                        <button className="edit-cancel-btn" onClick={cancelEdit}>Abbrechen</button>
+                        <button className="edit-save-btn" onClick={saveEdit}>Speichern</button>
+                    </>
+                )}
+                <button className="close-btn" onClick={onClose}><XIcon /></button>
+            </div>
         </div>
         <div className="sidebar-body-compact">
             
             <div className="detail-group" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <p className="detail-subject-text">{ticket.title}</p>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.25rem', fontWeight: 600 }}>
-                        Gemeldet: {ticket.reporter}
-                    </p>
+                    {isEditing ? (
+                        <>
+                            <textarea
+                                className="edit-title-input"
+                                value={editDraft.title}
+                                onChange={e => setEditDraft(d => ({ ...d, title: e.target.value }))}
+                                rows={2}
+                            />
+                            <input
+                                className="edit-reporter-input"
+                                value={editDraft.reporter}
+                                onChange={e => setEditDraft(d => ({ ...d, reporter: e.target.value }))}
+                                placeholder="Gemeldet von..."
+                            />
+                        </>
+                    ) : (
+                        <>
+                            <p className="detail-subject-text">{ticket.title}</p>
+                            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.25rem', fontWeight: 600 }}>
+                                Gemeldet: {ticket.reporter}
+                            </p>
+                        </>
+                    )}
                 </div>
                 {currentUser?.role === Role.Admin && (
                     ticket.is_emergency ? (
@@ -371,11 +485,19 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             <div className="auftrag-grid">
                 <div className="grid-item">
                     <p className="detail-label-compact">Standort</p>
-                    <p className="detail-value-compact">{ticket.area}</p>
+                    {isEditing ? (
+                        <input className="edit-input-compact" value={editDraft.area} onChange={e => setEditDraft(d => ({ ...d, area: e.target.value }))} />
+                    ) : (
+                        <p className="detail-value-compact">{ticket.area}</p>
+                    )}
                 </div>
                 <div className="grid-item">
                     <p className="detail-label-compact">Raum / Bereich</p>
-                    <p className="detail-value-compact" title={ticket.location} style={{ overflow: 'hidden' }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ticket.location}</span></p>
+                    {isEditing ? (
+                        <input className="edit-input-compact" value={editDraft.location} onChange={e => setEditDraft(d => ({ ...d, location: e.target.value }))} />
+                    ) : (
+                        <p className="detail-value-compact" title={ticket.location} style={{ overflow: 'hidden' }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ticket.location}</span></p>
+                    )}
                 </div>
                 <div className="grid-item">
                     <p className="detail-label-compact">Bearbeiter</p>
@@ -448,8 +570,21 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 )}
             </div>
 
-            {ticket.description && ticket.description.trim() && (
-                <div className="description-box-compact">{ticket.description}</div>
+            {isEditing ? (
+                <div style={{ marginTop: '1rem' }}>
+                    <p className="detail-label-compact">Beschreibung</p>
+                    <textarea
+                        className="edit-description-textarea"
+                        value={editDraft.description}
+                        onChange={e => setEditDraft(d => ({ ...d, description: e.target.value }))}
+                        placeholder="Beschreibung..."
+                        rows={4}
+                    />
+                </div>
+            ) : (
+                ticket.description && ticket.description.trim() && (
+                    <div className="description-box-compact">{ticket.description}</div>
+                )
             )}
              {ticket.photos && ticket.photos.length > 0 && (
                 <div className="detail-group" style={{marginTop: '1rem'}}>
