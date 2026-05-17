@@ -519,7 +519,15 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             .ds-assignee-name { font-size: 0.9rem; font-weight: 500; color: var(--text-primary); flex: 1; }
         `}</style>
         <div className="sidebar-header-compact">
-            <div className="header-actions">
+            {/* Titel sitzt im Header, linksbündig */}
+            <div style={{ flex: 1, minWidth: 0, marginRight: '0.75rem' }}>
+                {isEditing ? (
+                    <textarea className="edit-title-input" value={editDraft.title} onChange={e => setEditDraft(d => ({ ...d, title: e.target.value }))} rows={1} style={{ fontSize: '1.1rem' }} />
+                ) : (
+                    <p className="detail-subject-text" style={{ margin: 0, fontSize: '1.15rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ticket.title}</p>
+                )}
+            </div>
+            <div className="header-actions" style={{ flexShrink: 0 }}>
                 {canEdit && !isEditing && (
                     <button className="edit-btn" onClick={startEdit} title="Ticket bearbeiten">
                         <PencilIcon />
@@ -546,22 +554,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
         </div>
         <div className="sidebar-body-compact">
 
-            {/* ── 1. TITEL + TICKET-ID ── */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.2rem' }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    {isEditing ? (
-                        <textarea className="edit-title-input" value={editDraft.title} onChange={e => setEditDraft(d => ({ ...d, title: e.target.value }))} rows={2} />
-                    ) : (
-                        <p className="detail-subject-text" style={{ margin: 0 }}>{ticket.title}</p>
-                    )}
-                </div>
-                <span className="sidebar-ticket-id" style={{ flexShrink: 0 }}>
-                    {ticket.is_emergency && <ExclamationTriangleIcon className="urgent-sidebar-icon" width={10} height={10} />}
-                    #{ticket.id}
-                </span>
-            </div>
-
-            {/* ── 2. MELDER direkt unter Titel ── */}
+            {/* ── 1. MELDER direkt unter Titel ── */}
             {isEditing ? (
                 <input className="edit-reporter-input" value={editDraft.reporter} onChange={e => setEditDraft(d => ({ ...d, reporter: e.target.value }))} placeholder="Name des Melders..." style={{ marginBottom: '0.6rem' }} />
             ) : (
@@ -666,21 +659,29 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 const pillColor = isAssigned ? (isAuto ? '#185FA5' : '#854F0B') : '#5F5E5A';
                 const pillBorder = isAssigned ? (isAuto ? '#B5D4F4' : '#FAC775') : '#D3D1C7';
                 return (
-                    <div style={{ marginTop: '6px', position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px 5px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, border: '0.5px solid', background: pillBg, color: pillColor, borderColor: pillBorder, cursor: 'pointer', boxSizing: 'border-box', minWidth: 'calc((100% - 12px) / 3)', maxWidth: '100%' }}>
-                        {isAssigned
-                            ? <span className="ds-av" style={{ background: avBg, color: avColor, flexShrink: 0 }}>{initials}</span>
-                            : <span className="ds-av ds-av-un" style={{ flexShrink: 0 }}><i className="ti ti-plus" aria-hidden="true" /></span>
-                        }
-                        <span style={{ flex: 1 }}>{isAssigned ? displayNameShort(ticket.technician) : 'Bearbeiter zuweisen'}</span>
-                        <ChevronDownIcon />
-                        <select style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }} value={ticket.technician} onChange={e => handleFieldChange('technician', e.target.value)}>
-                            <option value="N/A">Nicht zugewiesen</option>
-                            {technicians.map(t => (
-                                <option key={t.id} value={t.name} disabled={t.availability.status === AvailabilityStatus.OnLeave}>
-                                    {displayNameShort(t.name)}{t.availability.status === AvailabilityStatus.OnLeave ? ' (Abwesend)' : ''}
-                                </option>
-                            ))}
-                        </select>
+                    <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {/* Bearbeiter-Pill */}
+                        <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px 5px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, border: '0.5px solid', background: pillBg, color: pillColor, borderColor: pillBorder, cursor: 'pointer', boxSizing: 'border-box', minWidth: 'calc((100% - 12px) / 3)', maxWidth: '100%' }}>
+                            {isAssigned
+                                ? <span className="ds-av" style={{ background: avBg, color: avColor, flexShrink: 0 }}>{initials}</span>
+                                : <span className="ds-av ds-av-un" style={{ flexShrink: 0 }}><i className="ti ti-plus" aria-hidden="true" /></span>
+                            }
+                            <span style={{ flex: 1 }}>{isAssigned ? displayNameShort(ticket.technician) : 'Bearbeiter zuweisen'}</span>
+                            <ChevronDownIcon />
+                            <select style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }} value={ticket.technician} onChange={e => handleFieldChange('technician', e.target.value)}>
+                                <option value="N/A">Nicht zugewiesen</option>
+                                {technicians.map(t => (
+                                    <option key={t.id} value={t.name} disabled={t.availability.status === AvailabilityStatus.OnLeave}>
+                                        {displayNameShort(t.name)}{t.availability.status === AvailabilityStatus.OnLeave ? ' (Abwesend)' : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        {/* Ticket-ID Chip in derselben Zeile */}
+                        <span className="sidebar-ticket-id" style={{ flexShrink: 0 }}>
+                            {ticket.is_emergency && <ExclamationTriangleIcon className="urgent-sidebar-icon" width={10} height={10} />}
+                            #{ticket.id}
+                        </span>
                     </div>
                 );
             })()}
