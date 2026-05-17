@@ -631,47 +631,45 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                             </div>
                         )}
 
-                        {/* Bearbeiter | Status — 2-Spalten wie Dashboard */}
-                        <div className="sr-grid2">
-                            <div>
-                                <p className="sr-desc-lbl">Bearbeiter</p>
+                        {/* Bearbeiter | Fällig bis | Status — 3-Pill-Reihe */}
+                        <div className="sr-pill-row">
+                            <div className="sr-pill-cell">
+                                <span className="sr-pill-lbl">Bearbeiter</span>
                                 {foundTicket.technician && foundTicket.technician !== 'N/A' ? (() => {
                                     const p = foundTicket.technician.trim().split(' ');
                                     const initials = p.length >= 2 ? (p[0][0] + p[p.length-1][0]).toUpperCase() : foundTicket.technician.slice(0,2).toUpperCase();
                                     return (
-                                        <span className="sr-assignee-chip">
+                                        <div className="sr-pill sr-pill-assignee">
                                             <span className="sr-av">{initials}</span>
-                                            {foundTicket.technician}
-                                        </span>
+                                            <span className="sr-pill-name">{foundTicket.technician}</span>
+                                        </div>
                                     );
                                 })() : (
-                                    <span className="sr-assignee-chip">
+                                    <div className="sr-pill sr-pill-assignee sr-pill-unassigned">
                                         <span className="sr-av sr-av-un">—</span>
-                                        Nicht zugewiesen
-                                    </span>
+                                        <span className="sr-pill-name">Nicht zugewiesen</span>
+                                    </div>
                                 )}
                             </div>
-                            <div>
-                                <p className="sr-desc-lbl">Status</p>
-                                <span className={`sr-status-pill ${
+                            <div className="sr-pill-cell">
+                                <span className="sr-pill-lbl">Fällig bis</span>
+                                <div className="sr-pill sr-pill-due">
+                                    {foundTicket.dueDate && foundTicket.dueDate !== 'N/A'
+                                        ? <><i className="ti ti-calendar-due" style={{ fontSize: 11 }} />{foundTicket.dueDate.slice(0,5)}.</>
+                                        : <span style={{ color: 'var(--text-muted)' }}>—</span>
+                                    }
+                                </div>
+                            </div>
+                            <div className="sr-pill-cell">
+                                <span className="sr-pill-lbl">Status</span>
+                                <div className={`sr-pill sr-pill-status ${
                                     foundTicket.status === 'In Arbeit' ? 'sr-status-inarbeit'
                                     : foundTicket.status === 'Überfällig' ? 'sr-status-ueberfaellig'
                                     : foundTicket.status === 'Abgeschlossen' ? 'sr-status-done'
                                     : 'sr-status-offen'
-                                }`}>{foundTicket.status}</span>
+                                }`}>{foundTicket.status}</div>
                             </div>
                         </div>
-
-                        {/* Fällig bis */}
-                        {foundTicket.dueDate && foundTicket.dueDate !== 'N/A' && (
-                            <div>
-                                <p className="sr-desc-lbl">Fällig bis</p>
-                                <span className="sr-assignee-chip" style={{ gap: 5 }}>
-                                    <i className="ti ti-calendar-due" style={{ fontSize: 13 }} />
-                                    {foundTicket.dueDate.slice(0,5)}.
-                                </span>
-                            </div>
-                        )}
 
                         <hr className="sr-divider" />
 
@@ -1034,13 +1032,18 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                 .sr-desc-lbl { font-size: 0.75rem; font-weight: 500; color: var(--text-muted); margin-bottom: 0.25rem; }
                 .sr-desc { background: var(--bg-tertiary); border-radius: 10px; padding: 0.65rem 0.85rem; font-size: 0.9rem; color: var(--text-primary); line-height: 1.55; white-space: pre-wrap; }
 
-                /* Bearbeiter */
-                .sr-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
-                .sr-assignee-row { display: flex; align-items: center; gap: 7px; }
-                .sr-assignee-lbl { font-size: 0.75rem; font-weight: 500; color: var(--text-muted); }
-                .sr-assignee-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px 3px 4px; font-size: 0.82rem; font-weight: 600; color: var(--text-primary); }
-                .sr-av { width: 20px; height: 20px; border-radius: 50%; background: #FAC775; color: #854F0B; font-size: 8px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
-                .sr-av-un { background: transparent; border: 1.5px dashed #9ca3af; color: #9ca3af; font-size: 10px; }
+                /* 3-Pill-Reihe (Bearbeiter | Fällig bis | Status) */
+                .sr-pill-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+                .sr-pill-cell { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+                .sr-pill-lbl { font-size: 0.7rem; font-weight: 500; color: var(--text-muted); }
+                .sr-pill { display: inline-flex; align-items: center; justify-content: center; gap: 4px; border-radius: 20px; padding: 5px 8px; font-size: 11px; font-weight: 600; border: 0.5px solid; width: 100%; box-sizing: border-box; }
+                .sr-pill-assignee { background: var(--bg-tertiary); border-color: var(--border); color: var(--text-primary); }
+                .sr-pill-unassigned { color: var(--text-muted); }
+                .sr-pill-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                .sr-pill-due { background: var(--bg-tertiary); border-color: var(--border); color: var(--text-primary); }
+                .sr-pill-status { }
+                .sr-av { width: 18px; height: 18px; border-radius: 50%; background: #FAC775; color: #854F0B; font-size: 7px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+                .sr-av-un { background: transparent; border: 1.5px dashed #9ca3af; color: #9ca3af; font-size: 9px; }
 
                 /* Trennlinie vor Notizen */
                 .sr-divider { border: 0; height: 1px; background: var(--bg-tertiary); margin: 0.25rem 0; }
