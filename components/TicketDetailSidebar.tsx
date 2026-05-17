@@ -162,8 +162,6 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
         : ticket.status === Status.Abgeschlossen ? 'ds-pill-s-done'
         : 'ds-pill-s-offen';
 
-    const categoryName = appSettings.ticketCategories.find(c => c.id === ticket.categoryId)?.name || 'N/A';
-
   return (
     <>
       <div className="detail-sidebar-overlay" onClick={onClose}></div>
@@ -532,7 +530,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
         <div className="sidebar-body-compact">
 
             {/* ── 1. TITEL + NOTFALL ── */}
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.75rem' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     {isEditing ? (
                         <textarea className="edit-title-input" value={editDraft.title} onChange={e => setEditDraft(d => ({ ...d, title: e.target.value }))} rows={2} />
@@ -553,29 +551,8 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 )}
             </div>
 
-            {/* ── 2. MELDER: Icon + Name · Datum · Uhrzeit ── */}
-            {isEditing ? (
-                <input className="edit-reporter-input" value={editDraft.reporter} onChange={e => setEditDraft(d => ({ ...d, reporter: e.target.value }))} placeholder="Name des Melders..." />
-            ) : (
-                <div className="ds-melder-row">
-                    <i className="ti ti-user" aria-hidden="true" />
-                    <span>{ticket.reporter}{ticket.entryDate ? ` · ${ticket.entryDate.slice(0,5)}.` : ''}{ticket.entryTime ? ` · ${ticket.entryTime}` : ''}</span>
-                </div>
-            )}
-
-            {/* ── 3. E-MAIL ── */}
-            {!isEditing && (
-                ticket.reporter_email ? (
-                    <a href={`mailto:${ticket.reporter_email}`} style={{ fontSize: '0.82rem', color: 'var(--accent-inprogress)', marginTop: '0.1rem', display: 'inline-block', textDecoration: 'none', fontWeight: 500 }} title="E-Mail schreiben">
-                        <i className="ti ti-mail" style={{ fontSize: '11px', marginRight: 4 }} aria-hidden="true" />{ticket.reporter_email}
-                    </a>
-                ) : (
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.1rem', display: 'inline-block', fontStyle: 'italic' }}>Keine E-Mail angegeben</span>
-                )
-            )}
-
-            {/* ── 4. STANDORT | RAUM (sofort sichtbar wo das Problem ist) ── */}
-            <div className="ds-fields-grid" style={{ marginTop: '0.75rem' }}>
+            {/* ── 2. STANDORT | RAUM ── */}
+            <div className="ds-fields-grid">
                 <div>
                     <p className="detail-label-compact">Standort</p>
                     {isEditing
@@ -640,48 +617,59 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 </div>
             </div>
 
-            {/* ── 6. BEARBEITER | KATEGORIE ── */}
-            <div className="ds-fields-grid">
-                <div>
-                    <p className="detail-label-compact">Bearbeiter</p>
-                    {(() => {
-                        const isAssigned = ticket.technician && ticket.technician !== 'N/A';
-                        const initials = isAssigned ? (() => {
-                            const p = ticket.technician.trim().split(' ');
-                            return p.length >= 2 ? (p[0][0] + p[p.length-1][0]).toUpperCase() : ticket.technician.slice(0,2).toUpperCase();
-                        })() : '?';
-                        const isAuto = ticket.autoAssigned === true || (ticket.ticketType === 'reactive' && ticket.autoAssigned !== false);
-                        const avBg = isAssigned ? (isAuto ? '#B5D4F4' : '#FAC775') : 'transparent';
-                        const avColor = isAssigned ? (isAuto ? '#185FA5' : '#854F0B') : '#E24B4A';
-                        return (
-                            <div className="ds-assignee-field">
-                                {isAssigned
-                                    ? <span className="ds-av" style={{ background: avBg, color: avColor }}>{initials}</span>
-                                    : <span className="ds-av ds-av-un"><i className="ti ti-plus" aria-hidden="true" /></span>
-                                }
-                                <span className="ds-assignee-name">{isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}</span>
-                                <ChevronDownIcon />
-                                <select value={ticket.technician} onChange={e => handleFieldChange('technician', e.target.value)}>
-                                    <option value="N/A">Zuweisen</option>
-                                    {technicians.map(t => (
-                                        <option key={t.id} value={t.name} disabled={t.availability.status === AvailabilityStatus.OnLeave}>
-                                            {displayNameShort(t.name)}{t.availability.status === AvailabilityStatus.OnLeave ? ' (Abwesend)' : ''}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        );
-                    })()}
-                </div>
-                <div>
-                    <p className="detail-label-compact">Kategorie</p>
-                    <div className="editable-field-compact">
-                        <span>{categoryName}</span><ChevronDownIcon />
-                        <select value={ticket.categoryId} onChange={e => handleFieldChange('categoryId', e.target.value)}>
-                            {appSettings.ticketCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
+            {/* ── 6. BEARBEITER (full-width, Kategorie entfernt) ── */}
+            <div style={{ marginBottom: '0.6rem' }}>
+                <p className="detail-label-compact">Bearbeiter</p>
+                {(() => {
+                    const isAssigned = ticket.technician && ticket.technician !== 'N/A';
+                    const initials = isAssigned ? (() => {
+                        const p = ticket.technician.trim().split(' ');
+                        return p.length >= 2 ? (p[0][0] + p[p.length-1][0]).toUpperCase() : ticket.technician.slice(0,2).toUpperCase();
+                    })() : '?';
+                    const isAuto = ticket.autoAssigned === true || (ticket.ticketType === 'reactive' && ticket.autoAssigned !== false);
+                    const avBg = isAssigned ? (isAuto ? '#B5D4F4' : '#FAC775') : 'transparent';
+                    const avColor = isAssigned ? (isAuto ? '#185FA5' : '#854F0B') : '#E24B4A';
+                    return (
+                        <div className="ds-assignee-field">
+                            {isAssigned
+                                ? <span className="ds-av" style={{ background: avBg, color: avColor }}>{initials}</span>
+                                : <span className="ds-av ds-av-un"><i className="ti ti-plus" aria-hidden="true" /></span>
+                            }
+                            <span className="ds-assignee-name">{isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}</span>
+                            <ChevronDownIcon />
+                            <select value={ticket.technician} onChange={e => handleFieldChange('technician', e.target.value)}>
+                                <option value="N/A">Zuweisen</option>
+                                {technicians.map(t => (
+                                    <option key={t.id} value={t.name} disabled={t.availability.status === AvailabilityStatus.OnLeave}>
+                                        {displayNameShort(t.name)}{t.availability.status === AvailabilityStatus.OnLeave ? ' (Abwesend)' : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    );
+                })()}
+            </div>
+
+            {/* ── 7. MELDER: Icon + Name · Datum · Uhrzeit + E-Mail ── */}
+            <div style={{ marginBottom: '0.75rem' }}>
+                <p className="detail-label-compact">Melder</p>
+                {isEditing ? (
+                    <input className="edit-reporter-input" value={editDraft.reporter} onChange={e => setEditDraft(d => ({ ...d, reporter: e.target.value }))} placeholder="Name des Melders..." />
+                ) : (
+                    <div className="ds-melder-row">
+                        <i className="ti ti-user" aria-hidden="true" />
+                        <span>{ticket.reporter}{ticket.entryDate ? ` · ${ticket.entryDate.slice(0,5)}.` : ''}{ticket.entryTime ? ` · ${ticket.entryTime}` : ''}</span>
                     </div>
-                </div>
+                )}
+                {!isEditing && (
+                    ticket.reporter_email ? (
+                        <a href={`mailto:${ticket.reporter_email}`} style={{ fontSize: '0.82rem', color: 'var(--accent-inprogress)', marginTop: '0.25rem', display: 'inline-block', textDecoration: 'none', fontWeight: 500 }} title="E-Mail schreiben">
+                            <i className="ti ti-mail" style={{ fontSize: '11px', marginRight: 4 }} aria-hidden="true" />{ticket.reporter_email}
+                        </a>
+                    ) : (
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'inline-block', fontStyle: 'italic' }}>Keine E-Mail angegeben</span>
+                    )
+                )}
             </div>
 
             {/* ── 8. META: nur optionale Felder (Wunschtermin, Abgeschlossen) ── */}
