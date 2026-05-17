@@ -551,17 +551,20 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 )}
             </div>
 
-            {/* ── 2. STANDORT | RAUM ── */}
+            {/* ── 2. STANDORT | BEREICH ── */}
             <div className="ds-fields-grid">
                 <div>
-                    <p className="detail-label-compact">Standort</p>
+                    <p className="detail-label-compact">
+                        <i className="ti ti-map-pin" aria-hidden="true" style={{ fontSize: '11px', marginRight: 3 }} />
+                        Standort
+                    </p>
                     {isEditing
                         ? <input className="edit-input-compact" value={editDraft.area} onChange={e => setEditDraft(d => ({ ...d, area: e.target.value }))} />
                         : <p className="detail-value-compact">{ticket.area}</p>
                     }
                 </div>
                 <div>
-                    <p className="detail-label-compact">Raum / Bereich</p>
+                    <p className="detail-label-compact">Bereich</p>
                     {isEditing
                         ? <input className="edit-input-compact" value={editDraft.location} onChange={e => setEditDraft(d => ({ ...d, location: e.target.value }))} />
                         : <p className="detail-value-compact" title={ticket.location} style={{ overflow: 'hidden' }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ticket.location}</span></p>
@@ -569,17 +572,38 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 </div>
             </div>
 
-            {/* ── 5. BESCHREIBUNG ── */}
-            {isEditing ? (
-                <div style={{ marginTop: '0.75rem' }}>
-                    <p className="detail-label-compact">Beschreibung</p>
+            {/* ── 3. BESCHREIBUNG ── */}
+            <div style={{ marginTop: '0.75rem' }}>
+                <p className="detail-label-compact">Beschreibung</p>
+                {isEditing ? (
                     <textarea className="edit-description-textarea" value={editDraft.description} onChange={e => setEditDraft(d => ({ ...d, description: e.target.value }))} placeholder="Beschreibung..." rows={4} />
-                </div>
-            ) : (
-                ticket.description && ticket.description.trim()
-                    ? <div className="description-box-compact" style={{ marginTop: '0.75rem' }}>{ticket.description}</div>
-                    : null
-            )}
+                ) : (
+                    ticket.description && ticket.description.trim()
+                        ? <div className="description-box-compact">{ticket.description}</div>
+                        : <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontStyle: 'italic', margin: 0 }}>Keine Beschreibung</p>
+                )}
+            </div>
+
+            {/* ── 4. MELDER + E-MAIL (unter Beschreibung) ── */}
+            <div style={{ marginTop: '0.6rem', marginBottom: '0.15rem' }}>
+                {isEditing ? (
+                    <input className="edit-reporter-input" value={editDraft.reporter} onChange={e => setEditDraft(d => ({ ...d, reporter: e.target.value }))} placeholder="Name des Melders..." />
+                ) : (
+                    <div className="ds-melder-row">
+                        <i className="ti ti-user" aria-hidden="true" />
+                        <span>{ticket.reporter}{ticket.entryDate ? ` · ${ticket.entryDate.slice(0,5)}.` : ''}{ticket.entryTime ? ` · ${ticket.entryTime}` : ''}</span>
+                    </div>
+                )}
+                {!isEditing && (
+                    ticket.reporter_email ? (
+                        <a href={`mailto:${ticket.reporter_email}`} style={{ fontSize: '0.82rem', color: 'var(--accent-inprogress)', marginTop: '0.15rem', display: 'inline-block', textDecoration: 'none', fontWeight: 500 }} title="E-Mail schreiben">
+                            <i className="ti ti-mail" style={{ fontSize: '11px', marginRight: 4 }} aria-hidden="true" />{ticket.reporter_email}
+                        </a>
+                    ) : (
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.15rem', display: 'inline-block', fontStyle: 'italic' }}>Keine E-Mail angegeben</span>
+                    )
+                )}
+            </div>
 
             <hr className="section-separator" style={{ margin: '0.9rem 0 0.75rem' }} />
 
@@ -617,7 +641,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 </div>
             </div>
 
-            {/* ── 6. BEARBEITER (full-width, Kategorie entfernt) ── */}
+            {/* ── 6. BEARBEITER (kompakt, nicht full-width) ── */}
             <div style={{ marginBottom: '0.6rem' }}>
                 <p className="detail-label-compact">Bearbeiter</p>
                 {(() => {
@@ -630,7 +654,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                     const avBg = isAssigned ? (isAuto ? '#B5D4F4' : '#FAC775') : 'transparent';
                     const avColor = isAssigned ? (isAuto ? '#185FA5' : '#854F0B') : '#E24B4A';
                     return (
-                        <div className="ds-assignee-field">
+                        <div className="ds-assignee-field" style={{ maxWidth: '220px' }}>
                             {isAssigned
                                 ? <span className="ds-av" style={{ background: avBg, color: avColor }}>{initials}</span>
                                 : <span className="ds-av ds-av-un"><i className="ti ti-plus" aria-hidden="true" /></span>
@@ -648,28 +672,6 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                         </div>
                     );
                 })()}
-            </div>
-
-            {/* ── 7. MELDER: Icon + Name · Datum · Uhrzeit + E-Mail ── */}
-            <div style={{ marginBottom: '0.75rem' }}>
-                <p className="detail-label-compact">Melder</p>
-                {isEditing ? (
-                    <input className="edit-reporter-input" value={editDraft.reporter} onChange={e => setEditDraft(d => ({ ...d, reporter: e.target.value }))} placeholder="Name des Melders..." />
-                ) : (
-                    <div className="ds-melder-row">
-                        <i className="ti ti-user" aria-hidden="true" />
-                        <span>{ticket.reporter}{ticket.entryDate ? ` · ${ticket.entryDate.slice(0,5)}.` : ''}{ticket.entryTime ? ` · ${ticket.entryTime}` : ''}</span>
-                    </div>
-                )}
-                {!isEditing && (
-                    ticket.reporter_email ? (
-                        <a href={`mailto:${ticket.reporter_email}`} style={{ fontSize: '0.82rem', color: 'var(--accent-inprogress)', marginTop: '0.25rem', display: 'inline-block', textDecoration: 'none', fontWeight: 500 }} title="E-Mail schreiben">
-                            <i className="ti ti-mail" style={{ fontSize: '11px', marginRight: 4 }} aria-hidden="true" />{ticket.reporter_email}
-                        </a>
-                    ) : (
-                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'inline-block', fontStyle: 'italic' }}>Keine E-Mail angegeben</span>
-                    )
-                )}
             </div>
 
             {/* ── 8. META: nur optionale Felder (Wunschtermin, Abgeschlossen) ── */}
