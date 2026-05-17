@@ -656,7 +656,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
 
             {/* ── 6. BEARBEITER (kompakt, nicht full-width) ── */}
             <div style={{ marginBottom: '0.6rem' }}>
-                <p className="detail-label-compact">Bearbeiter</p>
+                <div className="ds-pill-lbl" style={{ textAlign: 'left', marginBottom: 3 }}>Bearbeiter</div>
                 {(() => {
                     const isAssigned = ticket.technician && ticket.technician !== 'N/A';
                     const initials = isAssigned ? (() => {
