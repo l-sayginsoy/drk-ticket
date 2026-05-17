@@ -613,6 +613,14 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                         <div className="status-details-box">
                             <div className="status-detail-item"><strong>Status:</strong> <span className="status-detail-value">{foundTicket.status}</span></div>
                             <div className="status-detail-item"><strong>Betreff:</strong> <span className="status-detail-value">{foundTicket.title}</span></div>
+                            {foundTicket.description && foundTicket.description.trim() && (
+                                <div className="status-detail-item"><strong>Beschreibung:</strong> <span className="status-detail-value" style={{ whiteSpace: 'pre-wrap' }}>{foundTicket.description}</span></div>
+                            )}
+                            {(foundTicket.entryDate || foundTicket.entryTime) && (
+                                <div className="status-detail-item" style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                                    <strong>Gesendet:</strong> <span>{foundTicket.entryDate ? `${foundTicket.entryDate.slice(0,5)}.${foundTicket.entryDate.slice(5)}` : ''}{foundTicket.entryTime ? ` · ${foundTicket.entryTime}` : ''} Uhr</span>
+                                </div>
+                            )}
                             <div className="status-detail-item"><strong>Bearbeiter:</strong> <span className="status-detail-value">{foundTicket.technician === 'N/A' ? 'Noch nicht zugewiesen' : foundTicket.technician}</span></div>
                             <div className="portal-notes-container">
                                 <p className="notes-title"><strong>Letzte Notizen:</strong></p>
