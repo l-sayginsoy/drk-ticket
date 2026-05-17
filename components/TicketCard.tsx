@@ -228,7 +228,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .ticket-card {
                     background: var(--bg-secondary);
                     border-radius: 12px;
-                    margin-bottom: 8px;
+                    margin-bottom: 12px;
                     border: 0.5px solid #E5E5E5;
                     border-left-width: 3px;
                     border-left-style: solid;

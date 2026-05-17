@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { LayoutDashboardIcon } from './icons/LayoutDashboardIcon';
 import { SlidersIcon } from './icons/SlidersIcon';
 import { Avatar } from './Avatar';
@@ -60,14 +60,33 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
     
     const [isExportOpen, setExportOpen] = useState(false);
+    const [scrollThumb, setScrollThumb] = useState<{ visible: boolean; top: number }>({ visible: false, top: 0 });
+    const sidebarRef = useRef<HTMLElement>(null);
+
+    useEffect(() => {
+        const el = sidebarRef.current;
+        if (!el) return;
+        const THUMB_H = 60;
+        let timer: ReturnType<typeof setTimeout>;
+        const onScroll = () => {
+            const { scrollTop, scrollHeight, clientHeight } = el;
+            const maxScroll = scrollHeight - clientHeight;
+            if (maxScroll <= 0) return;
+            const ratio = scrollTop / maxScroll;
+            const top = Math.max(0, Math.min(clientHeight - THUMB_H, ratio * (clientHeight - THUMB_H)));
+            setScrollThumb({ visible: true, top });
+            clearTimeout(timer);
+            timer = setTimeout(() => setScrollThumb(s => ({ ...s, visible: false })), 900);
+        };
+        el.addEventListener('scroll', onScroll, { passive: true });
+        return () => { el.removeEventListener('scroll', onScroll); clearTimeout(timer); };
+    }, []);
     const newNotesCount = useMemo(() => {
         return tickets.filter(t => t.hasNewNoteFromReporter && t.status !== Status.Abgeschlossen).length;
     }, [tickets]);
 
     const newMeldungenCount = useMemo(() => {
-        return tickets.filter(t =>
-            (t.status === Status.Offen && (t.technician === 'N/A' || !t.technician)) || t.is_reopened
-        ).length;
+        return tickets.filter(t => t.status === Status.Offen && (t.technician === 'N/A' || !t.technician)).length;
     }, [tickets]);
     
     /** Drei Blöcke wie in der Nav-Skizze: Übersicht → Verwaltung → Aktionen (Menü-Labels unverändert). */
@@ -92,7 +111,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         // Bearbeiter — Übersicht
         { type: 'view', viewName: 'tech-dashboard', icon: <LayoutDashboardIcon />, label: 'Dashboard', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
         { type: 'view', viewName: 'tickets', icon: <i className="ti ti-menu-2" aria-hidden />, label: 'Listenansicht', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
-        { type: 'view', viewName: 'erledigt', icon: <i className="ti ti-clock" aria-hidden />, label: 'Abgeschlossen', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
         { type: 'view', viewName: 'routines', icon: <i className="ti ti-repeat" aria-hidden />, label: 'Serienaufträge', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
         { type: 'view', viewName: 'routine-nachweis', icon: <CalendarIcon />, label: 'Serien‑Nachweis', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
 
@@ -132,16 +150,12 @@ const Sidebar: React.FC<SidebarProps> = ({
             {viewName === 'dashboard' && userRole === Role.Admin && newMeldungenCount > 0 && (
                 <span className="nav-badge">{newMeldungenCount}</span>
             )}
-            {viewName === 'tech-dashboard' && userRole !== Role.Admin && (() => {
-                const c = tickets.filter(t => t.technician === userNameFull && t.status === Status.Offen && t.origin !== 'routine').length;
-                return c > 0 ? <span className="nav-badge">{c}</span> : null;
-            })()}
             <span className="nav-tooltip">{label}</span>
         </button>
     );
 
     return (
-        <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
+        <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`} ref={sidebarRef}>
             <style>{`
                 .sidebar {
                     width: 240px;
@@ -154,6 +168,23 @@ const Sidebar: React.FC<SidebarProps> = ({
                     flex-shrink: 0;
                     overflow-y: auto;
                     height: 100%;
+                    position: relative;
+                    scrollbar-width: none;
+                }
+                .sidebar::-webkit-scrollbar { display: none; }
+                .sidebar-scroll-thumb {
+                    position: fixed;
+                    right: 3px;
+                    width: 4px;
+                    height: 60px;
+                    border-radius: 6px;
+                    background: rgba(0,0,0,0.22);
+                    pointer-events: none;
+                    transition: opacity 1s ease;
+                    z-index: 100;
+                }
+                [data-theme="dark"] .sidebar-scroll-thumb {
+                    background: rgba(255,255,255,0.25);
                 }
                 .sidebar.collapsed {
                     width: 70px;
@@ -668,6 +699,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                     <span className="nav-tooltip">Abmelden</span>
                 </button>
             </div>
+            <div
+                className="sidebar-scroll-thumb"
+                style={{
+                    opacity: scrollThumb.visible ? 1 : 0,
+                    top: scrollThumb.top + (sidebarRef.current?.getBoundingClientRect().top ?? 0),
+                }}
+            />
         </aside>
     );
 };
