@@ -155,7 +155,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     );
 
     return (
-        <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`} ref={sidebarRef}>
+        <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
             <style>{`
                 .sidebar {
                     width: 240px;
@@ -163,15 +163,23 @@ const Sidebar: React.FC<SidebarProps> = ({
                     border-right: 1px solid var(--border);
                     display: flex;
                     flex-direction: column;
-                    padding: 0.75rem;
                     transition: width 0.3s ease, background-color 0.3s ease, padding 0.3s ease;
                     flex-shrink: 0;
-                    overflow-y: auto;
+                    overflow: hidden;
                     height: 100%;
                     position: relative;
+                }
+                .sidebar-inner {
+                    display: flex;
+                    flex-direction: column;
+                    flex: 1;
+                    overflow-y: auto;
+                    overflow-x: hidden;
+                    height: 100%;
+                    padding: 0.75rem;
                     scrollbar-width: none;
                 }
-                .sidebar::-webkit-scrollbar { display: none; }
+                .sidebar-inner::-webkit-scrollbar { display: none; width: 0; }
                 .sidebar-scroll-thumb {
                     position: fixed;
                     right: 3px;
@@ -188,6 +196,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                 }
                 .sidebar.collapsed {
                     width: 70px;
+                }
+                .sidebar.collapsed .sidebar-inner {
                     padding: 0.75rem 0.5rem;
                 }
                 .sidebar-header {
@@ -577,6 +587,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     transform: rotate(180deg);
                 }
             `}</style>
+            <div className="sidebar-inner" ref={sidebarRef}>
             <div className="sidebar-header">
                 <div className="sidebar-logo-container">
                     {!isCollapsed ? (
@@ -699,6 +710,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     <span className="nav-tooltip">Abmelden</span>
                 </button>
             </div>
+            </div>{/* end sidebar-inner */}
             <div
                 className="sidebar-scroll-thumb"
                 style={{
