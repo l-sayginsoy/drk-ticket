@@ -163,11 +163,13 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             /* --- New Compact Layout --- */
             .sidebar-header-compact {
                 display: flex; justify-content: space-between; align-items: center;
-                padding: 1rem 1.5rem; flex-shrink: 0;
+                padding: 0.75rem 1.5rem; flex-shrink: 0;
             }
-            .sidebar-title-compact {
-                font-size: 1.1rem; font-weight: 600; color: var(--text-primary);
-                display: flex; align-items: center; gap: 0.75rem;
+            .sidebar-ticket-id {
+                font-size: 0.78rem; font-weight: 600; color: var(--text-muted);
+                background: var(--bg-tertiary); border: 1px solid var(--border);
+                border-radius: 999px; padding: 0.15rem 0.6rem;
+                display: flex; align-items: center; gap: 0.4rem; letter-spacing: 0.01em;
             }
             .urgent-sidebar-icon {
                 color: var(--accent-danger);
@@ -203,7 +205,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 font-size: 0.8rem; font-weight: 500; color: var(--text-muted); margin-bottom: 0.25rem;
             }
             .detail-subject-text {
-                font-size: 1.1rem; font-weight: 700; color: var(--text-primary); line-height: 1.4;
+                font-size: 1.25rem; font-weight: 700; color: var(--text-primary); line-height: 1.4;
             }
 
             .auftrag-grid {
@@ -416,10 +418,10 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             .edit-description-textarea:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px rgba(179,0,12,0.1); }
         `}</style>
         <div className="sidebar-header-compact">
-            <h2 className="sidebar-title-compact">
-                {ticket.is_emergency && <ExclamationTriangleIcon className="urgent-sidebar-icon" width={20} height={20} />}
-                Ticket {ticket.id}
-            </h2>
+            <span className="sidebar-ticket-id">
+                {ticket.is_emergency && <ExclamationTriangleIcon className="urgent-sidebar-icon" width={12} height={12} />}
+                #{ticket.id}
+            </span>
             <div className="header-actions">
                 {canEdit && !isEditing && (
                     <button className="edit-btn" onClick={startEdit} title="Ticket bearbeiten">
@@ -458,7 +460,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                         <>
                             <p className="detail-subject-text">{ticket.title}</p>
                             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.25rem', fontWeight: 600 }}>
-                                Gemeldet: {ticket.reporter}
+                                Melder: {ticket.reporter}
                             </p>
                             {ticket.reporter_email && (
                                 <a
