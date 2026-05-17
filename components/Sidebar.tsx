@@ -61,7 +61,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     
     const [isExportOpen, setExportOpen] = useState(false);
     const [scrollThumb, setScrollThumb] = useState<{ visible: boolean; top: number }>({ visible: false, top: 0 });
-    const sidebarRef = useRef<HTMLElement>(null);
+    const sidebarRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const el = sidebarRef.current;
