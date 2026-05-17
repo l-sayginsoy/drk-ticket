@@ -66,7 +66,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     useEffect(() => {
         const el = sidebarRef.current;
         if (!el) return;
-        const THUMB_H = 64;
+        const THUMB_H = 40;
         let timer: ReturnType<typeof setTimeout>;
         const onScroll = () => {
             const { scrollTop, scrollHeight, clientHeight } = el;
@@ -181,10 +181,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                     width: calc(100% + 20px);
                 }
                 .sidebar-scroll-thumb {
-                    position: fixed;
+                    position: absolute;
                     right: 3px;
                     width: 5px;
-                    height: 64px;
+                    height: 40px;
                     border-radius: 6px;
                     background: rgba(0,0,0,0.18);
                     pointer-events: none;
@@ -716,7 +716,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 className="sidebar-scroll-thumb"
                 style={{
                     opacity: scrollThumb.visible ? 1 : 0,
-                    top: scrollThumb.top + (sidebarRef.current?.getBoundingClientRect().top ?? 0),
+                    top: scrollThumb.top,
                 }}
             />
         </aside>
