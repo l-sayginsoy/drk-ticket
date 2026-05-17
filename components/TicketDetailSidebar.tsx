@@ -263,7 +263,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 border: 0; height: 1px; background-color: var(--border); margin: 1.5rem 0;
             }
             .notes-title-compact {
-                font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 1rem;
+                font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.75rem; letter-spacing: 0.03em; text-transform: uppercase;
             }
             .notes-list-compact { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem; }
             .note-item-compact {
@@ -620,8 +620,8 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
 
             <hr className="section-separator" style={{ margin: '0.9rem 0 0.75rem' }} />
 
-            {/* ── 5. PILLS: Priorität | Fällig bis | Status ── */}
-            <div className="ds-pill-row">
+            {/* ── 5+6. PILLS: Priorität | Fällig bis | Status | Bearbeiter ── */}
+            <div className="ds-pill-row" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr' }}>
                 <div className="ds-pill-cell">
                     <div className="ds-pill-lbl">Priorität</div>
                     {ticket.is_emergency ? (
@@ -652,36 +652,39 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                         </select>
                     </div>
                 </div>
-            </div>
-
-            {/* ── 6. BEARBEITER (kompakt, nicht full-width) ── */}
-            <div style={{ marginBottom: '0.6rem' }}>
-                <div className="ds-pill-lbl" style={{ textAlign: 'left', marginBottom: 3 }}>Bearbeiter</div>
+                {/* Bearbeiter als 4. Pill-Zelle */}
                 {(() => {
                     const isAssigned = ticket.technician && ticket.technician !== 'N/A';
                     const initials = isAssigned ? (() => {
                         const p = ticket.technician.trim().split(' ');
                         return p.length >= 2 ? (p[0][0] + p[p.length-1][0]).toUpperCase() : ticket.technician.slice(0,2).toUpperCase();
-                    })() : '?';
+                    })() : '';
                     const isAuto = ticket.autoAssigned === true || (ticket.ticketType === 'reactive' && ticket.autoAssigned !== false);
                     const avBg = isAssigned ? (isAuto ? '#B5D4F4' : '#FAC775') : 'transparent';
                     const avColor = isAssigned ? (isAuto ? '#185FA5' : '#854F0B') : '#E24B4A';
+                    const pillBg = isAssigned ? (isAuto ? '#E6F1FB' : '#FAEEDA') : '#F1F0EC';
+                    const pillColor = isAssigned ? (isAuto ? '#185FA5' : '#854F0B') : '#5F5E5A';
+                    const pillBorder = isAssigned ? (isAuto ? '#B5D4F4' : '#FAC775') : '#D3D1C7';
                     return (
-                        <div className="ds-assignee-field">
-                            {isAssigned
-                                ? <span className="ds-av" style={{ background: avBg, color: avColor }}>{initials}</span>
-                                : <span className="ds-av ds-av-un"><i className="ti ti-plus" aria-hidden="true" /></span>
-                            }
-                            <span className="ds-assignee-name">{isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}</span>
-                            <ChevronDownIcon />
-                            <select value={ticket.technician} onChange={e => handleFieldChange('technician', e.target.value)}>
-                                <option value="N/A">Zuweisen</option>
-                                {technicians.map(t => (
-                                    <option key={t.id} value={t.name} disabled={t.availability.status === AvailabilityStatus.OnLeave}>
-                                        {displayNameShort(t.name)}{t.availability.status === AvailabilityStatus.OnLeave ? ' (Abwesend)' : ''}
-                                    </option>
-                                ))}
-                            </select>
+                        <div className="ds-pill-cell">
+                            <div className="ds-pill-lbl">Bearbeiter</div>
+                            <div className="ds-pill" style={{ background: pillBg, color: pillColor, borderColor: pillBorder, gap: 4, position: 'relative', cursor: 'pointer' }}>
+                                {isAssigned
+                                    ? <span className="ds-av" style={{ background: avBg, color: avColor, flexShrink: 0 }}>{initials}</span>
+                                    : <span className="ds-av ds-av-un" style={{ flexShrink: 0 }}><i className="ti ti-plus" aria-hidden="true" /></span>
+                                }
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 }}>
+                                    {isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}
+                                </span>
+                                <select style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }} value={ticket.technician} onChange={e => handleFieldChange('technician', e.target.value)}>
+                                    <option value="N/A">Nicht zugewiesen</option>
+                                    {technicians.map(t => (
+                                        <option key={t.id} value={t.name} disabled={t.availability.status === AvailabilityStatus.OnLeave}>
+                                            {displayNameShort(t.name)}{t.availability.status === AvailabilityStatus.OnLeave ? ' (Abwesend)' : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                     );
                 })()}
