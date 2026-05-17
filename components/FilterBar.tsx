@@ -96,12 +96,12 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
     const resetButton = (
         <button
             type="button"
-            className="action-btn action-btn--icon-only"
+            className="action-btn action-btn--reset"
             onClick={resetFilters}
             aria-label="Filter zurücksetzen"
-            title="Zurücksetzen"
         >
             <i className="ti ti-refresh" aria-hidden />
+            Zurücksetzen
         </button>
     );
 
@@ -252,9 +252,21 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                     justify-content: center;
                     gap: 0;
                 }
+                .action-btn--reset {
+                    background: transparent;
+                    border-color: transparent;
+                    color: var(--text-muted);
+                    font-weight: 500;
+                }
+                .action-btn--reset:hover {
+                    background: var(--bg-tertiary);
+                    border-color: var(--border);
+                    color: var(--text-primary);
+                }
                 
                 .divider { width: 1px; height: 24px; background-color: var(--border); }
             `}</style>
+            <span style={{ fontSize: '0.88rem', fontWeight: 500, color: 'var(--text-muted)', flexShrink: 0 }}>Filter</span>
             <div className="filter-controls">
                 {currentView === 'tickets' && (
                     <>

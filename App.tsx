@@ -2927,66 +2927,81 @@ if (newTicketData.ticketType === 'reactive') {
           </div>
         )}
         {(currentView === 'dashboard' || currentView === 'tech-dashboard') && (
-          <DashboardRoutineLinkBar
-            schedules={appSettings.routineSchedules as any}
-            users={users}
-            userRole={currentUser.role}
-            userName={currentUser.name}
-            completions={appSettings.routineDayCompletions || []}
-            rpHolidayYmdList={rpHolidayYmdList}
-            onOpenRoutines={() => changeView('routines')}
-          />
-        )}
-        {currentView === 'dashboard' && newMeldungenCount > 0 && (
-          <div
-            role="alert"
-            style={{
-              margin: '0 0 12px',
-              padding: '12px 16px',
-              borderRadius: 10,
-              border: '1px solid rgba(220, 53, 69, 0.45)',
-              background: 'rgba(220, 53, 69, 0.1)',
-              color: 'var(--text-primary)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              fontWeight: 500,
-            }}
-          >
-            <span style={{ background: 'var(--accent-danger)', color: '#fff', borderRadius: '20px', padding: '0.1rem 0.65rem', fontWeight: 700, fontSize: '1rem', flexShrink: 0 }}>
-              {newMeldungenCount}
-            </span>
-            <span>
-              {newMeldungenCount === 1
-                ? 'Neue Meldung wartet auf Bearbeiter-Zuweisung'
-                : `${newMeldungenCount} neue Meldungen warten auf Bearbeiter-Zuweisung`}
-            </span>
-          </div>
-        )}
-        {currentView === 'tech-dashboard' && techOffeneCount > 0 && (
-          <div
-            role="alert"
-            style={{
-              margin: '0 0 12px',
-              padding: '12px 16px',
-              borderRadius: 10,
-              border: '1px solid rgba(234, 179, 8, 0.5)',
-              background: 'rgba(234, 179, 8, 0.1)',
-              color: 'var(--text-primary)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              fontWeight: 500,
-            }}
-          >
-            <span style={{ background: '#d97706', color: '#fff', borderRadius: '20px', padding: '0.1rem 0.65rem', fontWeight: 700, fontSize: '1rem', flexShrink: 0 }}>
-              {techOffeneCount}
-            </span>
-            <span>
-              {techOffeneCount === 1
-                ? 'Dir wurde 1 Ticket zugewiesen — bitte auf „In Arbeit" setzen'
-                : `Dir wurden ${techOffeneCount} Tickets zugewiesen — bitte auf „In Arbeit" setzen`}
-            </span>
+          <div style={{ display: 'flex', gap: 12, marginTop: 12, marginBottom: 12 }}>
+            {/* Linke Alert-Karte */}
+            {currentView === 'dashboard' && newMeldungenCount > 0 && (
+              <div
+                role="alert"
+                style={{
+                  flex: '1 1 0%',
+                  minWidth: 0,
+                  padding: '10px 14px',
+                  borderRadius: 10,
+                  border: '1px solid rgba(220, 53, 69, 0.35)',
+                  background: 'rgba(220, 53, 69, 0.08)',
+                  color: 'var(--text-primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  fontWeight: 700,
+                  fontSize: 15,
+                }}
+              >
+                <span style={{ flexShrink: 0, width: 36, height: 36, borderRadius: 8, background: 'var(--accent-danger)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <i className="ti ti-alert-circle" style={{ fontSize: 20 }} />
+                </span>
+                <span style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
+                  {newMeldungenCount === 1
+                    ? '1 neue Meldung wartet auf Bearbeiter-Zuweisung'
+                    : `${newMeldungenCount} neue Meldungen warten auf Bearbeiter-Zuweisung`}
+                </span>
+                <span style={{ flexShrink: 0, opacity: 0.85 }}>
+                  <i className="ti ti-chevron-right" style={{ fontSize: 22 }} />
+                </span>
+              </div>
+            )}
+            {currentView === 'tech-dashboard' && techOffeneCount > 0 && (
+              <div
+                role="alert"
+                style={{
+                  flex: '1 1 0%',
+                  minWidth: 0,
+                  padding: '10px 14px',
+                  borderRadius: 10,
+                  border: '1px solid rgba(234, 179, 8, 0.5)',
+                  background: 'rgba(234, 179, 8, 0.1)',
+                  color: '#854F0B',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  fontWeight: 700,
+                  fontSize: 15,
+                }}
+              >
+                <span style={{ flexShrink: 0, width: 36, height: 36, borderRadius: 8, background: '#d97706', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <i className="ti ti-alert-circle" style={{ fontSize: 20 }} />
+                </span>
+                <span style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
+                  {techOffeneCount === 1
+                    ? 'Dir wurde 1 Ticket zugewiesen — bitte auf „In Arbeit" setzen'
+                    : `Dir wurden ${techOffeneCount} Tickets zugewiesen — bitte auf „In Arbeit" setzen`}
+                </span>
+                <span style={{ flexShrink: 0, opacity: 0.85 }}>
+                  <i className="ti ti-chevron-right" style={{ fontSize: 22 }} />
+                </span>
+              </div>
+            )}
+            {/* Rechte Karte: Serientermine */}
+            <DashboardRoutineLinkBar
+              schedules={appSettings.routineSchedules as any}
+              users={users}
+              userRole={currentUser.role}
+              userName={currentUser.name}
+              completions={appSettings.routineDayCompletions || []}
+              rpHolidayYmdList={rpHolidayYmdList}
+              onOpenRoutines={() => changeView('routines')}
+              inline
+            />
           </div>
         )}
         {isKanbanWorkbench ? (

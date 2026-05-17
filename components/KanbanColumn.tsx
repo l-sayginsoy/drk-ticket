@@ -187,6 +187,14 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
                   padding: 0 6px 12px 6px;
                   border-bottom: 1px solid var(--border);
               }
+              .column-dot {
+                  font-size: 10px;
+                  line-height: 1;
+                  flex-shrink: 0;
+              }
+              .column-dot.count-offen { color: var(--text-muted); }
+              .column-dot.count-inarbeit { color: var(--accent-inprogress); }
+              .column-dot.count-ueberfaellig { color: var(--accent-danger); }
               .column-title {
                   margin: 0;
                   font-size: 1.0625rem;
@@ -288,6 +296,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
               }
           `}</style>
           <div className="column-header">
+              <span className={`column-dot count-${statusKey}`} aria-hidden>●</span>
               <h2 className="column-title">{title}</h2>
               <span className={`column-count count-${statusKey}`}>{tickets.length}</span>
           </div>
