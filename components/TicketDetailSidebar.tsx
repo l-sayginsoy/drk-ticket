@@ -517,6 +517,22 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             .ds-av-un { background: transparent; border: 1.5px dashed #E24B4A; color: #E24B4A; }
             .ds-av-un i { font-size: 9px; }
             .ds-assignee-name { font-size: 0.9rem; font-weight: 500; color: var(--text-primary); flex: 1; }
+
+            /* ── Bearbeiter-Zeile (wie Melder-Zeile, aber klickbar) ── */
+            .ds-bearbeiter-row {
+                position: relative; display: inline-flex; align-items: center; gap: 7px;
+                margin-top: 6px; padding: 4px 8px 4px 4px;
+                border-radius: 999px; border: 1px solid var(--border);
+                background: var(--bg-tertiary);
+                cursor: pointer; max-width: 100%;
+                transition: border-color 0.15s ease, background 0.15s ease;
+            }
+            .ds-bearbeiter-row:hover { border-color: var(--border-active); background: var(--bg-secondary); }
+            .ds-bearbeiter-row svg { width: 13px; height: 13px; color: var(--text-muted); flex-shrink: 0; }
+            .ds-bearbeiter-name {
+                font-size: 0.82rem; font-weight: 600; color: var(--text-primary);
+                white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            }
         `}</style>
         <div className="sidebar-header-compact">
             <div className="header-actions">
@@ -652,7 +668,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 </div>
             </div>
 
-            {/* ── 6. BEARBEITER: volle Breite, gleiche Pill-Optik ── */}
+            {/* ── 6. BEARBEITER ── */}
             {(() => {
                 const isAssigned = ticket.technician && ticket.technician !== 'N/A';
                 const initials = isAssigned ? (() => {
@@ -662,16 +678,13 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 const isAuto = ticket.autoAssigned === true || (ticket.ticketType === 'reactive' && ticket.autoAssigned !== false);
                 const avBg = isAssigned ? (isAuto ? '#B5D4F4' : '#FAC775') : 'transparent';
                 const avColor = isAssigned ? (isAuto ? '#185FA5' : '#854F0B') : '#E24B4A';
-                const pillBg = isAssigned ? (isAuto ? '#E6F1FB' : '#FAEEDA') : '#F1F0EC';
-                const pillColor = isAssigned ? (isAuto ? '#185FA5' : '#854F0B') : '#5F5E5A';
-                const pillBorder = isAssigned ? (isAuto ? '#B5D4F4' : '#FAC775') : '#D3D1C7';
                 return (
-                    <div style={{ marginTop: '6px', position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px 5px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, border: '0.5px solid', background: pillBg, color: pillColor, borderColor: pillBorder, cursor: 'pointer', boxSizing: 'border-box', minWidth: 'calc((100% - 12px) / 3)', maxWidth: '100%' }}>
+                    <div className="ds-bearbeiter-row">
                         {isAssigned
-                            ? <span className="ds-av" style={{ background: avBg, color: avColor, flexShrink: 0 }}>{initials}</span>
-                            : <span className="ds-av ds-av-un" style={{ flexShrink: 0 }}><i className="ti ti-plus" aria-hidden="true" /></span>
+                            ? <span className="ds-av" style={{ background: avBg, color: avColor, flexShrink: 0, width: 22, height: 22, fontSize: 9 }}>{initials}</span>
+                            : <span className="ds-av ds-av-un" style={{ flexShrink: 0, width: 22, height: 22 }}><i className="ti ti-plus" aria-hidden="true" /></span>
                         }
-                        <span style={{ flex: 1 }}>{isAssigned ? displayNameShort(ticket.technician) : 'Bearbeiter zuweisen'}</span>
+                        <span className="ds-bearbeiter-name">{isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}</span>
                         <ChevronDownIcon />
                         <select style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }} value={ticket.technician} onChange={e => handleFieldChange('technician', e.target.value)}>
                             <option value="N/A">Nicht zugewiesen</option>
