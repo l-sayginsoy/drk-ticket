@@ -173,13 +173,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                     display: flex;
                     flex-direction: column;
                     flex: 1;
-                    overflow-y: auto;
-                    overflow-x: hidden;
+                    overflow-y: scroll;
                     height: 100%;
                     padding: 0.75rem;
-                    scrollbar-width: none;
+                    box-sizing: border-box;
+                    /* Scrollbalken physisch außerhalb der Sidebar schieben */
+                    width: calc(100% + 20px);
                 }
-                .sidebar-inner::-webkit-scrollbar { display: none; width: 0; }
                 .sidebar-scroll-thumb {
                     position: fixed;
                     right: 3px;
@@ -199,6 +199,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 }
                 .sidebar.collapsed .sidebar-inner {
                     padding: 0.75rem 0.5rem;
+                    width: calc(100% + 20px);
                 }
                 .sidebar-header {
                     display: flex;
