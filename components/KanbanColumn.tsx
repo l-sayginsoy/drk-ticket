@@ -157,14 +157,13 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
               .board-column {
                   background-color: var(--bg-primary);
                   border: 1px solid var(--border);
-                  border-radius: 10px;
+                  border-radius: 12px;
                   padding: 12px 10px 16px;
                   box-sizing: border-box;
-                  transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-                  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
+                  transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
               }
               [data-theme="dark"] .board-column {
-                  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04);
+                  border-color: var(--border);
               }
               .board-column--in-panel {
                   background: var(--bg-primary);
@@ -180,10 +179,10 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
               }
               .column-header {
                   display: flex;
-                  flex-wrap: wrap;
+                  flex-wrap: nowrap;
                   justify-content: flex-start;
-                  align-items: baseline;
-                  gap: 0.55rem;
+                  align-items: center;
+                  gap: 0.45rem;
                   padding: 0 6px 12px 6px;
                   border-bottom: 1px solid var(--border);
               }

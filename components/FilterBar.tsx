@@ -168,27 +168,23 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                     width: 100%;
                     box-sizing: border-box;
                     margin-top: 1.25rem;
-                    background: var(--bg-primary);
-                    border: 1px solid var(--border);
-                    border-radius: 8px;
-                    padding: 14px 16px;
+                    background: transparent;
+                    border: none;
+                    border-radius: 0;
+                    padding: 10px 0;
                     display: flex;
                     align-items: center;
-                    gap: 1rem;
-                    transition: var(--transition-smooth);
+                    gap: 0.75rem;
                     flex-wrap: wrap;
-                    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
-                }
-                [data-theme="dark"] .filter-bar {
-                    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
                 }
                 .filter-bar--panel-embed {
                     max-width: none;
                     margin-top: 0;
-                    background: var(--bg-primary);
+                    background: transparent;
                     border: none;
                     border-radius: 0;
                     box-shadow: none;
+                    padding: 12px 16px;
                     border-bottom: 1px solid var(--border);
                 }
                 .filter-controls { display: flex; gap: 1rem; flex-wrap: wrap; flex-grow: 1; align-items: center; }
@@ -198,42 +194,41 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                 .view-toggle .toggle-btn { background: transparent; border: none; padding: 0.35rem 0.75rem; border-radius: 4px; cursor: pointer; font-weight: 500; font-size: 0.9rem; color: var(--text-muted); transition: all 0.2s ease; }
                 .view-toggle .toggle-btn.active { background: var(--bg-secondary); color: var(--text-primary); box-shadow: var(--shadow-sm); }
 
-                .custom-select { position: relative; border: 1px solid var(--border); border-radius: 6px; padding-right: 2rem; font-size: 0.9rem; min-width: 120px; cursor: pointer; color: var(--text-secondary); height: 38px; display: flex; align-items: center; transition: var(--transition-smooth); }
-                .custom-select:hover { border-color: var(--border-active); background-color: var(--bg-tertiary); }
-                .custom-select.group-by-select { background-color: var(--bg-tertiary); padding-left: 0.75rem; }
+                .custom-select { position: relative; border: 1px solid var(--border); border-radius: 20px; padding-right: 2rem; font-size: 0.875rem; min-width: 110px; cursor: pointer; color: var(--text-secondary); height: 34px; display: flex; align-items: center; transition: var(--transition-smooth); background: var(--bg-primary); }
+                .custom-select:hover { border-color: var(--border-active); background-color: var(--bg-primary); }
+                .custom-select.group-by-select { background-color: var(--bg-primary); padding-left: 0.85rem; border-radius: 20px; }
                 .custom-select.filter-chip {
-                    background-color: var(--bg-tertiary);
-                    padding-left: 0.75rem;
-                    border-radius: 6px;
+                    background-color: var(--bg-primary);
+                    padding-left: 0.85rem;
+                    border-radius: 20px;
                     border: 1px solid var(--border);
-                    box-shadow: none;
                 }
                 .custom-select.filter-chip:hover {
-                    background-color: var(--bg-tertiary);
+                    background-color: var(--bg-primary);
                     border-color: var(--border-active);
-                    box-shadow: none;
                 }
                 .custom-select.filter-chip.active {
-                    background-color: var(--bg-secondary);
+                    background-color: var(--bg-primary);
                     border-color: var(--text-secondary);
-                    box-shadow: none;
+                    color: var(--text-primary);
+                    font-weight: 600;
                 }
                 .custom-select select:focus { outline: none; }
                 .filter-badge {
-                    font-size: 0.8rem;
+                    font-size: 0.78rem;
                     font-weight: 600;
                     color: var(--text-primary);
                     background-color: var(--border);
-                    padding: 0.15rem 0.5rem;
-                    border-radius: 4px;
-                    margin-left: 0.5rem;
+                    padding: 0.1rem 0.45rem;
+                    border-radius: 10px;
+                    margin-left: 0.4rem;
                 }
 
                 .custom-select span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
                 .custom-select select { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
                 .custom-select svg { position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); pointer-events: none; width: 16px; height: 16px; color: var(--text-muted); }
                 
-                .action-btn { background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-secondary); font-size: 0.9rem; padding: 0.5rem 1rem; border-radius: 6px; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; transition: var(--transition-smooth); font-weight: 500; flex-shrink: 0; height: 38px; box-sizing: border-box; }
+                .action-btn { background: var(--bg-primary); border: 1px solid var(--border); color: var(--text-secondary); font-size: 0.875rem; padding: 0.4rem 1rem; border-radius: 20px; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; transition: var(--transition-smooth); font-weight: 500; flex-shrink: 0; height: 34px; box-sizing: border-box; }
                 .action-btn:hover { background: var(--border); }
                 .action-btn svg { width: 16px; height: 16px; }
                 .action-btn .ti {

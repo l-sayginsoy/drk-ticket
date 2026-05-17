@@ -3012,14 +3012,7 @@ if (newTicketData.ticketType === 'reactive') {
                 width: 100%;
                 margin-top: 1.25rem;
                 box-sizing: border-box;
-                border: 1px solid var(--border);
-                border-radius: 12px;
-                overflow: hidden;
-                background: var(--bg-secondary);
-                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-              }
-              [data-theme="dark"] .kanban-workbench {
-                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+                background: transparent;
               }
             `}</style>
             <FilterBar
