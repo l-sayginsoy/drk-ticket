@@ -600,10 +600,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             {/* ── 3. STANDORT | BEREICH ── */}
             <div className="ds-fields-grid">
                 <div>
-                    <p className="detail-label-compact">
-                        <i className="ti ti-map-pin" aria-hidden="true" style={{ fontSize: '11px', marginRight: 3 }} />
-                        Standort
-                    </p>
+                    <p className="detail-label-compact">Standort</p>
                     {isEditing
                         ? <input className="edit-input-compact" value={editDraft.area} onChange={e => setEditDraft(d => ({ ...d, area: e.target.value }))} />
                         : <p className="detail-value-compact">{ticket.area}</p>
