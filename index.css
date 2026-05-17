@@ -8,7 +8,7 @@
     --text-main: #1d1d1f;
     --text-muted: #6e6e73;
     --border-color: #e5e5ea;
-
+    
     --bg-primary: #f8f9fa;
     --bg-secondary: #ffffff;
     --bg-tertiary: #f1f3f5;
@@ -30,6 +30,7 @@
 }
 
 [data-theme="dark"] {
+    --bg-page: #111213;
     --bg-primary: #18191a;
     --bg-secondary: #242526;
     --bg-tertiary: #3a3b3c;
@@ -40,6 +41,15 @@
     --text-muted: #8a8d91;
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.2), 0 2px 4px -2px rgb(0 0 0 / 0.2);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.25), 0 4px 6px -4px rgb(0 0 0 / 0.25);
+}
+
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border-color: var(--border);
+    color-scheme: dark;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -89,13 +99,6 @@ input, select, textarea, button {
     background: var(--text-muted);
 }
 
-/* Sidebar + nav-menu + main: alle nativen Scrollbalken ausblenden */
-.sidebar, .sidebar-body, .sidebar-inner, .nav-menu { scrollbar-width: none !important; }
-.sidebar::-webkit-scrollbar,
-.sidebar-body::-webkit-scrollbar,
-.sidebar-inner::-webkit-scrollbar,
-.nav-menu::-webkit-scrollbar { display: none !important; width: 0 !important; }
-
 .app-layout {
     display: flex;
     width: 100%;
@@ -109,9 +112,7 @@ main {
     height: 100%;
     overflow-y: auto;
     position: relative;
-    scrollbar-width: none;
 }
-main::-webkit-scrollbar { display: none; }
  @media (max-width: 768px) {
     main {
         padding: 1rem;
@@ -203,4 +204,43 @@ main > header.main-header .header-actions {
     animation: pulse-danger 1.5s infinite;
     display: inline-block;
     flex-shrink: 0;
+}
+
+/* Dark mode: priority chip text needs more contrast */
+[data-theme="dark"] .custom-dropdown.priority-high,
+[data-theme="dark"] .priority-pill.priority-high,
+[data-theme="dark"] .editable-field-compact.priority-high {
+    background-color: rgba(220, 53, 69, 0.2) !important;
+    color: #f87171 !important;
+    border-color: rgba(220, 53, 69, 0.4) !important;
+}
+[data-theme="dark"] .custom-dropdown.priority-medium,
+[data-theme="dark"] .priority-pill.priority-medium,
+[data-theme="dark"] .editable-field-compact.priority-medium {
+    background-color: rgba(255, 193, 7, 0.15) !important;
+    color: #fbbf24 !important;
+    border-color: rgba(255, 193, 7, 0.35) !important;
+}
+[data-theme="dark"] .custom-dropdown.priority-low,
+[data-theme="dark"] .priority-pill.priority-low,
+[data-theme="dark"] .editable-field-compact.priority-low {
+    background-color: rgba(25, 135, 84, 0.2) !important;
+    color: #34d399 !important;
+    border-color: rgba(25, 135, 84, 0.4) !important;
+}
+/* Dark mode: Wiedereröffnet badge */
+[data-theme="dark"] .ticket-card span[title="Ticket wurde vom Melder wiedereröffnet"] {
+    background: rgba(234, 88, 12, 0.2) !important;
+    color: #fb923c !important;
+    border-color: rgba(234, 88, 12, 0.4) !important;
+}
+/* Dark mode: routine chip completed state */
+[data-theme="dark"] .routine-chip {
+    background: var(--bg-tertiary) !important;
+    border-color: var(--border) !important;
+    color: var(--text-secondary) !important;
+}
+/* Dark mode: table rows hover */
+[data-theme="dark"] .ticket-table tbody tr:hover td {
+    background-color: var(--bg-tertiary);
 }
