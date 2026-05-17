@@ -360,12 +360,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                 }
                 .nav-menu {
                     flex-grow: 1;
-                    overflow-y: auto;
-                    overflow-x: hidden;
+                    overflow: visible;
                     margin-top: 0;
-                    scrollbar-width: none;
                 }
-                .nav-menu::-webkit-scrollbar { display: none; }
                 .sidebar.collapsed .nav-menu {
                     overflow: visible; /* Allow popovers to show */
                 }
