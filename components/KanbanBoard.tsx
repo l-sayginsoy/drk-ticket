@@ -57,16 +57,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   const getTicketsForColumn = (status: Status) => {
     const col = tickets.filter(t => t.status === status && t.status !== Status.Abgeschlossen);
-    if (status === Status.Offen) {
-      return col.sort((a, b) => {
-        if (a.is_emergency && !b.is_emergency) return -1;
-        if (!a.is_emergency && b.is_emergency) return 1;
-        const aU = isUnassigned(a), bU = isUnassigned(b);
-        if (aU && !bU) return -1;
-        if (!aU && bU) return 1;
-        return parseGermanDate(b.entryDate).localeCompare(parseGermanDate(a.entryDate));
-      });
-    }
     return col.sort((a, b) => {
       if (a.is_emergency && !b.is_emergency) return -1;
       if (!a.is_emergency && b.is_emergency) return 1;
