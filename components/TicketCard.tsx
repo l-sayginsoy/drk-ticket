@@ -97,7 +97,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
 
     const isInDragZone = (e: { clientY: number; currentTarget: HTMLElement }) => {
         const rect = e.currentTarget.getBoundingClientRect();
-        return (e.clientY - rect.top) <= 38;
+        return (e.clientY - rect.top) <= 24;
     };
 
     const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -259,7 +259,8 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     cursor: default;
                 }
                 [data-theme="dark"] .ticket-card { border-color: var(--border); }
-                .ticket-card:hover { transform: translateY(-1px); }
+                .ticket-card:hover { transform: translateY(-1px); background-color: #fafafa; }
+                [data-theme="dark"] .ticket-card:hover { background-color: var(--bg-tertiary); }
                 .ticket-card.urgent-alert { animation: pulse-border 1.5s infinite; }
                 .ticket-card.selected { border-left-color: #378ADD !important; }
 
@@ -309,13 +310,10 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     border-top: 0.5px solid #E5E5E5;
                     padding: 8px 14px;
                     display: flex; align-items: center;
-                    cursor: pointer; transition: background 0.12s;
-                    /* Footer nicht als Drag-Griff anzeigen */
+                    cursor: default; transition: background 0.12s;
                     -webkit-user-drag: none;
                 }
                 [data-theme="dark"] .card-footer { background: var(--bg-tertiary); border-top-color: var(--border); }
-                .card-footer:hover { background: #F1F0EC; }
-                [data-theme="dark"] .card-footer:hover { background: var(--border); }
 
                 .assignee-chip {
                     display: inline-flex; align-items: center; gap: 5px;
@@ -343,7 +341,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     transition: border-color 0.12s;
                 }
                 [data-theme="dark"] .footer-detail-btn { background: var(--bg-secondary); border-color: var(--border); }
-                .card-footer:hover .footer-detail-btn { border-color: #378ADD; }
+                .ticket-card:hover .footer-detail-btn { border-color: #378ADD; }
                 .footer-detail-btn i { font-size: 14px; }
 
                 .footer-info-pill {
