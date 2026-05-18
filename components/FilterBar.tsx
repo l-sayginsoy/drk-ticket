@@ -168,23 +168,19 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                     width: 100%;
                     box-sizing: border-box;
                     margin-top: 1.25rem;
-                    background: var(--bg-primary);
-                    border: 1px solid var(--border);
-                    border-radius: 8px;
-                    padding: 14px 16px;
+                    background: transparent;
+                    border: none;
+                    border-radius: 0;
+                    padding: 10px 0;
                     display: flex;
                     align-items: center;
                     gap: 0.75rem;
                     flex-wrap: wrap;
-                    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
-                }
-                [data-theme="dark"] .filter-bar {
-                    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
                 }
                 .filter-bar--panel-embed {
                     max-width: none;
                     margin-top: 0;
-                    background: var(--bg-primary);
+                    background: transparent;
                     border: none;
                     border-radius: 0;
                     box-shadow: none;

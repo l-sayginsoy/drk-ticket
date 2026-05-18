@@ -155,15 +155,16 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
       >
            <style>{`
               .board-column {
-                  background-color: var(--bg-primary);
+                  background-color: var(--bg-secondary);
                   border: 1px solid var(--border);
                   border-radius: 12px;
                   padding: 12px 10px 16px;
                   box-sizing: border-box;
-                  transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+                  transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+                  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
               }
               [data-theme="dark"] .board-column {
-                  border-color: var(--border);
+                  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
               }
               .board-column--in-panel {
                   background: var(--bg-primary);
