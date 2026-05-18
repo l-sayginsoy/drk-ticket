@@ -278,6 +278,14 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .card-tnum { font-size: 10px; color: #999; white-space: nowrap; margin-top: 2px; }
                 .urgent-icon { color: #E24B4A; }
                 .stagnating-icon { color: #378ADD; }
+                .new-note-indicator {
+                    display: inline-block;
+                    width: 8px; height: 8px;
+                    border-radius: 50%;
+                    background: #F97316;
+                    flex-shrink: 0;
+                    margin-top: 3px;
+                }
 
                 .card-loc { font-size: 12px; color: #555; font-weight: 500; margin-bottom: 3px; }
                 .card-who { display: flex; align-items: center; gap: 3px; font-size: 11px; color: #666; margin-bottom: 11px; flex-wrap: nowrap; }
@@ -347,7 +355,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     pointer-events: none; flex-shrink: 0;
                 }
                 .footer-info-pill i { font-size: 11px; }
-                .footer-info-pill--msg-unread  { background: #E24B4A; color: #fff; }
+                .footer-info-pill--msg-unread  { background: #F97316; color: #fff; }
                 .footer-info-pill--msg-read    { background: rgba(0,0,0,0.07); color: var(--text-secondary); }
                 [data-theme="dark"] .footer-info-pill--msg-read { background: rgba(255,255,255,0.1); color: var(--text-muted); }
                 .footer-info-pill--emergency   { background: #7F1D1D; color: #FEE2E2; }
