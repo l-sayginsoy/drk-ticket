@@ -52,7 +52,6 @@ const PencilIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 
 const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClose, onUpdateTicket, users, statuses, currentUser, appSettings }) => {
     const dueDateInputRef = useRef<HTMLInputElement>(null);
-    const dueDatePickerOpenRef = useRef<boolean>(false);
     const [viewingImageSrc, setViewingImageSrc] = useState<string | null>(null);
     const [newNote, setNewNote] = useState('');
     const [isEditing, setIsEditing] = useState(false);
@@ -655,17 +654,6 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                     <div className="ds-pill-lbl">Fällig bis</div>
                     <div
                         className={`ds-pill ds-pill-due${dueDateUrgency !== 'normal' ? ` ${dueDateUrgency}` : ''}`}
-                        onClick={() => {
-                            if (dueDatePickerOpenRef.current) {
-                                dueDatePickerOpenRef.current = false;
-                                dueDateInputRef.current?.blur();
-                            } else {
-                                try {
-                                    dueDatePickerOpenRef.current = true;
-                                    dueDateInputRef.current?.showPicker();
-                                } catch { dueDatePickerOpenRef.current = false; }
-                            }
-                        }}
                     >
                         <i className="ti ti-calendar-due" aria-hidden="true" style={{ pointerEvents: 'none', fontSize: 11 }} />
                         <span style={{ pointerEvents: 'none' }}>{ticket.dueDate.slice(0,5)}.</span>
@@ -673,9 +661,9 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                             ref={dueDateInputRef}
                             type="date"
                             value={toInputDate(ticket.dueDate)}
-                            onChange={e => { dueDatePickerOpenRef.current = false; handleFieldChange('dueDate', fromInputDate(e.target.value)); }}
-                            onBlur={() => { dueDatePickerOpenRef.current = false; }}
-                            style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+                            onChange={e => handleFieldChange('dueDate', fromInputDate(e.target.value))}
+                            onClick={e => { try { (e.currentTarget as HTMLInputElement).showPicker(); } catch {} }}
+                            style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer', pointerEvents: 'auto' }}
                         />
                     </div>
                 </div>
