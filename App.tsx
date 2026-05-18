@@ -116,6 +116,12 @@ type DrkBrevoMailPayload =
       description: string;
       entryDate: string;
       entryTime?: string;
+    }
+  | {
+      kind: 'due_date_changed';
+      ticketId: string;
+      title: string;
+      newDueDate: string;
     };
 
 const drkBrevoBannerTitle = (p: DrkBrevoMailPayload) => {
@@ -130,6 +136,8 @@ const drkBrevoBannerTitle = (p: DrkBrevoMailPayload) => {
       return 'Ihre Meldung wird bearbeitet';
     case 'admin_new_ticket':
       return 'Neue Meldung eingegangen';
+    case 'due_date_changed':
+      return 'Fälligkeitstermin geändert';
   }
 };
 
@@ -212,6 +220,22 @@ const buildDrkBrevoPlainText = (p: DrkBrevoMailPayload) => {
       '',
       'Diese E-Mail wurde automatisch erzeugt.',
     ].filter(l => l !== '').join('\n');
+  }
+  if (p.kind === 'due_date_changed') {
+    return [
+      'DRK Serviceportal',
+      '',
+      `Ticketnummer: ${p.ticketId}`,
+      '',
+      `Der Fälligkeitstermin Ihrer Meldung „${p.title}" wurde geändert.`,
+      '',
+      `Neuer Termin: ${p.newDueDate}`,
+      '',
+      'Direktlink zu Ihrem Ticket:',
+      `${DRK_TICKET_PORTAL_URL}/?ticket=${encodeURIComponent(p.ticketId)}`,
+      '',
+      'Diese E-Mail wurde automatisch erzeugt. Bitte nicht antworten.',
+    ].join('\n');
   }
   return [
     'DRK Serviceportal',
@@ -367,6 +391,17 @@ ${portalOpenButtonWrappedHtml(p.ticketId, '0')}`;
     const inner = `
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:4px;">${rows}</table>
 ${descHtml}`;
+    return drkEmailShellHtml(title, inner, p.ticketId, '');
+  }
+  if (p.kind === 'due_date_changed') {
+    const inner = `
+<p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:#333;">Der Fälligkeitstermin Ihrer Meldung hat sich geändert:</p>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:20px;">
+<tr><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#555;white-space:nowrap;padding-right:16px;">Ticket-Nr.</td><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#222;font-weight:600;">${escapeHtml(p.ticketId)}</td></tr>
+<tr><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#555;white-space:nowrap;padding-right:16px;">Betreff</td><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#222;font-weight:600;">${escapeHtml(p.title)}</td></tr>
+<tr><td style="padding:8px 0;font-size:14px;color:#555;white-space:nowrap;padding-right:16px;">Neuer Termin</td><td style="padding:8px 0;font-size:15px;color:#222;font-weight:700;">${escapeHtml(p.newDueDate)}</td></tr>
+</table>
+${portalOpenButtonWrappedHtml(p.ticketId, '0')}`;
     return drkEmailShellHtml(title, inner, p.ticketId, '');
   }
   const inner = `
@@ -1874,9 +1909,17 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       ut.is_reopened = false;
     }
 
+    const dueDateManuallyChangedForMail = updatedTicket.dueDate !== originalTicket.dueDate;
     const reporterMailTo = ut.reporter_email?.trim();
     if (reporterMailTo) {
-      if (statusChanged && ut.status === Status.Abgeschlossen) {
+      if (dueDateManuallyChangedForMail && ut.status !== Status.Abgeschlossen) {
+        sendDrkBrevoMail(reporterMailTo, `Terminänderung zu Ihrer Meldung – Ticket ${ut.id}`, {
+          kind: 'due_date_changed',
+          ticketId: ut.id,
+          title: ut.title || '—',
+          newDueDate: ut.dueDate || '—',
+        });
+      } else if (statusChanged && ut.status === Status.Abgeschlossen) {
         sendDrkBrevoMail(reporterMailTo, `Ihre Meldung wurde abgeschlossen – Ticket ${ut.id}`, {
           kind: 'ticket_closed',
           ticketId: ut.id,
