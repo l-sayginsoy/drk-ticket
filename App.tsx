@@ -585,19 +585,33 @@ const getFormattedDate = () => {
 };
 
 // FIX: Made title optional in ticketData to fix type error and handled potential undefined value.
+/** Prüft ob ein Keyword als ganzes Wort im Text vorkommt (nicht als Teilstring). */
+const keywordMatchesText = (keyword: string, text: string): boolean => {
+    const kw = keyword.trim().toLowerCase();
+    if (!kw) return false;
+    // Exakter Wortgrenzen-Vergleich: Keyword muss von Wortgrenzen umgeben sein
+    try {
+        return new RegExp(`(?<![a-zäöüß])${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![a-zäöüß])`, 'i').test(text);
+    } catch {
+        return text.includes(kw);
+    }
+};
+
 const assignTicket = (
     ticketData: { title?: string; description?: string; },
     users: User[],
     tickets: Ticket[],
     routingRules: RoutingRule[]
 ): string => {
-    let assignedTechnician = 'N/A';
     const fullText = `${ticketData.title || ''} ${ticketData.description || ''}`.toLowerCase();
-    
-    // Find a rule that matches keywords in the ticket's title or description
-    const matchedRule = routingRules.find(rule => 
-        rule.keyword.toLowerCase().split(',').some(kw => fullText.includes(kw.trim()))
+
+    // Nur Regeln mit mindestens einem echten Keyword-Match
+    const matchedRule = routingRules.find(rule =>
+        rule.keyword.split(',').some(kw => keywordMatchesText(kw, fullText))
     );
+
+    // Kein Keyword-Match → kein automatisches Zuweisen
+    if (!matchedRule) return 'N/A';
 
     const availableUsers = users.filter(u =>
         (u.role === Role.Technician || u.role === Role.Housekeeping) &&
@@ -605,34 +619,21 @@ const assignTicket = (
         u.availability.status === AvailabilityStatus.Available
     );
 
-    if (matchedRule) {
-        // Kandidaten: direkt zugeordnete Mitarbeiter (assignees), dann Fallback auf alle verfügbaren
-        let pool = availableUsers.filter(u =>
-            matchedRule.assignees && matchedRule.assignees.length > 0
-                ? matchedRule.assignees.includes(u.name)
-                : false
-        );
-        // Fallback: wenn keine Assignees konfiguriert, alle verfügbaren Techniker nehmen
-        if (pool.length === 0) pool = availableUsers;
+    // Kandidaten: nur die in der Regel konfigurierten Assignees
+    // Wenn die Regel keine Assignees hat → nicht zuweisen
+    const pool = (matchedRule.assignees && matchedRule.assignees.length > 0)
+        ? availableUsers.filter(u => matchedRule.assignees!.includes(u.name))
+        : [];
 
-        if (pool.length > 0) {
-            const withLoad = pool.map(tech => ({
-                ...tech,
-                load: tickets.filter(t => t.technician === tech.name && t.status !== Status.Abgeschlossen).length
-            }));
-            withLoad.sort((a, b) => a.load - b.load);
-            assignedTechnician = withLoad[0].name;
-        }
-    } else if (availableUsers.length > 0) {
-        // Kein Keyword-Match: trotzdem dem Techniker mit der geringsten Last zuweisen
-        const withLoad = availableUsers.map(u => ({
-            ...u,
-            load: tickets.filter(t => t.technician === u.name && t.status !== Status.Abgeschlossen).length
-        }));
-        withLoad.sort((a, b) => a.load - b.load);
-        assignedTechnician = withLoad[0].name;
-    }
-    return assignedTechnician;
+    if (pool.length === 0) return 'N/A';
+
+    // Den mit der geringsten aktuellen Last zuweisen
+    const withLoad = pool.map(tech => ({
+        ...tech,
+        load: tickets.filter(t => t.technician === tech.name && t.status !== Status.Abgeschlossen).length
+    }));
+    withLoad.sort((a, b) => a.load - b.load);
+    return withLoad[0].name;
 };
 
 /** Erkennt die Kategorie automatisch aus Betreff + Beschreibung anhand der Routing-Regeln. */
@@ -2152,17 +2153,16 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     let assignedTechnician = newTicketData.technician || 'N/A';
     let wasAutoAssigned = false;
 
-if (newTicketData.ticketType === 'reactive') {
-  assignedTechnician = newTicketData.technician || 'N/A';
-} else if (assignedTechnician === 'N/A') {
-  assignedTechnician = assignTicket(
-    { title: newTicketData.title, description: newTicketData.description },
-    users,
-    tickets,
-    appSettings.routingRules
-  );
-  if (assignedTechnician !== 'N/A') wasAutoAssigned = true;
-}
+    // Alle Ticket-Typen (reactive, preventive, routine) nutzen Routing-Regeln wenn kein Techniker vorgegeben
+    if (assignedTechnician === 'N/A') {
+      assignedTechnician = assignTicket(
+        { title: newTicketData.title, description: newTicketData.description },
+        users,
+        tickets,
+        appSettings.routingRules
+      );
+      if (assignedTechnician !== 'N/A') wasAutoAssigned = true;
+    }
     let autoCorrectionNote = '';
 
     // Wenn ein Bearbeiter manuell gewählt wurde, prüfen ob er abwesend ist
