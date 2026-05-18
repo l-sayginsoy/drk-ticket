@@ -250,7 +250,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     background: var(--bg-secondary);
                     border-radius: 12px;
                     margin-bottom: 12px;
-                    border: 0.5px solid #E5E5E5;
+                    border: 1px solid #E0E0E0;
                     border-left-width: 3px;
                     border-left-style: solid;
                     overflow: hidden;
