@@ -1912,7 +1912,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     const dueDateManuallyChangedForMail = updatedTicket.dueDate !== originalTicket.dueDate;
     const reporterMailTo = ut.reporter_email?.trim();
     if (reporterMailTo) {
-      if (dueDateManuallyChangedForMail && ut.status !== Status.Abgeschlossen) {
+      if (dueDateManuallyChangedForMail && (ut.status === Status.InArbeit || ut.status === Status.Ueberfaellig)) {
         sendDrkBrevoMail(reporterMailTo, `Terminänderung zu Ihrer Meldung – Ticket ${ut.id}`, {
           kind: 'due_date_changed',
           ticketId: ut.id,
