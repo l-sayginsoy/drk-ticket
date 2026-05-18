@@ -95,10 +95,28 @@ const TicketCard: React.FC<TicketCardProps> = ({
         return '';
     };
 
+    const isInDragZone = (e: { clientY: number; currentTarget: HTMLElement }) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        return (e.clientY - rect.top) <= rect.height / 4;
+    };
+
+    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+        const target = e.target as HTMLElement;
+        if (target.closest('.card-footer')) return;
+        e.currentTarget.style.cursor = isInDragZone(e) ? 'grab' : 'default';
+    };
+
+    const handleMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
+        e.currentTarget.style.cursor = 'default';
+    };
+
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
         const target = e.target as HTMLElement;
-        // Kein Drag vom Footer oder interaktiven Elementen
         if (target.closest('.card-footer') || target.closest('select, input, button, a')) {
+            e.preventDefault();
+            return;
+        }
+        if (!isInDragZone(e)) {
             e.preventDefault();
             return;
         }
@@ -219,6 +237,8 @@ const TicketCard: React.FC<TicketCardProps> = ({
             draggable="true"
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
         >
             <style>{`
                 @keyframes pulse-border {
@@ -241,11 +261,10 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 [data-theme="dark"] .ticket-card { border-color: var(--border); }
                 .ticket-card:hover { transform: translateY(-1px); }
                 .ticket-card.urgent-alert { animation: pulse-border 1.5s infinite; }
-                .ticket-card.selected { outline: 2px solid #378ADD; outline-offset: 1px; }
+                .ticket-card.selected { border-left-color: #378ADD !important; }
 
                 /* ── Body ── */
-                .card-body { padding: 12px 14px 12px; cursor: grab; }
-                .card-body:active { cursor: grabbing; }
+                .card-body { padding: 12px 14px 12px; }
                 .card-row1 { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 3px; }
                 .card-title { font-size: 13px; font-weight: 500; color: var(--text-primary); flex: 1; line-height: 1.35; margin: 0; }
                 .card-icons { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
