@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 // FIX: Import User type to align with App state
 import { Ticket, Status, Priority, Role, User, AppSettings, AvailabilityStatus } from '../types';
 import { XIcon } from './icons/XIcon';
@@ -51,6 +51,7 @@ const PencilIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 );
 
 const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClose, onUpdateTicket, users, statuses, currentUser, appSettings }) => {
+    const dueDateInputRef = useRef<HTMLInputElement>(null);
     const [viewingImageSrc, setViewingImageSrc] = useState<string | null>(null);
     const [newNote, setNewNote] = useState('');
     const [isEditing, setIsEditing] = useState(false);
@@ -651,10 +652,19 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 </div>
                 <div className="ds-pill-cell">
                     <div className="ds-pill-lbl">Fällig bis</div>
-                    <div className={`ds-pill ds-pill-due${dueDateUrgency !== 'normal' ? ` ${dueDateUrgency}` : ''}`}>
+                    <div
+                        className={`ds-pill ds-pill-due${dueDateUrgency !== 'normal' ? ` ${dueDateUrgency}` : ''}`}
+                        onClick={() => { try { dueDateInputRef.current?.showPicker(); } catch {} }}
+                    >
                         <i className="ti ti-calendar-due" aria-hidden="true" style={{ pointerEvents: 'none', fontSize: 11 }} />
                         <span style={{ pointerEvents: 'none' }}>{ticket.dueDate.slice(0,5)}.</span>
-                        <input type="date" value={toInputDate(ticket.dueDate)} onChange={e => handleFieldChange('dueDate', fromInputDate(e.target.value))} />
+                        <input
+                            ref={dueDateInputRef}
+                            type="date"
+                            value={toInputDate(ticket.dueDate)}
+                            onChange={e => handleFieldChange('dueDate', fromInputDate(e.target.value))}
+                            style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+                        />
                     </div>
                 </div>
                 <div className="ds-pill-cell">
