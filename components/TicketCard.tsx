@@ -250,7 +250,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     background: var(--bg-secondary);
                     border-radius: 12px;
                     margin-bottom: 12px;
-                    border: 1px solid #C8CDD5;
+                    border: 1.5px solid #B0B8C4;
                     border-left-width: 3px;
                     border-left-style: solid;
                     overflow: hidden;
@@ -314,8 +314,8 @@ const TicketCard: React.FC<TicketCardProps> = ({
 
                 /* ── Footer ── */
                 .card-footer {
-                    background: #EDEEF0;
-                    border-top: 1px solid #C8CDD5;
+                    background: #E4E7EB;
+                    border-top: 1px solid #B0B8C4;
                     padding: 8px 14px;
                     display: flex; align-items: center;
                     cursor: default; transition: background 0.12s;
