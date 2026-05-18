@@ -97,20 +97,18 @@ const TicketCard: React.FC<TicketCardProps> = ({
 
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
         const target = e.target as HTMLElement;
-        if (target.closest('select, input, button, a')) {
+        // Kein Drag vom Footer oder interaktiven Elementen
+        if (target.closest('.card-footer') || target.closest('select, input, button, a')) {
             e.preventDefault();
             return;
         }
         e.dataTransfer.setData("ticketId", ticket.id);
         e.dataTransfer.effectAllowed = 'move';
-        // Opacity auf die gesamte Karte anwenden
-        const card = e.currentTarget.closest('.ticket-card') as HTMLElement | null;
-        if (card) card.style.opacity = '0.5';
+        e.currentTarget.style.opacity = '0.5';
     };
 
     const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
-        const card = e.currentTarget.closest('.ticket-card') as HTMLElement | null;
-        if (card) card.style.opacity = '';
+        e.currentTarget.style.opacity = '';
     };
     
     const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -218,6 +216,9 @@ const TicketCard: React.FC<TicketCardProps> = ({
         <div
             className={cardClasses}
             style={{ borderLeftColor: statusBorderColor[ticket.status] ?? '#888780' }}
+            draggable="true"
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
         >
             <style>{`
                 @keyframes pulse-border {
@@ -235,15 +236,16 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     overflow: hidden;
                     transition: transform 0.15s ease;
                     position: relative;
+                    cursor: grab;
                 }
+                .ticket-card:active { cursor: grabbing; }
                 [data-theme="dark"] .ticket-card { border-color: var(--border); }
                 .ticket-card:hover { transform: translateY(-1px); }
                 .ticket-card.urgent-alert { animation: pulse-border 1.5s infinite; }
                 .ticket-card.selected { outline: 2px solid #378ADD; outline-offset: 1px; }
 
                 /* ── Body ── */
-                .card-body { padding: 12px 14px 12px; cursor: grab; }
-                .card-body:active { cursor: grabbing; }
+                .card-body { padding: 12px 14px 12px; }
                 .card-row1 { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 3px; }
                 .card-title { font-size: 13px; font-weight: 500; color: var(--text-primary); flex: 1; line-height: 1.35; margin: 0; }
                 .card-icons { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
@@ -289,6 +291,8 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     padding: 8px 14px;
                     display: flex; align-items: center;
                     cursor: pointer; transition: background 0.12s;
+                    /* Footer nicht als Drag-Griff anzeigen */
+                    -webkit-user-drag: none;
                 }
                 [data-theme="dark"] .card-footer { background: var(--bg-tertiary); border-top-color: var(--border); }
                 .card-footer:hover { background: #F1F0EC; }
@@ -336,12 +340,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .footer-info-pill--reopened  { background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; }
             `}</style>
 
-            <div
-                className="card-body"
-                draggable="true"
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-            >
+            <div className="card-body">
                 {/* Zeile 1: Titel + Badges + Ticketnummer */}
                 <div className="card-row1">
                     <h3 className="card-title">{ticket.title}</h3>
