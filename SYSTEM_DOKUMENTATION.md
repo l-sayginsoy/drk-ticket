@@ -20,11 +20,12 @@
 11. [E-Mail-Benachrichtigungen (Brevo)](#11-e-mail-benachrichtigungen-brevo)
 12. [Firebase Datenstruktur](#12-firebase-datenstruktur)
 13. [Portal (öffentliche Meldeseite)](#13-portal-öffentliche-meldeseite)
-14. [Drag & Drop / Kanban-Board](#14-drag--drop--kanban-board)
-15. [Datumskalender (plattformübergreifend)](#15-datumskalender-plattformübergreifend)
-16. [Umgebungsvariablen](#16-umgebungsvariablen)
-17. [Deployment (GitHub Actions)](#17-deployment-github-actions)
-18. [Änderungshistorie](#18-änderungshistorie)
+14. [Kanban-Board & Ticket-Karten](#14-kanban-board--ticket-karten)
+15. [In-App Benachrichtigungen (Toast-Banner)](#15-in-app-benachrichtigungen-toast-banner)
+16. [Datumskalender (plattformübergreifend)](#16-datumskalender-plattformübergreifend)
+17. [Umgebungsvariablen](#17-umgebungsvariablen)
+18. [Deployment (GitHub Actions)](#18-deployment-github-actions)
+19. [Änderungshistorie](#19-änderungshistorie)
 
 ---
 
@@ -33,9 +34,9 @@
 | Schicht | Technologie |
 |---|---|
 | Frontend | React 18, TypeScript, Vite |
-| Datenbank | Firebase Firestore (Realtime Listener) |
+| Datenbank | Firebase Firestore (Realtime Listener für aktive Tickets) |
 | E-Mail | Brevo (ehemals Sendinblue) REST API v3 |
-| Hosting | GitHub Pages via GitHub Actions |
+| Hosting | Firebase Hosting via GitHub Actions |
 | Styling | Inline-CSS + CSS-Variablen (kein CSS-Framework) |
 | Icons | Tabler Icons (`ti ti-*`) |
 
@@ -57,23 +58,27 @@
 │   ├── TicketDetailSidebar.tsx # Detailansicht / Bearbeitungspanel
 │   ├── FilterBar.tsx           # Filter-Chips, Gruppen-Umschalter
 │   ├── TicketTableView.tsx     # Tabellenansicht (gruppiert / ungroupiert)
-│   ├── ErledigtTableView.tsx   # Ansicht abgeschlossener Tickets
+│   ├── ErledigtTableView.tsx   # Ansicht abgeschlossener Tickets (monatsweise)
 │   ├── TechnicianView.tsx      # Mitarbeiter-Übersicht
 │   ├── ReportsView.tsx         # Auswertungen / Statistiken
 │   ├── RoutineSchedulesView.tsx# Serienauftrags-Verwaltung
 │   ├── RoutineNachweisView.tsx # Nachweis-Ansicht für Routinen
 │   ├── SettingsView.tsx        # Admin-Einstellungen
 │   ├── NewTicketModal.tsx      # Modal: neues Ticket anlegen
+│   ├── ToastContainer.tsx      # In-App Toast-Benachrichtigungen (Banner unten)
 │   ├── Header.tsx              # App-Header mit Suche und Login
 │   ├── Sidebar.tsx             # Navigation links
 │   ├── DashboardRoutineLinkBar.tsx # Schnelllink zu offenen Routinen
-│   ├── ModernDashboard.tsx     # Dashboard-Haupt-Layout
-│   └── ...
+│   └── ModernDashboard.tsx     # Dashboard-Haupt-Layout
 ├── utils/
 │   ├── routineHelpers.ts       # Wiederholungslogik für Serienaufträge
 │   ├── displayNames.ts         # Kurzname-Formatierung (Vor + Nachname-Initial)
+│   ├── brevoHealth.ts          # Brevo API-Key Prüfung + Status-Events
 │   ├── routineUiPalette.ts     # Farb-Palette für Routine-Karten
 │   └── rpHolidays.ts           # Rheinland-Pfalz Feiertage
+└── .github/workflows/
+    ├── deploy-firebase.yml     # Deploy bei Push auf main
+    └── brevo-keepalive.yml     # Täglicher Keep-Alive Job (07:00 UTC)
 ```
 
 ---
@@ -90,7 +95,7 @@
 - Login per Passwort (in Firebase `app_data` gespeichert, kein Auth-Provider)
 - `currentUser` State in `App.tsx` steuert alle UI-Einschränkungen
 - Techniker sehen nur Tickets die ihnen zugewiesen sind (Filter wird automatisch gesetzt)
-- Techniker und Hauswirtschaft können den eigenen Techniker-Filter nicht ändern (`isServiceTeamUser`)
+- Techniker und Hauswirtschaft können den eigenen Techniker-Filter nicht ändern
 
 ---
 
@@ -112,23 +117,25 @@ Erstellt (Portal / Admin)
 - **`reactive`**: Reaktives Ticket (Störungsmeldung, Reparatur) — hat SLA-gesteuerte Fälligkeitsdaten
 - **`routine`**: Serienauftrag (täglich, wöchentlich, monatlich) — wird automatisch generiert
 
-### Ticket-Felder (Auswahl)
+### Wichtige Ticket-Felder
 
 | Feld | Typ | Bedeutung |
 |---|---|---|
-| `id` | string | Eindeutige ID (z.B. `TKT-1234`) |
+| `id` | string | Eindeutige ID (z.B. `38619`) |
 | `title` | string | Betreff des Tickets |
 | `description` | string | Detailbeschreibung |
 | `status` | Status | Offen / In Arbeit / Überfällig / Abgeschlossen |
 | `priority` | Priority | Hoch / Mittel / Niedrig |
 | `area` | string | Standort (z.B. "Hauptgebäude") |
 | `location` | string | Genaue Lokation (z.B. "Zimmer 12") |
-| `technician` | string | Zugewiesener Bearbeiter (Name) |
+| `technician` | string | Zugewiesener Bearbeiter (Name) oder `'N/A'` |
 | `dueDate` | string | Fälligkeitsdatum `DD.MM.YYYY` |
+| `closedAt` | string | Abschlussdatum `YYYY-MM-DD` (für Firebase-Abfragen) |
 | `entryDate` | string | Erfassungsdatum |
 | `reporter` | string | Name des Melders |
 | `reporter_email` | string | E-Mail des Melders (für Benachrichtigungen) |
 | `notes` | string[] | Verlauf / Kommentare mit Zeitstempel |
+| `hasNewNoteFromReporter` | boolean | Ungelesene Nachricht vom Melder vorhanden |
 | `is_emergency` | boolean | Notfall-Markierung (erscheint immer oben) |
 | `is_reopened` | boolean | Wurde Ticket nach Abschluss wieder geöffnet |
 | `autoAssigned` | boolean | Wurde Bearbeiter automatisch zugewiesen |
@@ -150,7 +157,7 @@ Erstellt (Portal / Admin)
 | `Abgeschlossen` | Grün | Fertig, in `completed_tickets` |
 
 ### Überfällig-Erkennung
-- Läuft automatisch täglich (`useEffect` in `App.tsx`)
+- Läuft automatisch täglich beim App-Start
 - Prüft alle aktiven Tickets: `dueDate < heute` → Status wird auf `Überfällig` gesetzt
 - Beim Wiedereröffnen eines Überfällig-Tickets:
   - → `Offen`: neues Fälligkeitsdatum = heute + 3 Tage
@@ -165,7 +172,7 @@ Erstellt (Portal / Admin)
 | `dashboard` | `ModernDashboard` → `KanbanBoard` | Kanban 3-Spalten (Offen/In Arbeit/Überfällig) | Admin |
 | `tech-dashboard` | `ModernDashboard` → `KanbanBoard` | Kanban gefiltert auf eigene Tickets | Techniker/Hauswirtschaft |
 | `tickets` | `TicketTableView` | Tabellenansicht alle aktiven Tickets | Admin |
-| `erledigt` | `ErledigtTableView` | Abgeschlossene Tickets, Löschfunktion | Admin |
+| `erledigt` | `ErledigtTableView` | Abgeschlossene Tickets, monatsweise geladen | Admin |
 | `techniker` | `TechnicianView` | Mitarbeiter-Karten mit Ticket-Zahlen | Admin |
 | `reports` | `ReportsView` | Statistiken und Auswertungen | Admin |
 | `routines` | `RoutineSchedulesView` | Serienaufträge verwalten | Admin |
@@ -176,12 +183,12 @@ Erstellt (Portal / Admin)
 
 ## 7. Kernfunktionen im Detail
 
-### `handleUpdateTicket(updatedTicket: Ticket)` — App.tsx ~L1800
+### `handleUpdateTicket(updatedTicket: Ticket)` — App.tsx
 
 Zentrale Funktion für alle Ticket-Änderungen. Läuft in dieser Reihenfolge ab:
 
-1. **Abwesenheitsprüfung**: Ist der zugewiesene Techniker abwesend? → Automatische Umleitung auf verfügbaren Ersatz (Skill-basiert)
-2. **Abschluss-Zeitstempel**: Wird auf Abgeschlossen gesetzt → `completionDate/Time` wird gesetzt
+1. **Abwesenheitsprüfung**: Ist der zugewiesene Techniker abwesend? → Automatische Umleitung auf verfügbaren Ersatz
+2. **Abschluss-Zeitstempel**: Wird auf Abgeschlossen gesetzt → `completionDate/Time` + `closedAt` werden gesetzt
 3. **Fälligkeitsdatum bei Überfällig-Rücksetzung**: Wechsel von Überfällig → Offen/InArbeit → neues Datum
 4. **Reaktive Due-Date-Berechnung**: Nur wenn `wunschTermin` oder `categoryId` sich ändert
 5. **Prio-Anpassung bei Kategorie-Änderung**: Neue SLA-Priorität aus Matrix
@@ -189,31 +196,42 @@ Zentrale Funktion für alle Ticket-Änderungen. Läuft in dieser Reihenfolge ab:
 7. **E-Mail-Benachrichtigungen** (siehe Kapitel 11)
 8. **Firestore-Synchronisation**: Ticket in richtige Collection schreiben
 
-### `handleNewTicket(ticketData)` — App.tsx ~L2100
+### `handleAddNewTicket(ticketData)` — App.tsx
 
-Erstellt ein neues Ticket aus dem Admin-Modal:
+Erstellt ein neues Ticket (Portal oder Admin-Modal):
 
-1. Generiert eindeutige ID (`TKT-XXXX`)
-2. Wendet Routing-Regeln an (Keyword-Match → Auto-Zuweisung)
-3. Berechnet Fälligkeitsdatum via SLA-Matrix
-4. Speichert in Firebase `tickets`
-5. Sendet E-Mail an Melder (`ticket_created`)
-6. Sendet E-Mail an Admin/Admins (`admin_new_ticket`) wenn Portal-Ursprung
+1. Erkennt Kategorie automatisch via Routing-Regeln (Keyword-Match)
+2. Bestimmt Priorität: Routing-Regel → Kategorie-Default → App-Default
+3. Weist Bearbeiter zu via `assignTicket()` wenn kein Bearbeiter vorgegeben
+4. Berechnet Fälligkeitsdatum via SLA-Matrix
+5. Speichert in Firebase `tickets`
+6. Sendet E-Mail an Melder (`ticket_created`)
+7. Sendet E-Mail an Admin (`admin_new_ticket`) wenn Portal-Ursprung
 
-### `handleDeleteTicket(ticketId)` — App.tsx ~L2041
+### `handleDeleteTicket(ticketId)` — App.tsx
 
 - Trägt Ticket-ID in Firestore `deleted-ticket-ids` Blockliste ein
 - Löscht aus `tickets`, `completed_tickets` und `routine_tickets`
 - Nur für Admins sichtbar
 
-### `assignTicket(ticket, users, allTickets, routingRules)` — App.tsx ~L592
+### `assignTicket(ticket, users, allTickets, routingRules)` — App.tsx
 
 Auto-Zuweisung eines Bearbeiters:
 
-1. Prüft Routing-Regeln (Keyword-Match in Titel + Beschreibung)
-2. Filtert abwesende Benutzer heraus
-3. Verteilt gleichmäßig (wer hat die wenigsten Tickets?)
-4. Gibt Bearbeiternamen oder `null` zurück
+1. Prüft alle Routing-Regeln auf **Wort-genauen** Keyword-Match (kein Substring-Match)
+2. Kein Keyword-Match → `N/A` zurückgeben (kein zufälliger Fallback)
+3. Bei Match: nur die in der Regel konfigurierten `assignees` als Kandidaten
+4. Abwesende Mitarbeiter werden herausgefiltert
+5. Wer die wenigsten aktiven Tickets hat, bekommt das neue zugewiesen
+
+### `loadCompletedTicketsForMonth(month, year)` — App.tsx
+
+Lädt abgeschlossene Tickets für einen bestimmten Monat aus Firebase:
+
+1. Führt ggf. einmalige Migration durch: setzt `closedAt` aus `completionDate` bei alten Tickets
+2. Fragt Firebase mit `closedAt >= YYYY-MM-01` und `closedAt < YYYY-(M+1)-01` ab
+3. Filtert gelöschte Ticket-IDs heraus
+4. Setzt `completedTickets` State
 
 ---
 
@@ -222,7 +240,7 @@ Auto-Zuweisung eines Bearbeiters:
 ### SLA-Matrix
 - Konfigurierbar in Einstellungen (`appSettings.slaMatrix`)
 - Verknüpft `categoryId` + `Priority` → `responseTimeHours`
-- Funktion `computeReactiveDueDateWithoutWunsch(entryDate, categoryId, slaMatrix)`:
+- `computeReactiveDueDateWithoutWunsch(entryDate, categoryId, slaMatrix)`:
   - Sucht strengste (kürzeste) SLA-Regel für die Kategorie
   - Rechnet Stunden auf Tage um, addiert auf Erfassungsdatum
 
@@ -253,17 +271,24 @@ Konfigurierbar in **Einstellungen → Routing-Regeln**.
 
 | Feld | Bedeutung |
 |---|---|
-| `keyword` | Komma-getrennte Suchbegriffe (in Titel + Beschreibung) |
+| `keyword` | Komma-getrennte Suchbegriffe (müssen als ganzes Wort vorkommen) |
 | `categoryId` | Kategorie die automatisch gesetzt wird |
 | `priority` | Priorität die automatisch gesetzt wird |
-| `assignees` | Liste bevorzugter Bearbeiter |
+| `assignees` | Liste der Bearbeiter die für dieses Keyword zuständig sind |
 
 ### Ablauf bei neuen Tickets
 1. Volltext (Titel + Beschreibung) wird gegen alle Regeln geprüft
-2. Erste Regel die zutrifft "gewinnt"
-3. Kategorie, Priorität und bevorzugte Bearbeiter aus Regel übernommen
-4. Bearbeiter aus `assignees` wird zugewiesen (gleichmäßige Verteilung, Abwesenheit beachtet)
-5. `autoAssigned: true` wird gesetzt
+2. Keyword-Matching ist **wortgenau** — `"TV"` matcht `"TV kaputt"` aber nicht `"Aktivierung"`
+3. Erste Regel die zutrifft "gewinnt"
+4. Kein Keyword-Match → kein automatisches Zuweisen (`N/A`)
+5. Regel ohne `assignees` → kein automatisches Zuweisen (`N/A`)
+6. Bearbeiter aus `assignees` wird zugewiesen (wer hat die wenigsten Tickets?)
+7. `autoAssigned: true` wird gesetzt
+
+### Wichtige Regeln
+- **Kein zufälliger Fallback**: Wenn kein Keyword passt, wird niemand automatisch zugewiesen
+- **Abwesenheit wird geprüft**: Abwesende Bearbeiter werden übersprungen
+- **Gilt für alle Ticket-Typen**: Portal-Tickets (reactive) und manuelle Tickets laufen gleichermaßen durch die Routing-Logik
 
 ---
 
@@ -289,14 +314,9 @@ Konfigurierbar in **Einstellungen → Routing-Regeln**.
 ### Generierung
 - Läuft beim App-Start und täglich
 - `isNominalRoutineDay(schedule, today)` prüft ob heute ein Fälligkeitstag ist
-- `getNextAssignee(schedule, users)` bestimmt die nächste Person
 - Generierte Routine-Tickets landen in `routine_tickets` Collection
 - Nicht erledigte Routinen tauchen im Kanban auf
 - Erledigte Routinen werden per `RoutineDayCompletion` protokolliert
-
-### Nachweis
-- `RoutineNachweisView` zeigt Kalenderansicht der erledigten Routinen
-- Pro Tag: wer hat was erledigt + Zeitstempel
 
 ---
 
@@ -304,10 +324,17 @@ Konfigurierbar in **Einstellungen → Routing-Regeln**.
 
 ### Technische Basis
 - **API**: Brevo REST API v3 (`https://api.brevo.com/v3/smtp/email`)
-- **Authentifizierung**: `VITE_BREVO_API_KEY` (Umgebungsvariable)
+- **Authentifizierung**: `VITE_BREVO_API_KEY` (Umgebungsvariable / GitHub Secret)
 - **Absender**: konfigurierbar via `VITE_BREVO_SENDER_EMAIL` / `VITE_BREVO_SENDER_NAME`
 - **Funktion**: `sendDrkBrevoMail(to, subject, payload)` → feuert async, blockiert UI nicht
 - **Duplikat-Schutz**: Jede Kombination aus `(ticketId, kind)` wird nur 1× gesendet (localStorage-Cache)
+
+### Brevo Keep-Alive
+- GitHub Actions Cron-Job läuft täglich um **07:00 UTC (09:00 Uhr MEZ)**
+- Sendet automatisch eine Test-E-Mail an `BREVO_ADMIN_EMAIL`
+- Verhindert dass Brevo den Account wegen Inaktivität pausiert
+- Workflow: `.github/workflows/brevo-keepalive.yml`
+- Manuell auslösbar unter GitHub → Actions → Brevo Keep-Alive → Run workflow
 
 ---
 
@@ -320,58 +347,48 @@ Konfigurierbar in **Einstellungen → Routing-Regeln**.
 | `ticket_in_progress` | `Ihre Meldung wird bearbeitet – Ticket XXXX` | Melder | Status wechselt zu **In Arbeit** |
 | `ticket_closed` | `Ihre Meldung wurde abgeschlossen – Ticket XXXX` | Melder | Status wechselt zu **Abgeschlossen** |
 | `staff_note` | `Neuigkeit zu Ihrem Ticket XXXX` | Melder | Neue Notiz von Mitarbeiter (nicht vom Melder selbst) |
-| `due_date_changed` | `Terminänderung zu Ihrer Meldung – Ticket XXXX` | Melder | Fälligkeitsdatum manuell geändert, Status ist **In Arbeit** oder **Überfällig** |
+| `due_date_changed` | `Terminänderung zu Ihrer Meldung – Ticket XXXX` | Melder | Fälligkeitsdatum manuell geändert bei Status In Arbeit oder Überfällig |
 
 ---
 
 ### Detailbeschreibung je E-Mail-Typ
 
 #### `ticket_created` — Eingangsbestätigung
-- **Wann**: Direkt nach Anlegen eines neuen Tickets (Portal oder Admin-Modal)
+- **Wann**: Direkt nach Anlegen eines neuen Tickets
 - **Enthält**: Ticket-Nummer, Betreff, Link zum Portal-Statusbereich
 - **Bedingung**: `reporter_email` muss vorhanden sein
 
 #### `admin_new_ticket` — Admin-Benachrichtigung
 - **Wann**: Neues Ticket aus dem Portal eingegangen
-- **Enthält**: Alle Ticket-Details (Melder, Standort, Beschreibung, Priorität, Kategorie)
+- **Enthält**: Ticket-Nr., Betreff, Melder, Standort, Raum/Bereich, Priorität, Eingangsdatum, Beschreibung
 - **Empfänger**: Konfigurierte Admin-E-Mail-Adresse
 - **Bedingung**: Nur bei `origin === 'portal'`
 
 #### `ticket_in_progress` — Bearbeitungsstart
-- **Wann**: `handleUpdateTicket` erkennt Statuswechsel → `In Arbeit`
+- **Wann**: Statuswechsel → `In Arbeit`
 - **Enthält**: Bearbeiter, Standort, Priorität, voraussichtliches Fälligkeitsdatum
-- **Bedingung**: `reporter_email` vorhanden, Status wechselt von einem anderen Status zu `In Arbeit`
 
 #### `ticket_closed` — Abschlussbestätigung
-- **Wann**: `handleUpdateTicket` erkennt Statuswechsel → `Abgeschlossen`
-- **Enthält**: Ticket-Nummer, Hinweis auf Portal für Bewertung/Feedback
-- **Bedingung**: `reporter_email` vorhanden
+- **Wann**: Statuswechsel → `Abgeschlossen`
+- **Enthält**: Ticket-Nummer, Hinweis auf Portal
 
 #### `staff_note` — Neue Mitarbeiter-Notiz
-- **Wann**: Eine neue Notiz wurde zum Ticket hinzugefügt
+- **Wann**: Neue Notiz wurde zum Ticket hinzugefügt
 - **Enthält**: Den Notiztext
-- **Bedingung**: Notiz stammt **nicht** vom Melder selbst (erkannt durch `(Melder am ` oder `Ticket durch Melder wiedereröffnet` im Text)
+- **Bedingung**: Notiz stammt nicht vom Melder selbst
 
 #### `due_date_changed` — Terminänderung
-- **Wann**: `dueDate` des Tickets hat sich geändert
+- **Wann**: `dueDate` hat sich geändert, Status ist `In Arbeit` oder `Überfällig`
 - **Enthält**: Ticket-Nummer, Betreff, neues Fälligkeitsdatum
-- **Bedingung**:
-  - `reporter_email` muss vorhanden sein
-  - Status muss `In Arbeit` **oder** `Überfällig` sein
-  - Bei Status `Offen` wird **keine** Mail gesendet (dort wird noch am Datum nachjustiert)
-  - Bei Status `Abgeschlossen` wird **keine** Mail gesendet
+- **Nicht gesendet bei**: Status `Offen` (wird noch nachjustiert) oder `Abgeschlossen`
 
----
-
-### E-Mail-Priorisierung in `handleUpdateTicket`
-
-Wenn mehrere Bedingungen gleichzeitig zutreffen würden, gilt diese Reihenfolge (nur **eine** Mail pro Aufruf):
+### E-Mail-Priorisierung (nur eine Mail pro Ticket-Update)
 
 ```
-1. due_date_changed  (Terminänderung, Status In Arbeit/Überfällig)
-2. ticket_closed     (Status → Abgeschlossen)
-3. ticket_in_progress (Status → In Arbeit)
-4. staff_note        (neue Notiz von Mitarbeiter)
+1. due_date_changed   → Terminänderung
+2. ticket_closed      → Status Abgeschlossen
+3. ticket_in_progress → Status In Arbeit
+4. staff_note         → neue Mitarbeiter-Notiz
 ```
 
 ---
@@ -380,12 +397,20 @@ Wenn mehrere Bedingungen gleichzeitig zutreffen würden, gilt diese Reihenfolge 
 
 ### Collections
 
-| Collection | Inhalt |
-|---|---|
-| `tickets` | Alle aktiven Tickets (Offen, In Arbeit, Überfällig) |
-| `completed_tickets` | Abgeschlossene Tickets (archiviert) |
-| `routine_tickets` | Aktive Routine-/Serienaufträge |
-| `app_data` | App-Einstellungen, Benutzer, Standorte, SLA, Routing |
+| Collection | Lademodus | Inhalt |
+|---|---|---|
+| `tickets` | Live `onSnapshot` | Alle aktiven Tickets (Offen, In Arbeit, Überfällig) |
+| `completed_tickets` | `getDocs` monatsweise | Abgeschlossene Tickets |
+| `routine_tickets` | Live `onSnapshot` | Aktive Serienaufträge |
+| `app_data` | Live `onSnapshot` | Einstellungen, Benutzer, Standorte, SLA, Routing |
+
+### Abgeschlossene Tickets — Monatsweise Abfrage
+- Kein dauerhafter Live-Listener (spart Firebase-Reads)
+- Beim Öffnen der "Erledigte Tickets"-Ansicht → aktueller Monat wird geladen
+- Monat und Jahr über Dropdown wählbar → neue Abfrage
+- Abfragefeld: `closedAt` (Format `YYYY-MM-DD`)
+- Beim Abschließen eines Tickets wird `closedAt` automatisch gesetzt
+- Einmalige Migration: alte Tickets ohne `closedAt` bekommen es beim ersten Laden aus `completionDate` abgeleitet
 
 ### `app_data` Dokumente
 
@@ -398,10 +423,7 @@ Wenn mehrere Bedingungen gleichzeitig zutreffen würden, gilt diese Reihenfolge 
 | `maintenance_plans` | Wartungspläne |
 | `routine_schedules` | Serienauftrags-Definitionen |
 | `routine_completions` | Protokoll erledigter Routinen |
-| `deleted-ticket-ids` | Blockliste gelöschter Ticket-IDs (verhindert Wiederauftauchen) |
-
-### Realtime-Listener
-Alle Collections werden via `onSnapshot` live synchronisiert — Änderungen eines Nutzers erscheinen sofort bei allen anderen eingeloggten Nutzern.
+| `deleted-ticket-ids` | Blockliste gelöschter Ticket-IDs |
 
 ---
 
@@ -409,7 +431,6 @@ Alle Collections werden via `onSnapshot` live synchronisiert — Änderungen ein
 
 ### Zugang
 - Keine Anmeldung nötig
-- URL: Hauptdomain ohne Login-Parameter
 - Admins und Techniker werden automatisch weitergeleitet wenn eingeloggt
 
 ### Funktionen
@@ -424,107 +445,133 @@ Alle Collections werden via `onSnapshot` live synchronisiert — Änderungen ein
 ### Ticket-Statusanzeige im Portal
 - **3-Pillen-Zeile**: Bearbeiter | Fällig bis | Status
 - Jede Pille zeigt farbigen Zustand (Überfällig = Rot, In Arbeit = Blau, etc.)
-- Verlauf: alle Notizen mit Zeitstempel (eigene Notizen und Mitarbeiter-Notizen)
+- Verlauf: alle Notizen mit Zeitstempel
 
 ### Wartungsmodus
 - Konfigurierbar in Einstellungen
 - Zeigt anpassbare Wartungsmeldung anstatt Formular
-- Alle Admin-Funktionen bleiben erreichbar
 
 ---
 
-## 14. Drag & Drop / Kanban-Board
+## 14. Kanban-Board & Ticket-Karten
 
-### Spalten
-- **Offen**: Alle Tickets mit Status `Offen`
-- **In Arbeit**: Alle Tickets mit Status `In Arbeit`
-- **Überfällig**: Alle Tickets mit Status `Überfällig`
+### Spalten & Sortierung
+- **Offen** / **In Arbeit** / **Überfällig** — je eine Spalte
+- Sortierung in allen Spalten: Notfall-Tickets zuerst, dann nach Fälligkeitsdatum aufsteigend
 
-### Sortierung innerhalb der Spalten
-Alle drei Spalten sortieren nach:
-1. Notfall-Tickets (`is_emergency = true`) immer oben
-2. Dann nach Fälligkeitsdatum aufsteigend (`DD.MM.YYYY` → `YYYY-MM-DD` zum Vergleich)
-
-### Drag-Verhalten
-- Karten können nur von der **oberen Handbreite** (top 24px) gezogen werden
+### Drag & Drop
+- Karten nur von der **oberen Handbreite** (top 24px) ziehbar
 - Cursor wechselt zu `grab` nur in dieser Zone
-- Im unteren Bereich der Karte: `default` Cursor
-- Im Footer-Bereich: kein `pointer`, kein `grab`
 - Beim Ziehen erscheint eine rote Drop-Linie zwischen den Karten
 - Ablegen: Status ändert sich, Position in der Spalte wird gespeichert
 
 ### Klickverhalten
-- Klick auf Karten-Body → öffnet Detailpanel (TicketDetailSidebar)
-- Klick auf Footer-Button → öffnet ebenfalls Detailpanel
-- Kein visueller Auswahlrahmen auf selektierter Karte
+- Klick auf Karten-Body → öffnet Detailpanel
+- Klick auf Footer → öffnet ebenfalls Detailpanel
+
+### Hover-Effekt
+- Karte hebt sich 3px an + stärkerer Schatten → zeigt klar welche Karte aktiv ist
+
+### Konversations-Indikator im Footer
+
+| Anzeige | Bedeutung |
+|---|---|
+| Nichts | Keine Notizen vorhanden |
+| 💬 **3** (grau) | Konversation hat stattgefunden (Anzahl Notizen) |
+| 💬 **Neue Nachricht** (orange) | Ungelesene Nachricht vom Melder — sofort handeln |
+
+- Orangener Punkt oben rechts neben der Ticket-Nummer zeigt ebenfalls ungelesene Melder-Nachricht an
+- Beim Öffnen der Detailansicht: `hasNewNoteFromReporter` wird auf `false` gesetzt
+
+### Datumskalender (plattformübergreifend)
+- Unsichtbarer `<input type="date">` liegt über der Datums-Pille (`opacity: 0`, `pointer-events: auto`)
+- `showPicker()` wird als Fallback beim Klick aufgerufen
+- Funktioniert auf macOS Safari, Chrome und Windows zuverlässig
 
 ---
 
-## 15. Datumskalender (plattformübergreifend)
+## 15. In-App Benachrichtigungen (Toast-Banner)
 
-### Problem
-Native date inputs (`<input type="date">`) verhalten sich je nach Browser und OS unterschiedlich:
-- macOS Safari/Chrome: Klick auf versteckten Input öffnet/schließt Picker nativ
-- Windows Chrome/Edge: `showPicker()` API muss explizit aufgerufen werden
+### Position & Verhalten
+- Erscheint **unten in der Mitte** des Bildschirms
+- Verschwindet automatisch nach **8 Sekunden** (Fortschrittsbalken sichtbar)
+- Kann manuell per ✕ geschlossen werden
+- Mehrere Toasts stapeln sich übereinander
 
-### Lösung
-- Input liegt als `opacity: 0` über der gesamten Pille (`position: absolute; inset: 0`)
-- **`pointer-events: auto`** — der Input fängt alle Klicks selbst ab (nicht der Wrapper)
-- `onClick` auf dem Input ruft `showPicker()` als Fallback auf
-- Browser regelt Öffnen/Schließen des Kalenders nativ
-- Kein manuelles State-Tracking für Picker-Zustand nötig
+### Toast-Typen
 
-```tsx
-<input
-  type="date"
-  onClick={e => { try { e.currentTarget.showPicker(); } catch {} }}
-  style={{ position: 'absolute', inset: 0, opacity: 0, pointerEvents: 'auto' }}
-/>
+| Typ | Farbe | Auslöser |
+|---|---|---|
+| `new-ticket` | Rot | Neues Ticket eingegangen (nur für Admins) |
+| `assigned` | Blau | Ticket wurde dem eingeloggten Techniker zugewiesen |
+
+### Inhalt bei neuer Meldung
+```
+🔔 Neue Meldung eingegangen
+38619: Kartoffelschäler · Küche · Zugewiesen: Heiko
 ```
 
-### Verwendungsorte
-- `TicketCard.tsx` — Fälligkeitsdatum-Pille in der Kanban-Karte
-- `TicketDetailSidebar.tsx` — Fälligkeitsdatum-Pille im Detailpanel
+### Browser-Benachrichtigungen
+- Zusätzlich zu Toasts werden Browser-Notifications gesendet (wenn Berechtigung erteilt)
+- Berechtigung wird beim ersten Login angefragt
 
 ---
 
-## 16. Umgebungsvariablen
+## 16. Datumskalender (plattformübergreifend)
+
+- Unsichtbarer `<input type="date">` liegt über der Datums-Pille
+- `pointer-events: auto` → Input fängt Klicks direkt ab
+- `showPicker()` als Fallback für Windows-Browser
+- Browser steuert Öffnen/Schließen nativ — kein manuelles State-Tracking
+
+---
+
+## 17. Umgebungsvariablen
 
 | Variable | Pflicht | Beschreibung |
 |---|---|---|
 | `VITE_BREVO_API_KEY` | Ja | Brevo API-Schlüssel für E-Mail-Versand |
 | `VITE_BREVO_SENDER_EMAIL` | Nein | Absender-Adresse (Standard: `noreply@drk-ticket.de`) |
 | `VITE_BREVO_SENDER_NAME` | Nein | Absendername (Standard: `DRK Serviceportal`) |
+| `BREVO_ADMIN_EMAIL` | Ja* | Empfänger der täglichen Keep-Alive Test-Mail |
 
-Für lokale Entwicklung: `.env.local` anlegen (wird nicht eingecheckt).  
-Für Produktion: als GitHub Actions Secrets hinterlegen.
-
----
-
-## 17. Deployment (GitHub Actions)
-
-- Branch: `main`
-- Jeder Push auf `main` triggert automatisch den Build und Deploy auf GitHub Pages
-- Build: `npm run build` (Vite)
-- Deploy: GitHub Pages aus `dist/` Verzeichnis
+*Nur als GitHub Secret benötigt, nicht im Frontend
 
 ---
 
-## 18. Änderungshistorie
+## 18. Deployment (GitHub Actions)
+
+### Deploy-Workflow (`deploy-firebase.yml`)
+- Trigger: jeder Push auf `main` oder manuell
+- Schritte: TypeScript-Lint → Vite-Build → Firebase Hosting Deploy
+- Benötigte Secrets: `FIREBASE_SERVICE_ACCOUNT_DRK_FACILITY`, `VITE_BREVO_API_KEY`
+
+### Brevo Keep-Alive (`brevo-keepalive.yml`)
+- Trigger: täglich 07:00 UTC (09:00 Uhr MEZ) oder manuell
+- Sendet Test-E-Mail via Brevo API um Account-Inaktivität zu verhindern
+- Bei Fehler schlägt der Job fehl → sichtbar in GitHub Actions
+
+---
+
+## 19. Änderungshistorie
 
 | Datum | Änderung |
 |---|---|
-| Mai 2026 | **Datumskalender-Fix**: `pointer-events: auto` auf Input, `showPicker()` als Fallback — funktioniert auf Safari, Chrome, Windows |
-| Mai 2026 | **E-Mail `due_date_changed`**: Terminänderungs-Benachrichtigung nur bei Status In Arbeit oder Überfällig (nicht bei Offen) |
-| Mai 2026 | **Drag-Handle**: Karten nur im oberen 24px-Bereich ziehbar, dynamischer Cursor |
-| Mai 2026 | **Hover-Effekt**: Ganzkarte reagiert auf Hover (nicht nur Footer) |
+| Mai 2026 | **Dokumentation aktualisiert**: alle Änderungen seit Erstversion eingearbeitet |
+| Mai 2026 | **E-Mail: Kategorie entfernt** aus Admin-Benachrichtigungs-Mail |
+| Mai 2026 | **Konversations-Indikator**: grauer Zähler + oranges "Neue Nachricht" im Karten-Footer |
+| Mai 2026 | **Toast-Banner unten**: Position unten mittig, Zuweisung sichtbar, Auto-Dismiss 8s |
+| Mai 2026 | **Routing-Fix**: Kein zufälliger Fallback mehr, Wort-genaues Keyword-Matching |
+| Mai 2026 | **Routing-Fix**: Portal/reactive Tickets durchlaufen jetzt auch Routing-Logik |
+| Mai 2026 | **Brevo Keep-Alive**: Täglicher GitHub Actions Cron verhindert Account-Pause |
+| Mai 2026 | **Abgeschlossene Tickets monatsweise**: kein Live-Listener mehr, `getDocs` mit `closedAt` Filter |
+| Mai 2026 | **`closedAt` Feld**: wird beim Abschließen gesetzt, Migration für Altdaten |
+| Mai 2026 | **Datumskalender-Fix**: `pointer-events: auto`, `showPicker()` Fallback — Safari/Chrome/Windows |
+| Mai 2026 | **E-Mail `due_date_changed`**: nur bei Status In Arbeit oder Überfällig |
+| Mai 2026 | **Drag-Handle**: Karten nur im oberen 24px-Bereich ziehbar |
+| Mai 2026 | **Hover-Effekt**: Anheben + Schatten auf ganzer Karte |
 | Mai 2026 | **Klick auf Karte**: Body-Klick öffnet Detailpanel direkt |
-| Mai 2026 | **Kein Auswahlrahmen**: Selektierte Karte zeigt kein blaues Outline |
-| Mai 2026 | **Footer**: Kein Zeigefinger-Cursor im Footer-Bereich |
-| Mai 2026 | **Dashboard-Design**: Alert-Karten nebeneinander, Routine-Link als Flex-Kind (`inline`-Prop) |
-| Mai 2026 | **FilterBar**: Modernes Chip-Design, „Filter"-Label, „↺ Zurücksetzen"-Button, Pill-Form (border-radius: 20px) |
+| Mai 2026 | **FilterBar**: Chip-Design, „Filter"-Label, „↺ Zurücksetzen"-Button |
 | Mai 2026 | **Kanban-Header**: Farbiger Punkt + Titel + Zähler + Trennlinie |
-| Mai 2026 | **Cards auf Fläche**: Seitenhintergrund grau (`--bg-page`), Spalten weiß mit Schatten |
-| Mai 2026 | **Offen-Spalte sortiert nach Datum**: Alle 3 Spalten einheitlich nach Fälligkeitsdatum sortiert |
-| Mai 2026 | **Portal 3-Pillen-Zeile**: Bearbeiter / Fällig bis / Status als gleichmäßige Grid-Zeile |
-| Mai 2026 | **Portal Textkorrekturen**: Placeholder neutral, „Verlauf" nicht in Großbuchstaben |
+| Mai 2026 | **Cards auf Fläche**: Seitenhintergrund grau, Spalten weiß mit Schatten |
+| Mai 2026 | **Portal 3-Pillen-Zeile**: Bearbeiter / Fällig bis / Status |
