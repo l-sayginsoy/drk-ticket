@@ -262,7 +262,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .ticket-card:hover { transform: translateY(-1px); background-color: #fafafa; }
                 [data-theme="dark"] .ticket-card:hover { background-color: var(--bg-tertiary); }
                 .ticket-card.urgent-alert { animation: pulse-border 1.5s infinite; }
-                .ticket-card.selected { border-left-color: #378ADD !important; }
+                /* .ticket-card.selected — kein extra Indikator, Sidebar reicht als Feedback */
 
                 /* ── Body ── */
                 .card-body { padding: 12px 14px 12px; }
