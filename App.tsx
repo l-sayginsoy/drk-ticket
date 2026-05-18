@@ -2541,9 +2541,11 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       tickets
         .filter(t => !prevIds.has(t.id) && t.status !== Status.Abgeschlossen)
         .forEach(t => {
-          addToast({ type: 'new-ticket', title: 'Neue Meldung', message: `Ticket ${t.id}: ${t.title} · ${t.area}` });
+          const assignee = t.technician && t.technician !== 'N/A' ? ` · Zugewiesen: ${displayNameShort(t.technician)}` : ' · Noch nicht zugewiesen';
+          const msg = `${t.id}: ${t.title} · ${t.area}${assignee}`;
+          addToast({ type: 'new-ticket', title: '🔔 Neue Meldung eingegangen', message: msg });
           if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification('Neue Meldung', { body: `Ticket ${t.id}: ${t.title} · ${t.area}`, icon: '/favicon.ico' });
+            new Notification('Neue Meldung', { body: msg, icon: '/favicon.ico' });
           }
         });
     }
