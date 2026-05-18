@@ -250,7 +250,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     background: var(--bg-secondary);
                     border-radius: 12px;
                     margin-bottom: 12px;
-                    border: 1.5px solid #B0B8C4;
+                    border: 1px solid #E5E5E5;
                     border-left-width: 3px;
                     border-left-style: solid;
                     overflow: hidden;
@@ -263,7 +263,9 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .ticket-card:hover {
                     transform: translateY(-3px);
                     box-shadow: 0 6px 18px rgba(0,0,0,0.13);
-                    border-color: #c8d0da;
+                    border-color: #9BAABC;
+                    border-width: 1px;
+                    border-left-width: 3px;
                 }
                 [data-theme="dark"] .ticket-card:hover {
                     box-shadow: 0 6px 18px rgba(0,0,0,0.4);
@@ -314,8 +316,8 @@ const TicketCard: React.FC<TicketCardProps> = ({
 
                 /* ── Footer ── */
                 .card-footer {
-                    background: #E4E7EB;
-                    border-top: 1px solid #B0B8C4;
+                    background: #F5F6F7;
+                    border-top: 1px solid #E5E5E5;
                     padding: 8px 14px;
                     display: flex; align-items: center;
                     cursor: default; transition: background 0.12s;
