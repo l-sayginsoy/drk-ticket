@@ -339,17 +339,6 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 }
                 .av-un i { font-size: 10px; }
 
-                .footer-detail-btn {
-                    margin-left: auto; width: 28px; height: 28px; border-radius: 50%;
-                    background: #fff; border: 0.5px solid #E5E5E5;
-                    display: flex; align-items: center; justify-content: center;
-                    color: #185FA5; pointer-events: none; flex-shrink: 0;
-                    transition: border-color 0.12s;
-                }
-                [data-theme="dark"] .footer-detail-btn { background: var(--bg-secondary); border-color: var(--border); }
-                .ticket-card:hover .footer-detail-btn { border-color: #378ADD; }
-                .footer-detail-btn i { font-size: 14px; }
-
                 .footer-info-pill {
                     margin-left: auto;
                     border-radius: 20px; padding: 5px 10px;
@@ -358,9 +347,11 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     pointer-events: none; flex-shrink: 0;
                 }
                 .footer-info-pill i { font-size: 11px; }
-                .footer-info-pill--msg      { background: #E24B4A; color: #fff; }
-                .footer-info-pill--emergency { background: #7F1D1D; color: #FEE2E2; }
-                .footer-info-pill--reopened  { background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; }
+                .footer-info-pill--msg-unread  { background: #1a73e8; color: #fff; }
+                .footer-info-pill--msg-read    { background: rgba(0,0,0,0.07); color: var(--text-secondary); }
+                [data-theme="dark"] .footer-info-pill--msg-read { background: rgba(255,255,255,0.1); color: var(--text-muted); }
+                .footer-info-pill--emergency   { background: #7F1D1D; color: #FEE2E2; }
+                .footer-info-pill--reopened    { background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; }
             `}</style>
 
             <div className="card-body" onClick={() => onSelectTicket(ticket)}>
@@ -467,24 +458,22 @@ const TicketCard: React.FC<TicketCardProps> = ({
                         })}
                     </select>
                 </div>
-                {isEmergency ? (
+                {isEmergency && (
                     <div className="footer-info-pill footer-info-pill--emergency">
                         <i className="ti ti-alert-triangle" aria-hidden="true" />
                         <span>Notfall</span>
                     </div>
-                ) : ticket.hasNewNoteFromReporter ? (
-                    <div className="footer-info-pill footer-info-pill--msg">
-                        <i className="ti ti-message" aria-hidden="true" />
-                        <span>Neue Nachricht</span>
-                    </div>
-                ) : ticket.is_reopened ? (
+                )}
+                {ticket.is_reopened && !isEmergency && (
                     <div className="footer-info-pill footer-info-pill--reopened">
                         <i className="ti ti-refresh" aria-hidden="true" />
                         <span>Wiedereröffnet</span>
                     </div>
-                ) : (
-                    <div className="footer-detail-btn">
-                        <i className="ti ti-chevron-right" aria-hidden="true" />
+                )}
+                {(ticket.notes?.length ?? 0) > 0 && (
+                    <div className={`footer-info-pill ${ticket.hasNewNoteFromReporter ? 'footer-info-pill--msg-unread' : 'footer-info-pill--msg-read'}`}>
+                        <i className="ti ti-message" aria-hidden="true" />
+                        <span>{ticket.notes!.length}</span>
                     </div>
                 )}
             </div>
