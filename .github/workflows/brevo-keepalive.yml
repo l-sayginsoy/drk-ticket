@@ -1,0 +1,47 @@
+# Täglich um 07:00 Uhr: Test-E-Mail über Brevo senden
+# Verhindert, dass der Brevo-Account durch Inaktivität pausiert wird.
+# Secrets benötigt: VITE_BREVO_API_KEY, VITE_BREVO_SENDER_EMAIL, BREVO_ADMIN_EMAIL
+
+name: Brevo Keep-Alive
+
+on:
+  schedule:
+    # Jeden Tag um 07:00 UTC (09:00 Uhr deutsche Sommerzeit)
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+    # Auch manuell auslösbar (für Tests)
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Brevo Keep-Alive Test-Mail senden
+        env:
+          BREVO_API_KEY: ${{ secrets.VITE_BREVO_API_KEY }}
+          SENDER_EMAIL: ${{ secrets.VITE_BREVO_SENDER_EMAIL }}
+          ADMIN_EMAIL: ${{ secrets.BREVO_ADMIN_EMAIL }}
+        run: |
+          SENDER="${SENDER_EMAIL:-noreply@drk-ticket.de}"
+          RECIPIENT="${ADMIN_EMAIL:-$SENDER_EMAIL}"
+
+          RESPONSE=$(curl -s -o /tmp/brevo_response.txt -w "%{http_code}" \
+            --request POST \
+            --url https://api.brevo.com/v3/smtp/email \
+            --header "api-key: ${BREVO_API_KEY}" \
+            --header "Content-Type: application/json" \
+            --data "{
+              \"sender\": {\"name\": \"DRK Serviceportal\", \"email\": \"${SENDER}\"},
+              \"to\": [{\"email\": \"${RECIPIENT}\"}],
+              \"subject\": \"[DRK System] Tägliche Systemprüfung $(date +'%d.%m.%Y')\",
+              \"htmlContent\": \"<p>Automatische Systemprüfung vom <strong>$(date +'%d.%m.%Y um %H:%M Uhr')</strong>.</p><p>Das DRK Haustechnik-System ist aktiv und der E-Mail-Versand funktioniert korrekt.</p><p style='color:#999;font-size:11px'>Diese E-Mail wird täglich automatisch gesendet, um den E-Mail-Dienst aktiv zu halten.</p>\"
+            }")
+
+          echo "HTTP Status: $RESPONSE"
+          cat /tmp/brevo_response.txt
+
+          if [ "$RESPONSE" -ge 200 ] && [ "$RESPONSE" -lt 300 ]; then
+            echo "✅ Keep-Alive Mail erfolgreich gesendet."
+          else
+            echo "❌ Keep-Alive Mail fehlgeschlagen (HTTP $RESPONSE)."
+            exit 1
+          fi
