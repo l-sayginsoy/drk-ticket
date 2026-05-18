@@ -103,11 +103,14 @@ const TicketCard: React.FC<TicketCardProps> = ({
         }
         e.dataTransfer.setData("ticketId", ticket.id);
         e.dataTransfer.effectAllowed = 'move';
-        e.currentTarget.style.opacity = '0.5';
+        // Opacity auf die gesamte Karte anwenden
+        const card = e.currentTarget.closest('.ticket-card') as HTMLElement | null;
+        if (card) card.style.opacity = '0.5';
     };
 
     const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
-        e.currentTarget.style.opacity = '';
+        const card = e.currentTarget.closest('.ticket-card') as HTMLElement | null;
+        if (card) card.style.opacity = '';
     };
     
     const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -214,10 +217,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
     return (
         <div
             className={cardClasses}
-            style={{ borderLeftColor: statusBorderColor[ticket.status] ?? '#888780', cursor: 'grab' }}
-            draggable="true"
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
+            style={{ borderLeftColor: statusBorderColor[ticket.status] ?? '#888780' }}
         >
             <style>{`
                 @keyframes pulse-border {
@@ -242,7 +242,8 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .ticket-card.selected { outline: 2px solid #378ADD; outline-offset: 1px; }
 
                 /* ── Body ── */
-                .card-body { padding: 12px 14px 12px; }
+                .card-body { padding: 12px 14px 12px; cursor: grab; }
+                .card-body:active { cursor: grabbing; }
                 .card-row1 { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 3px; }
                 .card-title { font-size: 13px; font-weight: 500; color: var(--text-primary); flex: 1; line-height: 1.35; margin: 0; }
                 .card-icons { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
@@ -263,6 +264,8 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     padding: 4px 8px; border-radius: 20px; font-size: 10.5px;
                     border: 0.5px solid; width: 100%; box-sizing: border-box;
                     position: relative; cursor: pointer; white-space: nowrap;
+                    /* Pills nicht draggable machen */
+                    -webkit-user-drag: none;
                 }
                 .pill i, .pill span { pointer-events: none; }
                 .pill select, .pill input[type="date"] { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; z-index: 1; }
@@ -333,7 +336,12 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .footer-info-pill--reopened  { background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; }
             `}</style>
 
-            <div className="card-body">
+            <div
+                className="card-body"
+                draggable="true"
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+            >
                 {/* Zeile 1: Titel + Badges + Ticketnummer */}
                 <div className="card-row1">
                     <h3 className="card-title">{ticket.title}</h3>
