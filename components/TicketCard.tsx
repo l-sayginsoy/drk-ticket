@@ -75,6 +75,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
 }) => {
     const technicians = techniciansProp ?? [];
     const dateInputRef = useRef<HTMLInputElement>(null);
+    const datePickerOpenRef = useRef<boolean>(false);
     const lastSelectChangeRef = useRef<number>(0);
 
     const priorityClasses = {
@@ -407,7 +408,15 @@ const TicketCard: React.FC<TicketCardProps> = ({
                                 className={`pill pill-due${dueDateUrgency !== 'normal' ? ` ${dueDateUrgency}` : ''}`}
                                 onClick={e => {
                                     e.stopPropagation();
-                                    try { dateInputRef.current?.showPicker(); } catch {}
+                                    if (datePickerOpenRef.current) {
+                                        datePickerOpenRef.current = false;
+                                        dateInputRef.current?.blur();
+                                    } else {
+                                        try {
+                                            datePickerOpenRef.current = true;
+                                            dateInputRef.current?.showPicker();
+                                        } catch { datePickerOpenRef.current = false; }
+                                    }
                                 }}
                             >
                                 <i className="ti ti-calendar-due" aria-hidden="true" style={{ pointerEvents: 'none' }} />
@@ -416,7 +425,8 @@ const TicketCard: React.FC<TicketCardProps> = ({
                                     ref={dateInputRef}
                                     type="date"
                                     value={toInputDate(ticket.dueDate)}
-                                    onChange={handleDueDateChange}
+                                    onChange={e => { datePickerOpenRef.current = false; handleDueDateChange(e); }}
+                                    onBlur={() => { datePickerOpenRef.current = false; }}
                                     style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer', pointerEvents: 'none' }}
                                 />
                             </div>
