@@ -347,7 +347,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     pointer-events: none; flex-shrink: 0;
                 }
                 .footer-info-pill i { font-size: 11px; }
-                .footer-info-pill--msg-unread  { background: #1a73e8; color: #fff; }
+                .footer-info-pill--msg-unread  { background: #E24B4A; color: #fff; }
                 .footer-info-pill--msg-read    { background: rgba(0,0,0,0.07); color: var(--text-secondary); }
                 [data-theme="dark"] .footer-info-pill--msg-read { background: rgba(255,255,255,0.1); color: var(--text-muted); }
                 .footer-info-pill--emergency   { background: #7F1D1D; color: #FEE2E2; }
@@ -470,12 +470,17 @@ const TicketCard: React.FC<TicketCardProps> = ({
                         <span>Wiedereröffnet</span>
                     </div>
                 )}
-                {(ticket.notes?.length ?? 0) > 0 && (
-                    <div className={`footer-info-pill ${ticket.hasNewNoteFromReporter ? 'footer-info-pill--msg-unread' : 'footer-info-pill--msg-read'}`}>
+                {ticket.hasNewNoteFromReporter ? (
+                    <div className="footer-info-pill footer-info-pill--msg-unread">
+                        <i className="ti ti-message" aria-hidden="true" />
+                        <span>Neue Nachricht</span>
+                    </div>
+                ) : (ticket.notes?.length ?? 0) > 0 ? (
+                    <div className="footer-info-pill footer-info-pill--msg-read">
                         <i className="ti ti-message" aria-hidden="true" />
                         <span>{ticket.notes!.length}</span>
                     </div>
-                )}
+                ) : null}
             </div>
         </div>
     );
