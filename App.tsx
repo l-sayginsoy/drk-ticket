@@ -7,7 +7,7 @@ import {
 } from './types';
 import { MOCK_TICKETS, MOCK_USERS, MOCK_LOCATIONS, STATUSES, DEFAULT_APP_SETTINGS, MOCK_ASSETS, MOCK_MAINTENANCE_PLANS } from './constants';
 import { db } from './firebase';
-import { collection, doc, setDoc, onSnapshot, getDocs, deleteDoc, arrayUnion } from 'firebase/firestore';
+import { collection, doc, setDoc, onSnapshot, getDocs, deleteDoc, arrayUnion, query, where } from 'firebase/firestore';
 
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -779,9 +779,7 @@ const App: React.FC = () => {
   const [tickets, setTickets] = useState<Ticket[]>(() =>
     safeJSONParse<Ticket[]>(LOCAL_STORAGE_KEY_TICKETS, []).map(normalizeTicket)
   );
-  const [completedTickets, setCompletedTickets] = useState<Ticket[]>(() =>
-    safeJSONParse<Ticket[]>(LOCAL_STORAGE_KEY_COMPLETED_TICKETS, []).map(normalizeTicket)
-  );
+  const [completedTickets, setCompletedTickets] = useState<Ticket[]>([]);
   const [routineTickets, setRoutineTickets] = useState<Ticket[]>(() =>
     safeJSONParse<Ticket[]>(LOCAL_STORAGE_KEY_ROUTINE_TICKETS, []).map(normalizeTicket)
   );
@@ -812,6 +810,36 @@ const App: React.FC = () => {
     new Set<string>(safeJSONParse<string[]>(LOCAL_STORAGE_KEY_DELETED_IDS, []))
   );
   const prevUsersRef = useRef<User[]>(users);
+
+  const _today = new Date();
+  const [completedMonth, setCompletedMonth] = useState<number>(_today.getMonth() + 1); // 1–12
+  const [completedYear, setCompletedYear] = useState<number>(_today.getFullYear());
+  const [isLoadingCompleted, setIsLoadingCompleted] = useState<boolean>(false);
+
+  const loadCompletedTicketsForMonth = useCallback(async (month: number, year: number) => {
+    setIsLoadingCompleted(true);
+    try {
+      const start = `${year}-${String(month).padStart(2, '0')}-01`;
+      const endMonth = month === 12 ? 1 : month + 1;
+      const endYear = month === 12 ? year + 1 : year;
+      const end = `${endYear}-${String(endMonth).padStart(2, '0')}-01`;
+      const q = query(
+        collection(db, 'completed_tickets'),
+        where('closedAt', '>=', start),
+        where('closedAt', '<', end)
+      );
+      const snapshot = await getDocs(q);
+      const loaded = snapshot.docs
+        .filter(d => !deletedTicketIdsRef.current.has(d.id))
+        .map(d => normalizeTicket(d.data() as Ticket));
+      setCompletedTickets(loaded);
+    } catch (e) {
+      console.error('loadCompletedTicketsForMonth error:', e);
+      setCompletedTickets([]);
+    } finally {
+      setIsLoadingCompleted(false);
+    }
+  }, []);
 
   useEffect(() => {
     const load = () => {
@@ -1099,43 +1127,10 @@ const App: React.FC = () => {
       }
     });
 
-    const unsubscribeCompleted = onSnapshot(collection(db, 'completed_tickets'), (snapshot) => {
-      isRemoteUpdate.current = true;
-      const changes = snapshot.docChanges();
-
-      if (!completedSnapshotReadyRef.current) {
-        const allCompleted = snapshot.docs
-          .filter((d) => !deletedTicketIdsRef.current.has(d.id))
-          .map((d) => normalizeTicket(d.data() as Ticket));
-        setCompletedTickets(allCompleted);
-        completedSnapshotReadyRef.current = true;
-        tryMarkInitialized();
-      } else if (changes.length > 0) {
-        setCompletedTickets((prev) => {
-          let next = [...prev];
-          changes.forEach((change) => {
-            if (change.type === 'added' || change.type === 'modified') {
-              if (deletedTicketIdsRef.current.has(change.doc.id)) return;
-              const ticket = normalizeTicket(change.doc.data() as Ticket);
-              const idx = next.findIndex((t) => t.id === ticket.id);
-              if (idx >= 0) next[idx] = ticket;
-              else next = [ticket, ...next];
-            } else if (change.type === 'removed') {
-              next = next.filter((t) => t.id !== change.doc.id);
-            }
-          });
-          return next;
-        });
-        setLastSyncTime(new Date());
-      }
-      setTimeout(() => { isRemoteUpdate.current = false; }, 100);
-    }, (error) => {
-      console.error('Firebase completed_tickets onSnapshot error:', error);
-      if (!completedSnapshotReadyRef.current) {
-        completedSnapshotReadyRef.current = true;
-        tryMarkInitialized();
-      }
-    });
+    // Abgeschlossene Tickets werden nicht live geladen – nur monatsweise per loadCompletedTicketsForMonth
+    completedSnapshotReadyRef.current = true;
+    tryMarkInitialized();
+    const unsubscribeCompleted = () => {}; // Kein aktiver Listener
 
     const unsubscribeRoutine = onSnapshot(collection(db, 'routine_tickets'), (snapshot) => {
       isRemoteUpdate.current = true;
@@ -1174,6 +1169,10 @@ const App: React.FC = () => {
         tryMarkInitialized();
       }
     });
+
+    // Aktuellen Monat der abgeschlossenen Tickets laden
+    const now = new Date();
+    void loadCompletedTicketsForMonth(now.getMonth() + 1, now.getFullYear());
 
     return () => {
       unsubscribeAppData();
@@ -1219,6 +1218,13 @@ const App: React.FC = () => {
       setCurrentView('tech-dashboard');
     }
   }, [currentUser, currentView]);
+
+  // Beim Wechsel zur Erledigt-Ansicht den gewählten Monat neu laden
+  useEffect(() => {
+    if (currentView === 'erledigt') {
+      void loadCompletedTicketsForMonth(completedMonth, completedYear);
+    }
+  }, [currentView]);
 
   // --- Effects to persist state ---
   useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
@@ -1305,9 +1311,7 @@ const App: React.FC = () => {
     // syncToFirebase(LOCAL_STORAGE_KEY_TICKETS, tickets);
   }, [tickets]);
 
-  useEffect(() => {
-    localStorage.setItem(LOCAL_STORAGE_KEY_COMPLETED_TICKETS, JSON.stringify(completedTickets));
-  }, [completedTickets]);
+  // completedTickets werden nicht mehr im localStorage gecacht (monatsweise Ladung per getDocs)
 
   useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_KEY_ROUTINE_TICKETS, JSON.stringify(routineTickets));
@@ -1967,6 +1971,9 @@ const deleteTicketFromFirebase = (ticketId: string) => {
 
     if (!wasCompleted && isNowCompleted) {
       // Active → Completed
+      if (!ut.closedAt) {
+        ut.closedAt = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      }
       if (ut.origin === 'routine') {
         setRoutineTickets((prev) => prev.filter((t) => t.id !== ut.id));
       } else {
@@ -2887,7 +2894,19 @@ if (newTicketData.ticketType === 'reactive') {
               rpHolidayYmdList={rpHolidayYmdList}
             />
           );
-        case 'erledigt': return <ErledigtTableView tickets={filteredTickets} onSelectTicket={setSelectedTicket} selectedTicket={selectedTicket} onDeleteTicket={handleDeleteTicket} userRole={currentUser?.role} />;
+        case 'erledigt': return <ErledigtTableView
+          tickets={filteredTickets}
+          onSelectTicket={setSelectedTicket}
+          selectedTicket={selectedTicket}
+          onDeleteTicket={handleDeleteTicket}
+          userRole={currentUser?.role}
+          selectedMonth={completedMonth}
+          selectedYear={completedYear}
+          onMonthChange={setCompletedMonth}
+          onYearChange={setCompletedYear}
+          onReload={loadCompletedTicketsForMonth}
+          isLoading={isLoadingCompleted}
+        />;
         case 'reports': {
           return <ReportsView activeTickets={tickets} completedTickets={completedTickets} users={users} />;
         }

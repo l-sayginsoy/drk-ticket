@@ -12,25 +12,18 @@ interface ErledigtTableViewProps {
   selectedTicket: Ticket | null;
   onDeleteTicket: (ticketId: string) => void;
   userRole?: Role | null;
+  // Neu:
+  selectedMonth: number;
+  selectedYear: number;
+  onMonthChange: (month: number) => void;
+  onYearChange: (year: number) => void;
+  onReload: (month: number, year: number) => void;
+  isLoading?: boolean;
 }
 
 type SortableKeys = keyof Ticket | 'entryDate' | 'dueDate' | 'completionDate';
 
-type YearFilter = number | 'all';
-
-const parseGermanDate = (dateStr: string | undefined): Date | null => {
-  if (!dateStr || dateStr === 'N/A') return null;
-  const parts = dateStr.split('.');
-  if (parts.length === 3) {
-    return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
-  }
-  return null;
-};
-
-const completionYear = (ticket: Ticket): number | null => {
-  const d = parseGermanDate(ticket.completionDate);
-  return d ? d.getFullYear() : null;
-};
+const MONTHS = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 
 const PriorityPill: React.FC<{ priority: Priority }> = ({ priority }) => {
   const priorityClasses = {
@@ -43,38 +36,31 @@ const PriorityPill: React.FC<{ priority: Priority }> = ({ priority }) => {
 
 const technicianCell = (name: string) => (name === 'N/A' ? 'N/A' : displayNameShort(name));
 
-const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelectTicket, selectedTicket, onDeleteTicket, userRole }) => {
+const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({
+  tickets,
+  onSelectTicket,
+  selectedTicket,
+  onDeleteTicket,
+  userRole,
+  selectedMonth,
+  selectedYear,
+  onMonthChange,
+  onYearChange,
+  onReload,
+  isLoading,
+}) => {
   const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>({
     key: 'completionDate',
     direction: 'descending',
   });
-  const currentCalendarYear = new Date().getFullYear();
-  const [yearFilter, setYearFilter] = useState<YearFilter>(() => currentCalendarYear);
   const [deleteDialogTicket, setDeleteDialogTicket] = useState<Ticket | null>(null);
 
   useEffect(() => {
     setDeleteDialogTicket(null);
-  }, [yearFilter, tickets]);
-
-  /** Jahre mit Daten + laufendes Jahr + aktuell gewähltes Jahr (bleibt im Dropdown gültig). */
-  const yearDropdownYears = useMemo(() => {
-    const ys = new Set<number>();
-    tickets.forEach((t) => {
-      const y = completionYear(t);
-      if (y != null) ys.add(y);
-    });
-    ys.add(currentCalendarYear);
-    if (typeof yearFilter === 'number') ys.add(yearFilter);
-    return [...ys].sort((a, b) => b - a);
-  }, [tickets, currentCalendarYear, yearFilter]);
-
-  const displayedTickets = useMemo(() => {
-    if (yearFilter === 'all') return tickets;
-    return tickets.filter((t) => completionYear(t) === yearFilter);
-  }, [tickets, yearFilter]);
+  }, [tickets]);
 
   const sortedTickets = useMemo(() => {
-    const sortableItems = [...displayedTickets];
+    const sortableItems = [...tickets];
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
         const aValue = a[sortConfig.key];
@@ -108,7 +94,7 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelect
       });
     }
     return sortableItems;
-  }, [displayedTickets, sortConfig]);
+  }, [tickets, sortConfig]);
 
   const requestSort = (key: SortableKeys) => {
     let direction: 'ascending' | 'descending' = 'ascending';
@@ -148,13 +134,6 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelect
     setDeleteDialogTicket(null);
   };
 
-  const yearDescription =
-    yearFilter === 'all'
-      ? 'Alle abgeschlossenen Aufträge (alle Jahre).'
-      : yearFilter === currentCalendarYear
-        ? `Abgeschlossene Aufträge im Kalenderjahr ${yearFilter} (laufendes Jahr). Vorjahre finden Sie unter „Archiv …“.`
-        : `Archiv: Kalenderjahr ${yearFilter}.`;
-
   return (
     <div className="erledigt-page">
       <DeleteTicketDialog
@@ -165,62 +144,41 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelect
         onCancel={handleDeleteCancel}
       />
       <style>{`
-                .erledigt-header {
-                    background-color: var(--bg-secondary);
-                    padding: 1rem 1.5rem;
-                    border: 1px solid var(--border);
-                    border-bottom: none;
-                    border-top-left-radius: 8px;
-                    border-top-right-radius: 8px;
-                    margin-top: 1.5rem;
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 1rem 1.5rem;
-                    align-items: center;
-                    justify-content: space-between;
-                }
-                .erledigt-header-left {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 0.35rem;
-                    min-width: 0;
-                    flex: 1;
-                }
-                .erledigt-info {
-                    font-size: 0.9rem;
-                    color: var(--text-secondary);
-                    line-height: 1.45;
-                }
-                .year-select-wrap {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.5rem;
-                    flex-shrink: 0;
-                }
-                .year-select-wrap label {
-                    font-size: 0.85rem;
-                    color: var(--text-muted);
-                    white-space: nowrap;
-                }
-                .year-select {
-                    background-color: var(--bg-tertiary);
-                    border: 1px solid var(--border);
-                    color: var(--text-primary);
-                    font-size: 0.9rem;
-                    padding: 0.5rem 0.75rem;
-                    border-radius: 6px;
-                    cursor: pointer;
-                    min-width: 200px;
-                }
                 .erledigt-page {
                   display: flex;
                   flex-direction: column;
                 }
+                .erledigt-month-nav {
+                  display: flex;
+                  align-items: center;
+                  gap: 0.75rem;
+                  padding: 0.75rem 0 1rem;
+                  flex-wrap: wrap;
+                }
+                .erledigt-month-nav select {
+                  border: 1px solid var(--border);
+                  border-radius: 20px;
+                  padding: 0.35rem 1.75rem 0.35rem 0.85rem;
+                  font-size: 0.875rem;
+                  background: var(--bg-primary);
+                  color: var(--text-primary);
+                  cursor: pointer;
+                  appearance: none;
+                  -webkit-appearance: none;
+                }
+                .erledigt-loading {
+                  font-size: 0.85rem;
+                  color: var(--text-muted);
+                }
+                .erledigt-count {
+                  font-size: 0.85rem;
+                  color: var(--text-muted);
+                  margin-left: auto;
+                }
                 .table-view-container {
                   background-color: var(--bg-secondary);
                   border: 1px solid var(--border);
-                  border-top: none;
-                  border-radius: 0 0 8px 8px;
+                  border-radius: 8px;
                   margin-top: 0;
                   overflow-x: auto;
                 }
@@ -290,29 +248,19 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelect
                     height: 18px;
                 }
             `}</style>
-      <div className="erledigt-header">
-        <div className="erledigt-header-left">
-          <p className="erledigt-info">{yearDescription}</p>
-        </div>
-        <div className="year-select-wrap">
-          <label htmlFor="erledigt-year">Zeitraum</label>
-          <select
-            id="erledigt-year"
-            className="year-select"
-            value={yearFilter === 'all' ? 'all' : String(yearFilter)}
-            onChange={(e) => {
-              const v = e.target.value;
-              setYearFilter(v === 'all' ? 'all' : parseInt(v, 10));
-            }}
-          >
-            {yearDropdownYears.map((y) => (
-              <option key={y} value={y}>
-                {y === currentCalendarYear ? `Jahr ${y} (aktuell)` : `Archiv ${y}`}
-              </option>
-            ))}
-            <option value="all">Alle Jahre</option>
-          </select>
-        </div>
+      <div className="erledigt-month-nav">
+        <select value={selectedYear} onChange={e => { const y = Number(e.target.value); onYearChange(y); onReload(selectedMonth, y); }}>
+          {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => (
+            <option key={y} value={y}>{y}</option>
+          ))}
+        </select>
+        <select value={selectedMonth} onChange={e => { const m = Number(e.target.value); onMonthChange(m); onReload(m, selectedYear); }}>
+          {MONTHS.map((name, i) => (
+            <option key={i+1} value={i+1}>{name}</option>
+          ))}
+        </select>
+        {isLoading && <span className="erledigt-loading">Lade...</span>}
+        <span className="erledigt-count">{tickets.length} Ticket{tickets.length !== 1 ? 's' : ''}</span>
       </div>
       <div className="table-view-container">
         <table className="ticket-table">
@@ -386,9 +334,7 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({ tickets, onSelect
             ) : (
               <tr>
                 <td colSpan={9} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                  {yearFilter === 'all'
-                    ? 'Keine abgeschlossenen Aufträge.'
-                    : `Keine abgeschlossenen Aufträge ${yearFilter === currentCalendarYear ? `im Jahr ${yearFilter}` : `im Archiv ${yearFilter}`}.`}
+                  {isLoading ? 'Lade Aufträge...' : `Keine abgeschlossenen Aufträge im ${MONTHS[selectedMonth - 1]} ${selectedYear}.`}
                 </td>
               </tr>
             )}

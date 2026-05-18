@@ -197,4 +197,5 @@ export interface Ticket {
     laborHours: number;
     materials: number;
   };
+  closedAt?: string; // YYYY-MM-DD, gesetzt beim Abschließen
 }
