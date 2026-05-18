@@ -254,13 +254,21 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     border-left-width: 3px;
                     border-left-style: solid;
                     overflow: hidden;
-                    transition: transform 0.15s ease;
+                    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
                     position: relative;
                     cursor: default;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
                 }
                 [data-theme="dark"] .ticket-card { border-color: var(--border); }
-                .ticket-card:hover { transform: translateY(-1px); background-color: #fafafa; }
-                [data-theme="dark"] .ticket-card:hover { background-color: var(--bg-tertiary); }
+                .ticket-card:hover {
+                    transform: translateY(-3px);
+                    box-shadow: 0 6px 18px rgba(0,0,0,0.13);
+                    border-color: #c8d0da;
+                }
+                [data-theme="dark"] .ticket-card:hover {
+                    box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+                    border-color: var(--border-active);
+                }
                 .ticket-card.urgent-alert { animation: pulse-border 1.5s infinite; }
                 /* .ticket-card.selected — kein extra Indikator, Sidebar reicht als Feedback */
 
