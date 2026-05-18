@@ -816,9 +816,34 @@ const App: React.FC = () => {
   const [completedYear, setCompletedYear] = useState<number>(_today.getFullYear());
   const [isLoadingCompleted, setIsLoadingCompleted] = useState<boolean>(false);
 
+  // Hilfsfunktion: DD.MM.YYYY → YYYY-MM-DD (für closedAt-Migration)
+  const germanDateToIso = (d: string | undefined): string | null => {
+    if (!d || d === 'N/A') return null;
+    const p = d.split('.');
+    if (p.length !== 3) return null;
+    const year = p[2].length === 2 ? `20${p[2]}` : p[2];
+    return `${year}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+  };
+
   const loadCompletedTicketsForMonth = useCallback(async (month: number, year: number) => {
     setIsLoadingCompleted(true);
     try {
+      // Schritt 1: Alle Tickets ohne closedAt laden und migrieren
+      const allSnap = await getDocs(collection(db, 'completed_tickets'));
+      const toMigrate = allSnap.docs.filter(d => {
+        const data = d.data() as Ticket;
+        return !data.closedAt && (data.completionDate || data.entryDate);
+      });
+      if (toMigrate.length > 0) {
+        await Promise.all(toMigrate.map(d => {
+          const data = d.data() as Ticket;
+          const iso = germanDateToIso(data.completionDate) ?? germanDateToIso(data.entryDate);
+          if (!iso) return Promise.resolve();
+          return setDoc(doc(db, 'completed_tickets', d.id), { ...data, closedAt: iso });
+        }));
+      }
+
+      // Schritt 2: Monatsabfrage per closedAt
       const start = `${year}-${String(month).padStart(2, '0')}-01`;
       const endMonth = month === 12 ? 1 : month + 1;
       const endYear = month === 12 ? year + 1 : year;
