@@ -212,7 +212,6 @@ const buildDrkBrevoPlainText = (p: DrkBrevoMailPayload) => {
       `Gemeldet:   ${p.reporter}`,
       `Standort:   ${p.area}`,
       `Raum:       ${p.location}`,
-      `Kategorie:  ${p.categoryName}`,
       `Priorität:  ${p.priority}`,
       `Eingang:    ${p.entryDate}${p.entryTime ? ` | ${p.entryTime} Uhr` : ''}`,
       '',
@@ -379,7 +378,6 @@ ${portalOpenButtonWrappedHtml(p.ticketId, '0')}`;
       ['Gemeldet von', p.reporter],
       ['Standort', p.area],
       ['Raum / Bereich', p.location],
-      ['Kategorie', p.categoryName],
       ['Priorität', p.priority],
       ['Eingang', p.entryTime ? `${p.entryDate} | ${p.entryTime} Uhr` : p.entryDate],
     ].map(([label, value]) =>
