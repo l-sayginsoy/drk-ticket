@@ -97,7 +97,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
 
     const isInDragZone = (e: { clientY: number; currentTarget: HTMLElement }) => {
         const rect = e.currentTarget.getBoundingClientRect();
-        return (e.clientY - rect.top) <= rect.height / 4;
+        return (e.clientY - rect.top) <= 38;
     };
 
     const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
