@@ -263,13 +263,9 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .ticket-card:hover {
                     transform: translateY(-3px);
                     box-shadow: 0 6px 18px rgba(0,0,0,0.13);
-                    border-color: #9BAABC;
-                    border-width: 1px;
-                    border-left-width: 3px;
                 }
                 [data-theme="dark"] .ticket-card:hover {
                     box-shadow: 0 6px 18px rgba(0,0,0,0.4);
-                    border-color: var(--border-active);
                 }
                 .ticket-card.urgent-alert { animation: pulse-border 1.5s infinite; }
                 /* .ticket-card.selected — kein extra Indikator, Sidebar reicht als Feedback */
