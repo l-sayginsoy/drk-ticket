@@ -351,7 +351,7 @@
         <div><strong>Erfolgreich installiert!</strong><span>App ist jetzt verfügbar.</span></div>
       </div>
       <div id="no-prompt-hint" class="hint">
-        Falls der Button nicht reagiert: Klicken Sie auf das <b>⊕ Symbol</b> rechts in der Adressleiste.
+        Falls der Button nicht reagiert: Schauen Sie in der <b>Adressleiste</b> rechts oben nach dem Installations-Symbol – oder öffnen Sie das <b>Browser-Menü (⋮)</b> und wählen Sie <b>„App installieren"</b>.
       </div>
     </div>
 
@@ -424,7 +424,8 @@
           document.getElementById(successId).style.display = 'flex';
         }
       } else {
-        // beforeinstallprompt not ready yet – hint is already visible
+        // Scroll hint into view so user sees the address bar instruction
+        document.getElementById('no-prompt-hint').scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     });
   }
