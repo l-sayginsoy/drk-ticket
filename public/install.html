@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#e8000d" />
+  <title>DRK Serviceportal installieren</title>
+  <link rel="manifest" href="/manifest.json" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f5;
+      color: #1a1a1a;
+      min-height: 100vh;
+    }
+
+    .header {
+      background: #e8000d;
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .header-cross {
+      width: 36px;
+      height: 36px;
+      flex-shrink: 0;
+    }
+    .header h1 {
+      color: #fff;
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .header p {
+      color: rgba(255,255,255,0.85);
+      font-size: 13px;
+      margin-top: 2px;
+    }
+
+    .container {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 24px 20px 40px;
+    }
+
+    /* Already installed */
+    .already-installed {
+      background: #fff;
+      border-radius: 16px;
+      padding: 32px 24px;
+      text-align: center;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+    .already-installed .check-icon {
+      width: 64px;
+      height: 64px;
+      background: #e8000d;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+    }
+    .already-installed h2 { font-size: 20px; margin-bottom: 8px; }
+    .already-installed p { color: #666; font-size: 14px; line-height: 1.5; }
+    .btn-open {
+      display: inline-block;
+      margin-top: 20px;
+      background: #e8000d;
+      color: #fff;
+      padding: 14px 32px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    /* Card */
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+    .card-title {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-subtitle {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 20px;
+    }
+
+    /* Steps */
+    .steps { display: flex; flex-direction: column; gap: 16px; }
+    .step { display: flex; align-items: flex-start; gap: 14px; }
+    .step-num {
+      min-width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #e8000d;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .step-content { flex: 1; }
+    .step-content strong { font-size: 14px; display: block; margin-bottom: 2px; }
+    .step-content span { font-size: 13px; color: #666; line-height: 1.45; }
+
+    /* Install button */
+    .install-btn {
+      width: 100%;
+      background: #e8000d;
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 16px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.2s;
+    }
+    .install-btn:hover { background: #c8000b; }
+    .install-btn:disabled { background: #ccc; cursor: default; }
+
+    /* iOS share icon highlight */
+    .share-hint {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #f0f0f0;
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+    .share-hint svg { flex-shrink: 0; }
+
+    /* Firefox warning */
+    .browser-warning {
+      background: #fff8e1;
+      border: 1px solid #ffe082;
+      border-radius: 12px;
+      padding: 16px;
+      font-size: 14px;
+      line-height: 1.5;
+      color: #5d4037;
+      margin-bottom: 16px;
+    }
+    .browser-warning strong { display: block; margin-bottom: 4px; }
+    .browser-links { display: flex; gap: 10px; margin-top: 12px; }
+    .browser-link {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background: #fff;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      color: #1a1a1a;
+    }
+
+    /* Success state */
+    .success-banner {
+      background: #e8f5e9;
+      border: 1px solid #a5d6a7;
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-size: 14px;
+      color: #2e7d32;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .hint-box {
+      background: #f9f9f9;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 13px;
+      color: #666;
+      line-height: 1.5;
+      margin-top: 16px;
+      border: 1px solid #eee;
+    }
+
+    .platform-icon { font-size: 22px; }
+
+    hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <svg class="header-cross" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="13" y="2" width="10" height="32" rx="2" fill="white"/>
+    <rect x="2" y="13" width="32" height="10" rx="2" fill="white"/>
+  </svg>
+  <div>
+    <h1>DRK Serviceportal</h1>
+    <p>App auf Ihrem Gerät installieren</p>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Bereits installiert -->
+  <div id="view-installed" style="display:none;">
+    <div class="already-installed">
+      <div class="check-icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+          <path d="M5 13l4 4L19 7" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h2>Bereits installiert</h2>
+      <p>Das DRK Serviceportal ist bereits auf Ihrem Gerät installiert.</p>
+      <a href="/" class="btn-open">App öffnen</a>
+    </div>
+  </div>
+
+  <!-- Firefox -->
+  <div id="view-firefox" style="display:none;">
+    <div class="browser-warning">
+      <strong>⚠️ Firefox unterstützt die Installation nicht</strong>
+      Bitte öffnen Sie diesen Link in Chrome oder Edge um die App zu installieren.
+      <div class="browser-links">
+        <a class="browser-link" id="link-chrome" href="#">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="#4285F4" stroke-width="2"/>
+            <circle cx="12" cy="12" r="4" fill="#4285F4"/>
+            <path d="M12 8h8.5M6.5 17.5l4-7M17.5 17.5l-4-7" stroke="#4285F4" stroke-width="2"/>
+          </svg>
+          Chrome
+        </a>
+        <a class="browser-link" id="link-edge" href="#">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M3 12C3 7 7.5 3 13 3c3 0 5.5 1 7 3-1.5-1-3.5-1.5-5-1.5C10 4.5 6 8 6 13c0 2.5 1 4.5 2.5 6C5 17.5 3 15 3 12z" fill="#0078D4"/>
+            <path d="M21 15c-1 3-4 5-7.5 5C9 20 6 17.5 5.5 14c0 0 1.5 2 4.5 2 4 0 7-3 7-7 0-.5 0-1-.1-1.5C19 9 21 12 21 15z" fill="#0078D4"/>
+          </svg>
+          Edge
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- iOS Safari -->
+  <div id="view-ios" style="display:none;">
+    <div class="card">
+      <div class="card-title">
+        <span class="platform-icon">📱</span>
+        iPhone &amp; iPad
+      </div>
+      <div class="card-subtitle">Safari · 3 einfache Schritte</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <strong>Teilen-Symbol antippen</strong>
+            <span>Das Symbol unten in der Mitte der Safari-Leiste</span>
+            <div class="share-hint" style="margin-top:6px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2v13M7 7l5-5 5 5" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M4 14v6h16v-6" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Teilen
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <strong>„Zum Home-Bildschirm" wählen</strong>
+            <span>Im Menü nach unten scrollen</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <strong>„Hinzufügen" tippen</strong>
+            <span>Oben rechts — fertig!</span>
+          </div>
+        </div>
+      </div>
+      <div class="hint-box">
+        💡 Die App erscheint danach auf Ihrem Home-Bildschirm und öffnet sich wie eine normale App.
+      </div>
+    </div>
+  </div>
+
+  <!-- Android Chrome -->
+  <div id="view-android" style="display:none;">
+    <div class="card">
+      <div class="card-title">
+        <span class="platform-icon">🤖</span>
+        Android
+      </div>
+      <div class="card-subtitle">Chrome · Automatische Installation</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <strong>Auf „Installieren" tippen</strong>
+            <span>Den Button unten auf dieser Seite antippen</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <strong>Installation bestätigen</strong>
+            <span>Im erscheinenden Dialog auf „Installieren" tippen</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <strong>Fertig</strong>
+            <span>Die App ist jetzt auf Ihrem Homescreen verfügbar</span>
+          </div>
+        </div>
+      </div>
+      <button class="install-btn" id="btn-android">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M12 3v13M7 11l5 5 5-5" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M4 20h16" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+        Jetzt installieren
+      </button>
+      <div id="success-android" class="success-banner" style="display:none;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M5 13l4 4L19 7" stroke="#2e7d32" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        App erfolgreich installiert! Prüfen Sie Ihren Homescreen.
+      </div>
+    </div>
+  </div>
+
+  <!-- Windows / Mac Chrome / Edge -->
+  <div id="view-desktop" style="display:none;">
+    <div class="card">
+      <div class="card-title">
+        <span class="platform-icon" id="desktop-icon">💻</span>
+        <span id="desktop-title">Windows / Mac</span>
+      </div>
+      <div class="card-subtitle" id="desktop-subtitle">Chrome oder Edge · Automatische Installation</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <strong>Auf „Installieren" klicken</strong>
+            <span>Den Button unten anklicken</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <strong>Installation bestätigen</strong>
+            <span>Im erscheinenden Dialog auf „Installieren" klicken</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <strong>Fertig</strong>
+            <span>Die App öffnet sich und ist im Startmenü / Dock verfügbar</span>
+          </div>
+        </div>
+      </div>
+      <button class="install-btn" id="btn-desktop">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M12 3v13M7 11l5 5 5-5" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M4 20h16" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+        Jetzt installieren
+      </button>
+      <div id="success-desktop" class="success-banner" style="display:none;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M5 13l4 4L19 7" stroke="#2e7d32" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        App erfolgreich installiert!
+      </div>
+      <div id="no-prompt-hint" class="hint-box" style="display:none;">
+        💡 Alternativ: Klicken Sie auf das <strong>⊕ Symbol</strong> rechts in der Adressleiste Ihres Browsers um die App zu installieren.
+      </div>
+    </div>
+  </div>
+
+  <!-- Mac Safari -->
+  <div id="view-mac-safari" style="display:none;">
+    <div class="card">
+      <div class="card-title">
+        <span class="platform-icon">🍎</span>
+        Mac · Safari
+      </div>
+      <div class="card-subtitle">3 einfache Schritte</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <strong>Menü „Datei" öffnen</strong>
+            <span>Oben links in der Menüleiste</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <strong>„Zum Dock hinzufügen" klicken</strong>
+            <span>Ganz unten im Datei-Menü</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <strong>„Hinzufügen" bestätigen</strong>
+            <span>Die App erscheint danach in Ihrem Dock</span>
+          </div>
+        </div>
+      </div>
+      <div class="hint-box">
+        💡 Funktioniert ab macOS 13 (Ventura). Bei älteren Versionen bitte Chrome oder Edge verwenden.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const ua = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroid = /Android/.test(ua);
+  const isSafari = /Safari/.test(ua) && !/Chrome/.test(ua) && !/Chromium/.test(ua);
+  const isFirefox = /Firefox/.test(ua);
+  const isMac = /Macintosh/.test(ua) && !isIOS;
+  const isWindows = /Windows/.test(ua);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+  let deferredPrompt = null;
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+  });
+
+  function show(id) {
+    document.getElementById(id).style.display = 'block';
+  }
+
+  function setupInstallBtn(btnId, successId) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        if (outcome === 'accepted') {
+          btn.style.display = 'none';
+          document.getElementById(successId).style.display = 'flex';
+        }
+      } else {
+        // Kein Prompt verfügbar → Hinweis zeigen
+        const hint = document.getElementById('no-prompt-hint');
+        if (hint) hint.style.display = 'block';
+        btn.style.display = 'none';
+      }
+    });
+  }
+
+  // Firefox: Deep-Links zu Chrome/Edge
+  document.getElementById('link-chrome').href = 'googlechrome://navigate?url=' + encodeURIComponent(location.href);
+  document.getElementById('link-edge').href = 'microsoft-edge:' + location.href;
+
+  // Welche Ansicht zeigen?
+  if (isStandalone) {
+    show('view-installed');
+  } else if (isFirefox) {
+    show('view-firefox');
+  } else if (isIOS && isSafari) {
+    show('view-ios');
+  } else if (isIOS && !isSafari) {
+    // iOS aber nicht Safari → trotzdem iOS-Anleitung zeigen
+    show('view-ios');
+  } else if (isAndroid) {
+    show('view-android');
+    setupInstallBtn('btn-android', 'success-android');
+  } else if (isMac && isSafari) {
+    show('view-mac-safari');
+  } else if (isMac || isWindows) {
+    // Chrome / Edge Desktop
+    if (isMac) {
+      document.getElementById('desktop-icon').textContent = '🍎';
+      document.getElementById('desktop-title').textContent = 'Mac';
+      document.getElementById('desktop-subtitle').textContent = 'Chrome oder Edge · Automatische Installation';
+    }
+    show('view-desktop');
+    setupInstallBtn('btn-desktop', 'success-desktop');
+  } else {
+    // Fallback: Desktop
+    show('view-desktop');
+    setupInstallBtn('btn-desktop', 'success-desktop');
+  }
+</script>
+
+</body>
+</html>
