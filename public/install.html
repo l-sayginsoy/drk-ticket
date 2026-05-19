@@ -234,19 +234,29 @@
       </div>
     </div>
 
-    <!-- Firefox -->
-    <div id="view-firefox" hidden>
+    <!-- Firefox Windows -->
+    <div id="view-firefox-win" hidden>
       <div class="ff-box">
         <h2>🦊 Firefox wird nicht unterstützt</h2>
-        <p>Bitte öffnen Sie diesen Link in <b>Chrome</b> oder <b>Edge</b> um die App zu installieren.</p>
+        <p>Bitte öffnen Sie diesen Link in <b>Edge</b> um die App zu installieren.</p>
         <div class="ff-btns">
-          <a class="ff-btn" id="link-chrome" href="#">
-            <svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#4285F4" opacity=".15"/><circle cx="12" cy="12" r="4" fill="#4285F4"/><path d="M12 8h8M6.3 18l3.7-6M17.7 18l-3.7-6" stroke="#4285F4" stroke-width="2" stroke-linecap="round"/></svg>
-            Chrome öffnen
-          </a>
           <a class="ff-btn" id="link-edge" href="#">
             <svg width="18" height="18" viewBox="0 0 24 24"><path d="M3 12C3 7 7.5 3 13 3c3 0 5.5 1 7 3-1.5-1-3.5-1.5-5-1.5C10 4.5 6 8 6 13c0 2.5 1 4.5 2.5 6C5 17.5 3 15 3 12z" fill="#0078D4"/><path d="M21 15c-1 3-4 5-7.5 5C9 20 6 17.5 5.5 14c0 0 1.5 2 4.5 2 4 0 7-3 7-7 0-.5 0-1-.1-1.5C19 9 21 12 21 15z" fill="#0078D4"/></svg>
             Edge öffnen
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Firefox Mac -->
+    <div id="view-firefox-mac" hidden>
+      <div class="ff-box">
+        <h2>🦊 Firefox wird nicht unterstützt</h2>
+        <p>Bitte öffnen Sie diesen Link in <b>Safari</b> oder <b>Chrome</b> um die App zu installieren.</p>
+        <div class="ff-btns">
+          <a class="ff-btn" id="link-safari" href="#">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#0077FF" stroke-width="2"/><path d="M16 8l-4 4-4 4" stroke="#0077FF" stroke-width="2" stroke-linecap="round"/><path d="M8 8l8 0 0 8" stroke="#0077FF" stroke-width="2" stroke-linecap="round"/></svg>
+            In Safari öffnen
           </a>
         </div>
       </div>
@@ -419,14 +429,15 @@
     });
   }
 
-  document.getElementById('link-chrome').href = 'googlechrome://navigate?url=' + encodeURIComponent(location.href);
   document.getElementById('link-edge').href = 'microsoft-edge:' + location.href;
+  document.getElementById('link-safari').href = 'x-safari-https://' + location.host + location.pathname;
 
-  if (isStandalone)          show('view-installed');
-  else if (isFirefox)        show('view-firefox');
-  else if (isIOS)            show('view-ios');
-  else if (isAndroid)      { show('view-android');    bindBtn('btn-android',  'success-android'); }
-  else if (isMac && isSafari) show('view-mac-safari');
+  if (isStandalone)               show('view-installed');
+  else if (isFirefox && isMac)  { show('view-firefox-mac'); }
+  else if (isFirefox)           { show('view-firefox-win'); }
+  else if (isIOS)                 show('view-ios');
+  else if (isAndroid)           { show('view-android');  bindBtn('btn-android',  'success-android'); }
+  else if (isMac && isSafari)     show('view-mac-safari');
   else {
     if (isMac) document.getElementById('desktop-label').textContent = 'Mac · Chrome oder Edge';
     show('view-desktop');
