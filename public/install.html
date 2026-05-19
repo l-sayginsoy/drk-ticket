@@ -325,7 +325,7 @@
       </div>
     </div>
 
-    <!-- Desktop Chrome / Edge -->
+    <!-- Desktop Chrome / Edge – via Button -->
     <div id="view-desktop" hidden>
       <div class="label" id="desktop-label">Windows · Chrome oder Edge</div>
       <div class="steps">
@@ -350,8 +350,24 @@
         <div class="success-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
         <div><strong>Erfolgreich installiert!</strong><span>App ist jetzt verfügbar.</span></div>
       </div>
-      <div id="no-prompt-hint" class="hint">
-        Falls der Button nicht reagiert: Schauen Sie in der <b>Adressleiste</b> rechts oben nach dem Installations-Symbol – oder öffnen Sie das <b>Browser-Menü (⋮)</b> und wählen Sie <b>„App installieren"</b>.
+    </div>
+
+    <!-- Desktop – Menü-Weg (wenn kein beforeinstallprompt) -->
+    <div id="view-desktop-menu" hidden>
+      <div class="label" id="desktop-menu-label">Windows · Chrome oder Edge</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body"><strong>Browser-Menü öffnen</strong><span>Klicken Sie oben rechts auf <b>⋮</b></span></div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body"><strong>„App installieren" wählen</strong><span>Oder: auf das Install-Symbol in der Adressleiste klicken</span></div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body"><strong>Bestätigen &amp; fertig</strong><span>App ist danach im Startmenü verfügbar</span></div>
+        </div>
       </div>
     </div>
 
@@ -440,9 +456,18 @@
   else if (isAndroid)           { show('view-android');  bindBtn('btn-android',  'success-android'); }
   else if (isMac && isSafari)     show('view-mac-safari');
   else {
-    if (isMac) document.getElementById('desktop-label').textContent = 'Mac · Chrome oder Edge';
-    show('view-desktop');
-    bindBtn('btn-desktop', 'success-desktop');
+    const label = isMac ? 'Mac · Chrome oder Edge' : 'Windows · Chrome oder Edge';
+    // Wait 2s – if beforeinstallprompt didn't fire, switch to menu-steps view
+    setTimeout(() => {
+      if (deferredPrompt) {
+        document.getElementById('desktop-label').textContent = label;
+        show('view-desktop');
+        bindBtn('btn-desktop', 'success-desktop');
+      } else {
+        document.getElementById('desktop-menu-label').textContent = label;
+        show('view-desktop-menu');
+      }
+    }, 2000);
   }
 </script>
 </body>
