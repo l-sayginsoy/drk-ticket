@@ -1,6 +1,6 @@
 {
-  "name": "Serviceportal",
-  "short_name": "Serviceportal",
+  "name": "DRK Serviceportal",
+  "short_name": "DRK Serviceportal",
   "description": "Facility Management für das DRK – Tickets erfassen und verwalten",
   "start_url": "/",
   "display": "standalone",
