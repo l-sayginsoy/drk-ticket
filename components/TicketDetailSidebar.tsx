@@ -56,6 +56,8 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
     const [newNote, setNewNote] = useState('');
     const [isEditing, setIsEditing] = useState(false);
     const [editDraft, setEditDraft] = useState({ title: '', area: '', location: '', description: '', reporter: '' });
+    const [showParkModal, setShowParkModal] = useState(false);
+    const [parkInterval, setParkInterval] = useState<1 | 2 | 3 | 4>(2);
 
     const canEdit = ticket.origin === 'manual' &&
         (currentUser?.role === Role.Admin || currentUser?.role === Role.Technician);
@@ -80,6 +82,19 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
     const technicians = users
       .filter(u => u.role === Role.Technician || u.role === Role.Housekeeping)
       .sort((a, b) => a.name.localeCompare(b.name, 'de'));
+
+    const isNewClearedRef = useRef(false);
+    useEffect(() => {
+        // Clear isNew flag when ticket is first opened (only once per mount)
+        if (ticket.isNew === true && !isNewClearedRef.current) {
+            isNewClearedRef.current = true;
+            const timer = setTimeout(() => {
+                onUpdateTicket({ ...ticket, isNew: false });
+            }, 300);
+            return () => clearTimeout(timer);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         // Mark note as read when opening details
@@ -136,6 +151,32 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
         onUpdateTicket(updatedTicket);
     };
 
+    const handleParkConfirm = () => {
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+        const nextDate = new Date(today);
+        nextDate.setDate(nextDate.getDate() + parkInterval * 7);
+        const nextDateStr = nextDate.toISOString().split('T')[0];
+        onUpdateTicket({
+            ...ticket,
+            status: Status.Zurueckgestellt,
+            parkReminderInterval: parkInterval,
+            parkReminderNextDate: nextDateStr,
+            parkedAt: todayStr,
+        });
+        setShowParkModal(false);
+    };
+
+    const handleUnpark = () => {
+        onUpdateTicket({
+            ...ticket,
+            status: Status.InArbeit,
+            parkReminderInterval: undefined,
+            parkReminderNextDate: undefined,
+            parkedAt: undefined,
+        });
+    };
+
     const priorityClasses = {
         [Priority.Hoch]: 'priority-high',
         [Priority.Mittel]: 'priority-medium',
@@ -161,6 +202,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
     const statusPillClass = ticket.status === Status.InArbeit ? 'ds-pill-s-inarbeit'
         : ticket.status === Status.Ueberfaellig ? 'ds-pill-s-ueberfaellig'
         : ticket.status === Status.Abgeschlossen ? 'ds-pill-s-done'
+        : ticket.status === Status.Zurueckgestellt ? 'ds-pill-s-zurueckgestellt'
         : 'ds-pill-s-offen';
 
     const categoryName = appSettings.ticketCategories.find(c => c.id === ticket.categoryId)?.name || 'N/A';
@@ -521,6 +563,58 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             .ds-av-un i { font-size: 9px; }
             .ds-assignee-name { font-size: 0.9rem; font-weight: 500; color: var(--text-primary); flex: 1; }
 
+            .ds-pill-s-zurueckgestellt { background: #FFF3E0; color: #E65100; border-color: #FFCC80; }
+            [data-theme="dark"] .ds-pill-s-zurueckgestellt { background: rgba(230,81,0,0.18); color: #FFB74D; border-color: rgba(230,81,0,0.35); }
+
+            /* ── Park / Unpark buttons ── */
+            .park-section { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+            .park-btn {
+                width: 100%; padding: 0.5rem 1rem; border-radius: var(--radius-md); font-weight: 500;
+                font-size: 0.85rem; cursor: pointer; border: 1px solid rgba(255, 140, 0, 0.5);
+                background: transparent; color: rgba(230, 81, 0, 0.9);
+                display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+                transition: var(--transition-smooth);
+            }
+            .park-btn:hover { background: rgba(255, 140, 0, 0.08); }
+            .unpark-btn {
+                width: 100%; padding: 0.6rem 1rem; border-radius: var(--radius-md); font-weight: 600;
+                font-size: 0.9rem; cursor: pointer; border: 1px solid var(--accent-primary);
+                background: var(--accent-primary); color: #fff;
+                display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+                transition: var(--transition-smooth);
+            }
+            .unpark-btn:hover { opacity: 0.88; }
+            .park-modal {
+                margin-top: 0.75rem; background: var(--bg-tertiary); border: 1px solid rgba(255, 140, 0, 0.3);
+                border-radius: var(--radius-md); padding: 0.9rem 1rem;
+            }
+            .park-modal-title {
+                font-size: 0.85rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.6rem;
+            }
+            .park-interval-options {
+                display: flex; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap;
+            }
+            .park-interval-btn {
+                flex: 1; min-width: 50px; padding: 0.4rem 0.6rem; border-radius: var(--radius-sm);
+                font-size: 0.82rem; font-weight: 600; cursor: pointer;
+                border: 1.5px solid var(--border); background: var(--bg-secondary); color: var(--text-secondary);
+                transition: var(--transition-smooth); text-align: center;
+            }
+            .park-interval-btn.selected {
+                border-color: rgba(255, 140, 0, 0.8); background: rgba(255, 140, 0, 0.12); color: #E65100;
+            }
+            .park-confirm-btn {
+                width: 100%; padding: 0.5rem; border-radius: var(--radius-md); font-weight: 600;
+                font-size: 0.85rem; cursor: pointer; border: none;
+                background: rgba(255, 140, 0, 0.9); color: #fff;
+                transition: var(--transition-smooth);
+            }
+            .park-confirm-btn:hover { opacity: 0.88; }
+            .park-info-row {
+                font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;
+                display: flex; align-items: center; gap: 0.35rem;
+            }
+
             /* ── Bearbeiter-Zeile (wie Melder-Zeile, aber klickbar) ── */
             .ds-bearbeiter-wrap {
                 display: flex; justify-content: center; margin-top: 8px;
@@ -688,13 +782,39 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                             const p = ticket.technician.trim().split(' ');
                             return p.length >= 2 ? (p[0][0] + p[p.length-1][0]).toUpperCase() : ticket.technician.slice(0,2).toUpperCase();
                         })() : '';
-                        const isAuto = ticket.autoAssigned === true || (ticket.ticketType === 'reactive' && ticket.autoAssigned !== false);
-                        const avBg = isAssigned ? (isAuto ? '#B5D4F4' : '#FAC775') : 'transparent';
-                        const avColor = isAssigned ? (isAuto ? '#185FA5' : '#854F0B') : '#E24B4A';
+                        const isAuto = ticket.autoAssigned === true;
+                        const techUser = isAssigned ? technicians.find(u => u.name === ticket.technician) : null;
+                        const userHexColor = techUser?.color ?? null;
+                        const avBg = isAssigned && userHexColor
+                            ? userHexColor
+                            : isAssigned ? '#C8C8C8' : 'transparent';
+                        const avColor = isAssigned && userHexColor
+                            ? (() => {
+                                const c = userHexColor.replace('#', '');
+                                const r = parseInt(c.substring(0, 2), 16);
+                                const g = parseInt(c.substring(2, 4), 16);
+                                const b = parseInt(c.substring(4, 6), 16);
+                                return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6 ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.9)';
+                            })()
+                            : isAssigned ? '#444' : '#E24B4A';
                         return (
                             <div className="ds-assignee-field">
                                 {isAssigned
-                                    ? <span className="ds-av" style={{ background: avBg, color: avColor }}>{initials}</span>
+                                    ? (
+                                        <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+                                            <span className="ds-av" style={{ background: avBg, color: avColor }}>{initials}</span>
+                                            {isAuto && (
+                                                <span style={{
+                                                    position: 'absolute', top: -4, right: -4,
+                                                    width: 13, height: 13, borderRadius: '50%',
+                                                    background: '#555', color: '#fff',
+                                                    fontSize: 7, fontWeight: 800,
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    border: '1.5px solid var(--bg-secondary)',
+                                                }} title="Automatisch zugewiesen">A</span>
+                                            )}
+                                        </span>
+                                    )
                                     : <span className="ds-av ds-av-un"><i className="ti ti-plus" aria-hidden="true" /></span>
                                 }
                                 <span className="ds-assignee-name">{isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}</span>
@@ -761,6 +881,56 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                     <button className="add-note-btn-compact" onClick={handleAddNote} disabled={!newNote.trim()}>Eintrag hinzufügen</button>
                 </div>
             </div>
+
+            {/* ── PARK / UNPARK SECTION ── */}
+            {ticket.status === Status.Zurueckgestellt ? (
+                <div className="park-section">
+                    {ticket.parkedAt && (
+                        <div className="park-info-row">
+                            <i className="ti ti-parking" aria-hidden="true" />
+                            <span>Zurückgestellt seit {ticket.parkedAt}</span>
+                            {ticket.parkReminderNextDate && (
+                                <span> · Erinnerung: {ticket.parkReminderNextDate}</span>
+                            )}
+                            {ticket.parkReminderInterval && (
+                                <span> (alle {ticket.parkReminderInterval} Wo.)</span>
+                            )}
+                        </div>
+                    )}
+                    <button className="unpark-btn" onClick={handleUnpark}>
+                        <i className="ti ti-player-play" aria-hidden="true" />
+                        Wieder in Arbeit
+                    </button>
+                </div>
+            ) : ticket.status !== Status.Abgeschlossen ? (
+                <div className="park-section">
+                    {!showParkModal ? (
+                        <button className="park-btn" onClick={() => setShowParkModal(true)}>
+                            <i className="ti ti-parking" aria-hidden="true" />
+                            Zurückstellen
+                        </button>
+                    ) : (
+                        <div className="park-modal">
+                            <div className="park-modal-title">Erinnerung alle X Wochen?</div>
+                            <div className="park-interval-options">
+                                {([1, 2, 3, 4] as const).map(w => (
+                                    <button
+                                        key={w}
+                                        className={`park-interval-btn${parkInterval === w ? ' selected' : ''}`}
+                                        onClick={() => setParkInterval(w)}
+                                    >
+                                        {w} {w === 1 ? 'Woche' : 'Wochen'}
+                                    </button>
+                                ))}
+                            </div>
+                            <button className="park-confirm-btn" onClick={handleParkConfirm}>
+                                <i className="ti ti-parking" aria-hidden="true" style={{ marginRight: 4 }} />
+                                Zurückstellen
+                            </button>
+                        </div>
+                    )}
+                </div>
+            ) : null}
         </div>
       </div>
       {viewingImageSrc && (

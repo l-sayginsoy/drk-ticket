@@ -3,6 +3,7 @@ export enum Status {
   InArbeit = 'In Arbeit',
   Ueberfaellig = 'Überfällig',
   Abgeschlossen = 'Abgeschlossen',
+  Zurueckgestellt = 'Zurückgestellt',
 }
 
 export enum Priority {
@@ -33,6 +34,7 @@ export interface User {
     status: AvailabilityStatus;
     leaveUntil: string | null; // YYYY-MM-DD
   };
+  color?: string; // hex color string, e.g. "#E91E8C"
 }
 
 export interface Location {
@@ -198,4 +200,8 @@ export interface Ticket {
     materials: number;
   };
   closedAt?: string; // YYYY-MM-DD, gesetzt beim Abschließen
+  parkReminderInterval?: number; // weeks between reminders (1/2/3/4)
+  parkReminderNextDate?: string; // YYYY-MM-DD of next reminder
+  parkedAt?: string; // YYYY-MM-DD when it was parked
+  isNew?: boolean; // true until first viewed by staff
 }

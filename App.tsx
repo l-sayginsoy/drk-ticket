@@ -6,8 +6,9 @@ import {
   Ticket, Status, Priority, Role, GroupableKey, User, Location, AppSettings, Asset, MaintenancePlan, AvailabilityStatus, RoutingRule, RoutineSchedule, SLARule
 } from './types';
 import { MOCK_TICKETS, MOCK_USERS, MOCK_LOCATIONS, STATUSES, DEFAULT_APP_SETTINGS, MOCK_ASSETS, MOCK_MAINTENANCE_PLANS } from './constants';
-import { db } from './firebase';
+import { db, functions } from './firebase';
 import { collection, doc, setDoc, onSnapshot, getDocs, deleteDoc, arrayUnion, query, where } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -27,6 +28,7 @@ import RoutineNachweisView from './components/RoutineNachweisView';
 import CompleteOrderDialog from './components/CompleteOrderDialog';
 import ToastContainer, { type Toast } from './components/ToastContainer';
 import DashboardRoutineLinkBar from './components/DashboardRoutineLinkBar';
+import ZurückgestelltView from './components/ZurückgestelltView';
 import { localISODate, isRoutineDueOnCalendarDay } from './utils/routineHelpers';
 import { fetchRpHolidays } from './utils/rpHolidays';
 import {
@@ -424,61 +426,21 @@ const sendDrkBrevoMailAsync = async (
     console.warn('Brevo: kein Empfänger (leere E-Mail-Adresse).');
     return false;
   }
-  const apiKey = (import.meta.env.VITE_BREVO_API_KEY as string | undefined)?.trim();
-  if (!apiKey) {
-    const msg = 'E-Mail konnte nicht gesendet werden: VITE_BREVO_API_KEY fehlt im Build.';
-    console.warn(msg);
-    emitBrevoMailStatus({ ok: false, status: 0, message: msg });
-    if (!silent) window.alert(msg);
-    return false;
-  }
-  const senderEmail =
-    (import.meta.env.VITE_BREVO_SENDER_EMAIL as string | undefined)?.trim() || 'noreply@drk-ticket.de';
-  const senderName =
-    (import.meta.env.VITE_BREVO_SENDER_NAME as string | undefined)?.trim() || 'DRK Serviceportal';
   const textContent = buildDrkBrevoPlainText(payload);
   const htmlContent = buildDrkBrevoHtml(payload);
   try {
-    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      mode: 'cors',
-      credentials: 'omit',
-      headers: { 'Content-Type': 'application/json', 'api-key': apiKey },
-      body: JSON.stringify({
-        sender: { email: senderEmail, name: senderName },
-        to: [{ email: recipient }],
-        subject,
-        textContent,
-        htmlContent,
-      }),
-    });
-    const bodyText = await res.text();
-    if (!res.ok) {
-      let detail = bodyText.slice(0, 1200);
-      try {
-        const j = JSON.parse(bodyText) as { message?: string; code?: string };
-        if (j?.message) detail = `${j.message}${j.code ? ` (${j.code})` : ''}`;
-      } catch {
-        /* Roh-Text behalten */
-      }
-      console.error('Brevo Fehler:', res.status, detail);
-      emitBrevoMailStatus({ ok: false, status: res.status, message: detail });
-      if (!silent) {
-        window.alert(
-          `E-Mail konnte nicht gesendet werden (Brevo HTTP ${res.status}).\n\n` +
-            `Absender muss in Brevo unter „Senders & IPs“ verifiziert sein (aktuell: ${senderEmail}).\n\n` +
-            detail
-        );
-      }
+    const sendFn = httpsCallable<
+      { to: string; subject: string; htmlContent: string; textContent: string },
+      { ok: boolean; messageId?: string }
+    >(functions, 'sendBrevoMail');
+    const result = await sendFn({ to: recipient, subject, htmlContent, textContent });
+    if (!result.data.ok) {
+      const detail = 'Unbekannter Fehler';
+      emitBrevoMailStatus({ ok: false, status: 0, message: detail });
+      if (!silent) window.alert(`E-Mail konnte nicht gesendet werden.\n\n${detail}`);
       return false;
     }
-    try {
-      const parsed = bodyText ? JSON.parse(bodyText) : null;
-      const messageId = parsed?.messageId ? String(parsed.messageId) : '';
-      console.info('Brevo OK', { status: res.status, messageId });
-    } catch {
-      console.info('Brevo OK', { status: res.status });
-    }
+    console.info('Brevo OK', { messageId: result.data.messageId });
     emitBrevoMailStatus({ ok: true });
     return true;
   } catch (err) {
@@ -913,10 +875,12 @@ const App: React.FC = () => {
   /** Admin: Brevo-API regelmäßig prüfen (ohne Mail), damit deaktivierte Keys sofort auffallen */
   useEffect(() => {
     if (!isInitialized || currentUser?.role !== Role.Admin) return;
-    const apiKey = (import.meta.env.VITE_BREVO_API_KEY as string | undefined)?.trim();
+    const healthFn = httpsCallable<Record<string, never>, { ok: boolean; status: number; message: string }>(
+      functions, 'checkBrevoHealth'
+    );
     let cancelled = false;
     const run = async () => {
-      const r = await checkBrevoAccountApi(apiKey || '');
+      const r = await checkBrevoAccountApi(healthFn);
       if (cancelled) return;
       setBrevoMailLastChecked(new Date());
       if (!r.ok) {
@@ -975,6 +939,15 @@ const App: React.FC = () => {
           });
           setLastSyncTime(new Date());
           setTimeout(() => { isRemoteUpdate.current = false; }, 100);
+
+          // Race-condition safety: onSnapshot for tickets/routine_tickets may have already fired
+          // before fetchData() finished loading the deleted-ticket-ids blocklist from Firestore.
+          // Re-filter both collections now that deletedTicketIdsRef is fully populated.
+          if (deletedTicketIdsRef.current.size > 0) {
+            setTickets((prev) => prev.filter((t) => !deletedTicketIdsRef.current.has(t.id)));
+            setRoutineTickets((prev) => prev.filter((t) => !deletedTicketIdsRef.current.has(t.id)));
+            setCompletedTickets((prev) => prev.filter((t) => !deletedTicketIdsRef.current.has(t.id)));
+          }
         }
 
         // Load current state of all ticket collections
@@ -1047,6 +1020,25 @@ const App: React.FC = () => {
 
         // Migration: move any routine tickets still in completed_tickets/ to routine_tickets/ ...
         // Actually completed routine tickets stay in completed_tickets/ per spec — no migration needed here.
+
+        // Cleanup: remove any documents that are in the deleted-ticket-ids blocklist but still
+        // physically exist in Firestore (e.g. previous delete failed due to network issues).
+        if (deletedTicketIdsRef.current.size > 0) {
+          const allCollSnaps: Array<{ snap: typeof ticketsCollSnap; coll: string }> = [
+            { snap: ticketsCollSnap, coll: 'tickets' },
+            { snap: completedCollSnap, coll: 'completed_tickets' },
+            { snap: routineCollSnap, coll: 'routine_tickets' },
+          ];
+          for (const { snap, coll } of allCollSnaps) {
+            const ghostDocs = snap.docs.filter((d) => deletedTicketIdsRef.current.has(d.id));
+            if (ghostDocs.length > 0) {
+              console.log(`Cleaning up ${ghostDocs.length} ghost document(s) from ${coll}/…`);
+              await Promise.all(
+                ghostDocs.map((d) => deleteDoc(doc(db, coll, d.id)).catch(() => {}))
+              );
+            }
+          }
+        }
 
         appDataReadyRef.current = true;
         tryMarkInitialized();
@@ -1241,6 +1233,7 @@ const App: React.FC = () => {
     ) {
       setCurrentView('tech-dashboard');
     }
+    // zurueckgestellt is allowed for all roles — no redirect
   }, [currentUser, currentView]);
 
   // Beim Wechsel zur Erledigt-Ansicht den gewählten Monat neu laden
@@ -2241,6 +2234,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       hasNewNoteFromReporter: false,
       is_emergency: false,
       autoAssigned: wasAutoAssigned,
+      isNew: true,
     };
     if (reporterEmail) {
       newTicket.reporter_email = reporterEmail;
@@ -2384,6 +2378,14 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     });
   }, [tickets, routineTickets, completedTickets, currentUser]);
 
+  /** Zurückgestellte Tickets mit fälliger Erinnerung (parkReminderNextDate <= heute) */
+  const dueParkedTickets = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    return [...tickets, ...routineTickets].filter(
+      t => t.status === Status.Zurueckgestellt && t.parkReminderNextDate && t.parkReminderNextDate <= todayStr
+    );
+  }, [tickets, routineTickets]);
+
   const filteredTickets = useMemo(() => {
     const source = currentView === 'erledigt' ? completedTickets : [...tickets, ...routineTickets];
     return source.filter(ticket => {
@@ -2416,6 +2418,9 @@ const deleteTicketFromFirebase = (ticketId: string) => {
           if ((currentView === 'dashboard' || currentView === 'tech-dashboard') && ticket.origin === 'routine') {
               return false;
           }
+
+          // Zurückgestellte Tickets nicht in regulären Ansichten anzeigen
+          if (currentView !== 'zurueckgestellt' && ticket.status === Status.Zurueckgestellt) return false;
 
           if ((currentView === 'tickets' || currentView === 'dashboard' || currentView === 'tech-dashboard') && filters.status !== 'Alle' && ticket.status !== filters.status) return false;
         }
@@ -2937,6 +2942,15 @@ const deleteTicketFromFirebase = (ticketId: string) => {
         }
         case 'techniker': return <TechnicianView tickets={listenBenchTickets} technicians={users.filter(u => (u.role === Role.Technician || u.role === Role.Housekeeping) && u.isActive)} onTechnicianSelect={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} onFilter={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} />;
         case 'settings': return <SettingsView users={users} setUsers={setUsers} locations={locations} setLocations={setLocations} assets={assets} setAssets={setAssets} maintenancePlans={maintenancePlans} setMaintenancePlans={setMaintenancePlans} appSettings={appSettings} setAppSettings={handleAppSettingsChange} onResendConfirmationMailsForEntryDate={handleResendConfirmationMailsForEntryDate} />;
+        case 'zurueckgestellt': return (
+          <ZurückgestelltView
+            tickets={[...tickets, ...routineTickets]}
+            onUpdateTicket={handleTicketUpdate}
+            onSelectTicket={setSelectedTicket}
+            selectedTicket={selectedTicket}
+            userRole={currentUser.role}
+          />
+        );
         default: return (
           <KanbanBoard
             tickets={filteredTickets}
@@ -2966,6 +2980,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
         userRole={currentUser.role}
         userName={displayNameShort(currentUser.name)}
         userNameFull={currentUser.name}
+        userColor={currentUser.color ?? null}
         tickets={ticketsForUser}
         onNewTicketClick={() => setIsModalOpen(true)}
         onExportPDF={handleExportPDF}
@@ -2997,8 +3012,8 @@ const deleteTicketFromFirebase = (ticketId: string) => {
             <div style={{ flex: '1 1 240px', minWidth: 0 }}>
               <strong>E-Mail-Versand (Brevo):</strong> funktioniert gerade nicht
               {brevoAdminAlert.status ? ` (HTTP ${brevoAdminAlert.status})` : ''}. Meldungen mit E-Mail können keine
-              Bestätigung verschicken. Bitte API-Key in Brevo prüfen und GitHub-Secret{' '}
-              <code style={{ fontSize: '0.9em' }}>VITE_BREVO_API_KEY</code> aktualisieren, dann neu deployen.
+              Bestätigung verschicken. Bitte API-Key in Brevo prüfen und{' '}
+              <code style={{ fontSize: '0.9em' }}>functions/.env → BREVO_API_KEY</code> aktualisieren, dann neu deployen.
               <div style={{ marginTop: 8, fontSize: 13, opacity: 0.92, wordBreak: 'break-word' }}>
                 {brevoAdminAlert.message}
               </div>
@@ -3011,6 +3026,53 @@ const deleteTicketFromFirebase = (ticketId: string) => {
             >
               Ausblenden
             </button>
+          </div>
+        )}
+        {/* Zurückgestellt Reminder Banner */}
+        {dueParkedTickets.length > 0 && (
+          <div
+            role="alert"
+            style={{
+              marginTop: 12,
+              marginBottom: 4,
+              padding: '10px 14px',
+              borderRadius: 10,
+              border: '1px solid rgba(255, 140, 0, 0.35)',
+              background: 'rgba(255, 140, 0, 0.1)',
+              color: '#854F0B',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              fontWeight: 700,
+              fontSize: 14,
+              cursor: 'pointer',
+            }}
+            onClick={() => {
+              // Update nextReminderDate for all due parked tickets
+              const todayStr = new Date().toISOString().split('T')[0];
+              dueParkedTickets.forEach(t => {
+                if (!t.parkReminderInterval) return;
+                const next = new Date();
+                next.setDate(next.getDate() + t.parkReminderInterval * 7);
+                const nextStr = next.toISOString().split('T')[0];
+                if (nextStr !== todayStr) {
+                  saveTicketToFirebase({ ...t, parkReminderNextDate: nextStr });
+                }
+              });
+              changeView('zurueckgestellt');
+            }}
+          >
+            <span style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 8, background: 'rgba(255,140,0,0.9)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+              <i className="ti ti-parking" style={{ fontSize: 18 }} aria-hidden="true" />
+            </span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              {dueParkedTickets.length === 1
+                ? '1 zurückgestellter Auftrag wartet auf Überprüfung'
+                : `${dueParkedTickets.length} zurückgestellte Aufträge warten auf Überprüfung`}
+            </span>
+            <span style={{ flexShrink: 0, opacity: 0.8 }}>
+              <i className="ti ti-chevron-right" style={{ fontSize: 20 }} aria-hidden="true" />
+            </span>
           </div>
         )}
         {(currentView === 'dashboard' || currentView === 'tech-dashboard') && (

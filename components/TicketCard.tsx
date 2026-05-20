@@ -160,6 +160,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
     
     const isEmergency = !!ticket.is_emergency;
     const isTicketStagnating = isStagnating(ticket);
+    const isNewTicket = ticket.isNew === true;
 
     const Dropdown: React.FC<{
         options: string[],
@@ -187,13 +188,22 @@ const TicketCard: React.FC<TicketCardProps> = ({
         return p.length >= 2 ? (p[0][0] + p[p.length - 1][0]).toUpperCase() : n.slice(0, 2).toUpperCase();
     })();
 
-    // Avatar-Farbe: auto=blau, manuell=orange
-    const isAutoAssigned = ticket.autoAssigned === true || (ticket.ticketType === 'reactive' && ticket.autoAssigned !== false);
-    const avColor = isAssigned
-        ? (isAutoAssigned
-            ? { bg: '#B5D4F4', text: '#185FA5' }   // blau
-            : { bg: '#FAC775', text: '#854F0B' })   // orange
-        : { bg: 'transparent', text: '#E24B4A' };
+    const isAutoAssigned = ticket.autoAssigned === true;
+
+    // Look up user's personal color from technicians list
+    const techUser = isAssigned ? technicians.find(u => u.name === ticket.technician) : null;
+    const userColor = techUser?.color ?? null;
+    const avColor = isAssigned && userColor
+        ? { bg: userColor, text: (() => {
+              const c = userColor.replace('#', '');
+              const r = parseInt(c.substring(0, 2), 16);
+              const g = parseInt(c.substring(2, 4), 16);
+              const b = parseInt(c.substring(4, 6), 16);
+              return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6 ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.9)';
+          })() }
+        : isAssigned
+            ? { bg: '#C8C8C8', text: '#444' }  // neutral fallback
+            : { bg: 'transparent', text: '#E24B4A' };
 
     // Fälligkeits-Dringlichkeit: rein datumbasiert, unabhängig vom Status
     const dueDateUrgency: 'normal' | 'soon' | 'today' | 'overdue' = (() => {
@@ -346,6 +356,30 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     background: transparent; border: 1.5px dashed #E24B4A; color: #E24B4A;
                 }
                 .av-un i { font-size: 10px; }
+                .av-wrapper {
+                    position: relative; display: inline-flex; flex-shrink: 0;
+                }
+                .av-badge-a {
+                    position: absolute; top: -4px; right: -4px;
+                    width: 14px; height: 14px; border-radius: 50%;
+                    background: #555; color: #fff;
+                    font-size: 7px; font-weight: 800;
+                    display: flex; align-items: center; justify-content: center;
+                    border: 1.5px solid var(--bg-secondary);
+                    line-height: 1; letter-spacing: 0;
+                }
+                @keyframes pulse-dot {
+                    0%   { opacity: 1; transform: scale(1); }
+                    50%  { opacity: 0.5; transform: scale(1.3); }
+                    100% { opacity: 1; transform: scale(1); }
+                }
+                .new-ticket-dot {
+                    position: absolute; top: -3px; left: -3px;
+                    width: 9px; height: 9px; border-radius: 50%;
+                    background: #2563EB;
+                    border: 1.5px solid var(--bg-secondary);
+                    animation: pulse-dot 1.5s infinite;
+                }
 
                 .footer-info-pill {
                     margin-left: auto;
@@ -369,6 +403,9 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     <div className="card-icons">
                         {ticket.is_reopened && (
                             <span title="Wiedereröffnet" style={{ display:'inline-flex', alignItems:'center', fontSize:'0.6rem', fontWeight:700, padding:'1px 4px', borderRadius:999, background:'#fff3e0', color:'#e65100', border:'0.5px solid #ff9800' }}>↩</span>
+                        )}
+                        {isNewTicket && (
+                            <span title="Neues Ticket" style={{ display:'inline-flex', alignItems:'center', fontSize:'0.6rem', fontWeight:700, padding:'1px 5px', borderRadius:999, background:'#EFF6FF', color:'#2563EB', border:'0.5px solid #BFDBFE' }}>Neu</span>
                         )}
                         {isTicketStagnating && <span title="Ticket stagniert"><ClockIcon className="stagnating-icon" width="13" height="13" /></span>}
                         {isEmergency && <span className="urgent-icon" title="Notfall"><ExclamationTriangleIcon width="13" height="13" /></span>}
@@ -452,7 +489,12 @@ const TicketCard: React.FC<TicketCardProps> = ({
             <div className="card-footer" onClick={() => onSelectTicket(ticket)}>
                 <div className="assignee-chip" onClick={e => e.stopPropagation()}>
                     {isAssigned
-                        ? <span className="av" style={{ background: avColor.bg, color: avColor.text }}>{initials}</span>
+                        ? (
+                            <span className="av-wrapper">
+                                <span className="av" style={{ background: avColor.bg, color: avColor.text }}>{initials}</span>
+                                {isAutoAssigned && <span className="av-badge-a" title="Automatisch zugewiesen">A</span>}
+                            </span>
+                        )
                         : <span className="av av-un"><i className="ti ti-plus" style={{ fontSize: 10 }} aria-hidden="true" /></span>
                     }
                     <span>{isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}</span>

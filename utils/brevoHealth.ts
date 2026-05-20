@@ -41,25 +41,16 @@ export function readStoredBrevoMailError(): { status: number; message: string } 
   }
 }
 
-/** Prüft, ob der API-Key bei Brevo gültig ist (ohne Mail zu versenden). */
-export async function checkBrevoAccountApi(apiKey: string): Promise<{ ok: boolean; status: number; message: string }> {
-  const key = apiKey.trim();
-  if (!key) return { ok: false, status: 0, message: 'VITE_BREVO_API_KEY fehlt im Build.' };
+/**
+ * Prüft, ob Brevo erreichbar ist – ruft die Cloud Function auf (kein direkter
+ * Browser→Brevo-Kontakt, kein API-Key im Frontend).
+ */
+export async function checkBrevoAccountApi(
+  checkFn: (data: Record<string, never>) => Promise<{ data: { ok: boolean; status: number; message: string } }>
+): Promise<{ ok: boolean; status: number; message: string }> {
   try {
-    const res = await fetch('https://api.brevo.com/v3/account', {
-      method: 'GET',
-      headers: { 'api-key': key, Accept: 'application/json' },
-    });
-    const text = await res.text();
-    if (res.ok) return { ok: true, status: res.status, message: '' };
-    let msg = text.slice(0, 400);
-    try {
-      const j = JSON.parse(text) as { message?: string };
-      if (j?.message) msg = String(j.message);
-    } catch {
-      /* keep raw slice */
-    }
-    return { ok: false, status: res.status, message: msg || `HTTP ${res.status}` };
+    const result = await checkFn({});
+    return result.data;
   } catch (e) {
     return { ok: false, status: 0, message: String(e) };
   }

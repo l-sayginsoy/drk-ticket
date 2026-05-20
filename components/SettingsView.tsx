@@ -1389,6 +1389,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                 <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', marginTop: '0.5rem' }}>
                     {users.map((user, idx) => {
                         const color = roleColor[user.role] ?? '#888888';
+                        const avatarColor = user.color ?? color;
                         const available = user.availability.status === AvailabilityStatus.Available;
                         return (
                             <div key={user.id} style={{
@@ -1400,14 +1401,26 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                 borderTop: idx > 0 ? '1px solid var(--border)' : 'none',
                                 opacity: user.isActive ? 1 : 0.45,
                             }}>
-                                {/* Name + Avatar */}
+                                {/* Name + Avatar + color dot */}
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
                                     <div style={{
-                                        width: 32, height: 32, borderRadius: '50%', background: color, flexShrink: 0,
+                                        width: 32, height: 32, borderRadius: '50%', background: avatarColor, flexShrink: 0,
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         color: 'white', fontWeight: 700, fontSize: '0.7rem',
                                     }}>{getInitials(user.name)}</div>
                                     <span style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</span>
+                                    {/* Inline color picker dot */}
+                                    <label
+                                        title="Farbe ändern"
+                                        style={{ position: 'relative', width: 14, height: 14, borderRadius: '50%', background: avatarColor, flexShrink: 0, cursor: 'pointer', border: '1.5px solid rgba(0,0,0,0.15)', display: 'inline-block' }}
+                                    >
+                                        <input
+                                            type="color"
+                                            value={avatarColor}
+                                            onChange={e => setUsers(current => current.map(u => u.id === user.id ? { ...u, color: e.target.value } : u))}
+                                            style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer', padding: 0, border: 'none' }}
+                                        />
+                                    </label>
                                 </div>
 
                                 {/* Rolle */}

@@ -427,6 +427,11 @@
 
   function show(id) { document.getElementById(id).removeAttribute('hidden'); }
 
+  // Nach Installation sofort zur Haupt-App weiterleiten
+  window.addEventListener('appinstalled', () => {
+    setTimeout(() => { window.location.replace('/'); }, 800);
+  });
+
   function bindBtn(btnId, successId) {
     const btn = document.getElementById(btnId);
     if (!btn) return;
@@ -438,6 +443,8 @@
         if (outcome === 'accepted') {
           btn.hidden = true;
           document.getElementById(successId).style.display = 'flex';
+          // Weiterleitung zur Haupt-App damit Chrome / als Startpunkt kennt
+          setTimeout(() => { window.location.replace('/'); }, 1200);
         }
       } else {
         // Scroll hint into view so user sees the address bar instruction

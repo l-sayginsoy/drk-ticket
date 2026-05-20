@@ -305,7 +305,7 @@ export const MOCK_MAINTENANCE_PLANS: MaintenancePlan[] = [
 ];
 
 export const PRIORITIES = ['Alle', 'Hoch', 'Mittel', 'Niedrig'];
-export const STATUSES = ['Alle', 'Offen', 'In Arbeit', 'Überfällig', 'Abgeschlossen'];
+export const STATUSES = ['Alle', 'Offen', 'In Arbeit', 'Überfällig', 'Abgeschlossen', 'Zurückgestellt'];
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
     appName: "DRK Serviceportal",
@@ -358,11 +358,28 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
     routineDayCompletions: [],
 };
 
+/** Palette of distinct user avatar colors. Index 0 is feminine (rose/pink), rest are varied. */
+export const DEFAULT_USER_COLORS: string[] = [
+  '#D81B60', // rose/pink — feminine
+  '#1565C0', // dark blue
+  '#2E7D32', // dark green
+  '#00838F', // teal
+  '#283593', // indigo
+  '#E65100', // deep orange
+  '#6A1B9A', // purple
+  '#00695C', // dark teal
+  '#558B2F', // olive green
+  '#AD1457', // deep pink
+  '#1976D2', // blue
+  '#827717', // yellow-brown
+];
+
 export const statusColorMap: Record<Status, string> = {
   [Status.Offen]: '--text-muted',
   [Status.InArbeit]: '--accent-inprogress',
   [Status.Ueberfaellig]: '--accent-danger',
   [Status.Abgeschlossen]: '--accent-success',
+  [Status.Zurueckgestellt]: '--accent-warning',
 };
 
 export const statusBgColorMap: Record<Status, string> = {
@@ -370,6 +387,7 @@ export const statusBgColorMap: Record<Status, string> = {
   [Status.InArbeit]: 'rgba(0, 123, 255, 0.1)',
   [Status.Ueberfaellig]: 'rgba(220, 53, 69, 0.1)',
   [Status.Abgeschlossen]: 'rgba(40, 167, 69, 0.1)',
+  [Status.Zurueckgestellt]: 'rgba(255, 140, 0, 0.1)',
 };
 
 export const statusBorderColorMap: Record<Status, string> = {
@@ -377,4 +395,5 @@ export const statusBorderColorMap: Record<Status, string> = {
   [Status.InArbeit]: 'rgba(0, 123, 255, 0.3)',
   [Status.Ueberfaellig]: 'rgba(220, 53, 69, 0.3)',
   [Status.Abgeschlossen]: 'rgba(40, 167, 69, 0.3)',
+  [Status.Zurueckgestellt]: 'rgba(255, 140, 0, 0.3)',
 };

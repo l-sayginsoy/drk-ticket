@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Role, AvailabilityStatus } from '../types';
+import { DEFAULT_USER_COLORS } from '../constants';
 
 interface UserModalProps {
   user: Partial<User> | null;
@@ -11,11 +12,13 @@ interface UserModalProps {
 const UserModal: React.FC<UserModalProps> = ({ user, allSkills, onClose, onSave }) => {
   const [formData, setFormData] = useState<Partial<User>>({});
   const [skills, setSkills] = useState('');
+  const [colorValue, setColorValue] = useState<string>(DEFAULT_USER_COLORS[0]);
 
   useEffect(() => {
     if (user) {
       setFormData({ ...user, password: '' });
       setSkills(user.skills?.join(', ') || '');
+      setColorValue(user.color || DEFAULT_USER_COLORS[0]);
     } else {
       setFormData({
         name: '',
@@ -25,6 +28,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, allSkills, onClose, onSave 
         availability: { status: AvailabilityStatus.Available, leaveUntil: null }
       });
       setSkills('');
+      setColorValue(DEFAULT_USER_COLORS[0]);
     }
   }, [user]);
 
@@ -54,7 +58,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, allSkills, onClose, onSave 
     const finalAvailability = formData.availability || { status: AvailabilityStatus.Available, leaveUntil: null };
     
     const finalSkills = skills.split(',').map(s => s.trim()).filter(Boolean);
-    const userToSave = { ...formData, skills: finalSkills, availability: finalAvailability } as User;
+    const userToSave = { ...formData, skills: finalSkills, availability: finalAvailability, color: colorValue } as User;
     
     console.log("UserModal saving:", userToSave);
     onSave(userToSave);
@@ -140,6 +144,37 @@ const UserModal: React.FC<UserModalProps> = ({ user, allSkills, onClose, onSave 
           <div className="form-group">
             <label htmlFor="availability-leaveUntil">Abwesend bis</label>
             <input id="availability-leaveUntil" name="leaveUntil" type="date" value={formData.availability?.leaveUntil || ''} onChange={handleAvailabilityChange} disabled={formData.availability?.status !== AvailabilityStatus.OnLeave} />
+          </div>
+
+          <div className="form-group full-width">
+            <label>Avatar-Farbe</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              {DEFAULT_USER_COLORS.map(c => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setColorValue(c)}
+                  style={{
+                    width: 26, height: 26, borderRadius: '50%', background: c, border: 'none',
+                    cursor: 'pointer', flexShrink: 0,
+                    outline: colorValue === c ? `3px solid ${c}` : 'none',
+                    outlineOffset: 2,
+                    boxShadow: colorValue === c ? '0 0 0 2px var(--bg-secondary), 0 0 0 4px ' + c : 'none',
+                  }}
+                  title={c}
+                />
+              ))}
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                <span style={{ width: 26, height: 26, borderRadius: '50%', background: colorValue, display: 'inline-block', border: '2px solid var(--border)', flexShrink: 0 }} />
+                <input
+                  type="color"
+                  value={colorValue}
+                  onChange={e => setColorValue(e.target.value)}
+                  style={{ width: 0, height: 0, opacity: 0, position: 'absolute' }}
+                />
+                Eigene Farbe
+              </label>
+            </div>
           </div>
 
           <div className="form-actions">

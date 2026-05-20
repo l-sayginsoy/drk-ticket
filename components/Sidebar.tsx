@@ -25,6 +25,8 @@ interface SidebarProps {
     userName: string | null;
     /** Voller gespeicherter Name für Initialen/Tooltip */
     userNameFull?: string | null;
+    /** Hex color of the current user's avatar */
+    userColor?: string | null;
     tickets: Ticket[];
     onNewTicketClick: () => void;
     onExportPDF: () => void;
@@ -49,6 +51,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     userRole,
     userName,
     userNameFull,
+    userColor,
     tickets,
     onNewTicketClick,
     onExportPDF,
@@ -64,9 +67,13 @@ const Sidebar: React.FC<SidebarProps> = ({
         return tickets.filter(t => t.hasNewNoteFromReporter && t.status !== Status.Abgeschlossen).length;
     }, [tickets]);
 
+    const parkedCount = useMemo(() => {
+        return tickets.filter(t => t.status === Status.Zurueckgestellt).length;
+    }, [tickets]);
+
     const newMeldungenCount = useMemo(() => {
         return tickets.filter(t =>
-            (t.status === Status.Offen && (t.technician === 'N/A' || !t.technician)) || t.is_reopened
+            (t.status === Status.Offen && (t.technician === 'N/A' || !t.technician || t.isNew === true)) || t.is_reopened
         ).length;
     }, [tickets]);
     
@@ -84,6 +91,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         { type: 'view', viewName: 'erledigt', icon: <i className="ti ti-clock" aria-hidden />, label: 'Abgeschlossen', requiredRoles: [Role.Admin], section: 'uebersicht' },
         { type: 'view', viewName: 'routines', icon: <i className="ti ti-repeat" aria-hidden />, label: 'Serienaufträge', requiredRoles: [Role.Admin], section: 'uebersicht' },
         { type: 'view', viewName: 'routine-nachweis', icon: <CalendarIcon />, label: 'Serien‑Nachweis', requiredRoles: [Role.Admin], section: 'uebersicht' },
+        { type: 'view', viewName: 'zurueckgestellt', icon: <i className="ti ti-parking" aria-hidden />, label: 'Zurückgestellt', requiredRoles: [Role.Admin], section: 'uebersicht' },
         // Admin — Verwaltung
         { type: 'view', viewName: 'techniker', icon: <i className="ti ti-users" aria-hidden />, label: 'Team', requiredRoles: [Role.Admin], section: 'verwaltung' },
         { type: 'view', viewName: 'reports', icon: <BarChartIcon />, label: 'Reports', requiredRoles: [Role.Admin], section: 'verwaltung' },
@@ -95,6 +103,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         { type: 'view', viewName: 'erledigt', icon: <i className="ti ti-clock" aria-hidden />, label: 'Abgeschlossen', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
         { type: 'view', viewName: 'routines', icon: <i className="ti ti-repeat" aria-hidden />, label: 'Serienaufträge', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
         { type: 'view', viewName: 'routine-nachweis', icon: <CalendarIcon />, label: 'Serien‑Nachweis', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
+        { type: 'view', viewName: 'zurueckgestellt', icon: <i className="ti ti-parking" aria-hidden />, label: 'Zurückgestellt', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
 
         // Aktionen (alle Rollen)
         { type: 'action', action: 'newTicket', icon: <DocumentPlusIcon />, label: 'Neues Ticket', requiredRoles: [Role.Admin, Role.Technician, Role.Housekeeping], section: 'aktionen', onClick: onNewTicketClick },
@@ -136,6 +145,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                 const c = tickets.filter(t => t.technician === userNameFull && t.status === Status.Offen && t.origin !== 'routine').length;
                 return c > 0 ? <span className="nav-badge">{c}</span> : null;
             })()}
+            {viewName === 'zurueckgestellt' && parkedCount > 0 && (
+                <span className="nav-badge" style={{ backgroundColor: 'rgba(255, 140, 0, 0.9)' }}>{parkedCount}</span>
+            )}
             <span className="nav-tooltip">{label}</span>
         </button>
     );
@@ -653,16 +665,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </div>
             ) : null}
             <div className="sidebar-footer">
-                <ThemeToggle theme={theme} setTheme={setTheme} isCollapsed={isCollapsed} />
-                <button
-                    className="nav-item"
-                    title={isCollapsed ? (userNameFull ?? userName ?? '') : (userNameFull ?? userName ?? '')}
-                >
-                     <Avatar name={userName ?? 'Benutzer'} initialsFrom={userNameFull ?? userName ?? undefined} />
-                     <span className="nav-label">{userName ?? 'Benutzer'}</span>
-                     <span className="nav-tooltip">{userNameFull ?? userName ?? 'Benutzer'}</span>
-                </button>
-                 <button className="nav-item" title={isCollapsed ? "Abmelden" : ''} onClick={onLogout}>
+                <div className="nav-item" style={{ cursor: 'default' }}>
+                    <Avatar name={userName ?? 'Benutzer'} initialsFrom={userNameFull ?? userName ?? undefined} color={userColor ?? undefined} />
+                    <span className="nav-label" style={{ flex: 1 }}>{userName ?? 'Benutzer'}</span>
+                    <ThemeToggle theme={theme} setTheme={setTheme} isCollapsed={isCollapsed} />
+                </div>
+                <button className="nav-item" title={isCollapsed ? 'Abmelden' : ''} onClick={onLogout}>
                     <i className="ti ti-logout" aria-hidden />
                     <span className="nav-label">Abmelden</span>
                     <span className="nav-tooltip">Abmelden</span>

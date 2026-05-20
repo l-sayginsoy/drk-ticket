@@ -2,7 +2,7 @@
   "name": "drk-ticket-functions",
   "private": true,
   "engines": {
-    "node": "18"
+    "node": "22"
   },
   "main": "sendEmails.js",
   "dependencies": {
