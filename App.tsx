@@ -422,8 +422,9 @@ const sendDrkBrevoMailAsync = async (
 ): Promise<boolean> => {
   const silent = !!opts?.silent;
   const recipient = String(to || '').trim();
-  if (!recipient) {
-    console.warn('Brevo: kein Empfänger (leere E-Mail-Adresse).');
+  const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient);
+  if (!recipient || !isValidEmail) {
+    console.warn('Brevo: ungültige oder leere E-Mail-Adresse:', recipient);
     return false;
   }
   const textContent = buildDrkBrevoPlainText(payload);
