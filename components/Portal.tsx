@@ -199,7 +199,7 @@ const NewTicketForm: React.FC<{
             </div>
             <div className="portal-form">
                 <p style={{ margin: '0 0 1rem', fontSize: '0.875rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-                    Bitte wählen Sie den betroffenen Standort.
+                    Bitte wählen Sie den betroffenen Standort
                 </p>
                 <div className="form-group">
                     <label>Standort*</label>
