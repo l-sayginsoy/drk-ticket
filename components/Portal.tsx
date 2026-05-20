@@ -198,6 +198,9 @@ const NewTicketForm: React.FC<{
                 <div className="header-spacer-small" />
             </div>
             <div className="portal-form">
+                <p style={{ margin: '0 0 1rem', fontSize: '0.875rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                    Bitte wählen Sie den betroffenen Standort.
+                </p>
                 <div className="form-group">
                     <label>Standort*</label>
                     <select value={formState.area} onChange={e => setFormState(p => ({...p, area: e.target.value}))}>
