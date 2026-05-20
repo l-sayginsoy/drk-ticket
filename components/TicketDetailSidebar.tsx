@@ -802,7 +802,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                                     <span style={{
                                         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                                         width: 14, height: 14, borderRadius: 4,
-                                        background: '#2563EB', color: '#fff',
+                                        background: '#6366F1', color: '#fff',
                                         fontSize: 8, fontWeight: 800,
                                         flexShrink: 0,
                                     }} title="Automatisch zugewiesen">A</span>

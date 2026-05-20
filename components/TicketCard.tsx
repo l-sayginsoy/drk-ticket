@@ -362,7 +362,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .av-badge-a {
                     display: inline-flex; align-items: center; justify-content: center;
                     width: 14px; height: 14px; border-radius: 4px;
-                    background: #2563EB; color: #fff;
+                    background: #6366F1; color: #fff;
                     font-size: 8px; font-weight: 800;
                     line-height: 1; letter-spacing: 0;
                     flex-shrink: 0;
