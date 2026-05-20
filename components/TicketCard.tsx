@@ -283,7 +283,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .card-tnum { font-size: 10px; color: #999; white-space: nowrap; margin-top: 2px; }
                 .card-tnum-new {
                     font-size: 10px; font-weight: 700; white-space: nowrap;
-                    background: #2563EB; color: #fff;
+                    background: #DC2626; color: #fff;
                     padding: 2px 7px; border-radius: 999px;
                 }
                 .urgent-icon { color: #E24B4A; }
