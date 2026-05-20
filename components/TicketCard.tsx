@@ -273,7 +273,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     box-shadow: 0 6px 18px rgba(0,0,0,0.4);
                 }
                 .ticket-card.urgent-alert { animation: pulse-border 1.5s infinite; }
-                .ticket-card.card-is-new { background: rgba(220, 38, 38, 0.03); }
+                .ticket-card.card-is-new { border: 2px solid rgba(220, 38, 38, 0.5); }
                 /* .ticket-card.selected — kein extra Indikator, Sidebar reicht als Feedback */
 
                 /* ── Body ── */
