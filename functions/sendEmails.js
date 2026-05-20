@@ -1,6 +1,6 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 
-const SENDER_EMAIL = 'noreply@drk-ticket.de';
+const SENDER_EMAIL = 'drk.vorderpfalz.serviceportal@gmail.com';
 const SENDER_NAME  = 'DRK Serviceportal';
 
 /**

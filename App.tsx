@@ -77,7 +77,7 @@ const LOCAL_STORAGE_KEY_DELETED_IDS = 'facility-management-deleted-ticket-ids';
 const LOCAL_STORAGE_KEY_COMPLETED_TICKETS = 'facility-management-completed-tickets';
 const LOCAL_STORAGE_KEY_ROUTINE_TICKETS = 'facility-management-routine-tickets';
 
-const DRK_TICKET_PORTAL_URL = 'https://www.drk-ticket.de';
+const DRK_TICKET_PORTAL_URL = 'https://drk-facility-dashboard.web.app';
 /** An Portal-Farben angelehnt (Haustechnik Service) */
 const DRK_RED = '#9d0a0e';
 /** Außenbereich der E-Mail: neutral hell (kein Braunton) */
