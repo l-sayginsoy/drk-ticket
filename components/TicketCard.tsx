@@ -472,7 +472,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                                 onChange={handleStatusChange}
                                 onMouseDown={() => { lastSelectChangeRef.current = Date.now(); }}
                             >
-                                {Object.values(Status).filter(s => s !== Status.Ueberfaellig).map(s => (
+                                {Object.values(Status).filter(s => s !== Status.Ueberfaellig && s !== Status.Zurueckgestellt).map(s => (
                                     <option key={s} value={s}>{s === Status.Abgeschlossen ? 'Abschließen' : s}</option>
                                 ))}
                             </select>
