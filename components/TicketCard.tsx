@@ -281,6 +281,11 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .card-title { font-size: 13px; font-weight: 500; color: var(--text-primary); flex: 1; line-height: 1.35; margin: 0; }
                 .card-icons { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
                 .card-tnum { font-size: 10px; color: #999; white-space: nowrap; margin-top: 2px; }
+                .card-tnum-new {
+                    font-size: 10px; font-weight: 700; white-space: nowrap;
+                    background: #2563EB; color: #fff;
+                    padding: 2px 7px; border-radius: 999px;
+                }
                 .urgent-icon { color: #E24B4A; }
                 .stagnating-icon { color: #378ADD; }
                 .new-note-indicator {
@@ -398,13 +403,10 @@ const TicketCard: React.FC<TicketCardProps> = ({
                         {ticket.is_reopened && (
                             <span title="Wiedereröffnet" style={{ display:'inline-flex', alignItems:'center', fontSize:'0.6rem', fontWeight:700, padding:'1px 4px', borderRadius:999, background:'#fff3e0', color:'#e65100', border:'0.5px solid #ff9800' }}>↩</span>
                         )}
-                        {isNewTicket && (
-                            <span title="Neues Ticket" style={{ display:'inline-flex', alignItems:'center', fontSize:'0.6rem', fontWeight:700, padding:'1px 5px', borderRadius:999, background:'#EFF6FF', color:'#2563EB', border:'0.5px solid #BFDBFE' }}>Neu</span>
-                        )}
                         {isTicketStagnating && <span title="Ticket stagniert"><ClockIcon className="stagnating-icon" width="13" height="13" /></span>}
                         {isEmergency && <span className="urgent-icon" title="Notfall"><ExclamationTriangleIcon width="13" height="13" /></span>}
                         {ticket.hasNewNoteFromReporter && <span className="new-note-indicator" title="Neue Nachricht vom Melder" />}
-                        <span className="card-tnum">#{ticket.id}</span>
+                        <span className={isNewTicket ? 'card-tnum-new' : 'card-tnum'} title={isNewTicket ? 'Neues Ticket' : ''}>#{ticket.id}</span>
                     </div>
                 </div>
 
