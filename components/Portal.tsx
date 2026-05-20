@@ -198,7 +198,7 @@ const NewTicketForm: React.FC<{
                 <div className="header-spacer-small" />
             </div>
             <div className="portal-form">
-                <p style={{ margin: '0 0 1rem', fontSize: '0.875rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                <p style={{ margin: '0 0 1rem', fontSize: '0.95rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
                     Bitte wählen Sie den betroffenen Standort
                 </p>
                 <div className="form-group">
