@@ -487,8 +487,8 @@ const TicketCard: React.FC<TicketCardProps> = ({
                         : <span className="av av-un"><i className="ti ti-plus" style={{ fontSize: 10 }} aria-hidden="true" /></span>
                     }
                     <span>{isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}</span>
-                    {isAutoAssigned && <span className="av-badge-a" title="Automatisch zugewiesen">A</span>}
                     <i className="ti ti-chevron-down chev" aria-hidden="true" />
+                    {isAutoAssigned && <span className="av-badge-a" title="Automatisch zugewiesen">A</span>}
                     <select value={ticket.technician} onChange={handleTechnicianSelectChange}>
                         {technicianOptions.map((opt) => {
                             if (opt === 'N/A') return <option key={opt} value={opt}>Nicht zugewiesen</option>;

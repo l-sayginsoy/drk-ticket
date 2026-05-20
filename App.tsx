@@ -1336,12 +1336,12 @@ const App: React.FC = () => {
 
   useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(users));
-    // syncToFirebase(LOCAL_STORAGE_KEY_USERS, users);
+    syncToFirebase(LOCAL_STORAGE_KEY_USERS, users);
   }, [users]);
-  
-  useEffect(() => { 
+
+  useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_KEY_LOCATIONS, JSON.stringify(locations));
-    // syncToFirebase(LOCAL_STORAGE_KEY_LOCATIONS, locations);
+    syncToFirebase(LOCAL_STORAGE_KEY_LOCATIONS, locations);
   }, [locations]);
   
   useEffect(() => { 
