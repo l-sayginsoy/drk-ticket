@@ -782,7 +782,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                             const p = ticket.technician.trim().split(' ');
                             return p.length >= 2 ? (p[0][0] + p[p.length-1][0]).toUpperCase() : ticket.technician.slice(0,2).toUpperCase();
                         })() : '';
-                        const isAuto = ticket.autoAssigned === true;
+                        const isAuto = ticket.autoAssigned === true && ticket.status === Status.Offen;
                         const techUser = isAssigned ? technicians.find(u => u.name === ticket.technician) : null;
                         const userHexColor = techUser?.color ?? null;
                         const avBg = isAssigned && userHexColor
@@ -800,24 +800,19 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                         return (
                             <div className="ds-assignee-field">
                                 {isAssigned
-                                    ? (
-                                        <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
-                                            <span className="ds-av" style={{ background: avBg, color: avColor }}>{initials}</span>
-                                            {isAuto && (
-                                                <span style={{
-                                                    position: 'absolute', top: -4, right: -4,
-                                                    width: 13, height: 13, borderRadius: '50%',
-                                                    background: '#555', color: '#fff',
-                                                    fontSize: 7, fontWeight: 800,
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    border: '1.5px solid var(--bg-secondary)',
-                                                }} title="Automatisch zugewiesen">A</span>
-                                            )}
-                                        </span>
-                                    )
+                                    ? <span className="ds-av" style={{ background: avBg, color: avColor }}>{initials}</span>
                                     : <span className="ds-av ds-av-un"><i className="ti ti-plus" aria-hidden="true" /></span>
                                 }
                                 <span className="ds-assignee-name">{isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}</span>
+                                {isAuto && (
+                                    <span style={{
+                                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                        width: 14, height: 14, borderRadius: 4,
+                                        background: '#2563EB', color: '#fff',
+                                        fontSize: 8, fontWeight: 800,
+                                        flexShrink: 0,
+                                    }} title="Automatisch zugewiesen">A</span>
+                                )}
                                 <ChevronDownIcon />
                                 <select style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }} value={ticket.technician} onChange={e => handleFieldChange('technician', e.target.value)}>
                                     <option value="N/A">Nicht zugewiesen</option>

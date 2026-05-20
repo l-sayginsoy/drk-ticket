@@ -188,7 +188,8 @@ const TicketCard: React.FC<TicketCardProps> = ({
         return p.length >= 2 ? (p[0][0] + p[p.length - 1][0]).toUpperCase() : n.slice(0, 2).toUpperCase();
     })();
 
-    const isAutoAssigned = ticket.autoAssigned === true;
+    // Show A-badge only when auto-assigned AND not yet taken to In Arbeit
+    const isAutoAssigned = ticket.autoAssigned === true && ticket.status === Status.Offen;
 
     // Look up user's personal color from technicians list
     const techUser = isAssigned ? technicians.find(u => u.name === ticket.technician) : null;
@@ -360,13 +361,12 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     position: relative; display: inline-flex; flex-shrink: 0;
                 }
                 .av-badge-a {
-                    position: absolute; top: -4px; right: -4px;
-                    width: 14px; height: 14px; border-radius: 50%;
-                    background: #555; color: #fff;
-                    font-size: 7px; font-weight: 800;
-                    display: flex; align-items: center; justify-content: center;
-                    border: 1.5px solid var(--bg-secondary);
+                    display: inline-flex; align-items: center; justify-content: center;
+                    width: 14px; height: 14px; border-radius: 4px;
+                    background: #2563EB; color: #fff;
+                    font-size: 8px; font-weight: 800;
                     line-height: 1; letter-spacing: 0;
+                    flex-shrink: 0;
                 }
                 @keyframes pulse-dot {
                     0%   { opacity: 1; transform: scale(1); }
@@ -489,15 +489,11 @@ const TicketCard: React.FC<TicketCardProps> = ({
             <div className="card-footer" onClick={() => onSelectTicket(ticket)}>
                 <div className="assignee-chip" onClick={e => e.stopPropagation()}>
                     {isAssigned
-                        ? (
-                            <span className="av-wrapper">
-                                <span className="av" style={{ background: avColor.bg, color: avColor.text }}>{initials}</span>
-                                {isAutoAssigned && <span className="av-badge-a" title="Automatisch zugewiesen">A</span>}
-                            </span>
-                        )
+                        ? <span className="av" style={{ background: avColor.bg, color: avColor.text }}>{initials}</span>
                         : <span className="av av-un"><i className="ti ti-plus" style={{ fontSize: 10 }} aria-hidden="true" /></span>
                     }
                     <span>{isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}</span>
+                    {isAutoAssigned && <span className="av-badge-a" title="Automatisch zugewiesen">A</span>}
                     <i className="ti ti-chevron-down chev" aria-hidden="true" />
                     <select value={ticket.technician} onChange={handleTechnicianSelectChange}>
                         {technicianOptions.map((opt) => {
