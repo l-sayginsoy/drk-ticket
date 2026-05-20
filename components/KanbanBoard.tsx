@@ -60,6 +60,9 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     return col.sort((a, b) => {
       if (a.is_emergency && !b.is_emergency) return -1;
       if (!a.is_emergency && b.is_emergency) return 1;
+      // Neue Tickets (isNew) immer oben
+      if (a.isNew && !b.isNew) return -1;
+      if (!a.isNew && b.isNew) return 1;
       const dateA = a.dueDate.split('.').reverse().join('-');
       const dateB = b.dueDate.split('.').reverse().join('-');
       return dateA.localeCompare(dateB);
