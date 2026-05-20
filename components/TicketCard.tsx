@@ -195,13 +195,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
     const techUser = isAssigned ? technicians.find(u => u.name === ticket.technician) : null;
     const userColor = techUser?.color ?? null;
     const avColor = isAssigned && userColor
-        ? { bg: userColor, text: (() => {
-              const c = userColor.replace('#', '');
-              const r = parseInt(c.substring(0, 2), 16);
-              const g = parseInt(c.substring(2, 4), 16);
-              const b = parseInt(c.substring(4, 6), 16);
-              return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6 ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.9)';
-          })() }
+        ? { bg: userColor, text: 'rgba(255,255,255,0.95)' }
         : isAssigned
             ? { bg: '#C8C8C8', text: '#444' }  // neutral fallback
             : { bg: 'transparent', text: '#E24B4A' };

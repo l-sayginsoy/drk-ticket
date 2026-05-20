@@ -30,7 +30,7 @@ export const Avatar: React.FC<AvatarProps> = ({ name, initialsFrom, color }) => 
     };
 
     const bgStyle = color
-        ? { background: color, color: isLightColor(color) ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.9)' }
+        ? { background: color, color: 'rgba(255,255,255,0.95)' }
         : {};
 
     return (
