@@ -2516,7 +2516,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
 
   useEffect(() => {
     document.title = newMeldungenCount > 0
-      ? `(${newMeldungenCount}) DRK Serviceportal`
+      ? `(${newMeldungenCount})`
       : 'DRK Serviceportal';
   }, [newMeldungenCount]);
 
