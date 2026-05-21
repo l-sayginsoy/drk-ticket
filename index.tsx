@@ -36,6 +36,32 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
   }
 }
 
+// Service Worker registrieren – Auto-Update bei neuem Deploy
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+      // Prüfe alle 60 Sekunden ob ein Update verfügbar ist
+      setInterval(() => reg.update(), 60_000);
+
+      reg.addEventListener('updatefound', () => {
+        const newSW = reg.installing;
+        if (!newSW) return;
+        newSW.addEventListener('statechange', () => {
+          // Neuer SW ist aktiv + alter SW war schon vorhanden → Seite neu laden
+          if (newSW.state === 'activated' && navigator.serviceWorker.controller) {
+            window.location.reload();
+          }
+        });
+      });
+    });
+
+    // Wenn der SW sich selbst mit skipWaiting übernimmt → neu laden
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      window.location.reload();
+    });
+  });
+}
+
 console.log("App starting...");
 const root = ReactDOM.createRoot(rootElement);
 root.render(
