@@ -300,8 +300,10 @@ interface SettingsViewProps {
     setMaintenancePlans: React.Dispatch<React.SetStateAction<MaintenancePlan[]>>;
     appSettings: AppSettings;
     setAppSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
-    /** Bestätigungsmails (Vorlage „Meldung erfasst“) für alle Tickets mit Melder-E-Mail zu diesem Eingangsdatum nachholen. */
+    /** Bestätigungsmails (Vorlage „Meldung erfasst”) für alle Tickets mit Melder-E-Mail zu diesem Eingangsdatum nachholen. */
     onResendConfirmationMailsForEntryDate?: (entryDateDE: string) => Promise<{ ok: number; fail: number }>;
+    /** Sendet eine Test-E-Mail an die angegebene Adresse. */
+    onSendTestEmail?: (to: string) => Promise<boolean>;
 }
 
 const SettingsView: React.FC<SettingsViewProps> = (props) => {
@@ -317,6 +319,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
         appSettings,
         setAppSettings,
         onResendConfirmationMailsForEntryDate,
+        onSendTestEmail,
     } = props;
     type SettingsTab = 'allgemein' | 'prozesse' | 'serientermine' | 'benutzer' | 'standorte' | 'benachrichtigungen';
     const [activeTab, setActiveTab] = useState<SettingsTab>('allgemein');
@@ -1490,12 +1493,32 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
         const [draftEmail, setDraftEmail] = useState(appSettings.adminNotificationEmail ?? '');
         const isDirty = draftEmail !== (appSettings.adminNotificationEmail ?? '');
         const [saved, setSaved] = useState(false);
+        const [testStatus, setTestStatus] = useState<'idle' | 'sending' | 'ok' | 'fail'>('idle');
 
         const handleSave = () => {
             setAppSettings(prev => ({ ...prev, adminNotificationEmail: draftEmail }));
             setSaved(true);
             setTimeout(() => setSaved(false), 2000);
         };
+
+        const handleTestMail = async () => {
+            const target = appSettings.adminNotificationEmail ?? '';
+            if (!target) return;
+            setTestStatus('sending');
+            try {
+                const ok = await onSendTestEmail?.(target);
+                setTestStatus(ok ? 'ok' : 'fail');
+            } catch {
+                setTestStatus('fail');
+            }
+            setTimeout(() => setTestStatus('idle'), 4000);
+        };
+
+        const testLabel = testStatus === 'sending' ? 'Wird gesendet…'
+            : testStatus === 'ok' ? '✓ Test-Mail gesendet'
+            : testStatus === 'fail' ? '✗ Fehler beim Senden'
+            : 'Test-Mail senden';
+        const testColor = testStatus === 'ok' ? 'var(--accent-success)' : testStatus === 'fail' ? '#DC2626' : undefined;
 
         return (
             <div className="settings-section">
@@ -1516,7 +1539,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                             className="form-group-input"
                         />
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                         <button
                             className="btn btn-primary"
                             disabled={!isDirty}
@@ -1526,7 +1549,28 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                             Speichern
                         </button>
                         {saved && <span style={{ fontSize: '0.85rem', color: 'var(--accent-success)' }}>Gespeichert</span>}
+                        {onSendTestEmail && (
+                            <button
+                                className="btn btn-secondary"
+                                disabled={!appSettings.adminNotificationEmail || testStatus === 'sending'}
+                                onClick={handleTestMail}
+                                style={{ opacity: appSettings.adminNotificationEmail ? 1 : 0.4, color: testColor }}
+                            >
+                                <i className="ti ti-mail-forward" style={{ fontSize: 15, marginRight: 4 }} />
+                                {testLabel}
+                            </button>
+                        )}
                     </div>
+                    {testStatus === 'ok' && (
+                        <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                            Test-Mail wurde an <strong>{appSettings.adminNotificationEmail}</strong> gesendet. Bitte Posteingang prüfen.
+                        </p>
+                    )}
+                    {testStatus === 'fail' && (
+                        <p style={{ fontSize: '0.82rem', color: '#DC2626', marginTop: '0.5rem' }}>
+                            Versand fehlgeschlagen – E-Mail-Adresse oder Brevo-Konfiguration prüfen.
+                        </p>
+                    )}
                 </div>
             </div>
         );

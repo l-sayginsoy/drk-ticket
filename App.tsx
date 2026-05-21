@@ -124,6 +124,12 @@ type DrkBrevoMailPayload =
       ticketId: string;
       title: string;
       newDueDate: string;
+    }
+  | {
+      kind: 'custom';
+      subject: string;
+      bodyHtml: string;
+      bodyText: string;
     };
 
 const drkBrevoBannerTitle = (p: DrkBrevoMailPayload) => {
@@ -140,6 +146,8 @@ const drkBrevoBannerTitle = (p: DrkBrevoMailPayload) => {
       return 'Neue Meldung eingegangen';
     case 'due_date_changed':
       return 'Fälligkeitstermin geändert';
+    case 'custom':
+      return p.subject;
   }
 };
 
@@ -237,6 +245,9 @@ const buildDrkBrevoPlainText = (p: DrkBrevoMailPayload) => {
       '',
       'Diese E-Mail wurde automatisch erzeugt. Bitte nicht antworten.',
     ].join('\n');
+  }
+  if (p.kind === 'custom') {
+    return p.bodyText;
   }
   return [
     'DRK Serviceportal',
@@ -403,6 +414,9 @@ ${descHtml}`;
 </table>
 ${portalOpenButtonWrappedHtml(p.ticketId, '0')}`;
     return drkEmailShellHtml(title, inner, p.ticketId, '');
+  }
+  if (p.kind === 'custom') {
+    return drkEmailShellHtml(title, p.bodyHtml, '', '');
   }
   const inner = `
 <p style="margin:0;font-size:15px;line-height:1.55;color:#333;">Ihre Meldung mit der <strong>Ticketnummer: ${escapeHtml(p.ticketId)}</strong> wurde erfolgreich abgeschlossen.</p>
@@ -2072,6 +2086,21 @@ const deleteTicketFromFirebase = (ticketId: string) => {
   };
 
   /** Nachhol-Bestätigungen (z. B. nach Brevo-Ausfall): gleiche Vorlage wie bei Meldung erfassen. */
+  const handleSendTestEmail = useCallback(async (to: string): Promise<boolean> => {
+    return sendDrkBrevoMailAsync(
+      to,
+      '✅ DRK Serviceportal – Test-E-Mail',
+      {
+        kind: 'custom',
+        subject: '✅ DRK Serviceportal – Test-E-Mail',
+        bodyHtml: `<p>Diese Test-E-Mail wurde erfolgreich über das DRK Serviceportal versendet.</p>
+<p style="color:#666;font-size:0.9em;">Absender: ticket@kv-vorderpfalz.drk.de<br>Zeitpunkt: ${new Date().toLocaleString('de-DE')}</p>`,
+        bodyText: `Diese Test-E-Mail wurde erfolgreich über das DRK Serviceportal versendet.\n\nZeitpunkt: ${new Date().toLocaleString('de-DE')}`,
+      },
+      { silent: true }
+    );
+  }, []);
+
   const handleResendConfirmationMailsForEntryDate = useCallback(async (entryDateDE: string) => {
     const d = entryDateDE.trim();
     if (!d) {
@@ -2942,7 +2971,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
           return <ReportsView activeTickets={tickets} completedTickets={completedTickets} users={users} />;
         }
         case 'techniker': return <TechnicianView tickets={listenBenchTickets} technicians={users.filter(u => (u.role === Role.Technician || u.role === Role.Housekeeping) && u.isActive)} onTechnicianSelect={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} onFilter={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} />;
-        case 'settings': return <SettingsView users={users} setUsers={setUsers} locations={locations} setLocations={setLocations} assets={assets} setAssets={setAssets} maintenancePlans={maintenancePlans} setMaintenancePlans={setMaintenancePlans} appSettings={appSettings} setAppSettings={handleAppSettingsChange} onResendConfirmationMailsForEntryDate={handleResendConfirmationMailsForEntryDate} />;
+        case 'settings': return <SettingsView users={users} setUsers={setUsers} locations={locations} setLocations={setLocations} assets={assets} setAssets={setAssets} maintenancePlans={maintenancePlans} setMaintenancePlans={setMaintenancePlans} appSettings={appSettings} setAppSettings={handleAppSettingsChange} onResendConfirmationMailsForEntryDate={handleResendConfirmationMailsForEntryDate} onSendTestEmail={handleSendTestEmail} />;
         case 'zurueckgestellt': return (
           <ZurückgestelltView
             tickets={[...tickets, ...routineTickets]}
@@ -2950,6 +2979,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
             onSelectTicket={setSelectedTicket}
             selectedTicket={selectedTicket}
             userRole={currentUser.role}
+            currentUserName={currentUser.name}
           />
         );
         default: return (
