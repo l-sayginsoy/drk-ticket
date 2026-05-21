@@ -10,6 +10,7 @@ interface ZurückgestelltViewProps {
   onSelectTicket: (ticket: Ticket) => void;
   selectedTicket: Ticket | null;
   userRole?: Role | null;
+  currentUserName?: string;
 }
 
 type SortKey = 'id' | 'title' | 'area' | 'technician' | 'priority' | 'entryDate' | 'parkedAt' | 'parkReminderNextDate' | 'parkReminderInterval';
@@ -38,11 +39,13 @@ const ZurückgestelltView: React.FC<ZurückgestelltViewProps> = ({
   onSelectTicket,
   selectedTicket,
   userRole,
+  currentUserName,
 }) => {
-  const parked = useMemo(
-    () => tickets.filter(t => t.status === Status.Zurueckgestellt),
-    [tickets]
-  );
+  const parked = useMemo(() => {
+    const all = tickets.filter(t => t.status === Status.Zurueckgestellt);
+    if (userRole === Role.Admin) return all;
+    return all.filter(t => t.technician === currentUserName);
+  }, [tickets, userRole, currentUserName]);
 
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({
     key: 'parkedAt',
