@@ -259,7 +259,7 @@ const NewTicketForm: React.FC<{
                 <div className="form-group">
                     <label>E-Mail-Adresse*</label>
                     <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '0 0 0.5rem' }}>
-                        Damit Sie automatisch über den Status Ihrer Meldung informiert werden. Wer keine eigene Adresse hat, kann auch die des Wohnbereichs oder eine Kollegin bzw. einen Kollegen angeben.
+                        Für automatische Statusupdates zu Ihrer Meldung.
                     </p>
                     <input type="email" placeholder="ihre.adresse@beispiel.de" value={formState.reporter_email || ''} onChange={e => setFormState(p => ({...p, reporter_email: e.target.value}))} />
                     {errors.reporter_email && <span className="error-text">{errors.reporter_email}</span>}
