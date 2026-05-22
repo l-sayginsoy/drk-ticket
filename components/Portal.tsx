@@ -137,7 +137,9 @@ const NewTicketForm: React.FC<{
         if (formState.title.length < 6) newErrors.title = 'Betreff muss mindestens 6 Zeichen lang sein.';
         if (!formState.location.trim()) newErrors.location = 'Raum / Bereich ist ein Pflichtfeld.';
         if (!formState.description.trim()) newErrors.description = 'Beschreibung ist ein Pflichtfeld.';
-        if (formState.reporter.trim().length < 2) newErrors.reporter = 'Gemeldet von muss mindestens 2 Zeichen lang sein.';
+        if (formState.reporter.trim().length < 5) newErrors.reporter = 'Name muss mindestens 5 Zeichen lang sein.';
+        if (!formState.reporter_email?.trim()) newErrors.reporter_email = 'E-Mail-Adresse ist ein Pflichtfeld.';
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formState.reporter_email.trim())) newErrors.reporter_email = 'Bitte eine gültige E-Mail-Adresse eingeben.';
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -207,6 +209,7 @@ const NewTicketForm: React.FC<{
                         <option value="" disabled>Bitte wählen...</option>
                         {locations.map(a => <option key={a} value={a}>{a}</option>)}
                     </select>
+                    {errors.area && <span className="error-text">{errors.area}</span>}
                 </div>
                  <div className="form-group">
                     <label>Raum / Bereich*</label>
@@ -254,8 +257,12 @@ const NewTicketForm: React.FC<{
                     {errors.reporter && <span className="error-text">{errors.reporter}</span>}
                 </div>
                 <div className="form-group">
-                    <label>E-Mail-Adresse (optional)</label>
+                    <label>E-Mail-Adresse*</label>
+                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '0 0 0.5rem' }}>
+                        Damit Sie automatisch über den Status Ihrer Meldung informiert werden. Wer keine eigene Adresse hat, kann auch die des Wohnbereichs oder eine Kollegin bzw. einen Kollegen angeben.
+                    </p>
                     <input type="email" placeholder="ihre.adresse@beispiel.de" value={formState.reporter_email || ''} onChange={e => setFormState(p => ({...p, reporter_email: e.target.value}))} />
+                    {errors.reporter_email && <span className="error-text">{errors.reporter_email}</span>}
                 </div>
                  <div className="form-group">
                     <label>Wunsch-Termin (unverbindlich)</label>
