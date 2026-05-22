@@ -481,12 +481,48 @@ const parseGermanDate = (dateStr: string | undefined): Date | null => {
 };
 
 /** Reaktiv ohne Wunschtermin: Kalender-Fälligkeit = Eingangstag (TT.MM.JJJJ) + n Kalendertage (Mittag als Anker). */
-const reactiveDueDateAfterCalendarDaysFromEntry = (entryDateDE: string, calendarDays: number): Date => {
+/** Feiertage Rheinland-Pfalz für ein gegebenes Jahr (algorithmisch berechnet). */
+const getRlpHolidays = (year: number): Set<string> => {
+  // Ostersonntag nach Gauss/Meeus
+  const a = year % 19, b = Math.floor(year / 100), c = year % 100;
+  const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  const easter = new Date(year, month - 1, day);
+  const addDaysToDate = (base: Date, n: number) => new Date(base.getFullYear(), base.getMonth(), base.getDate() + n);
+  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const holidays = new Set<string>();
+  // Feste Feiertage
+  [[1,1],[5,1],[10,3],[11,1],[12,25],[12,26]].forEach(([m,d]) => holidays.add(`${year}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`));
+  // Rheinland-Pfalz: bewegliche Feiertage
+  [-2, 1, 39, 49, 50, 60].forEach(offset => holidays.add(fmt(addDaysToDate(easter, offset))));
+  // Fronleichnam (+60), Allerheiligen (1.11) bereits enthalten
+  return holidays;
+};
+
+/** Gibt das Datum zurück, das n Werktage (Mo-Fr, keine Feiertage RLP) nach base liegt. */
+const addWorkdays = (base: Date, workdays: number): Date => {
+  const d = new Date(base.getFullYear(), base.getMonth(), base.getDate(), 12, 0, 0, 0);
+  let added = 0;
+  const holidays = getRlpHolidays(d.getFullYear());
+  while (added < workdays) {
+    d.setDate(d.getDate() + 1);
+    // Jahreswechsel: Feiertage neu laden
+    const hols = getRlpHolidays(d.getFullYear());
+    const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if (d.getDay() !== 0 && d.getDay() !== 6 && !hols.has(iso)) added++;
+  }
+  return d;
+};
+
+const reactiveDueDateAfterCalendarDaysFromEntry = (entryDateDE: string, _calendarDays: number): Date => {
     const parsed = parseGermanDate(entryDateDE);
     const base = parsed ?? new Date();
-    const d = new Date(base.getFullYear(), base.getMonth(), base.getDate(), 12, 0, 0, 0);
-    d.setDate(d.getDate() + calendarDays);
-    return d;
+    return addWorkdays(base, REACTIVE_DEFAULT_LEAD_DAYS);
 };
 
 // ADD THIS HELPER for Safari compatibility
@@ -647,7 +683,7 @@ const completionStampNow = () => {
 };
 
 /** Reaktive Meldungen ohne Wunschtermin: Vorlauf in Kalendertagen nach Eingang. */
-const REACTIVE_DEFAULT_LEAD_DAYS = 5;
+const REACTIVE_DEFAULT_LEAD_DAYS = 2;
 
 /** Strengste SLA-Regel pro Kategorie (kürzeste Antwortzeit) → deren Priorität; sonst null. */
 const inferStrictestSlaPriorityForCategory = (categoryId: string | undefined, slaMatrix: SLARule[]): Priority | null => {
