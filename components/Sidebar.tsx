@@ -73,7 +73,8 @@ const Sidebar: React.FC<SidebarProps> = ({
 
     const newMeldungenCount = useMemo(() => {
         return tickets.filter(t =>
-            t.status === Status.Offen || t.status === Status.InArbeit || t.status === Status.Ueberfaellig
+            t.origin !== 'routine' &&
+            (t.status === Status.Offen || t.status === Status.InArbeit || t.status === Status.Ueberfaellig)
         ).length;
     }, [tickets]);
     
