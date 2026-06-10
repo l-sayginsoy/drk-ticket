@@ -20,6 +20,32 @@ export default defineConfig({
       input: {
         main: './index.html',
       },
+      output: {
+        manualChunks(id) {
+          // Firebase in eigenen Chunk
+          if (id.includes('node_modules/firebase') || id.includes('node_modules/@firebase')) {
+            return 'vendor-firebase';
+          }
+          // PDF / Canvas Bibliotheken (schwer, selten gebraucht)
+          if (
+            id.includes('node_modules/jspdf') ||
+            id.includes('node_modules/jspdf-autotable') ||
+            id.includes('node_modules/html2canvas') ||
+            id.includes('node_modules/dompurify') ||
+            id.includes('node_modules/stackblur-canvas')
+          ) {
+            return 'vendor-pdf';
+          }
+          // React-Kern
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/scheduler')) {
+            return 'vendor-react';
+          }
+          // Framer Motion
+          if (id.includes('node_modules/framer-motion')) {
+            return 'vendor-framer';
+          }
+        },
+      },
     }
   }
 })

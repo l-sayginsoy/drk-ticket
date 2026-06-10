@@ -111,7 +111,7 @@ const NewTicketForm: React.FC<{
         
         return {
             reporter: '', reporter_email: '', area: '', location: '', title: '',
-            description: '', wunschTermin: '',
+            description: '', wunschTermin: '', categoryId: '',
             photos: [] as string[]
         };
     });
@@ -183,7 +183,7 @@ const NewTicketForm: React.FC<{
             reporter: formState.reporter, reporter_email: formState.reporter_email, dueDate: '', // Will be auto-calculated
             technician: 'N/A',
             description: formState.description,
-            categoryId: '',
+            categoryId: formState.categoryId || '',
             wunschTermin: formattedWunschTermin, photos: formState.photos, notes: [],
         });
 
@@ -226,7 +226,18 @@ const NewTicketForm: React.FC<{
                     <textarea placeholder="Bitte so genau wie möglich beschreiben." rows={5} value={formState.description} onChange={e => setFormState(p => ({...p, description: e.target.value}))}></textarea>
                     {errors.description && <span className="error-text">{errors.description}</span>}
                 </div>
-                 <div className="form-group">
+                 {appSettings.ticketCategories && appSettings.ticketCategories.length > 0 && (
+                    <div className="form-group">
+                        <label>Kategorie (optional)</label>
+                        <select value={formState.categoryId || ''} onChange={e => setFormState(p => ({...p, categoryId: e.target.value}))}>
+                            <option value="">Bitte wählen...</option>
+                            {appSettings.ticketCategories.map(c => (
+                                <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+                <div className="form-group">
                     <label>Foto hinzufügen {photoRules.mode !== 'optional' && '*'}</label>
                     <div className="photo-upload-area">
                         {formState.photos.map((photo, index) => (
@@ -727,7 +738,7 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                     </div>
                     <h2 className="portal-subtitle" style={{position: 'static', transform: 'none'}}>Meldung erfolgreich gesendet!</h2>
                     <div className="success-message">
-                        <p>Vielen Dank! Ihr Ticket wurde erfolgreich erstellt. Sofern Sie eine E-Mail-Adresse angegeben haben, erhalten Sie in Kürze eine Bestätigung. Bitte bewahren Sie die folgende ID für zukünftige Anfragen auf:</p>
+                        <p>Vielen Dank! Ihre Meldung wurde erfolgreich übermittelt. Sie erhalten in Kürze eine Bestätigungs-E-Mail.</p>
                         <div className="success-ticket-id-wrapper">
                             <span className="success-ticket-id">{newlyCreatedTicketId}</span>
                             <button className="copy-btn" onClick={() => handleCopy(newlyCreatedTicketId)} title={copied ? 'Kopiert!' : 'In Zwischenablage kopieren'}>

@@ -43,7 +43,11 @@ const UserModal: React.FC<UserModalProps> = ({ user, allSkills, onClose, onSave 
       const { name, value } = e.target;
       setFormData(prev => ({
           ...prev,
-          availability: { ...(prev.availability || {}), [name]: value } as User['availability']
+          availability: {
+              ...(prev.availability || {}),
+              [name]: value,
+              ...(name === 'status' && value === AvailabilityStatus.Available ? { leaveUntil: null } : {})
+          } as User['availability']
       }));
   };
 
@@ -54,8 +58,12 @@ const UserModal: React.FC<UserModalProps> = ({ user, allSkills, onClose, onSave 
       return;
     }
     
-    // Ensure availability is set
-    const finalAvailability = formData.availability || { status: AvailabilityStatus.Available, leaveUntil: null };
+    // Ensure availability is set; wenn Verfügbar → leaveUntil immer null
+    const rawAvailability = formData.availability || { status: AvailabilityStatus.Available, leaveUntil: null };
+    const finalAvailability = {
+      ...rawAvailability,
+      leaveUntil: rawAvailability.status === AvailabilityStatus.Available ? null : rawAvailability.leaveUntil,
+    };
     
     const finalSkills = skills.split(',').map(s => s.trim()).filter(Boolean);
     const userToSave = { ...formData, skills: finalSkills, availability: finalAvailability, color: colorValue } as User;
@@ -135,6 +143,10 @@ const UserModal: React.FC<UserModalProps> = ({ user, allSkills, onClose, onSave 
             <label htmlFor="password">Passwort</label>
             <input id="password" name="password" type="password" value={formData.password || ''} onChange={handleChange} placeholder={isNewUser ? '' : 'Leer lassen, um nicht zu ändern'} />
           </div>
+          <div className="form-group full-width">
+            <label htmlFor="email">E-Mail (für Ticket-Erinnerungen)</label>
+            <input id="email" name="email" type="text" value={formData.email || ''} onChange={handleChange} placeholder="name@example.de, zweite@example.de" />
+          </div>
           <div className="form-group">
             <label htmlFor="availability-status">Verfügbarkeit</label>
             <select id="availability-status" name="status" value={formData.availability?.status || ''} onChange={handleAvailabilityChange}>
@@ -143,7 +155,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, allSkills, onClose, onSave 
           </div>
           <div className="form-group">
             <label htmlFor="availability-leaveUntil">Abwesend bis</label>
-            <input id="availability-leaveUntil" name="leaveUntil" type="date" value={formData.availability?.leaveUntil || ''} onChange={handleAvailabilityChange} disabled={formData.availability?.status !== AvailabilityStatus.OnLeave} />
+            <input id="availability-leaveUntil" name="leaveUntil" type="date" value={formData.availability?.status === AvailabilityStatus.OnLeave ? (formData.availability?.leaveUntil || '') : ''} onChange={handleAvailabilityChange} disabled={formData.availability?.status !== AvailabilityStatus.OnLeave} />
           </div>
 
           <div className="form-group full-width">

@@ -4,19 +4,10 @@ import { getDueDatesInYear, isScheduleVisibleForUser, localISODate } from '../ut
 import { ROUTINE_AMBER, ROUTINE_TEAL } from '../utils/routineUiPalette';
 import { displayNameShort } from '../utils/displayNames';
 
+
 const MONTHS_DE = [
-  'Januar',
-  'Februar',
-  'März',
-  'April',
-  'Mai',
-  'Juni',
-  'Juli',
-  'August',
-  'September',
-  'Oktober',
-  'November',
-  'Dezember',
+  'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+  'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
 ];
 
 function dayOfMonthFromYmd(ymd: string): number {
@@ -64,6 +55,9 @@ export default function RoutineNachweisView({
     return localISODate(t);
   }, []);
 
+  const currentMonthIndex = useMemo(() => new Date().getMonth(), []);
+  const currentYearNum = useMemo(() => new Date().getFullYear(), []);
+
   const rpHolidaySet = useMemo(() => new Set(rpHolidayYmdList), [rpHolidayYmdList]);
 
   const visibleSchedules = useMemo(() => {
@@ -80,11 +74,7 @@ export default function RoutineNachweisView({
     const names = new Set<string>();
     (completions || []).forEach((c) => names.add(c.completedBy));
     users
-      .filter(
-        (u) =>
-          u.isActive &&
-          (u.role === Role.Technician || u.role === Role.Housekeeping || u.role === Role.Admin)
-      )
+      .filter((u) => u.isActive && (u.role === Role.Technician || u.role === Role.Housekeeping || u.role === Role.Admin))
       .forEach((u) => names.add(u.name));
     return ['alle', ...Array.from(names).sort((a, b) => a.localeCompare(b, 'de'))];
   }, [completions, users]);
@@ -131,16 +121,9 @@ export default function RoutineNachweisView({
           flex-wrap: wrap;
           gap: 12px;
           align-items: flex-end;
-          margin-bottom: 0;
           padding: 14px 16px;
           background: var(--bg-primary);
-          border: none;
           border-bottom: 1px solid var(--border);
-          border-radius: 0;
-        }
-        .nachweis-view-body {
-          padding: 1rem 1.25rem 1.5rem;
-          background: var(--bg-secondary);
         }
         .nachweis-field label {
           display: block;
@@ -160,190 +143,414 @@ export default function RoutineNachweisView({
           color: var(--text-primary);
           font-size: 14px;
         }
-        .nachweis-month-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-          gap: 12px;
+        .nachweis-view-body {
+          padding: 1rem 1.25rem 1.5rem;
+          background: var(--bg-secondary);
         }
-        .nachweis-month {
-          border: 1px solid var(--border);
-          border-radius: 8px;
-          padding: 12px;
-          background: var(--bg-tertiary);
-        }
-        .nachweis-month h4 {
-          margin: 0 0 10px;
-          font-size: 0.875rem;
-          font-weight: 600;
+        .nachweis-legend {
+          display: flex;
+          gap: 16px;
+          align-items: center;
+          margin-bottom: 16px;
+          font-size: 12px;
           color: var(--text-muted);
         }
-        .nachweis-chips {
+        .nachweis-legend-item {
           display: flex;
-          flex-wrap: wrap;
+          align-items: center;
           gap: 6px;
         }
-        .nachweis-chip {
+        .nachweis-legend-dot {
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+
+        /* ── Schedule Section ── */
+        .nachweis-section {
+          margin-bottom: 20px;
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          overflow: hidden;
+          background: var(--bg-secondary);
+        }
+        .nachweis-section-header {
+          padding: 12px 16px;
+          background: var(--bg-primary);
+          border-bottom: 1px solid var(--border);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+        .nachweis-section-title {
+          font-size: 1rem;
+          font-weight: 700;
+          color: var(--text-primary);
+          margin: 0;
+        }
+        .nachweis-section-meta {
+          font-size: 12px;
+          color: var(--text-muted);
+          margin-top: 2px;
+        }
+        .nachweis-stats {
+          display: flex;
+          gap: 10px;
+          align-items: center;
+          flex-shrink: 0;
+        }
+        .nachweis-stat-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          font-size: 12px;
+          font-weight: 600;
+          padding: 3px 10px;
+          border-radius: 20px;
+          white-space: nowrap;
+        }
+        .nachweis-stat-pill--done {
+          background: ${ROUTINE_TEAL.bg};
+          color: ${ROUTINE_TEAL.dark};
+          border: 1px solid ${ROUTINE_TEAL.border};
+        }
+        .nachweis-stat-pill--missed {
+          background: ${ROUTINE_AMBER.bg};
+          color: ${ROUTINE_AMBER.dark};
+          border: 1px solid ${ROUTINE_AMBER.border};
+        }
+        .nachweis-stat-pill--total {
+          background: var(--bg-tertiary);
+          color: var(--text-secondary);
+          border: 1px solid var(--border);
+        }
+
+        /* ── Month Grid ── */
+        .nachweis-month-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 0;
+        }
+        @media (max-width: 900px) {
+          .nachweis-month-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (max-width: 600px) {
+          .nachweis-month-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .nachweis-month-card {
+          padding: 12px 14px;
+          border-right: 1px solid var(--border);
+          border-bottom: 1px solid var(--border);
+        }
+        .nachweis-month-card:nth-child(4n) { border-right: none; }
+        .nachweis-month-card.future { opacity: 0.55; }
+
+        .nachweis-month-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 8px;
+        }
+        .nachweis-month-name {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+        .nachweis-month-summary {
+          font-size: 11px;
+          color: var(--text-muted);
+          display: flex;
+          gap: 6px;
+        }
+        .nachweis-month-summary span { font-weight: 600; }
+
+        /* Progress bar */
+        .nachweis-progress {
+          height: 3px;
+          border-radius: 2px;
+          background: var(--border);
+          margin-bottom: 10px;
+          overflow: hidden;
+          display: flex;
+          gap: 1px;
+        }
+        .nachweis-progress-done {
+          background: ${ROUTINE_TEAL.accent};
+          height: 100%;
+          transition: width 0.3s ease;
+        }
+        .nachweis-progress-missed {
+          background: ${ROUTINE_AMBER.accent};
+          height: 100%;
+        }
+
+        /* Mini calendar grid */
+        .nachweis-cal {
+          width: 100%;
+          border-collapse: collapse;
+          table-layout: fixed;
+        }
+        .nachweis-cal th {
+          font-size: 10px;
+          font-weight: 600;
+          color: var(--text-muted);
+          text-align: center;
+          padding: 0 0 4px;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+        .nachweis-cal td {
+          text-align: center;
+          padding: 2px;
+          height: 26px;
+        }
+        .nachweis-day {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          min-width: 36px;
-          padding: 4px 8px;
-          border-radius: 8px;
-          font-size: 12px;
-          font-weight: 800;
+          width: 26px;
+          height: 22px;
+          border-radius: 5px;
+          font-size: 11px;
+          font-weight: 600;
           cursor: default;
         }
+        .nachweis-day--done {
+          background: ${ROUTINE_TEAL.bg};
+          color: ${ROUTINE_TEAL.dark};
+          border: 1px solid ${ROUTINE_TEAL.border};
+        }
+        .nachweis-day--missed {
+          background: ${ROUTINE_AMBER.bg};
+          color: ${ROUTINE_AMBER.dark};
+          border: 1px solid ${ROUTINE_AMBER.border};
+        }
+        .nachweis-day--future {
+          background: var(--bg-tertiary);
+          color: var(--text-muted);
+          border: 1px solid var(--border);
+        }
+        .nachweis-day--today {
+          background: var(--bg-tertiary);
+          color: var(--text-primary);
+          border: 2px solid var(--accent-primary);
+          font-weight: 700;
+        }
+        .nachweis-empty {
+          font-size: 12px;
+          color: var(--text-muted);
+          font-style: italic;
+        }
+
       `}</style>
 
+      {/* Toolbar */}
       <div className="nachweis-toolbar">
         <div className="nachweis-field">
           <label htmlFor="nachweis-jahr">Jahr</label>
           <select id="nachweis-jahr" value={year} onChange={(e) => setYear(Number(e.target.value))}>
             {yearOptions.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
+              <option key={y} value={y}>{y}</option>
             ))}
           </select>
         </div>
         <div className="nachweis-field">
           <label htmlFor="nachweis-aufgabe">Aufgabe</label>
-          <select
-            id="nachweis-aufgabe"
-            value={scheduleFilter}
-            onChange={(e) => setScheduleFilter(e.target.value)}
-          >
+          <select id="nachweis-aufgabe" value={scheduleFilter} onChange={(e) => setScheduleFilter(e.target.value)}>
             <option value="alle">Alle sichtbaren</option>
             {scheduleSelectOptions.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.title || s.id}
-              </option>
+              <option key={s.id} value={s.id}>{s.title || s.id}</option>
             ))}
           </select>
         </div>
         <div className="nachweis-field">
           <label htmlFor="nachweis-person">Erledigt von</label>
-          <select
-            id="nachweis-person"
-            value={personFilter}
-            onChange={(e) => setPersonFilter(e.target.value)}
-          >
+          <select id="nachweis-person" value={personFilter} onChange={(e) => setPersonFilter(e.target.value)}>
             {personOptions.map((p) => (
-              <option key={p} value={p}>
-                {p === 'alle' ? 'Alle' : displayNameShort(p)}
-              </option>
+              <option key={p} value={p}>{p === 'alle' ? 'Alle' : displayNameShort(p)}</option>
             ))}
           </select>
         </div>
       </div>
 
+      {/* Body */}
       <div className="nachweis-view-body">
-      <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.45 }}>
-        Pro Aufgabe: alle <strong>fälligen</strong> Tage im Jahr. <strong>✓</strong> = erledigt (laut Filter),{' '}
-        <strong>!</strong> = vergangen aber ohne passenden Eintrag, hell = noch ausstehend.
-      </p>
+        {/* Legend */}
+        <div className="nachweis-legend">
+          <div className="nachweis-legend-item">
+            <div className="nachweis-legend-dot" style={{ background: ROUTINE_TEAL.accent }} />
+            Erledigt
+          </div>
+          <div className="nachweis-legend-item">
+            <div className="nachweis-legend-dot" style={{ background: ROUTINE_AMBER.accent }} />
+            Verpasst
+          </div>
+          <div className="nachweis-legend-item">
+            <div className="nachweis-legend-dot" style={{ background: 'var(--border-active)' }} />
+            Ausstehend
+          </div>
+        </div>
 
-      {visibleSchedules.length === 0 ? (
-        <div style={{ color: 'var(--text-muted)', padding: '1rem 0', textAlign: 'center' }}>Keine Serienaufträge sichtbar.</div>
-      ) : (
-        visibleSchedules.map((sch) => {
-          const dueList = dueByScheduleId.get(sch.id) || [];
-          const byMonth = groupYmdsByMonth(dueList);
-          const doneCount = dueList.filter((ymd) => !!completionFor(sch.id, ymd)).length;
-          const missedPast = dueList.filter(
-            (ymd) => ymd < todayYmd && !completionFor(sch.id, ymd)
-          ).length;
+        {visibleSchedules.length === 0 ? (
+          <div style={{ color: 'var(--text-muted)', padding: '1rem 0', textAlign: 'center' }}>
+            Keine Serienaufträge sichtbar.
+          </div>
+        ) : (
+          visibleSchedules.map((sch) => {
+            const dueList = dueByScheduleId.get(sch.id) || [];
+            const byMonth = groupYmdsByMonth(dueList);
+            const doneCount = dueList.filter((ymd) => !!completionFor(sch.id, ymd)).length;
+            const missedCount = dueList.filter((ymd) => ymd < todayYmd && !completionFor(sch.id, ymd)).length;
+            const pct = dueList.length > 0 ? Math.round((doneCount / dueList.length) * 100) : 0;
+            const missedPct = dueList.length > 0 ? Math.round((missedCount / dueList.length) * 100) : 0;
 
-          return (
-            <section
-              key={sch.id}
-              style={{
-                marginBottom: 16,
-                border: '1px solid var(--border)',
-                borderRadius: 8,
-                overflow: 'hidden',
-                background: 'var(--bg-secondary)',
-              }}
-            >
-              <div
-                style={{
-                  padding: '12px 16px',
-                  background: 'var(--bg-primary)',
-                  borderBottom: '1px solid var(--border)',
-                }}
-              >
-                <h2 className="app-page-heading" style={{ margin: '0 0 6px' }}>
-                  {sch.title || '—'}
-                </h2>
-                <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                  {String(sch.area || '').trim() || '—'} · Fällige Termine {year}:{' '}
-                  <strong style={{ color: 'var(--text-secondary)' }}>{dueList.length}</strong> · Erledigt (Filter):{' '}
-                  <strong style={{ color: 'var(--text-secondary)' }}>{doneCount}</strong>
-                  {missedPast > 0 ? (
-                    <span style={{ color: '#b02a37', fontWeight: 700 }}>
-                      {' '}
-                      · Verpasst (vergangen): {missedPast}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="nachweis-month-grid" style={{ padding: '14px 16px' }}>
-                {MONTHS_DE.map((monthName, mi) => {
-                  const days = byMonth.get(mi) || [];
-                  return (
-                    <div key={mi} className="nachweis-month">
-                      <h4>{monthName}</h4>
-                      {days.length === 0 ? (
-                        <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
-                      ) : (
-                        <div className="nachweis-chips">
-                          {days.map((ymd) => {
-                            const comp = completionFor(sch.id, ymd);
-                            const done = !!comp;
-                            const isPast = ymd < todayYmd;
-                            const dayNum = dayOfMonthFromYmd(ymd);
-                            let bg = 'var(--bg-tertiary)';
-                            let border = '1px solid var(--border)';
-                            let color = 'var(--text-secondary)';
-                            let label = `${dayNum}.`;
-                            let title = `${ymd}: geplant`;
-
-                            if (done) {
-                              bg = ROUTINE_TEAL.bg;
-                              border = `1px solid ${ROUTINE_TEAL.border}`;
-                              color = ROUTINE_TEAL.dark;
-                              label = `✓ ${dayNum}.`;
-                              title = `${ymd}: Erledigt von ${displayNameShort(comp!.completedBy)}`;
-                            } else if (isPast) {
-                              bg = ROUTINE_AMBER.bg;
-                              border = `1px solid ${ROUTINE_AMBER.border}`;
-                              color = ROUTINE_AMBER.dark;
-                              label = `! ${dayNum}.`;
-                              title = `${ymd}: Nicht erledigt (vergangen)`;
-                            }
-
-                            return (
-                              <span
-                                key={ymd}
-                                className="nachweis-chip"
-                                style={{ background: bg, border, color }}
-                                title={title}
-                              >
-                                {label}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      )}
+            return (
+              <section key={sch.id} className="nachweis-section">
+                {/* Section header */}
+                <div className="nachweis-section-header">
+                  <div>
+                    <h2 className="nachweis-section-title">{sch.title || '—'}</h2>
+                    <div className="nachweis-section-meta">
+                      {String(sch.area || '').trim() || '—'} · {dueList.length} Termine {year}
                     </div>
-                  );
-                })}
-              </div>
-            </section>
-          );
-        })
-      )}
+                  </div>
+                  <div className="nachweis-stats">
+                    {doneCount > 0 && (
+                      <span className="nachweis-stat-pill nachweis-stat-pill--done">
+                        ✓ {doneCount} erledigt
+                      </span>
+                    )}
+                    {missedCount > 0 && (
+                      <span className="nachweis-stat-pill nachweis-stat-pill--missed">
+                        ! {missedCount} verpasst
+                      </span>
+                    )}
+                    <span className="nachweis-stat-pill nachweis-stat-pill--total">
+                      {pct}%
+                    </span>
+                  </div>
+                </div>
+
+                {/* Month grid */}
+                <div className="nachweis-month-grid">
+                  {MONTHS_DE.map((monthName, mi) => {
+                    const days = byMonth.get(mi) || [];
+                    const isFutureMonth = year === currentYearNum ? mi > currentMonthIndex : year > currentYearNum;
+                    const monthDone = days.filter((ymd) => !!completionFor(sch.id, ymd)).length;
+                    const monthMissed = days.filter((ymd) => ymd < todayYmd && !completionFor(sch.id, ymd)).length;
+                    const monthTotal = days.length;
+                    const donePct = monthTotal > 0 ? (monthDone / monthTotal) * 100 : 0;
+                    const missedPctMonth = monthTotal > 0 ? (monthMissed / monthTotal) * 100 : 0;
+
+                    return (
+                      <div key={mi} className={`nachweis-month-card${isFutureMonth ? ' future' : ''}`}>
+                        <div className="nachweis-month-header">
+                          <span className="nachweis-month-name">{monthName}</span>
+                          {monthTotal > 0 && !isFutureMonth && (
+                            <div className="nachweis-month-summary">
+                              {monthDone > 0 && <span style={{ color: ROUTINE_TEAL.dark }}>✓{monthDone}</span>}
+                              {monthMissed > 0 && <span style={{ color: ROUTINE_AMBER.dark }}>{monthMissed}</span>}
+                              {monthTotal - monthDone - monthMissed > 0 && (
+                                <span>{monthTotal - monthDone - monthMissed} offen</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Progress bar */}
+                        {monthTotal > 0 && !isFutureMonth && (
+                          <div className="nachweis-progress">
+                            <div className="nachweis-progress-done" style={{ width: `${donePct}%` }} />
+                            <div className="nachweis-progress-missed" style={{ width: `${missedPctMonth}%` }} />
+                          </div>
+                        )}
+
+                        {/* Mini calendar */}
+                        {days.length === 0 ? (
+                          <span className="nachweis-empty">—</span>
+                        ) : (() => {
+                          // Build a set of due dates for quick lookup
+                          const dueSet = new Set(days.map(d => dayOfMonthFromYmd(d)));
+
+                          // First day of month (0=Sun..6=Sat), convert to Mon-based (0=Mon..6=Sun)
+                          const firstDate = new Date(year, mi, 1);
+                          const firstDow = (firstDate.getDay() + 6) % 7; // Mon=0
+                          const daysInMonth = new Date(year, mi + 1, 0).getDate();
+
+                          // Build week rows
+                          const cells: (number | null)[] = [
+                            ...Array(firstDow).fill(null),
+                            ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+                          ];
+                          // Pad to full weeks
+                          while (cells.length % 7 !== 0) cells.push(null);
+                          const weeks: (number | null)[][] = [];
+                          for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+
+                          return (
+                            <table className="nachweis-cal">
+                              <thead>
+                                <tr>
+                                  {['Mo','Di','Mi','Do','Fr','Sa','So'].map(d => (
+                                    <th key={d}>{d}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {weeks.map((week, wi) => (
+                                  <tr key={wi}>
+                                    {week.map((dayNum, di) => {
+                                      if (!dayNum) return <td key={di} />;
+                                      if (!dueSet.has(dayNum)) {
+                                        return (
+                                          <td key={di}>
+                                            <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:26, height:22, fontSize:11, color:'var(--text-muted)', opacity:0.35 }}>
+                                              {dayNum}.
+                                            </span>
+                                          </td>
+                                        );
+                                      }
+                                      const ymd = `${year}-${String(mi+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+                                      const comp = completionFor(sch.id, ymd);
+                                      const done = !!comp;
+                                      const isPast = ymd < todayYmd;
+                                      const isToday = ymd === todayYmd;
+                                      let cls = 'nachweis-day nachweis-day--future';
+                                      let titleStr = `${ymd}: geplant`;
+                                      if (done) {
+                                        cls = 'nachweis-day nachweis-day--done';
+                                        titleStr = `Erledigt von ${displayNameShort(comp!.completedBy)}`;
+                                      } else if (isToday) {
+                                        cls = 'nachweis-day nachweis-day--today';
+                                        titleStr = 'Heute fällig';
+                                      } else if (isPast) {
+                                        cls = 'nachweis-day nachweis-day--missed';
+                                        titleStr = 'Nicht erledigt';
+                                      }
+                                      return (
+                                        <td key={di}>
+                                          <span className={cls} title={titleStr}>{dayNum}.</span>
+                                        </td>
+                                      );
+                                    })}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          );
+                        })()}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })
+        )}
       </div>
       </div>
     </div>

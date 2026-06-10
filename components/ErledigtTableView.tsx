@@ -250,7 +250,7 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({
             `}</style>
       <div className="erledigt-month-nav">
         <select value={selectedYear} onChange={e => { const y = Number(e.target.value); onYearChange(y); onReload(selectedMonth, y); }}>
-          {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => (
+          {Array.from({ length: new Date().getFullYear() - 2025 }, (_, i) => new Date().getFullYear() - i).map(y => (
             <option key={y} value={y}>{y}</option>
           ))}
         </select>

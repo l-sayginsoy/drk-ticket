@@ -968,6 +968,126 @@ const App: React.FC = () => {
     };
   }, [isInitialized, currentUser?.role]);
 
+  // --- Stale-Ticket-Erinnerungen (Admin, einmal beim Start) ---
+  useEffect(() => {
+    if (!isInitialized || currentUser?.role !== Role.Admin || tickets.length === 0) return;
+
+    const STALE_DAYS = 5; // Tage ohne Aktivität
+    const REMINDER_COOLDOWN_DAYS = 3; // nicht öfter als alle 3 Tage erinnern
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().split('T')[0];
+
+    // Letzte Aktivität aus Notizen ermitteln
+    const getLastActivity = (t: Ticket): Date => {
+      if (t.notes && t.notes.length > 0) {
+        // Notiz-Format: "Text (Person am DD.MM.YYYY, HH:MM)" oder "Text (Person DD.MM.YYYY, HH:MM)"
+        const lastNote = t.notes[t.notes.length - 1];
+        const dateMatch = lastNote.match(/(\d{1,2})\.(\d{1,2})\.(\d{2,4})/);
+        if (dateMatch) {
+          const [, d, m, y] = dateMatch;
+          const year = y.length === 2 ? 2000 + Number(y) : Number(y);
+          const parsed = new Date(year, Number(m) - 1, Number(d));
+          if (!isNaN(parsed.getTime())) return parsed;
+        }
+      }
+      // Fallback: Erstelldatum
+      if (t.entryDate) {
+        const p = t.entryDate.split('.');
+        if (p.length === 3) {
+          const d = new Date(Number(p[2]), Number(p[1]) - 1, Number(p[0]));
+          if (!isNaN(d.getTime())) return d;
+        }
+      }
+      return new Date(0);
+    };
+
+    const diffDays = (a: Date, b: Date) => Math.floor((b.getTime() - a.getTime()) / 86400000);
+
+    // Stale Tickets filtern
+    const stale = tickets.filter(t => {
+      if (t.status === Status.Abgeschlossen || t.status === Status.Zurueckgestellt) return false;
+      if (!t.technician || t.technician === 'N/A') return false;
+      const lastActivity = getLastActivity(t);
+      const daysSinceActivity = diffDays(lastActivity, today);
+      if (daysSinceActivity < STALE_DAYS) return false;
+      // Cooldown: nicht erneut senden wenn schon kürzlich erinnert
+      if (t.reminderSentAt) {
+        const lastReminder = new Date(t.reminderSentAt);
+        if (diffDays(lastReminder, today) < REMINDER_COOLDOWN_DAYS) return false;
+      }
+      return true;
+    });
+
+    if (stale.length === 0) return;
+
+    // Gruppiert nach Techniker → eine E-Mail pro Person
+    const byTechnician = new Map<string, Ticket[]>();
+    stale.forEach(t => {
+      if (!byTechnician.has(t.technician)) byTechnician.set(t.technician, []);
+      byTechnician.get(t.technician)!.push(t);
+    });
+
+    byTechnician.forEach(async (techTickets, techName) => {
+      // E-Mail-Adresse des Technikers
+      const techUser = users.find(u => u.name === techName);
+      const email = techUser?.email;
+      if (!email) return; // Kein Email → überspringen
+
+      const ticketLines = techTickets.map(t => {
+        const lastAct = getLastActivity(t);
+        const days = diffDays(lastAct, today);
+        return `• Ticket #${t.id} – ${t.title} (${t.area}, ${t.priority}, seit ${days} Tagen ohne Aktivität)`;
+      }).join('\n');
+
+      const subject = `Erinnerung: ${techTickets.length} Ticket${techTickets.length > 1 ? 's' : ''} warten auf Bearbeitung`;
+      const textContent = [
+        `Hallo ${techName},`,
+        '',
+        `folgende Tickets haben seit ${STALE_DAYS}+ Tagen keine Aktivität:`,
+        '',
+        ticketLines,
+        '',
+        'Bitte diese Tickets zeitnah bearbeiten oder den Status aktualisieren.',
+        '',
+        'DRK Serviceportal',
+      ].join('\n');
+
+      const bodyHtml = `
+        <p>Hallo <strong>${techName}</strong>,</p>
+        <p>folgende Tickets haben seit mindestens <strong>${STALE_DAYS} Tagen</strong> keine Aktivität und warten auf Bearbeitung:</p>
+        <table style="width:100%;border-collapse:collapse;font-size:14px;">
+          <tr style="background:#f5f5f5;"><th style="text-align:left;padding:6px 8px;border:1px solid #ddd;">Ticket</th><th style="text-align:left;padding:6px 8px;border:1px solid #ddd;">Betreff</th><th style="padding:6px 8px;border:1px solid #ddd;">Standort</th><th style="padding:6px 8px;border:1px solid #ddd;">Priorität</th><th style="padding:6px 8px;border:1px solid #ddd;">Inaktiv seit</th></tr>
+          ${techTickets.map(t => {
+            const days = diffDays(getLastActivity(t), today);
+            return `<tr><td style="padding:6px 8px;border:1px solid #ddd;">#${t.id}</td><td style="padding:6px 8px;border:1px solid #ddd;">${t.title}</td><td style="padding:6px 8px;border:1px solid #ddd;">${t.area}</td><td style="padding:6px 8px;border:1px solid #ddd;">${t.priority}</td><td style="padding:6px 8px;border:1px solid #ddd;">${days} Tage</td></tr>`;
+          }).join('')}
+        </table>
+        <p style="margin-top:16px;">Bitte diese Tickets zeitnah bearbeiten oder den Status aktualisieren.</p>
+      `;
+      // Unterstützt mehrere kommagetrennte Adressen (z.B. "ali@x.de, torsten@x.de")
+      const emailAddresses = email.split(',').map(e => e.trim()).filter(Boolean);
+      const results = await Promise.all(
+        emailAddresses.map(addr => sendDrkBrevoMailAsync(addr, subject, {
+          kind: 'custom',
+          subject,
+          bodyHtml,
+          bodyText: textContent,
+        }, { silent: true }))
+      );
+      const ok = results.some(r => r);
+
+      if (ok) {
+        // reminderSentAt auf allen erinnerten Tickets setzen
+        techTickets.forEach(t => {
+          saveTicketToFirebase({ ...t, reminderSentAt: todayStr });
+        });
+      }
+    });
+  // Nur beim ersten Laden (isInitialized wechselt von false→true)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInitialized]);
+
   // --- Firebase Sync Logic ---
   useEffect(() => {
     const tryMarkInitialized = () => {
@@ -2605,6 +2725,27 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     return ticketsForUser.filter(t => t.status === Status.Offen && t.origin !== 'routine').length;
   }, [ticketsForUser, currentUser]);
 
+  // Suche in abgeschlossenen Tickets (Hinweis-Banner)
+  const completedSearchCount = useMemo(() => {
+    if (!filters.search || currentView === 'erledigt') return 0;
+    const s = filters.search.toLowerCase();
+    return completedTickets.filter(t =>
+      t.title?.toLowerCase().includes(s) ||
+      t.id?.toLowerCase().includes(s) ||
+      t.reporter?.toLowerCase().includes(s) ||
+      t.area?.toLowerCase().includes(s)
+    ).length;
+  }, [filters.search, completedTickets, currentView]);
+
+  const listStatusCounts = useMemo(() => {
+    const main = filteredTickets.filter(t => t.origin !== 'routine');
+    return {
+      offen: main.filter(t => t.status === Status.Offen).length,
+      inArbeit: main.filter(t => t.status === Status.InArbeit).length,
+      ueberfaellig: main.filter(t => t.status === Status.Ueberfaellig).length,
+    };
+  }, [filteredTickets]);
+
   useEffect(() => {
     document.title = newMeldungenCount > 0
       ? `(${newMeldungenCount})`
@@ -3024,7 +3165,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
           isLoading={isLoadingCompleted}
         />;
         case 'reports': {
-          return <ReportsView activeTickets={tickets} completedTickets={completedTickets} users={users} />;
+          return <ReportsView activeTickets={tickets} completedTickets={completedTickets} completedMonth={completedMonth} completedYear={completedYear} onLoadMonth={(m, y) => { setCompletedMonth(m); setCompletedYear(y); void loadCompletedTicketsForMonth(m, y); }} users={users} appSettings={appSettings} />;
         }
         case 'techniker': return <TechnicianView tickets={listenBenchTickets} technicians={users.filter(u => (u.role === Role.Technician || u.role === Role.Housekeeping) && u.isActive)} onTechnicianSelect={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} onFilter={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} />;
         case 'settings': return <SettingsView users={users} setUsers={setUsers} locations={locations} setLocations={setLocations} assets={assets} setAssets={setAssets} maintenancePlans={maintenancePlans} setMaintenancePlans={setMaintenancePlans} appSettings={appSettings} setAppSettings={handleAppSettingsChange} onResendConfirmationMailsForEntryDate={handleResendConfirmationMailsForEntryDate} onSendTestEmail={handleSendTestEmail} />;
@@ -3262,6 +3403,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
               groupBy={groupBy}
               setGroupBy={setGroupBy}
               currentView={currentView}
+              statusCounts={listStatusCounts}
               panelEmbed
             />
             {renderCurrentView()}
@@ -3272,7 +3414,21 @@ const deleteTicketFromFirebase = (ticketId: string) => {
               <BulkActionBar selectedCount={selectedTicketIds.length} technicians={allTechnicianNames} statuses={Object.values(Status)} onBulkUpdate={handleBulkUpdate} onBulkDelete={handleBulkDelete} onClearSelection={() => setSelectedTicketIds([])} />
             ) : (
               (currentView === 'tickets' || currentView === 'erledigt' || currentView === 'techniker') && (
-                <FilterBar filters={filters} setFilters={setFilters} locations={locationOptionsWithCounts} technicians={['Alle', ...activeTechnicians.map((t) => t.name)]} statuses={STATUSES} reporters={reporterOptions} userRole={currentUser.role} groupBy={groupBy} setGroupBy={setGroupBy} currentView={currentView} />
+                <>
+                  <FilterBar filters={filters} setFilters={setFilters} locations={locationOptionsWithCounts} technicians={['Alle', ...activeTechnicians.map((t) => t.name)]} statuses={STATUSES} reporters={reporterOptions} userRole={currentUser.role} groupBy={groupBy} setGroupBy={setGroupBy} currentView={currentView} statusCounts={listStatusCounts} />
+                  {completedSearchCount > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.6rem 1rem', background: '#e6f1fb', border: '1px solid #b5d4f4', borderRadius: 8, fontSize: '0.875rem', color: '#185fa5' }}>
+                      <i className="ti ti-search" />
+                      <span><strong>{completedSearchCount}</strong> abgeschlossene Ticket{completedSearchCount !== 1 ? 's' : ''} gefunden</span>
+                      <button
+                        onClick={() => setCurrentView('erledigt')}
+                        style={{ marginLeft: 'auto', background: '#185fa5', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 12px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
+                      >
+                        In Abgeschlossen anzeigen →
+                      </button>
+                    </div>
+                  )}
+                </>
               )
             )}
             {renderCurrentView()}

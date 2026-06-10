@@ -824,7 +824,8 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                     <p className="detail-label-compact">Kategorie</p>
                     <div className="editable-field-compact">
                         <span>{categoryName}</span><ChevronDownIcon />
-                        <select value={ticket.categoryId} onChange={e => handleFieldChange('categoryId', e.target.value)}>
+                        <select value={ticket.categoryId ?? 'N/A'} onChange={e => handleFieldChange('categoryId', e.target.value)}>
+                            <option value="N/A" hidden>N/A</option>
                             {appSettings.ticketCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                     </div>

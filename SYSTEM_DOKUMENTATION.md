@@ -1,6 +1,6 @@
 # DRK Haustechnik Service — Systemdokumentation
 
-> Letzte Aktualisierung: Mai 2026  
+> Letzte Aktualisierung: Juni 2026  
 > Diese Datei wird bei jeder Änderung am System gepflegt und erweitert.
 
 ---
@@ -18,14 +18,18 @@
 9. [Routing-Regeln & Auto-Zuweisung](#9-routing-regeln--auto-zuweisung)
 10. [Serienaufträge (Routinen)](#10-serienaufträge-routinen)
 11. [E-Mail-Benachrichtigungen (Brevo)](#11-e-mail-benachrichtigungen-brevo)
-12. [Firebase Datenstruktur](#12-firebase-datenstruktur)
-13. [Portal (öffentliche Meldeseite)](#13-portal-öffentliche-meldeseite)
-14. [Kanban-Board & Ticket-Karten](#14-kanban-board--ticket-karten)
-15. [In-App Benachrichtigungen (Toast-Banner)](#15-in-app-benachrichtigungen-toast-banner)
-16. [Datumskalender (plattformübergreifend)](#16-datumskalender-plattformübergreifend)
-17. [Umgebungsvariablen](#17-umgebungsvariablen)
-18. [Deployment (GitHub Actions)](#18-deployment-github-actions)
-19. [Änderungshistorie](#19-änderungshistorie)
+12. [Stale Ticket Erinnerungen](#12-stale-ticket-erinnerungen)
+13. [Firebase Datenstruktur](#13-firebase-datenstruktur)
+14. [Portal (öffentliche Meldeseite)](#14-portal-öffentliche-meldeseite)
+15. [Kanban-Board & Ticket-Karten](#15-kanban-board--ticket-karten)
+16. [In-App Benachrichtigungen (Toast-Banner)](#16-in-app-benachrichtigungen-toast-banner)
+17. [Datumskalender (plattformübergreifend)](#17-datumskalender-plattformübergreifend)
+18. [App-Refresh (Header)](#18-app-refresh-header)
+19. [Benutzerverwaltung](#19-benutzerverwaltung)
+20. [Code Splitting & Performance](#20-code-splitting--performance)
+21. [Umgebungsvariablen](#21-umgebungsvariablen)
+22. [Deployment (GitHub Actions)](#22-deployment-github-actions)
+23. [Änderungshistorie](#23-änderungshistorie)
 
 ---
 
@@ -124,7 +128,7 @@ Erstellt (Portal / Admin)
 | `id` | string | Eindeutige ID (z.B. `38619`) |
 | `title` | string | Betreff des Tickets |
 | `description` | string | Detailbeschreibung |
-| `status` | Status | Offen / In Arbeit / Überfällig / Abgeschlossen |
+| `status` | Status | Offen / In Arbeit / Überfällig / Abgeschlossen / Zurückgestellt |
 | `priority` | Priority | Hoch / Mittel / Niedrig |
 | `area` | string | Standort (z.B. "Hauptgebäude") |
 | `location` | string | Genaue Lokation (z.B. "Zimmer 12") |
@@ -144,6 +148,11 @@ Erstellt (Portal / Admin)
 | `origin` | `'portal'` \| `'manual'` | Woher das Ticket kommt |
 | `ticketType` | `'reactive'` \| `'routine'` | Ticket-Typ |
 | `completionDate/Time` | string | Zeitstempel der Fertigstellung |
+| `reminderSentAt` | string | `YYYY-MM-DD` — Datum des letzten Stale-Erinnerungs-E-Mails (verhindert Spam) |
+| `parkReminderInterval` | number | Wochen zwischen Zurückgestellt-Erinnerungen (1/2/3/4) |
+| `parkReminderNextDate` | string | `YYYY-MM-DD` nächste Zurückgestellt-Erinnerung |
+| `parkedAt` | string | `YYYY-MM-DD` — Zeitpunkt des Zurückstellens |
+| `isNew` | boolean | `true` bis das Ticket erstmals von einem Mitarbeiter geöffnet wurde |
 
 ---
 
@@ -348,6 +357,7 @@ Konfigurierbar in **Einstellungen → Routing-Regeln**.
 | `ticket_closed` | `Ihre Meldung wurde abgeschlossen – Ticket XXXX` | Melder | Status wechselt zu **Abgeschlossen** |
 | `staff_note` | `Neuigkeit zu Ihrem Ticket XXXX` | Melder | Neue Notiz von Mitarbeiter (nicht vom Melder selbst) |
 | `due_date_changed` | `Terminänderung zu Ihrer Meldung – Ticket XXXX` | Melder | Fälligkeitsdatum manuell geändert bei Status In Arbeit oder Überfällig |
+| `custom` (Stale-Reminder) | `Erinnerung: N Tickets warten auf Bearbeitung` | Techniker | Automatisch beim App-Start wenn Tickets 5+ Tage keine Aktivität hatten |
 
 ---
 
@@ -393,7 +403,67 @@ Konfigurierbar in **Einstellungen → Routing-Regeln**.
 
 ---
 
-## 12. Firebase Datenstruktur
+## 12. Stale Ticket Erinnerungen
+
+### Zweck
+Techniker sollen automatisch per E-Mail erinnert werden, wenn ein ihnen zugewiesenes Ticket über mehrere Tage keine Aktivität (keine Notiz, keine Statusänderung) hatte. So wird sichergestellt, dass kein Ticket vergessen wird.
+
+### Wie es funktioniert
+Die Logik läuft **einmalig beim App-Start** (sobald ein Admin eingeloggt ist und die App initialisiert ist). Sie läuft als `useEffect` in `App.tsx` mit `[isInitialized]` als Abhängigkeit.
+
+### Schwellenwerte (in App.tsx konfigurierbar)
+
+| Konstante | Wert | Bedeutung |
+|---|---|---|
+| `STALE_DAYS` | `5` | Tage ohne Aktivität, ab denen ein Ticket als „stale" gilt |
+| `REMINDER_COOLDOWN_DAYS` | `3` | Mindestabstand zwischen zwei Erinnerungen für dasselbe Ticket |
+
+### Welche Tickets werden berücksichtigt?
+
+Ein Ticket gilt als stale (und löst eine Erinnerung aus) wenn **alle** folgenden Bedingungen zutreffen:
+
+1. Status ist **nicht** `Abgeschlossen` und **nicht** `Zurückgestellt`
+2. Ticket hat einen zugewiesenen Bearbeiter (nicht `N/A` oder leer)
+3. Letzte Aktivität liegt **mindestens 5 Tage** zurück
+4. Kein früheres Reminder-E-Mail in den letzten 3 Tagen (`reminderSentAt`)
+
+### Letzte Aktivität — Berechnung
+Die Funktion `getLastActivity(ticket)` bestimmt das Datum der letzten Aktion:
+
+1. **Notizen prüfen**: Die letzte Notiz im `notes`-Array wird nach dem deutschen Datumsformat `DD.MM.YYYY` oder `DD.MM.YY` durchsucht. Wenn ein Datum gefunden wird, gilt dieses als letzter Aktivitätszeitpunkt.
+2. **Fallback**: Wenn keine Notiz mit Datum vorhanden ist, wird das `entryDate` (Erfassungsdatum) des Tickets verwendet.
+
+### E-Mail-Versand
+- Tickets werden **nach Techniker gruppiert** → pro Techniker **eine einzige E-Mail** mit allen betroffenen Tickets als Tabelle
+- Die E-Mail enthält: Ticket-Nummer, Betreff, Standort, Priorität, Anzahl inaktiver Tage
+- Versand über Brevo (`sendDrkBrevoMailAsync`) mit `kind: 'custom'`
+- Die Option `{ silent: true }` verhindert Fehler-Toast bei Netzwerkproblemen
+
+### Mehrere E-Mail-Adressen
+- Das `email`-Feld eines Benutzers unterstützt **kommagetrennte Adressen**: `torsten@drk.de, ali-weiterleitung@drk.de`
+- Alle eingetragenen Adressen erhalten dieselbe Erinnerungs-E-Mail
+- Sonderfall Ali: Da Ali keine eigene E-Mail hat, wird Torstens Adresse in Alis `email`-Feld eingetragen
+
+### Spam-Schutz (`reminderSentAt`)
+- Nach erfolgreichem Versand wird `reminderSentAt = YYYY-MM-DD (heute)` auf jedem erinnerten Ticket in Firestore gesetzt
+- Beim nächsten App-Start wird das Feld geprüft: Ist die letzte Erinnerung weniger als 3 Tage her → kein erneuter Versand
+- Bei erfolglosem Versand wird `reminderSentAt` **nicht** gesetzt → nächster Versuch beim nächsten App-Start
+
+### Ausnahmen / wird nicht erinnert
+- Abgeschlossene Tickets (`Status.Abgeschlossen`)
+- Zurückgestellte Tickets (`Status.Zurueckgestellt`) — diese haben eigene Park-Reminder
+- Tickets ohne zugewiesenen Bearbeiter (`N/A`)
+- Techniker ohne eingetragene E-Mail-Adresse → Ticket wird übersprungen (kein Fehler)
+
+### Einrichtung (einmalig durch Admin)
+1. Einstellungen → Team → Benutzer bearbeiten
+2. Feld **„E-Mail (für Ticket-Erinnerungen)"** ausfüllen
+3. Mehrere Adressen mit Komma trennen: `name@drk.de, zweitname@drk.de`
+4. Speichern
+
+---
+
+## 13. Firebase Datenstruktur
 
 ### Collections
 
@@ -427,7 +497,7 @@ Konfigurierbar in **Einstellungen → Routing-Regeln**.
 
 ---
 
-## 13. Portal (öffentliche Meldeseite)
+## 14. Portal (öffentliche Meldeseite)
 
 ### Zugang
 - Keine Anmeldung nötig
@@ -453,7 +523,7 @@ Konfigurierbar in **Einstellungen → Routing-Regeln**.
 
 ---
 
-## 14. Kanban-Board & Ticket-Karten
+## 15. Kanban-Board & Ticket-Karten
 
 ### Spalten & Sortierung
 - **Offen** / **In Arbeit** / **Überfällig** — je eine Spalte
@@ -490,7 +560,7 @@ Konfigurierbar in **Einstellungen → Routing-Regeln**.
 
 ---
 
-## 15. In-App Benachrichtigungen (Toast-Banner)
+## 16. In-App Benachrichtigungen (Toast-Banner)
 
 ### Position & Verhalten
 - Erscheint **unten in der Mitte** des Bildschirms
@@ -517,7 +587,7 @@ Konfigurierbar in **Einstellungen → Routing-Regeln**.
 
 ---
 
-## 16. Datumskalender (plattformübergreifend)
+## 17. Datumskalender (plattformübergreifend)
 
 - Unsichtbarer `<input type="date">` liegt über der Datums-Pille
 - `pointer-events: auto` → Input fängt Klicks direkt ab
@@ -526,7 +596,80 @@ Konfigurierbar in **Einstellungen → Routing-Regeln**.
 
 ---
 
-## 17. Umgebungsvariablen
+## 18. App-Refresh (Header)
+
+### Zweck
+Die App kann sich in seltenen Fällen aufhängen (veraltete Daten, hängender Listener, PWA-Cache). Der Refresh-Button gibt Benutzern eine einfache Möglichkeit, die App komplett neu zu laden — ohne Browser-Adressleiste oder Tastaturkürzel kennen zu müssen.
+
+### Position & Aussehen
+- **Immer sichtbar** oben rechts im Header, auf jeder Seite der App
+- Design: kleiner Icon-Button (↻ Kreispfeil) mit gleichem Stil wie andere Header-Elemente
+- Hover: Hintergrund + Rahmen heben sich hervor
+
+### Verhalten beim Klick
+1. Das Pfeil-Icon dreht sich einmal (400ms CSS-Animation) — visuelles Feedback
+2. Nach 400ms: `window.location.reload()` → komplette Seite wird neu vom Server geladen
+3. Alle Daten werden frisch aus Firebase geladen, kein Cache-Problem mehr
+
+### Technische Details
+- Implementiert in `components/Header.tsx`
+- State `isRefreshing` steuert die CSS-Klasse `.spinning` für die Rotation
+- `window.location.reload()` ohne Parameter → lädt aktuelle URL neu (kein Hard-Reload nötig, Firebase lädt immer frisch)
+
+---
+
+## 19. Benutzerverwaltung
+
+### Benutzer-Felder
+
+| Feld | Typ | Beschreibung |
+|---|---|---|
+| `id` | string | Eindeutige ID |
+| `name` | string | Vollständiger Name (wird für Ticket-Zuweisung verwendet) |
+| `role` | Role | `admin` / `techniker` / `hauswirtschaft` |
+| `password` | string | Klartext-Passwort (in Firebase `app_data/users`) |
+| `isActive` | boolean | Inaktive Benutzer werden nicht angezeigt |
+| `skills` | string[] | Kompetenzen (kommagetrennt eingeben) |
+| `availability.status` | AvailabilityStatus | `Verfügbar` / `Abwesend` |
+| `availability.leaveUntil` | string \| null | Abwesenheitsende `YYYY-MM-DD`; automatisch `null` wenn Status = Verfügbar |
+| `color` | string | Hex-Farbe des Avatar-Kreises (z.B. `#E91E8C`) |
+| `email` | string | E-Mail-Adresse(n) für Ticket-Erinnerungen — mehrere mit Komma trennen |
+
+### Verfügbarkeit
+- Wird auf `Abwesend` gesetzt + Datum eingetragen → Benutzer bekommt keine neuen Tickets automatisch zugewiesen
+- Routing-Logik und `assignTicket()` überspringen abwesende Mitarbeiter
+- **Wenn Verfügbarkeit zurück auf „Verfügbar"** gesetzt wird: das `leaveUntil`-Datum wird automatisch geleert (sowohl in der Anzeige als auch beim Speichern nach Firebase)
+
+### E-Mail-Feld
+- Sichtbar in **Einstellungen → Team → Benutzer bearbeiten**
+- Freitext, kein striktes Einzel-Mail-Format — kommagetrennte Mehrfach-Adressen möglich
+- Wird ausschließlich für automatische Stale-Erinnerungen genutzt (kein Pflichtfeld)
+- Beispiel: `torsten@kv-vorderpfalz.drk.de, ali-weiterleitung@kv-vorderpfalz.drk.de`
+
+---
+
+## 20. Code Splitting & Performance
+
+### Bundle-Aufteilung (Vite `manualChunks`)
+Konfiguriert in `vite.config.ts`. Der initiale JavaScript-Bundle wurde von **1.570 KB auf 441 KB** reduziert (−72%).
+
+| Chunk-Name | Inhalt | Größe (gzip) |
+|---|---|---|
+| `vendor-react` | React, ReactDOM, Scheduler | ~46 KB |
+| `vendor-firebase` | Firebase App, Firestore, Functions | ~110 KB |
+| `vendor-framer` | Framer Motion (Animationen) | ~40 KB |
+| `vendor-pdf` | jsPDF, html2canvas, DOMPurify, StackBlur | ~190 KB |
+| `main` | App-eigener Code | ~103 KB |
+| `index.es` | Vite-Einstiegspunkt | ~50 KB |
+
+### Warum ist das wichtig?
+- Browser lädt beim ersten Besuch alle Chunks parallel
+- Bei App-Updates muss nur der geänderte Chunk neu geladen werden (nicht alles)
+- `vendor-pdf` wird nur geladen wenn PDF-Funktionen genutzt werden — spart initiale Ladezeit
+
+---
+
+## 21. Umgebungsvariablen
 
 | Variable | Pflicht | Beschreibung |
 |---|---|---|
@@ -539,7 +682,7 @@ Konfigurierbar in **Einstellungen → Routing-Regeln**.
 
 ---
 
-## 18. Deployment (GitHub Actions)
+## 22. Deployment (GitHub Actions)
 
 ### Deploy-Workflow (`deploy-firebase.yml`)
 - Trigger: jeder Push auf `main` oder manuell
@@ -553,10 +696,18 @@ Konfigurierbar in **Einstellungen → Routing-Regeln**.
 
 ---
 
-## 19. Änderungshistorie
+## 23. Änderungshistorie
 
 | Datum | Änderung |
 |---|---|
+| Juni 2026 | **Dokumentation vollständig aktualisiert**: alle neuen Features seit Mai 2026 eingearbeitet |
+| Juni 2026 | **App-Refresh-Button**: Header ↻ Icon-Button lädt App neu, mit Dreh-Animation |
+| Juni 2026 | **Stale Ticket Erinnerungen**: automatische E-Mail an Techniker bei 5+ Tagen Inaktivität |
+| Juni 2026 | **Mehrere E-Mail-Adressen**: `email`-Feld im Benutzerprofil unterstützt kommagetrennte Adressen |
+| Juni 2026 | **`reminderSentAt` Feld**: Spam-Schutz für Erinnerungs-E-Mails (3 Tage Cooldown) |
+| Juni 2026 | **Verfügbarkeit-Fix**: „Abwesend bis"-Datum wird automatisch geleert wenn Status auf Verfügbar wechselt |
+| Juni 2026 | **Code Splitting**: Vite `manualChunks` — Haupt-Bundle von 1.570 KB auf 441 KB reduziert |
+| Juni 2026 | **Benutzer E-Mail-Feld**: neues Feld in UserModal für Ticket-Erinnerungs-E-Mails |
 | Mai 2026 | **Dokumentation aktualisiert**: alle Änderungen seit Erstversion eingearbeitet |
 | Mai 2026 | **E-Mail: Kategorie entfernt** aus Admin-Benachrichtigungs-Mail |
 | Mai 2026 | **Konversations-Indikator**: grauer Zähler + oranges "Neue Nachricht" im Karten-Footer |

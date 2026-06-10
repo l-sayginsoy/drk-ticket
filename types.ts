@@ -35,6 +35,7 @@ export interface User {
     leaveUntil: string | null; // YYYY-MM-DD
   };
   color?: string; // hex color string, e.g. "#E91E8C"
+  email?: string; // Benachrichtigungs-E-Mail für Ticket-Erinnerungen
 }
 
 export interface Location {
@@ -200,6 +201,7 @@ export interface Ticket {
     materials: number;
   };
   closedAt?: string; // YYYY-MM-DD, gesetzt beim Abschließen
+  reminderSentAt?: string; // YYYY-MM-DD, letzter Versand der Stale-Erinnerung
   parkReminderInterval?: number; // weeks between reminders (1/2/3/4)
   parkReminderNextDate?: string; // YYYY-MM-DD of next reminder
   parkedAt?: string; // YYYY-MM-DD when it was parked

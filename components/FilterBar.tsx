@@ -17,9 +17,11 @@ interface FilterBarProps {
     userRole: Role | null;
     /** Oben in gemeinsamer Karte mit Kanban: gleiche Fläche, nur dezente Linie nach unten */
     panelEmbed?: boolean;
+    /** Anzahl aktiver Tickets für die Statusleiste */
+    statusCounts?: { offen: number; inArbeit: number; ueberfaellig: number };
 }
 
-const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, technicians, statuses, reporters = [], groupBy, setGroupBy, currentView, userRole, panelEmbed = false }) => {
+const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, technicians, statuses, reporters = [], groupBy, setGroupBy, currentView, userRole, panelEmbed = false, statusCounts }) => {
     
     if (currentView === 'techniker' || currentView === 'reports' || currentView === 'routines' || currentView === 'routine-nachweis') {
         return null;
@@ -260,6 +262,30 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                 }
                 
                 .divider { width: 1px; height: 24px; background-color: var(--border); }
+
+                .status-summary {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    margin-left: auto;
+                    flex-shrink: 0;
+                }
+                .status-stat {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 0.35rem;
+                    font-size: 0.78rem;
+                    font-weight: 600;
+                    padding: 0.2rem 0.6rem;
+                    border-radius: 20px;
+                    border: 1.5px solid transparent;
+                    white-space: nowrap;
+                    cursor: default;
+                    user-select: none;
+                }
+                .status-stat--offen    { background: #F1F0EC; color: #5F5E5A; border-color: #D3D1C7; }
+                .status-stat--inarbeit { background: #E6F1FB; color: #185FA5; border-color: #B5D4F4; }
+                .status-stat--ueberfaellig { background: #FCEBEB; color: #A32D2D; border-color: #F7C1C1; }
             `}</style>
             <span style={{ fontSize: '0.88rem', fontWeight: 500, color: 'var(--text-muted)', flexShrink: 0 }}>Filter</span>
             <div className="filter-controls">
@@ -283,6 +309,21 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                 )}
                 {renderFiltersForView()}
             </div>
+            {statusCounts && currentView === 'tickets' && (
+                <div className="status-summary">
+                    <span className="status-stat status-stat--offen">
+                        {statusCounts.offen} Offen
+                    </span>
+                    <span className="status-stat status-stat--inarbeit">
+                        {statusCounts.inArbeit} In Arbeit
+                    </span>
+                    {statusCounts.ueberfaellig > 0 && (
+                        <span className="status-stat status-stat--ueberfaellig">
+                            {statusCounts.ueberfaellig} Überfällig
+                        </span>
+                    )}
+                </div>
+            )}
         </div>
     );
 };

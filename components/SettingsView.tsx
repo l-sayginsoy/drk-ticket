@@ -17,13 +17,13 @@ const DOCUMENTATION_HTML = `
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Systemdokumentation: Intelligentes Facility Management Dashboard</title>
+    <title>Systemdokumentation – DRK Haustechnik Service</title>
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             line-height: 1.6;
             color: #333;
-            max-width: 800px;
+            max-width: 820px;
             margin: 40px auto;
             padding: 20px;
             background-color: #f9f9f9;
@@ -31,258 +31,242 @@ const DOCUMENTATION_HTML = `
         h1, h2, h3 {
             color: #222;
             line-height: 1.2;
-            margin-top: 1.5em;
+            margin-top: 1.8em;
         }
         h1 {
-            font-size: 2.5em;
-            border-bottom: 2px solid #ccc;
+            font-size: 2.2em;
+            border-bottom: 3px solid #c0392b;
             padding-bottom: 0.5em;
-            margin-bottom: 1em;
-        }
-        h2 {
-            font-size: 1.75em;
-            border-bottom: 1px solid #ddd;
-            padding-bottom: 0.3em;
-            margin-bottom: 1em;
-        }
-        h3 {
-            font-size: 1.25em;
-            margin-bottom: 0.8em;
-        }
-        p {
-            margin-bottom: 1em;
-        }
-        ul, ol {
-            padding-left: 20px;
-            margin-bottom: 1em;
-        }
-        li {
             margin-bottom: 0.5em;
         }
-        strong {
-            font-weight: 600;
+        .subtitle {
+            color: #888;
+            font-size: 0.95em;
+            margin-bottom: 2em;
         }
+        h2 {
+            font-size: 1.55em;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 0.3em;
+            margin-bottom: 0.8em;
+            color: #c0392b;
+        }
+        h3 {
+            font-size: 1.15em;
+            margin-bottom: 0.6em;
+            color: #333;
+        }
+        p { margin-bottom: 1em; }
+        ul, ol { padding-left: 22px; margin-bottom: 1em; }
+        li { margin-bottom: 0.4em; }
+        strong { font-weight: 600; }
         code {
             background-color: #eee;
             padding: 2px 5px;
             border-radius: 4px;
             font-family: "Courier New", Courier, monospace;
+            font-size: 0.9em;
         }
         .intro {
-            font-style: italic;
-            color: #555;
-            border-left: 4px solid #0d6efd;
-            padding-left: 15px;
-            background-color: #f0f6ff;
-            padding-top: 10px;
-            padding-bottom: 10px;
+            border-left: 4px solid #c0392b;
+            padding: 12px 16px;
+            background-color: #fff5f5;
+            margin-bottom: 2em;
+            border-radius: 0 6px 6px 0;
         }
+        .neu-badge {
+            display: inline-block;
+            background: #c0392b;
+            color: white;
+            font-size: 0.7em;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 4px;
+            vertical-align: middle;
+            margin-left: 6px;
+            letter-spacing: 0.05em;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1.2em;
+            font-size: 0.92em;
+        }
+        th {
+            background: #f0f0f0;
+            text-align: left;
+            padding: 7px 10px;
+            border: 1px solid #ddd;
+            font-weight: 600;
+        }
+        td {
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+        }
+        tr:nth-child(even) td { background: #fafafa; }
         @media print {
-            body {
-                background-color: #fff;
-                margin: 0;
-                padding: 0;
-            }
-            h1, h2, h3 {
-                page-break-after: avoid;
-            }
-            .intro {
-                background-color: #f2f2f2;
-                border-color: #ddd;
-            }
+            body { background-color: #fff; margin: 0; padding: 15px; }
+            h1, h2, h3 { page-break-after: avoid; }
+            .intro { background-color: #f5f5f5; border-color: #999; }
         }
     </style>
 </head>
 <body>
 
-    <h1>Systemdokumentation: Intelligentes Facility Management Dashboard</h1>
+    <h1>Systemdokumentation</h1>
+    <p class="subtitle">DRK Haustechnik Service &mdash; Stand: Juni 2026</p>
 
     <div class="intro">
-        <p><strong>Einleitung: Die Philosophie der Anwendung</strong></p>
-        <p>Das Ziel dieser Anwendung ist die fundamentale Effizienzsteigerung im Facility Management. Durch eine Kombination aus benutzerfreundlichem Design und einer leistungsstarken Automatisierungs-Engine werden manuelle Arbeitsschritte drastisch reduziert, Fehlerquellen minimiert und eine durchgehende Transparenz für alle Beteiligten – vom Melder über den Bearbeiter bis zum Management – geschaffen. Die App ist als autarke, browserbasierte Lösung konzipiert, die ihre Daten im Local Storage speichert und somit ohne komplexes Server-Backend auskommt.</p>
+        <p><strong>Philosophie der Anwendung</strong></p>
+        <p>Das DRK Haustechnik Service Portal wurde entwickelt, um den gesamten Prozess der Störungsmeldung, Bearbeitung und Nachverfolgung zu digitalisieren und zu automatisieren. Alle Beteiligten – Melder, Techniker und Leitung – haben jederzeit Transparenz über den aktuellen Stand. Das System ist auf Firebase Firestore aufgebaut und läuft als Web-App im Browser, ohne Installation.</p>
     </div>
 
-    <h2>Teil 1: Das Melder-Portal – Die Schnittstelle nach Außen</h2>
-    <p>Das Portal ist der öffentliche Zugangspunkt zur Anwendung. Es ist bewusst minimalistisch und geführt gestaltet, um Meldungen so einfach und präzise wie möglich zu machen.</p>
+    <h2>Teil 1: Das Melder-Portal</h2>
+    <p>Das Portal ist der öffentliche Zugangspunkt ohne Login. Bewohner, Mitarbeiter oder Besucher können hier Störungen melden und den Status ihrer Meldungen einsehen.</p>
 
-    <h3>1.1. Ticket-Erstellung (Der geführte Prozess)</h3>
-    <p>Ein Nutzer kann ohne Anmeldung eine neue Störung melden. Der Prozess ist so aufgebaut, dass das System im Hintergrund bereits die Weichen für eine schnelle Bearbeitung stellt.</p>
+    <h3>1.1. Neue Störung melden</h3>
     <ul>
-        <li><strong>Felder & Eingaben:</strong>
-            <ul>
-                <li>Bereich: Eine vordefinierte Liste von Standorten (z.B. "Küche", "Verwaltung").</li>
-                <li>Ort/Detail: Ein Freitextfeld zur Spezifizierung des Ortes (z.B. "Raum 102", "Maschine 3").</li>
-                <li>Betreff & Beschreibung: Felder zur genauen Beschreibung des Problems.</li>
-            </ul>
-        </li>
-        <li><strong>Intelligente Vereinfachung:</strong>
-            <ul>
-                <li>Der Melder muss <strong>keine Kategorie</strong>, <strong>keine Priorität</strong> und <strong>keinen Bearbeiter</strong> auswählen.</li>
-                <li><strong>Logik dahinter:</strong> Um den Meldevorgang so einfach wie möglich zu gestalten, wurde das Feld "Kategorie" entfernt. Das System ordnet das Ticket im Hintergrund automatisch einer Standard-Kategorie zu. Die Priorität und Bearbeiterzuweisung erfolgen ebenfalls vollautomatisch basierend auf intelligenten Regeln, was menschliche Fehleinschätzungen vermeidet und den Melder entlastet.</li>
-                <li><strong>Abwesenheitsschutz:</strong> Das System stellt sicher, dass niemals ein abwesender Bearbeiter für ein neues Ticket ausgewählt wird.</li>
-            </ul>
-        </li>
-        <li><strong>Foto-Upload (Freiwillig):</strong>
-            <ul>
-                <li>Es können bis zu <strong>3 Fotos</strong> zu einer Meldung hinzugefügt werden.</li>
-                <li><strong>Wichtig:</strong> Der Foto-Upload ist <strong>immer freiwillig</strong>, auch in Bereichen wie "Sicherheit" oder "Brandschutz". Es gibt keine Verpflichtung, ein Foto hinzuzufügen.</li>
-                <li>Alle hochgeladenen Bilder werden vor dem Speichern <strong>automatisch komprimiert</strong>, um den Speicherplatz im Browser zu schonen und die Performance zu gewährleisten.</li>
-            </ul>
-        </li>
-        <li><strong>Wunsch-Termin:</strong> Ermöglicht dem Melder, eine Präferenz anzugeben.</li>
+        <li><strong>Standort & Raum:</strong> Auswahl aus vordefinierten Standorten, freie Eingabe des genauen Raums.</li>
+        <li><strong>Betreff & Beschreibung:</strong> Kurze Zusammenfassung und detaillierte Beschreibung des Problems.</li>
+        <li><strong>Foto-Upload (freiwillig):</strong> Bis zu 3 Fotos können hochgeladen werden. Alle Bilder werden vor dem Speichern automatisch komprimiert.</li>
+        <li><strong>E-Mail-Adresse:</strong> Optional – ermöglicht automatische Statusbenachrichtigungen per E-Mail.</li>
+        <li><strong>Wunsch-Termin:</strong> Der Melder kann eine bevorzugte Bearbeitungszeit angeben.</li>
+        <li><strong>Kein Ausfüllen von Kategorie, Priorität oder Bearbeiter nötig</strong> – das System erledigt das automatisch im Hintergrund.</li>
     </ul>
 
-    <h3>1.2. Status-Prüfung (Transparenz für den Melder)</h3>
-    <p>Melder können den Fortschritt ihrer Meldung jederzeit einsehen.</p>
+    <h3>1.2. Status prüfen & kommunizieren</h3>
     <ul>
-        <li><strong>Suche:</strong> Die Suche erfolgt über die eindeutige <strong>Ticket-ID</strong>, die nach erfolgreicher Erstellung angezeigt wird.</li>
-        <li><strong>Angezeigte Informationen:</strong>
-            <ul>
-                <li>Aktueller Status (z.B. "Offen", "In Arbeit").</li>
-                <li>Zugewiesener Bearbeiter (falls bereits erfolgt).</li>
-                <li><strong>Letzte öffentliche Notizen/Updates:</strong> Eine chronologische Ansicht der letzten Kommentare, die vom Bearbeiter oder Admin hinzugefügt wurden.</li>
-            </ul>
-        </li>
-        <li><strong>Rückkanal:</strong>
-            <ul>
-                <li>Der Melder kann einem bestehenden Ticket eine <strong>neue Notiz</strong> hinzufügen.</li>
-                <li>Diese Aktion setzt intern das Flag <code>hasNewNoteFromReporter</code> auf <code>true</code>, was in der Hauptanwendung durch einen visuellen Indikator signalisiert wird und den Bearbeiter über die neue Information in Kenntnis setzt.</li>
-            </ul>
-        </li>
+        <li>Statusabfrage per Name, E-Mail-Adresse oder Ticket-ID.</li>
+        <li>Anzeige: aktueller Status, zugewiesener Bearbeiter, Fälligkeitsdatum, komplette Notiz-Historie.</li>
+        <li>Melder kann eigene Notizen / Rückfragen zum Ticket hinzufügen – der Bearbeiter sieht eine Benachrichtigung.</li>
+        <li>Abgeschlossene Tickets können vom Melder wiedereröffnet werden.</li>
     </ul>
 
-    <h2>Teil 2: Das Herzstück – Die intelligente Automatisierungs-Engine</h2>
-    <p>Sobald ein Ticket erstellt wird, beginnt die Automatisierungs-Engine im Hintergrund zu arbeiten. Ziel ist es, jedes Ticket ohne manuellen Eingriff optimal vorzubereiten und zu steuern.</p>
+    <h2>Teil 2: Die Automatisierungs-Engine</h2>
+    <p>Sobald ein Ticket eingeht, arbeitet das System vollautomatisch im Hintergrund.</p>
 
-    <h3>2.1. Bei Ticketeingang (Sekunde Null)</h3>
+    <h3>2.1. Beim Ticketeingang</h3>
     <ul>
-        <li><strong>Automatische Priorisierung:</strong>
-            <ul>
-                <li>Das System ordnet das Ticket im Hintergrund automatisch einer <strong>Standard-Kategorie</strong> zu.</li>
-                <li>Jeder Kategorie ist in den Einstellungen eine <strong>Standard-Priorität</strong> zugewiesen (z.B. "Sicherheit" -> "Hoch"). Diese wird automatisch für das neue Ticket gesetzt.</li>
-            </ul>
-        </li>
-        <li><strong>SLA-basiertes Fälligkeitsdatum:</strong>
-            <ul>
-                <li>Anhand der Kombination aus <strong>Kategorie und Priorität</strong> wird in der <strong>SLA-Matrix</strong> (in den Einstellungen definiert) die festgelegte Reaktionszeit in Stunden ermittelt.</li>
-                <li>Das System berechnet daraus präzise das Fälligkeitsdatum und trägt es in das Ticket ein.</li>
-            </ul>
-        </li>
-        <li><strong>Automatisches Routing & Bearbeiter-Zuweisung:</strong>
-            <ol>
-                <li>Die Engine scannt <strong>Betreff und Beschreibung</strong> des Tickets nach vordefinierten <strong>Keywords</strong> (z.B. "Heizung", "Wasserhahn", "Strom").</li>
-                <li>Findet die passende <strong>Routing-Regel</strong> und den damit verknüpften <strong>Skill</strong> (z.B. "HLK", "Sanitär", "Elektrik").</li>
-                <li>Das System filtert alle Benutzer nach aktiven und verfügbaren Bearbeitern, die über diesen Skill verfügen.</li>
-                <li>Es berechnet die aktuelle <strong>Auslastung</strong> jedes passenden Bearbeiters (Anzahl der ihm zugewiesenen, nicht abgeschlossenen Tickets).</li>
-                <li>Das Ticket wird automatisch dem qualifizierten Bearbeiter mit der <strong>geringsten Auslastung</strong> zugewiesen.</li>
-                <li><strong>Fallback:</strong> Wenn kein passender Bearbeiter gefunden wird, bleibt die Zuweisung auf "N/A", damit ein Admin manuell zuweisen kann.</li>
-            </ol>
-        </li>
+        <li><strong>Automatische Kategorie & Priorität:</strong> Das System erkennt anhand von Betreff und Beschreibung die passende Kategorie und setzt die in der SLA-Matrix hinterlegte Standardpriorität.</li>
+        <li><strong>SLA-basiertes Fälligkeitsdatum:</strong> Aus der Kombination Kategorie + Priorität wird die Reaktionszeit (in Stunden) aus der SLA-Matrix ermittelt und das Fälligkeitsdatum berechnet.</li>
+        <li><strong>Automatisches Routing:</strong> Das System scannt Betreff und Beschreibung nach konfigurierten Keywords (z.B. "Heizung", "Strom"). Die passende Routing-Regel bestimmt die zuständigen Bearbeiter. Zugewiesen wird derjenige mit der geringsten aktuellen Auslastung. Abwesende Bearbeiter werden übersprungen. Gibt es keinen Treffer, bleibt die Zuweisung auf "N/A" für manuelle Vergabe.</li>
     </ul>
 
-    <h3>2.2. Laufende Systemüberwachung</h3>
-    <p>Die App führt kontinuierlich (simulierte tägliche) Checks durch, um den Ticket-Lebenszyklus zu verwalten.</p>
+    <h3>2.2. Laufende Überwachung</h3>
     <ul>
-        <li><strong>Überfälligkeits-Logik:</strong> Ein automatischer Prozess prüft täglich alle nicht abgeschlossenen Tickets. Wenn das Fälligkeitsdatum überschritten ist, wird der Status automatisch auf <strong>"Überfällig"</strong> gesetzt.</li>
-        <li><strong>Wartungsplan-Generator:</strong> Das System prüft täglich die hinterlegten Wartungspläne. Ist ein Plan basierend auf seinem Intervall und dem Datum der letzten Ausführung fällig, wird automatisch ein neues, <strong>präventives Wartungsticket</strong> mit allen vordefinierten Informationen (Aufgabe, Priorität etc.) erstellt.</li>
-        <li><strong>Automatische Umverteilung bei Abwesenheit:</strong>
-            <ul>
-                <li><strong>Trigger:</strong> Sobald ein Admin oder das System den Verfügbarkeits-Status eines Bearbeiters auf <strong>"Abwesend"</strong> (z.B. Krankheit, Urlaub) setzt.</li>
-                <li><strong>Logik:</strong> Das System scannt sofort alle offenen Tickets dieses Bearbeiters. Tickets, die während der Abwesenheit fällig wären oder als kritisch (hohe Priorität) eingestuft sind, werden identifiziert.</li>
-                <li><strong>Aktion:</strong> Diese Tickets werden automatisch an denjenigen verfügbaren Kollegen umverteilt, der aktuell die <strong>geringste Auslastung</strong> (wenigste offene Tickets) hat. Dies stellt sicher, dass keine Aufgaben liegen bleiben.</li>
-            </ul>
-        </li>
+        <li><strong>Überfälligkeits-Check:</strong> Täglich beim App-Start werden alle offenen Tickets geprüft. Ist das Fälligkeitsdatum überschritten, wechselt der Status automatisch auf "Überfällig".</li>
+        <li><strong>Abwesenheits-Umverteilung:</strong> Wird ein Bearbeiter auf "Abwesend" gesetzt, werden seine kritischen oder bald fälligen Tickets automatisch an den am wenigsten ausgelasteten verfügbaren Kollegen umverteilt.</li>
+        <li><strong>Serienaufträge:</strong> Wiederkehrende Aufgaben (täglich, wöchentlich, monatlich, jährlich) werden automatisch als Tickets generiert und dem konfigurierten Bearbeiter zugewiesen.</li>
     </ul>
 
-    <h2>Teil 3: Die Hauptanwendung – Das Cockpit für Bearbeiter & Admins</h2>
-    <p>Dies ist die passwortgeschützte Hauptansicht zur Verwaltung und Bearbeitung aller Tickets.</p>
+    <h3>2.3. Stale Ticket Erinnerungen <span class="neu-badge">NEU</span></h3>
+    <p>Das System erkennt automatisch Tickets, bei denen zu lange keine Aktivität stattgefunden hat, und erinnert die zuständigen Techniker per E-Mail.</p>
+    <ul>
+        <li><strong>Auslöser:</strong> Beim App-Start (Admin eingeloggt) werden alle offenen Tickets geprüft.</li>
+        <li><strong>Schwellenwert:</strong> Tickets mit 5 oder mehr Tagen ohne Aktivität (keine neue Notiz, kein Statuswechsel) gelten als "stale".</li>
+        <li><strong>Letzte Aktivität:</strong> Das System sucht zuerst nach dem Datum der letzten Notiz. Gibt es keine Notiz mit Datum, wird das Erfassungsdatum des Tickets verwendet.</li>
+        <li><strong>Gruppierung:</strong> Pro Techniker wird eine einzige E-Mail verschickt, die alle betroffenen Tickets als übersichtliche Tabelle enthält (Ticket-Nr., Betreff, Standort, Priorität, Tage inaktiv).</li>
+        <li><strong>Spam-Schutz:</strong> Nach dem Versand wird das Datum gespeichert. Frühestens nach 3 Tagen wird erneut erinnert.</li>
+        <li><strong>Ausnahmen:</strong> Abgeschlossene und zurückgestellte Tickets werden ignoriert. Techniker ohne eingetragene E-Mail-Adresse werden übersprungen.</li>
+    </ul>
+
+    <h2>Teil 3: Die Hauptanwendung</h2>
 
     <h3>3.1. Rollen & Berechtigungen</h3>
+    <table>
+        <tr><th>Rolle</th><th>Zugriff</th></tr>
+        <tr><td><strong>Admin</strong></td><td>Vollzugriff: alle Ansichten, Einstellungen, Reports, Benutzerverwaltung, Löschfunktion</td></tr>
+        <tr><td><strong>Haustechniker</strong></td><td>Eigene Tickets einsehen & bearbeiten, Dashboard (eigene Ansicht), kein Zugriff auf Einstellungen/Reports</td></tr>
+        <tr><td><strong>Hauswirtschaft</strong></td><td>Wie Haustechniker, eigener Bereich</td></tr>
+    </table>
+
+    <h3>3.2. Ansichten</h3>
     <ul>
-        <li><strong>Admin:</strong> Hat Vollzugriff. Sieht alle Tickets und alle Ansichten (Dashboard, Reports etc.) und kann die "Steuerzentrale" (Settings) zur Konfiguration der Automatisierung verwalten.</li>
-        <li><strong>Service-Team:</strong> Hat eingeschränkten Zugriff. Sieht standardmäßig nur die ihm zugewiesenen Tickets in den Ansichten "Aktuelle Tickets" und "Abgeschlossen". Hat keinen Zugriff auf Dashboard, Reports, Team-Übersicht und Settings.</li>
+        <li><strong>Dashboard (Kanban):</strong> Drei Spalten – Offen / In Arbeit / Überfällig. Sortierung nach Dringlichkeit (Notfall zuerst, dann Fälligkeitsdatum). Statusänderung per Drag & Drop.</li>
+        <li><strong>Listenansicht:</strong> Tabellenansicht mit Volltextsuche, Filtern, Sortieren und Gruppieren nach Status / Bereich / Bearbeiter.</li>
+        <li><strong>Abgeschlossen:</strong> Monatsweise Ansicht erledigter Tickets. CSV-Export möglich.</li>
+        <li><strong>Team-Übersicht:</strong> Auslastung und KPIs pro Techniker.</li>
+        <li><strong>Reports:</strong> Grafische Auswertungen – Ticketanzahl, Lösungsquote, Lösungszeit, Hotspots.</li>
+        <li><strong>Serienaufträge:</strong> Verwaltung wiederkehrender Aufgaben und Nachweis-Ansicht.</li>
     </ul>
 
-    <h3>3.2. Benutzer-Status vs. Verfügbarkeit</h3>
-    <p>In der Benutzerverwaltung gibt es zwei wichtige Unterscheidungen:</p>
+    <h3>3.3. Ticket bearbeiten</h3>
     <ul>
-        <li><strong>Status-Schalter (Aktiv/Inaktiv):</strong> Dieser Schalter in der Liste ("Status") deaktiviert das Benutzerkonto dauerhaft (z.B. bei Austritt). Inaktive Nutzer können sich nicht anmelden und erhalten keine neuen Tickets.</li>
-        <li><strong>Verfügbarkeit (Anwesend/Abwesend):</strong> Dies regelt temporäre Abwesenheiten (Urlaub, Krankheit). Setzt man einen Nutzer auf "Abwesend", greift die oben beschriebene automatische Umverteilung.</li>
+        <li>Klick auf ein Ticket öffnet die Detail-Seitenleiste.</li>
+        <li>Alle Felder bearbeitbar: Status, Priorität, Bearbeiter, Fälligkeitsdatum, Notizen, Fotos.</li>
+        <li><strong>Massenbearbeitung:</strong> Mehrere Tickets per Checkbox auswählen → Status ändern, Bearbeiter zuweisen oder löschen.</li>
+        <li><strong>Notiz-Indikator:</strong> Orangener "Neue Nachricht"-Badge wenn der Melder eine ungelesene Rückmeldung hinterlassen hat.</li>
     </ul>
 
-    <h3>3.2. Die Ansichten im Detail</h3>
+    <h3>3.4. App-Aktualisierung <span class="neu-badge">NEU</span></h3>
+    <p>Oben rechts im Header befindet sich ein <strong>Aktualisierungs-Button (↻)</strong>. Ein Klick lädt die App komplett neu – hilfreich wenn die Anzeige hängt oder veraltete Daten angezeigt werden. Der Pfeil dreht sich kurz als visuelles Feedback, dann wird die Seite neu geladen.</p>
+
+    <h2>Teil 4: E-Mail-Benachrichtigungen</h2>
+    <p>Das System versendet automatisch E-Mails über den Dienst Brevo. Alle E-Mails werden im Hintergrund gesendet und blockieren die App nicht.</p>
+
+    <table>
+        <tr><th>Zeitpunkt</th><th>Empfänger</th><th>Inhalt</th></tr>
+        <tr><td>Neues Ticket erstellt</td><td>Melder</td><td>Eingangsbestätigung mit Ticket-Nummer</td></tr>
+        <tr><td>Neues Portal-Ticket</td><td>Admin</td><td>Benachrichtigung mit allen Ticket-Details</td></tr>
+        <tr><td>Status → In Arbeit</td><td>Melder</td><td>Bearbeiter, Standort, voraussichtliches Fälligkeitsdatum</td></tr>
+        <tr><td>Status → Abgeschlossen</td><td>Melder</td><td>Abschlussbestätigung</td></tr>
+        <tr><td>Neue Notiz vom Mitarbeiter</td><td>Melder</td><td>Notiztext</td></tr>
+        <tr><td>Fälligkeitsdatum geändert</td><td>Melder</td><td>Neues Datum (nur bei Status In Arbeit / Überfällig)</td></tr>
+        <tr><td>Ticket 5+ Tage inaktiv <span class="neu-badge">NEU</span></td><td>Techniker</td><td>Tabelle aller inaktiven Tickets, gruppiert pro Techniker</td></tr>
+    </table>
+
+    <h2>Teil 5: Die Steuerzentrale (Einstellungen)</h2>
+
+    <h3>5.1. Allgemein</h3>
     <ul>
-        <li><strong>Dashboard (Kanban-Ansicht):</strong>
-            <ul>
-                <li>Eine visuelle Übersicht aller aktiven Tickets, aufgeteilt in Spalten nach Status ("Offen", "In Arbeit", "Überfällig").</li>
-                <li>Tickets werden innerhalb der Spalten automatisch nach Dringlichkeit (Notfall > Überfällig > Priorität) sortiert.</li>
-                <li>Ermöglicht eine schnelle Statusänderung per <strong>Drag & Drop</strong> eines Tickets von einer Spalte in die andere.</li>
-            </ul>
-        </li>
-        <li><strong>Ticket-Liste (Tabellenansicht):</strong>
-            <ul>
-                <li>Eine detaillierte Listenansicht, die sich hervorragend für die gezielte Analyse eignet.</li>
-                <li><strong>Funktionen:</strong> Volltextsuche, Filtern nach allen Kriterien, Sortieren jeder Spalte und <strong>Gruppieren</strong> von Tickets nach Status, Bereich oder Bearbeiter.</li>
-            </ul>
-        </li>
-        <li><strong>Team-Übersicht:</strong>
-            <ul>
-                <li>Ein reines Admin-Tool zur Performance-Analyse.</li>
-                <li>Zeigt eine Übersicht aller Team-Mitglieder mit KPIs wie: aktuelle Auslastung, Performance-Trend und prozentualer Anteil an der Gesamtauslastung.</li>
-            </ul>
-        </li>
-        <li><strong>Reports-Ansicht:</strong>
-            <ul>
-                <li>Die "Management-Ebene" mit grafischen Auswertungen.</li>
-                <li>Zeigt filterbare KPIs wie Gesamtzahl der Tickets, Lösungsquote, durchschnittliche Lösungszeit und Hotspots (Bereiche mit den meisten Tickets).</li>
-            </ul>
-        </li>
+        <li>App-Name, Portal-Untertitel, Wartungsmodus (mit eigener Meldung)</li>
+        <li>Portal-Konfiguration: Statusanzeige ein/aus, Techniker-Login anzeigen</li>
     </ul>
 
-    <h3>3.3. Ticket-Management</h3>
+    <h3>5.2. Prozesse & Logik</h3>
     <ul>
-        <li><strong>Detail-Seitenleiste:</strong>
-            <ul>
-                <li>Öffnet sich bei Klick auf ein Ticket und ist der zentrale Ort für die Bearbeitung.</li>
-                <li>Ermöglicht das Ändern aller relevanten Felder (Status, Priorität, Bearbeiter etc.).</li>
-                <li>Zeigt alle Stammdaten, die Beschreibung, Fotos und die <strong>vollständige Notiz-Historie</strong>.</li>
-                <li>Ermöglicht das Hinzufügen neuer, interner Notizen.</li>
-            </ul>
-        </li>
-        <li><strong>Massenbearbeitung (Bulk Actions):</strong>
-            <ul>
-                <li>In der Tabellenansicht können mehrere Tickets per Checkbox ausgewählt werden.</li>
-                <li>Eine Aktionsleiste erscheint, die es ermöglicht, für alle ausgewählten Tickets gleichzeitig den <strong>Status zu ändern</strong>, einen <strong>Bearbeiter zuzuweisen</strong> oder sie zu <strong>löschen</strong>.</li>
-            </ul>
-        </li>
+        <li><strong>Ticket-Kategorien:</strong> Name und Standardpriorität je Kategorie.</li>
+        <li><strong>SLA-Matrix:</strong> Reaktionszeit in Stunden je Kategorie + Priorität-Kombination.</li>
+        <li><strong>Routing-Regeln:</strong> Keywords → automatische Kategorie, Priorität und Bearbeiter-Pool.</li>
     </ul>
 
-    <h2>Teil 4: Die Steuerzentrale – Der Admin-Bereich (Settings)</h2>
-    <p>Hier wird das "Gehirn" der Anwendung konfiguriert. Alle Automatisierungsregeln und Stammdaten werden hier verwaltet.</p>
-
-    <h3>4.1. Prozess-Steuerung</h3>
+    <h3>5.3. Serientermine</h3>
     <ul>
-        <li><strong>Ticket-Kategorien:</strong> Admins können die Kategorien definieren und ihnen eine Standard-Priorität zuweisen. Diese werden im Hintergrund für die automatische Priorisierung und SLA-Berechnung genutzt.</li>
-        <li><strong>SLA-Matrix:</strong> Hier wird die Logik für Fälligkeiten festgelegt, indem für eine Kombination aus Kategorie und Priorität eine Reaktionszeit in Stunden definiert wird.</li>
-        <li><strong>Routing-Regeln:</strong> Definition der Keyword-Skill-Zuweisungen für die automatische Bearbeiter-Zuweisung.</li>
+        <li>Verwaltung aller wiederkehrenden Aufgaben mit Wiederholungstyp (täglich, wöchentlich, monatlich, jährlich).</li>
+        <li>Zuweisung: fest an eine Person oder Rotation durch eine Gruppe.</li>
     </ul>
 
-    <h3>4.2. Stammdaten-Verwaltung</h3>
+    <h3>5.4. Benutzerverwaltung <span class="neu-badge">AKTUALISIERT</span></h3>
     <ul>
-        <li><strong>Benutzer & Teams:</strong> Anlegen, Bearbeiten und Deaktivieren von Benutzern. Zuweisung von Rollen (Admin/Bearbeiter) und Skills.</li>
-        <li><strong>Standorte & Anlagen:</strong> Verwaltung der Orte, die im Melde-Portal zur Auswahl stehen.</li>
+        <li>Anlegen, Bearbeiten und Deaktivieren von Benutzern.</li>
+        <li>Felder: Name, Rolle, Passwort, Avatar-Farbe, Kompetenzen (Skills).</li>
+        <li><strong>Verfügbarkeit:</strong> "Verfügbar" oder "Abwesend" mit optionalem Rückkehrdatum. Wird der Status zurück auf "Verfügbar" gesetzt, wird das Datum automatisch geleert.</li>
+        <li><strong>E-Mail-Adresse für Ticket-Erinnerungen:</strong> Wird für automatische Stale-Erinnerungen genutzt. Es können <strong>mehrere Adressen kommagetrennt</strong> eingetragen werden (z.B. für Vertretungsregelungen: <code>torsten@drk.de, ali-vertretung@drk.de</code>).</li>
+        <li><strong>Status-Schalter (Aktiv/Inaktiv):</strong> Inaktive Benutzer können sich nicht anmelden und bekommen keine Tickets zugewiesen.</li>
     </ul>
 
-    <h2>Teil 5: Globale Funktionen</h2>
+    <h3>5.5. Standorte</h3>
     <ul>
-        <li><strong>UI/UX:</strong> Die gesamte Anwendung unterstützt einen <strong>Light- & Dark-Mode</strong> und ist <strong>responsiv</strong> für mobile Geräte.</li>
-        <li><strong>Datenhaltung:</strong> Nutzung des <strong>Local Storage</strong> im Browser zur Speicherung aller Daten, was die App ohne Server-Backend lauffähig macht.</li>
-        <li><strong>Export-Funktionen:</strong>
-            <ul>
-                <li>Export der aktuellen Ticket-Ansicht als <strong>CSV-Datei</strong> oder als druckfertiges <strong>PDF-Dokument</strong>.</li>
-            </ul>
-        </li>
+        <li>Verwaltung aller Standorte, die im Portal zur Auswahl stehen.</li>
+        <li>Standorte können aktiviert und deaktiviert werden.</li>
     </ul>
+
+    <h3>5.6. Benachrichtigungen</h3>
+    <ul>
+        <li>Admin-E-Mail-Adresse für Eingangsbenachrichtigungen konfigurieren.</li>
+        <li>Test-E-Mail versenden zum Prüfen der Brevo-Verbindung.</li>
+        <li>Nachversand von Bestätigungs-E-Mails für ein bestimmtes Eingangsdatum.</li>
+    </ul>
+
+    <h2>Teil 6: Technische Grundlagen</h2>
+    <table>
+        <tr><th>Bereich</th><th>Technologie</th></tr>
+        <tr><td>Frontend</td><td>React 18, TypeScript, Vite</td></tr>
+        <tr><td>Datenbank</td><td>Firebase Firestore (Echtzeit-Listener für aktive Tickets)</td></tr>
+        <tr><td>E-Mail</td><td>Brevo REST API v3</td></tr>
+        <tr><td>Hosting</td><td>Firebase Hosting (Deployment via GitHub Actions)</td></tr>
+        <tr><td>Performance</td><td>Code Splitting: Haupt-Bundle 441 KB (statt 1.570 KB)</td></tr>
+    </table>
 
 </body>
 </html>
