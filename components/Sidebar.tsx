@@ -654,7 +654,9 @@ const Sidebar: React.FC<SidebarProps> = ({
             {userRole === Role.Admin && brevoMailOk !== undefined && brevoMailOk !== null && brevoMailLastChecked ? (
                 <div
                     className="sidebar-sync"
-                    title={`Brevo geprüft: ${brevoMailLastChecked.toLocaleTimeString()}`}
+                    title={brevoMailOk ? `Brevo geprüft: ${brevoMailLastChecked.toLocaleTimeString()}` : 'E-Mail inaktiv – klicken um Brevo zu öffnen'}
+                    onClick={!brevoMailOk ? () => window.open('https://app.brevo.com', '_blank') : undefined}
+                    style={!brevoMailOk ? { cursor: 'pointer' } : undefined}
                 >
                     <div
                         className="sidebar-sync-dot"
@@ -662,7 +664,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                             background: brevoMailOk ? 'rgba(30, 156, 64, 0.95)' : 'rgba(220, 53, 69, 0.95)',
                         }}
                     />
-                    {!isCollapsed && <span>{brevoMailOk ? 'E-Mail OK' : 'E-Mail FEHLER'}</span>}
+                    {!isCollapsed && <span>{brevoMailOk ? 'E-Mail aktiv' : '⚠ E-Mail inaktiv'}</span>}
                 </div>
             ) : null}
             <div className="sidebar-footer">

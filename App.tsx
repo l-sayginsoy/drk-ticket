@@ -893,6 +893,14 @@ const App: React.FC = () => {
     return () => document.removeEventListener('visibilitychange', onVis);
   }, []);
 
+  // Push-Benachrichtigungen anfordern (einmalig beim Login als Admin)
+  useEffect(() => {
+    if (currentUser?.role !== Role.Admin) return;
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, [currentUser?.role]);
+
   useEffect(() => {
     const onStatus = (ev: Event) => {
       const e = ev as CustomEvent<BrevoMailStatusDetail>;
@@ -907,6 +915,18 @@ const App: React.FC = () => {
         setBrevoAlertSuppressed(false);
         setBrevoAdminAlert({ message: d.message || 'Fehler', status: d.status ?? 0 });
         setBrevoMailOk(false);
+        // Push-Benachrichtigung senden
+        if ('Notification' in window && Notification.permission === 'granted') {
+          const n = new Notification('DRK Serviceportal – E-Mail inaktiv', {
+            body: 'Der E-Mail-Versand über Brevo ist ausgefallen. Bitte in Brevo prüfen und reaktivieren.',
+            icon: '/icon-192.png',
+            tag: 'brevo-down',
+          });
+          n.onclick = () => {
+            window.open('https://app.brevo.com', '_blank');
+            n.close();
+          };
+        }
       }
     };
     window.addEventListener(BREVO_MAIL_STATUS_EVENT, onStatus);
