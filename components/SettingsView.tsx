@@ -1,6 +1,6 @@
 
 // FIX: Import useMemo hook from React.
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { User, Location, Role, AppSettings, Priority, TicketCategory, SLARule, RoutingRule, Asset, MaintenancePlan, AvailabilityStatus, RoutineSchedule, WeekdayKey } from '../types';
 import { DEFAULT_APP_SETTINGS } from '../constants';
 import { getRoutinePool, localISODate } from '../utils/routineHelpers';
@@ -321,18 +321,17 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
     const [isLocationModalOpen, setLocationModalOpen] = useState(false);
     const [editingLocation, setEditingLocation] = useState<Location | null>(null);
 
-    const iframeRef = useRef<HTMLIFrameElement>(null);
-
     const handleDownloadDocs = () => {
-        if (iframeRef.current) {
-            iframeRef.current.srcdoc = DOCUMENTATION_HTML;
-            
-            iframeRef.current.onload = () => {
-                if (iframeRef.current && iframeRef.current.contentWindow) {
-                    iframeRef.current.contentWindow.focus();
-                    iframeRef.current.contentWindow.print();
-                }
-            };
+        const blob = new Blob([DOCUMENTATION_HTML], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const win = window.open(url, '_blank');
+        if (win) {
+            win.addEventListener('load', () => {
+                win.focus();
+                win.print();
+                // Blob-URL nach kurzer Verzögerung freigeben
+                setTimeout(() => URL.revokeObjectURL(url), 10000);
+            });
         }
     };
 
@@ -1645,17 +1644,6 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
             </div>
             {isUserModalOpen && <UserModal user={editingUser} allSkills={allSkills} onClose={() => setUserModalOpen(false)} onSave={handleSaveUser} />}
             {isLocationModalOpen && <AreaModal area={editingLocation} onClose={() => setLocationModalOpen(false)} onSave={handleSaveLocation} />}
-        
-            <iframe
-                ref={iframeRef}
-                style={{
-                    position: 'absolute',
-                    width: 0,
-                    height: 0,
-                    border: 0,
-                }}
-                title="Druck-Dokumentation"
-            ></iframe>
         </div>
     );
 };
