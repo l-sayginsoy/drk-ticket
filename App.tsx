@@ -1859,7 +1859,7 @@ const App: React.FC = () => {
 
     let wasChanged = false;
     const updatedTickets = tickets.map(ticket => {
-        if (ticket.status === Status.Abgeschlossen) {
+        if (ticket.status === Status.Abgeschlossen || ticket.status === Status.Zurueckgestellt) {
             return ticket;
         }
 
@@ -1893,7 +1893,7 @@ const App: React.FC = () => {
 
     let wasChanged = false;
     const updatedRoutineTickets = routineTickets.map(ticket => {
-        if (ticket.status === Status.Abgeschlossen) {
+        if (ticket.status === Status.Abgeschlossen || ticket.status === Status.Zurueckgestellt) {
             return ticket;
         }
 

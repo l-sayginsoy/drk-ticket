@@ -57,7 +57,6 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
     const [isEditing, setIsEditing] = useState(false);
     const [editDraft, setEditDraft] = useState({ title: '', area: '', location: '', description: '', reporter: '' });
     const [showParkModal, setShowParkModal] = useState(false);
-    const [parkInterval, setParkInterval] = useState<1 | 2 | 3 | 4>(2);
 
     const canEdit = ticket.origin === 'manual' &&
         (currentUser?.role === Role.Admin || currentUser?.role === Role.Technician);
@@ -151,16 +150,19 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
         onUpdateTicket(updatedTicket);
     };
 
-    const handleParkConfirm = () => {
+    const handleParkConfirm = (weeks: 1 | 2 | 3 | 4 | null) => {
         const today = new Date();
         const todayStr = today.toISOString().split('T')[0];
-        const nextDate = new Date(today);
-        nextDate.setDate(nextDate.getDate() + parkInterval * 7);
-        const nextDateStr = nextDate.toISOString().split('T')[0];
+        let nextDateStr: string | undefined;
+        if (weeks) {
+            const nextDate = new Date(today);
+            nextDate.setDate(nextDate.getDate() + weeks * 7);
+            nextDateStr = nextDate.toISOString().split('T')[0];
+        }
         onUpdateTicket({
             ...ticket,
             status: Status.Zurueckgestellt,
-            parkReminderInterval: parkInterval,
+            parkReminderInterval: weeks ?? undefined,
             parkReminderNextDate: nextDateStr,
             parkedAt: todayStr,
         });
@@ -886,9 +888,9 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                     {ticket.parkedAt && (
                         <div className="park-info-row">
                             <i className="ti ti-parking" aria-hidden="true" />
-                            <span>Zurückgestellt seit {ticket.parkedAt}</span>
+                            <span>Zurückgestellt seit {fromInputDate(ticket.parkedAt)}</span>
                             {ticket.parkReminderNextDate && (
-                                <span> · Erinnerung: {ticket.parkReminderNextDate}</span>
+                                <span> · Erinnerung: {fromInputDate(ticket.parkReminderNextDate)}</span>
                             )}
                             {ticket.parkReminderInterval && (
                                 <span> (alle {ticket.parkReminderInterval} Wo.)</span>
@@ -909,21 +911,21 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                         </button>
                     ) : (
                         <div className="park-modal">
-                            <div className="park-modal-title">Erinnerung alle X Wochen?</div>
+                            <div className="park-modal-title">Zurückstellen – wann erinnern?</div>
                             <div className="park-interval-options">
                                 {([1, 2, 3, 4] as const).map(w => (
                                     <button
                                         key={w}
-                                        className={`park-interval-btn${parkInterval === w ? ' selected' : ''}`}
-                                        onClick={() => setParkInterval(w)}
+                                        className="park-interval-btn"
+                                        onClick={() => handleParkConfirm(w)}
                                     >
                                         {w} {w === 1 ? 'Woche' : 'Wochen'}
                                     </button>
                                 ))}
                             </div>
-                            <button className="park-confirm-btn" onClick={handleParkConfirm}>
+                            <button className="park-confirm-btn" onClick={() => handleParkConfirm(null)}>
                                 <i className="ti ti-parking" aria-hidden="true" style={{ marginRight: 4 }} />
-                                Zurückstellen
+                                Ohne Erinnerung zurückstellen
                             </button>
                         </div>
                     )}
