@@ -2592,6 +2592,19 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     );
   }, [tickets, routineTickets]);
 
+  // Banner für vergessene Serienaufträge — nur ab Montag 16.06.2026
+  const ROUTINE_WARN_START = '2026-06-16';
+  const missedRoutinesSinceStart = useMemo(() => {
+    return routineTickets.filter(t => {
+      if (t.status !== Status.Ueberfaellig) return false;
+      if (!t.dueDate) return false;
+      const parts = t.dueDate.split('.');
+      if (parts.length !== 3) return false;
+      const iso = `${parts[2].length === 2 ? '20' + parts[2] : parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+      return iso >= ROUTINE_WARN_START;
+    });
+  }, [routineTickets]);
+
   const filteredTickets = useMemo(() => {
     const source = currentView === 'erledigt' ? completedTickets : [...tickets, ...routineTickets];
     return source.filter(ticket => {
@@ -3298,6 +3311,41 @@ const deleteTicketFromFirebase = (ticketId: string) => {
               {dueParkedTickets.length === 1
                 ? '1 zurückgestellter Auftrag wartet auf Überprüfung'
                 : `${dueParkedTickets.length} zurückgestellte Aufträge warten auf Überprüfung`}
+            </span>
+            <span style={{ flexShrink: 0, opacity: 0.8 }}>
+              <i className="ti ti-chevron-right" style={{ fontSize: 20 }} aria-hidden="true" />
+            </span>
+          </div>
+        )}
+        {/* Vergessene Serienaufträge Banner */}
+        {missedRoutinesSinceStart.length > 0 && (
+          <div
+            role="alert"
+            style={{
+              marginTop: 12,
+              marginBottom: 4,
+              padding: '10px 14px',
+              borderRadius: 10,
+              border: '1px solid rgba(220, 38, 38, 0.35)',
+              background: 'rgba(220, 38, 38, 0.08)',
+              color: 'var(--text-primary)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              fontWeight: 700,
+              fontSize: 14,
+              cursor: 'pointer',
+            }}
+            onClick={() => changeView('routines')}
+          >
+            <span style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 8, background: 'rgba(220,38,38,0.9)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+              <i className="ti ti-alert-triangle" style={{ fontSize: 18 }} aria-hidden="true" />
+            </span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              {missedRoutinesSinceStart.length === 1
+                ? '1 Serienauftrag wurde nicht abgeschlossen'
+                : `${missedRoutinesSinceStart.length} Serienaufträge wurden nicht abgeschlossen`}
+              <span style={{ fontWeight: 400, marginLeft: 8, opacity: 0.75 }}>— Bitte prüfen</span>
             </span>
             <span style={{ flexShrink: 0, opacity: 0.8 }}>
               <i className="ti ti-chevron-right" style={{ fontSize: 20 }} aria-hidden="true" />
