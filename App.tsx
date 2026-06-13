@@ -3217,6 +3217,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
         lastSyncTime={lastSyncTime}
         brevoMailOk={currentUser.role === Role.Admin ? brevoMailOk : null}
         brevoMailLastChecked={currentUser.role === Role.Admin ? brevoMailLastChecked : null}
+        missedRoutinesCount={routineTickets.filter(t => t.status === Status.Ueberfaellig).length}
       />
       <main>
         <Header filters={filters} setFilters={setFilters} currentView={currentView} />

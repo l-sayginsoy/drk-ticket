@@ -36,6 +36,8 @@ interface SidebarProps {
     /** Admin: Status für Transaktionsmails (Brevo) */
     brevoMailOk?: boolean | null;
     brevoMailLastChecked?: Date | null;
+    /** Anzahl überfälliger / vergessener Serienaufträge */
+    missedRoutinesCount?: number;
 }
 
 
@@ -60,6 +62,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     lastSyncTime,
     brevoMailOk,
     brevoMailLastChecked,
+    missedRoutinesCount = 0,
 }) => {
     
     const [isExportOpen, setExportOpen] = useState(false);
@@ -148,6 +151,11 @@ const Sidebar: React.FC<SidebarProps> = ({
             })()}
             {viewName === 'zurueckgestellt' && parkedCount > 0 && (
                 <span className="nav-badge" style={{ backgroundColor: 'rgba(255, 140, 0, 0.9)' }}>{parkedCount}</span>
+            )}
+            {viewName === 'routines' && missedRoutinesCount > 0 && (
+                <span className="nav-badge" style={{ backgroundColor: 'rgba(220, 38, 38, 0.9)' }} title="Überfällige Serienaufträge">
+                    {missedRoutinesCount}
+                </span>
             )}
             <span className="nav-tooltip">{label}</span>
         </button>
