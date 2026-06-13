@@ -33,6 +33,14 @@ const parseDE = (s?: string) => {
   return s; // already YYYY-MM-DD
 };
 
+/** YYYY-MM-DD → DD.MM.JJJJ für die Anzeige */
+const formatDE = (s?: string) => {
+  if (!s) return '–';
+  const p = s.split('-');
+  if (p.length === 3) return `${p[2]}.${p[1]}.${p[0]}`;
+  return s;
+};
+
 const ZurückgestelltView: React.FC<ZurückgestelltViewProps> = ({
   tickets,
   onUpdateTicket,
@@ -253,12 +261,12 @@ const ZurückgestelltView: React.FC<ZurückgestelltViewProps> = ({
                 <td>{techCell(ticket.technician)}</td>
                 <td><PriorityPill priority={ticket.priority} /></td>
                 <td>{ticket.entryDate}</td>
-                <td>{ticket.parkedAt ?? '–'}</td>
+                <td>{formatDE(ticket.parkedAt)}</td>
                 <td>
                   {ticket.parkReminderNextDate ? (
                     isReminderDue(ticket)
-                      ? <span className="reminder-due-chip"><i className="ti ti-bell-ringing" style={{ fontSize: 12 }} />{ticket.parkReminderNextDate}</span>
-                      : ticket.parkReminderNextDate
+                      ? <span className="reminder-due-chip"><i className="ti ti-bell-ringing" style={{ fontSize: 12 }} />{formatDE(ticket.parkReminderNextDate)}</span>
+                      : formatDE(ticket.parkReminderNextDate)
                   ) : '–'}
                 </td>
                 <td>
