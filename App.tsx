@@ -2486,6 +2486,16 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     }
 
     if (!silent) setIsModalOpen(false);
+
+    // Hinweis wenn kein Bearbeiter automatisch zugewiesen werden konnte
+    if (!silent && newTicket.technician === 'N/A') {
+      addToast({
+        type: 'new-ticket',
+        title: '⚠ Kein Bearbeiter gefunden',
+        message: `Ticket ${newTicket.id}: „${newTicket.title}" – bitte Bearbeiter manuell zuweisen`,
+      });
+    }
+
     return newTicket.id;
   };
   

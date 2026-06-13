@@ -354,9 +354,22 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     font-size: 9px; font-weight: 700; flex-shrink: 0;
                 }
                 .av-un {
-                    background: transparent; border: 1.5px dashed #E24B4A; color: #E24B4A;
+                    background: #FF8C00; border: none; color: #fff;
                 }
                 .av-un i { font-size: 10px; }
+                .assignee-chip--unassigned {
+                    background: rgba(255,140,0,0.12);
+                    border: 1.5px solid rgba(255,140,0,0.5);
+                    border-radius: 20px;
+                    padding: 2px 7px 2px 4px;
+                    color: #B45309;
+                    font-weight: 600;
+                }
+                [data-theme="dark"] .assignee-chip--unassigned {
+                    background: rgba(255,140,0,0.15);
+                    border-color: rgba(255,140,0,0.4);
+                    color: #FBBF24;
+                }
                 .av-wrapper {
                     position: relative; display: inline-flex; flex-shrink: 0;
                 }
@@ -484,12 +497,12 @@ const TicketCard: React.FC<TicketCardProps> = ({
 
             {/* Footer: klickbar → Detailansicht */}
             <div className="card-footer" onClick={() => onSelectTicket(ticket)}>
-                <div className="assignee-chip" onClick={e => e.stopPropagation()}>
+                <div className={`assignee-chip${!isAssigned ? ' assignee-chip--unassigned' : ''}`} onClick={e => e.stopPropagation()}>
                     {isAssigned
                         ? <span className="av" style={{ background: avColor.bg, color: avColor.text }}>{initials}</span>
-                        : <span className="av av-un"><i className="ti ti-plus" style={{ fontSize: 10 }} aria-hidden="true" /></span>
+                        : <span className="av av-un"><i className="ti ti-alert-triangle" style={{ fontSize: 10 }} aria-hidden="true" /></span>
                     }
-                    <span>{isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}</span>
+                    <span>{isAssigned ? displayNameShort(ticket.technician) : 'Bitte wählen'}</span>
                     <i className="ti ti-chevron-down chev" aria-hidden="true" />
                     {isAutoAssigned && <span className="av-badge-a" title="Automatisch zugewiesen">A</span>}
                     <select value={ticket.technician} onChange={handleTechnicianSelectChange}>

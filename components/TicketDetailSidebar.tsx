@@ -551,6 +551,14 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 cursor: pointer; transition: border-color 0.2s ease, background-color 0.2s ease;
             }
             .ds-assignee-field:hover { border-color: var(--border-active); background: var(--bg-tertiary); }
+            .ds-assignee-field--unassigned {
+                border-color: rgba(255,140,0,0.6) !important;
+                background: rgba(255,140,0,0.07) !important;
+            }
+            .ds-assignee-field--unassigned .ds-assignee-name {
+                color: #B45309 !important; font-weight: 600 !important;
+            }
+            [data-theme="dark"] .ds-assignee-field--unassigned .ds-assignee-name { color: #FBBF24 !important; }
             .ds-assignee-field select {
                 position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer;
             }
@@ -792,12 +800,12 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                             ? 'rgba(255,255,255,0.95)'
                             : isAssigned ? '#444' : '#E24B4A';
                         return (
-                            <div className="ds-assignee-field">
+                            <div className={`ds-assignee-field${!isAssigned ? ' ds-assignee-field--unassigned' : ''}`}>
                                 {isAssigned
                                     ? <span className="ds-av" style={{ background: avBg, color: avColor }}>{initials}</span>
-                                    : <span className="ds-av ds-av-un"><i className="ti ti-plus" aria-hidden="true" /></span>
+                                    : <span className="ds-av ds-av-un" style={{ background: '#FF8C00', color: '#fff', border: 'none' }}><i className="ti ti-alert-triangle" aria-hidden="true" /></span>
                                 }
-                                <span className="ds-assignee-name">{isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}</span>
+                                <span className="ds-assignee-name">{isAssigned ? displayNameShort(ticket.technician) : '⚠ Bitte wählen'}</span>
                                 {isAuto && (
                                     <span style={{
                                         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
