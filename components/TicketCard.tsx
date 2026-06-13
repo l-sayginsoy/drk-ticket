@@ -6,6 +6,7 @@ import { CheckIcon } from './icons/CheckIcon';
 import { ClockIcon } from './icons/ClockIcon';
 import { RefreshIcon } from './icons/RefreshIcon';
 import { displayNameShort } from '../utils/displayNames';
+import { getStaffChatState } from '../utils/staffChat';
 
 interface TicketCardProps {
   ticket: Ticket;
@@ -233,6 +234,9 @@ const TicketCard: React.FC<TicketCardProps> = ({
 
     const canEditDate = !currentUser || currentUser.role === Role.Admin || ticket.technician === currentUser.name;
 
+    // Interner-Chat-Zustand aus Sicht der angemeldeten Person (neu / wartet / ruhig)
+    const chatState = getStaffChatState(ticket, currentUser?.name ?? null);
+
     const cardClasses = `ticket-card ${selectedTicket?.id === ticket.id ? 'selected' : ''} ${ticket.status === Status.Abgeschlossen ? 'status-done' : ''} ${isEmergency ? 'urgent-alert' : ''} ${isNewTicket ? 'card-is-new' : ''}`;
 
     return (
@@ -297,6 +301,14 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     flex-shrink: 0;
                     margin-top: 3px;
                 }
+                .new-staff-msg-indicator {
+                    display: inline-block;
+                    width: 8px; height: 8px;
+                    border-radius: 50%;
+                    background: #6366f1;
+                    flex-shrink: 0;
+                    margin-top: 3px;
+                }
 
                 .card-loc { font-size: 12px; color: #555; font-weight: 500; margin-bottom: 3px; }
                 .card-who { display: flex; align-items: center; gap: 3px; font-size: 11px; color: #666; margin-bottom: 11px; flex-wrap: nowrap; }
@@ -354,21 +366,15 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     font-size: 9px; font-weight: 700; flex-shrink: 0;
                 }
                 .av-un {
-                    background: #FF8C00; border: none; color: #fff;
+                    background: transparent; border: 1.5px dashed #c8102e; color: #c8102e;
                 }
                 .av-un i { font-size: 10px; }
                 .assignee-chip--unassigned {
-                    background: rgba(255,140,0,0.12);
-                    border: 1.5px solid rgba(255,140,0,0.5);
-                    border-radius: 20px;
-                    padding: 2px 7px 2px 4px;
-                    color: #B45309;
+                    color: #c8102e;
                     font-weight: 600;
                 }
                 [data-theme="dark"] .assignee-chip--unassigned {
-                    background: rgba(255,140,0,0.15);
-                    border-color: rgba(255,140,0,0.4);
-                    color: #FBBF24;
+                    color: #f87171;
                 }
                 .av-wrapper {
                     position: relative; display: inline-flex; flex-shrink: 0;
@@ -405,6 +411,10 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .footer-info-pill--msg-unread  { background: #F97316; color: #fff; }
                 .footer-info-pill--msg-read    { background: rgba(0,0,0,0.07); color: var(--text-secondary); }
                 [data-theme="dark"] .footer-info-pill--msg-read { background: rgba(255,255,255,0.1); color: var(--text-muted); }
+                .footer-info-pill--staff-unread   { background: #6366f1; color: #fff; }
+                .footer-info-pill--staff-awaiting { background: transparent; color: #4f46e5; border: 1.5px solid #a5b4fc; }
+                [data-theme="dark"] .footer-info-pill--staff-awaiting { color: #a5b4fc; border-color: rgba(165,180,252,0.5); }
+                .footer-info-pill--staff-quiet    { background: rgba(99,102,241,0.12); color: var(--text-muted); }
                 .footer-info-pill--emergency   { background: #7F1D1D; color: #FEE2E2; }
                 .footer-info-pill--reopened    { background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; }
             `}</style>
@@ -420,6 +430,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                         {isTicketStagnating && <span title="Ticket stagniert"><ClockIcon className="stagnating-icon" width="13" height="13" /></span>}
                         {isEmergency && <span className="urgent-icon" title="Notfall"><ExclamationTriangleIcon width="13" height="13" /></span>}
                         {ticket.hasNewNoteFromReporter && <span className="new-note-indicator" title="Neue Nachricht vom Melder" />}
+                        {chatState === 'unread' && <span className="new-staff-msg-indicator" title="Neue interne Nachricht" />}
                         <span className={isNewTicket ? 'card-tnum-new' : 'card-tnum'} title={isNewTicket ? 'Neues Ticket' : ''}>#{ticket.id}</span>
                     </div>
                 </div>
@@ -486,7 +497,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                                 onChange={handleStatusChange}
                                 onMouseDown={() => { lastSelectChangeRef.current = Date.now(); }}
                             >
-                                {Object.values(Status).filter(s => s !== Status.Ueberfaellig && s !== Status.Zurueckgestellt).map(s => (
+                                {Object.values(Status).filter(s => s !== Status.Ueberfaellig).map(s => (
                                     <option key={s} value={s}>{s === Status.Abgeschlossen ? 'Abschließen' : s}</option>
                                 ))}
                             </select>
@@ -500,9 +511,9 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 <div className={`assignee-chip${!isAssigned ? ' assignee-chip--unassigned' : ''}`} onClick={e => e.stopPropagation()}>
                     {isAssigned
                         ? <span className="av" style={{ background: avColor.bg, color: avColor.text }}>{initials}</span>
-                        : <span className="av av-un"><i className="ti ti-alert-triangle" style={{ fontSize: 10 }} aria-hidden="true" /></span>
+                        : <span className="av av-un"><i className="ti ti-plus" style={{ fontSize: 10 }} aria-hidden="true" /></span>
                     }
-                    <span>{isAssigned ? displayNameShort(ticket.technician) : 'Bitte wählen'}</span>
+                    <span>{isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}</span>
                     <i className="ti ti-chevron-down chev" aria-hidden="true" />
                     {isAutoAssigned && <span className="av-badge-a" title="Automatisch zugewiesen">A</span>}
                     <select value={ticket.technician} onChange={handleTechnicianSelectChange}>
@@ -524,6 +535,16 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     <div className="footer-info-pill footer-info-pill--reopened">
                         <i className="ti ti-refresh" aria-hidden="true" />
                         <span>Wiedereröffnet</span>
+                    </div>
+                )}
+                {chatState !== 'none' && (
+                    <div
+                        className={`footer-info-pill footer-info-pill--staff-${chatState}`}
+                        title={chatState === 'unread' ? 'Neue interne Nachricht'
+                            : chatState === 'awaiting' ? 'Gesendet – wartet auf Antwort'
+                            : 'Interner Chat'}
+                    >
+                        <span>Chat</span>
                     </div>
                 )}
                 {ticket.hasNewNoteFromReporter ? (

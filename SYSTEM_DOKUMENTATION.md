@@ -29,7 +29,9 @@
 20. [Code Splitting & Performance](#20-code-splitting--performance)
 21. [Umgebungsvariablen](#21-umgebungsvariablen)
 22. [Deployment (GitHub Actions)](#22-deployment-github-actions)
-23. [Änderungshistorie](#23-änderungshistorie)
+23. [Interner Staff-Chat](#23-interner-staff-chat)
+24. [Zurückstellen (Parken)](#24-zurückstellen-parken)
+25. [Änderungshistorie](#25-änderungshistorie)
 
 ---
 
@@ -77,6 +79,7 @@
 ├── utils/
 │   ├── routineHelpers.ts       # Wiederholungslogik für Serienaufträge
 │   ├── displayNames.ts         # Kurzname-Formatierung (Vor + Nachname-Initial)
+│   ├── staffChat.ts            # Interner Chat: Lesestatus (readBy) pro Person
 │   ├── brevoHealth.ts          # Brevo API-Key Prüfung + Status-Events
 │   ├── routineUiPalette.ts     # Farb-Palette für Routine-Karten
 │   └── rpHolidays.ts           # Rheinland-Pfalz Feiertage
@@ -153,6 +156,7 @@ Erstellt (Portal / Admin)
 | `parkReminderNextDate` | string | `YYYY-MM-DD` nächste Zurückgestellt-Erinnerung |
 | `parkedAt` | string | `YYYY-MM-DD` — Zeitpunkt des Zurückstellens |
 | `isNew` | boolean | `true` bis das Ticket erstmals von einem Mitarbeiter geöffnet wurde |
+| `staffMessages` | StaffMessage[] | Interner Mitarbeiter-Chat (siehe Kapitel 23), unsichtbar für Melder |
 
 ---
 
@@ -696,10 +700,82 @@ Konfiguriert in `vite.config.ts`. Der initiale JavaScript-Bundle wurde von **1.5
 
 ---
 
-## 23. Änderungshistorie
+## 23. Interner Staff-Chat
+
+### Zweck
+Mitarbeiter (Admin, Techniker, Hauswirtschaft) können sich **pro Ticket** intern Nachrichten schreiben — z. B. Absprachen zur Bearbeitung. Diese Nachrichten sind **nur für Mitarbeiter sichtbar** und erscheinen **nie** im Portal beim Melder. So wird der „Verlauf" (geht an den Melder) klar vom internen Austausch getrennt.
+
+### Abgrenzung zum „Verlauf"
+
+| | Interner Chat | Verlauf (`notes`) |
+|---|---|---|
+| Sichtbar für Melder | ❌ Nein | ✅ Ja (Portal) |
+| E-Mail an Melder | ❌ Nein | ✅ Ja (`staff_note`) |
+| Speicherort | `Ticket.staffMessages` | `Ticket.notes` |
+| Lesestatus | pro Person (`readBy`) | — |
+
+### Datenmodell (`StaffMessage`)
+
+| Feld | Typ | Bedeutung |
+|---|---|---|
+| `text` | string | Nachrichtentext |
+| `author` | string | User-Name des Absenders |
+| `timestamp` | string | ISO-Zeitstempel |
+| `readBy` | string[] | User-Namen, die gelesen haben (Absender zählt sofort als gelesen) |
+
+### Bewusst KEINE E-Mails
+Der interne Chat verschickt **absichtlich keine E-Mails**. Der Hinweis auf neue Nachrichten erfolgt ausschließlich in der App:
+- **Toast + Browser-Benachrichtigung** beim Empfang einer fremden Nachricht
+- **Farbiges Chat-Symbol / Pille** auf der Ticket-Karte
+
+> Hinweis: Eine frühere Variante verschickte Brevo-Mails und nutzte ein einzelnes `hasNewStaffMessage`-Flag. Das wurde **bewusst** durch das `readBy`-Modell ersetzt (kein Mail-Spam, Lesestatus pro Person). Bitte nicht wieder auf Mail-Versand / `hasNewStaffMessage` umstellen.
+
+### Lesestatus pro Person (`readBy`)
+- Beim Senden trägt sich der Absender automatisch in `readBy` ein.
+- Beim Öffnen der Ticket-Detailansicht werden alle fremden Nachrichten für die angemeldete Person als gelesen markiert (`markStaffMessagesRead` in `utils/staffChat.ts`).
+- `getStaffChatState(ticket, me)` liefert den Zustand aus Sicht der Person:
+
+| Zustand | Bedeutung | Karten-Pille |
+|---|---|---|
+| `none` | Keine Nachrichten | (keine) |
+| `unread` | Ungelesene fremde Nachricht | Indigo „Chat" + Punkt neben Ticket-Nr. |
+| `awaiting` | Ich war zuletzt dran, warte auf Antwort | Umrandete „Chat"-Pille |
+| `quiet` | Chat vorhanden, nichts offen | Graue „Chat"-Pille |
+
+### UI
+- **Detailansicht**: einklappbarer Bereich „🔒 Interner Chat · nur Mitarbeiter · keine E-Mail" mit Nachrichten-Zähler, Sprechblasen (eigene rechts, fremde links) mit Autor + Zeit, Eingabefeld (Enter = senden, Shift+Enter = neue Zeile).
+- **Verlauf-Hinweis**: Über dem Verlauf steht „Geht an den Melder – für interne Absprachen bitte den Chat oben nutzen.", damit interne Notizen nicht versehentlich an den Melder gehen.
+
+### Dateien
+- `utils/staffChat.ts` — `getStaffChatState`, `markStaffMessagesRead`
+- `components/TicketDetailSidebar.tsx` — Chat-UI + Lesebestätigung
+- `components/TicketCard.tsx` — Karten-Indikator (Punkt + Pille)
+- `App.tsx` — Toast/Browser-Benachrichtigung beim Empfang (kein Mail-Versand)
+
+---
+
+## 24. Zurückstellen (Parken)
+
+Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es vorübergehend nicht bearbeitet werden kann (z. B. Bearbeiter im Urlaub, Wartezeit auf Material).
+
+### Wege zum Zurückstellen
+- **Detailansicht** → Button „Zurückstellen" → Dialog: Erinnerung in 1 / 2 / 3 / 4 Wochen **oder** „Ohne Erinnerung zurückstellen".
+- **Karten-Status-Dropdown** → „Zurückgestellt" direkt wählbar (Ein-Klick). `parkedAt` wird dabei automatisch auf heute gesetzt.
+
+### Verhalten
+- Zurückgestellte Tickets werden von der **Überfällig-Erkennung übersprungen** — sie kippen nicht auf „Überfällig", solange sie geparkt sind.
+- Sie lösen **keine** Stale-Erinnerungen aus (siehe [Kapitel 12](#12-stale-ticket-erinnerungen)), sondern haben eigene Park-Erinnerungen.
+- Gesetzte Felder: `parkedAt`, `parkReminderInterval` (entfällt bei „ohne Erinnerung"), `parkReminderNextDate`. Datumsanzeige im deutschen Format `DD.MM.YYYY`.
+- **„Wieder in Arbeit"** hebt das Zurückstellen auf.
+
+---
+
+## 25. Änderungshistorie
 
 | Datum | Änderung |
 |---|---|
+| Juni 2026 | **Interner Staff-Chat**: ticketbezogene Mitarbeiter-Nachrichten, Lesestatus pro Person (`readBy`), bewusst keine E-Mails — siehe Kapitel 23 |
+| Juni 2026 | **Zurückstellen verbessert**: Ein-Klick übers Karten-Dropdown, „ohne Erinnerung"-Option, geparkte Tickets von der Überfällig-Erkennung ausgenommen — siehe Kapitel 24 |
 | Juni 2026 | **Dokumentation vollständig aktualisiert**: alle neuen Features seit Mai 2026 eingearbeitet |
 | Juni 2026 | **App-Refresh-Button**: Header ↻ Icon-Button lädt App neu, mit Dreh-Animation |
 | Juni 2026 | **Stale Ticket Erinnerungen**: automatische E-Mail an Techniker bei 5+ Tagen Inaktivität |

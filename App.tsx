@@ -1859,7 +1859,7 @@ const App: React.FC = () => {
 
     let wasChanged = false;
     const updatedTickets = tickets.map(ticket => {
-        if (ticket.status === Status.Abgeschlossen) {
+        if (ticket.status === Status.Abgeschlossen || ticket.status === Status.Zurueckgestellt) {
             return ticket;
         }
 
@@ -1893,7 +1893,7 @@ const App: React.FC = () => {
 
     let wasChanged = false;
     const updatedRoutineTickets = routineTickets.map(ticket => {
-        if (ticket.status === Status.Abgeschlossen) {
+        if (ticket.status === Status.Abgeschlossen || ticket.status === Status.Zurueckgestellt) {
             return ticket;
         }
 
@@ -2084,6 +2084,12 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       ut.completionTime = stamp.completionTime;
     }
 
+    // Beim Zurückstellen (z. B. direkt über das Status-Dropdown der Karte) ein
+    // „Zurückgestellt seit"-Datum setzen, falls der Erinnerungs-Dialog nicht genutzt wurde.
+    if (ut.status === Status.Zurueckgestellt && originalTicket.status !== Status.Zurueckgestellt && !ut.parkedAt) {
+      ut.parkedAt = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    }
+
     let skipReactiveAutoDue = false;
     if (originalTicket.status === Status.Ueberfaellig) {
       if (ut.status === Status.Offen) {
@@ -2161,6 +2167,10 @@ const deleteTicketFromFirebase = (ticketId: string) => {
         }
       }
     }
+
+    // Interner Chat verschickt bewusst KEINE E-Mails — der Hinweis auf eine neue
+    // Nachricht erscheint nur in der App (Chat-Symbol/Badge auf der Karte) und
+    // verschwindet automatisch über readBy, sobald die Person das Ticket öffnet.
 
     // Absoluter Sicherheitsanker: dueDate darf sich NUR ändern wenn der User
     // es selbst geändert hat, oder wunschTermin/Kategorie/Überfällig-Status sich änderte.
@@ -2813,7 +2823,24 @@ const deleteTicketFromFirebase = (ticketId: string) => {
         }
       });
     }
-  }, [tickets, currentUser]);
+    // Neue interne Staff-Nachricht erkennen
+    const allActive = [...tickets, ...routineTickets];
+    const allPrev = prev;
+    allActive.forEach(t => {
+      const p = allPrev.find(x => x.id === t.id);
+      if (!p) return;
+      const prevCount = (p.staffMessages || []).length;
+      const newCount = (t.staffMessages || []).length;
+      if (newCount <= prevCount) return;
+      const lastMsg = t.staffMessages![newCount - 1];
+      if (lastMsg.author === currentUser.name) return; // eigene Nachricht
+      const msg = `Ticket ${t.id}: ${t.title} – von ${displayNameShort(lastMsg.author)}`;
+      addToast({ type: 'assigned', title: '💬 Neue interne Nachricht', message: msg });
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('💬 Neue interne Nachricht', { body: msg, icon: '/favicon.ico' });
+      }
+    });
+  }, [tickets, routineTickets, currentUser]);
 
   const allTechnicianNames = useMemo(
     () => [
@@ -3240,7 +3267,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
         lastSyncTime={lastSyncTime}
         brevoMailOk={currentUser.role === Role.Admin ? brevoMailOk : null}
         brevoMailLastChecked={currentUser.role === Role.Admin ? brevoMailLastChecked : null}
-        missedRoutinesCount={routineTickets.filter(t => t.status === Status.Ueberfaellig).length}
+        missedRoutinesCount={missedRoutinesSinceStart.length}
       />
       <main>
         <Header filters={filters} setFilters={setFilters} currentView={currentView} />

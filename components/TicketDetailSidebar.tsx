@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 // FIX: Import User type to align with App state
-import { Ticket, Status, Priority, Role, User, AppSettings, AvailabilityStatus } from '../types';
+import { Ticket, Status, Priority, Role, User, AppSettings, AvailabilityStatus, StaffMessage } from '../types';
+import { markStaffMessagesRead } from '../utils/staffChat';
 import { XIcon } from './icons/XIcon';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
 import { statusColorMap, statusBgColorMap } from '../constants';
@@ -54,10 +55,11 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
     const dueDateInputRef = useRef<HTMLInputElement>(null);
     const [viewingImageSrc, setViewingImageSrc] = useState<string | null>(null);
     const [newNote, setNewNote] = useState('');
+    const [newStaffMsg, setNewStaffMsg] = useState('');
+    const [chatOpen, setChatOpen] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
     const [editDraft, setEditDraft] = useState({ title: '', area: '', location: '', description: '', reporter: '' });
     const [showParkModal, setShowParkModal] = useState(false);
-    const [parkInterval, setParkInterval] = useState<1 | 2 | 3 | 4>(2);
 
     const canEdit = ticket.origin === 'manual' &&
         (currentUser?.role === Role.Admin || currentUser?.role === Role.Technician);
@@ -97,14 +99,18 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
     }, []);
 
     useEffect(() => {
-        // Mark note as read when opening details
-        if (ticket.hasNewNoteFromReporter) {
-            const timer = setTimeout(() => {
-                onUpdateTicket({ ...ticket, hasNewNoteFromReporter: false });
-            }, 500);
-            return () => clearTimeout(timer);
-        }
-    }, [ticket, onUpdateTicket]);
+        // Melder-Notiz als gelesen markieren UND interne Chat-Nachrichten für mich
+        // (pro Person über readBy). Beides nach kurzer Verzögerung in einem Update.
+        const needNoteRead = !!ticket.hasNewNoteFromReporter;
+        const readTicket = currentUser ? markStaffMessagesRead(ticket, currentUser.name) : null;
+        if (!needNoteRead && !readTicket) return;
+        const timer = setTimeout(() => {
+            let updated = readTicket ?? ticket;
+            if (needNoteRead) updated = { ...updated, hasNewNoteFromReporter: false };
+            onUpdateTicket(updated);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [ticket, onUpdateTicket, currentUser]);
 
     const toInputDate = (dateStr: string | undefined) => {
         if (!dateStr || dateStr === 'N/A') return '';
@@ -139,6 +145,22 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
         setNewNote('');
     };
     
+    const handleSendStaffMessage = () => {
+        if (!newStaffMsg.trim() || !currentUser) return;
+        const msg: StaffMessage = {
+            text: newStaffMsg.trim(),
+            author: currentUser.name,
+            timestamp: new Date().toISOString(),
+            readBy: [currentUser.name],
+        };
+        const updated: Ticket = {
+            ...ticket,
+            staffMessages: [...(ticket.staffMessages || []), msg],
+        };
+        onUpdateTicket(updated);
+        setNewStaffMsg('');
+    };
+
     const handleToggleEmergency = () => {
         const isCurrentlyEmergency = !!ticket.is_emergency;
         let updatedTicket: Ticket = { ...ticket, is_emergency: !isCurrentlyEmergency };
@@ -151,16 +173,19 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
         onUpdateTicket(updatedTicket);
     };
 
-    const handleParkConfirm = () => {
+    const handleParkConfirm = (weeks: 1 | 2 | 3 | 4 | null) => {
         const today = new Date();
         const todayStr = today.toISOString().split('T')[0];
-        const nextDate = new Date(today);
-        nextDate.setDate(nextDate.getDate() + parkInterval * 7);
-        const nextDateStr = nextDate.toISOString().split('T')[0];
+        let nextDateStr: string | undefined;
+        if (weeks) {
+            const nextDate = new Date(today);
+            nextDate.setDate(nextDate.getDate() + weeks * 7);
+            nextDateStr = nextDate.toISOString().split('T')[0];
+        }
         onUpdateTicket({
             ...ticket,
             status: Status.Zurueckgestellt,
-            parkReminderInterval: parkInterval,
+            parkReminderInterval: weeks ?? undefined,
             parkReminderNextDate: nextDateStr,
             parkedAt: todayStr,
         });
@@ -307,9 +332,64 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             .section-separator {
                 border: 0; height: 1px; background-color: var(--border); margin: 1.5rem 0;
             }
-            .notes-title-compact {
-                font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.75rem;
+            /* ── Interner Staff-Chat ── */
+            .staff-chat-section { margin-bottom: 1.5rem; }
+            .staff-chat-header {
+                display: flex; align-items: center; gap: 6px; width: 100%;
+                background: none; border: none; cursor: pointer; text-align: left;
+                font-family: inherit; padding: 0;
+                font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+                letter-spacing: 0.06em; color: #6366F1; margin-bottom: 0.6rem;
             }
+            .staff-chat-header:hover { opacity: 0.85; }
+            .staff-chat-note { text-transform: none; font-weight: 500; letter-spacing: 0; font-size: 0.7rem; color: var(--text-muted); }
+            .staff-chat-count { background: rgba(99,102,241,0.15); color: #4f46e5; border-radius: 999px; padding: 1px 7px; font-size: 0.7rem; font-weight: 700; }
+            .staff-chat-body { border-left: 2px solid rgba(99,102,241,0.35); padding-left: 10px; }
+            .staff-chat-empty { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px; }
+            .staff-chat-messages { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+            .staff-chat-bubble {
+                padding: 8px 11px; border-radius: 10px;
+                font-size: 0.85rem; line-height: 1.4; max-width: 85%;
+            }
+            .staff-chat-bubble--mine {
+                background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.25);
+                align-self: flex-end;
+            }
+            .staff-chat-bubble--other {
+                background: var(--bg-tertiary); border: 1px solid var(--border);
+                align-self: flex-start;
+            }
+            .staff-chat-meta {
+                font-size: 0.72rem; color: var(--text-muted); margin-top: 3px;
+                display: flex; gap: 5px; align-items: center;
+            }
+            .staff-chat-input-row { display: flex; gap: 6px; align-items: flex-end; }
+            .staff-chat-input {
+                flex: 1; resize: none; border: 1px solid var(--border); border-radius: 8px;
+                background: var(--bg-secondary); color: var(--text-primary);
+                padding: 7px 10px; font-size: 0.85rem; font-family: inherit;
+                transition: border-color 0.2s;
+            }
+            .staff-chat-input:focus { outline: none; border-color: #6366F1; }
+            .staff-chat-send {
+                flex-shrink: 0; padding: 7px 14px; border-radius: 8px;
+                background: #6366F1; color: #fff; border: none; font-weight: 600;
+                font-size: 0.82rem; cursor: pointer; transition: opacity 0.15s;
+                display: flex; align-items: center; gap: 5px;
+            }
+            .staff-chat-send:hover { opacity: 0.88; }
+            .staff-chat-send:disabled { opacity: 0.4; cursor: default; }
+
+            .notes-title-compact {
+                font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.5rem;
+            }
+            .notes-reporter-warn {
+                display: flex; align-items: center; gap: 6px;
+                background: rgba(245,158,11,0.12); color: #92400e;
+                border: 1px solid rgba(245,158,11,0.35); border-radius: 8px;
+                padding: 6px 10px; font-size: 0.78rem; margin-bottom: 0.75rem;
+            }
+            [data-theme="dark"] .notes-reporter-warn { color: #fcd34d; }
             .notes-list-compact { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem; }
             .note-item-compact {
                 background: var(--bg-tertiary); padding: 0.6rem 0.8rem; border-radius: var(--radius-md);
@@ -575,7 +655,8 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             [data-theme="dark"] .ds-pill-s-zurueckgestellt { background: rgba(230,81,0,0.18); color: #FFB74D; border-color: rgba(230,81,0,0.35); }
 
             /* ── Park / Unpark buttons ── */
-            .park-section { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+            .park-footer { padding: 0.75rem 1.5rem; border-top: 1px solid var(--border); background: var(--bg-secondary); flex-shrink: 0; }
+            .park-section { }
             .park-btn {
                 width: 100%; padding: 0.5rem 1rem; border-radius: var(--radius-md); font-weight: 500;
                 font-size: 0.85rem; cursor: pointer; border: 1px solid rgba(255, 140, 0, 0.5);
@@ -830,10 +911,10 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 </div>
                 <div>
                     <p className="detail-label-compact">Kategorie</p>
-                    <div className="editable-field-compact">
-                        <span>{categoryName}</span><ChevronDownIcon />
-                        <select value={ticket.categoryId ?? 'N/A'} onChange={e => handleFieldChange('categoryId', e.target.value)}>
-                            <option value="N/A" hidden>N/A</option>
+                    <div className={`editable-field-compact${!ticket.categoryId ? ' ds-assignee-field--unassigned' : ''}`} style={!ticket.categoryId ? { borderColor: 'rgba(255,140,0,0.6)', background: 'rgba(255,140,0,0.07)' } : {}}>
+                        <span style={!ticket.categoryId ? { color: '#B45309', fontWeight: 600 } : {}}>{ticket.categoryId ? categoryName : '⚠ Bitte wählen'}</span><ChevronDownIcon />
+                        <select value={ticket.categoryId ?? ''} onChange={e => handleFieldChange('categoryId', e.target.value || undefined)}>
+                            <option value="" hidden>Bitte wählen</option>
                             {appSettings.ticketCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                     </div>
@@ -864,9 +945,68 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
 
             <hr className="section-separator" />
 
-            {/* ── 10. VERLAUF ── */}
+            {/* ── 10. INTERNER STAFF-CHAT ── */}
+            {currentUser && (currentUser.role === Role.Admin || currentUser.role === Role.Technician || currentUser.role === Role.Housekeeping) && (
+              <div className="staff-chat-section">
+                <hr className="section-separator" />
+                <button type="button" className="staff-chat-header" onClick={() => setChatOpen(o => !o)}>
+                  <i className="ti ti-lock" style={{ fontSize: 13 }} aria-hidden="true" />
+                  <span>Interner Chat</span>
+                  <span className="staff-chat-note">nur Mitarbeiter · keine E-Mail</span>
+                  {(ticket.staffMessages?.length ?? 0) > 0 && (
+                    <span className="staff-chat-count">{ticket.staffMessages!.length}</span>
+                  )}
+                  <i className={`ti ti-chevron-${chatOpen ? 'up' : 'down'}`} style={{ marginLeft: 'auto', fontSize: 14 }} aria-hidden="true" />
+                </button>
+                {chatOpen && (
+                  <div className="staff-chat-body">
+                    {(ticket.staffMessages || []).length > 0 ? (
+                      <div className="staff-chat-messages">
+                        {ticket.staffMessages!.map((msg, i) => {
+                          const isMe = msg.author === currentUser.name;
+                          const d = new Date(msg.timestamp);
+                          const formatted = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                          return (
+                            <div key={i} className={`staff-chat-bubble${isMe ? ' staff-chat-bubble--mine' : ' staff-chat-bubble--other'}`}>
+                              <span>{msg.text}</span>
+                              <div className="staff-chat-meta">
+                                <span>{displayNameShort(msg.author)}</span>
+                                <span>·</span>
+                                <span>{formatted}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="staff-chat-empty">Noch keine Nachrichten – nur für Mitarbeiter sichtbar.</div>
+                    )}
+                    <div className="staff-chat-input-row">
+                      <textarea
+                        className="staff-chat-input"
+                        rows={2}
+                        placeholder="Nachricht an Kollegen..."
+                        value={newStaffMsg}
+                        onChange={e => setNewStaffMsg(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendStaffMessage(); } }}
+                      />
+                      <button className="staff-chat-send" onClick={handleSendStaffMessage} disabled={!newStaffMsg.trim()}>
+                        <i className="ti ti-send" aria-hidden="true" />
+                        Senden
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── 11. VERLAUF (an den Melder) ── */}
             <div className="notes-section">
                 <h3 className="notes-title-compact">Verlauf</h3>
+                <div className="notes-reporter-warn">
+                    <i className="ti ti-mail" aria-hidden="true" />
+                    Geht an den Melder – für interne Absprachen bitte den Chat oben nutzen.
+                </div>
                 {ticket.notes && ticket.notes.length > 0 && (
                     <div className="notes-list-compact">
                         {[...ticket.notes].reverse().map((note, index) => (
@@ -875,61 +1015,66 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                     </div>
                 )}
                 <div className="new-note-form">
-                    <textarea className="note-textarea-compact" rows={2} placeholder="Eintrag hinzufügen..." value={newNote} onChange={e => setNewNote(e.target.value)} />
+                    <textarea className="note-textarea-compact" rows={2} placeholder="Eintrag für den Melder…" value={newNote} onChange={e => setNewNote(e.target.value)} />
                     <button className="add-note-btn-compact" onClick={handleAddNote} disabled={!newNote.trim()}>Eintrag hinzufügen</button>
                 </div>
             </div>
 
-            {/* ── PARK / UNPARK SECTION ── */}
-            {ticket.status === Status.Zurueckgestellt ? (
-                <div className="park-section">
-                    {ticket.parkedAt && (
-                        <div className="park-info-row">
-                            <i className="ti ti-parking" aria-hidden="true" />
-                            <span>Zurückgestellt seit {ticket.parkedAt}</span>
-                            {ticket.parkReminderNextDate && (
-                                <span> · Erinnerung: {ticket.parkReminderNextDate}</span>
-                            )}
-                            {ticket.parkReminderInterval && (
-                                <span> (alle {ticket.parkReminderInterval} Wo.)</span>
-                            )}
-                        </div>
-                    )}
-                    <button className="unpark-btn" onClick={handleUnpark}>
-                        <i className="ti ti-player-play" aria-hidden="true" />
-                        Wieder in Arbeit
-                    </button>
-                </div>
-            ) : ticket.status !== Status.Abgeschlossen ? (
-                <div className="park-section">
-                    {!showParkModal ? (
-                        <button className="park-btn" onClick={() => setShowParkModal(true)}>
-                            <i className="ti ti-parking" aria-hidden="true" />
-                            Zurückstellen
-                        </button>
-                    ) : (
-                        <div className="park-modal">
-                            <div className="park-modal-title">Erinnerung alle X Wochen?</div>
-                            <div className="park-interval-options">
-                                {([1, 2, 3, 4] as const).map(w => (
-                                    <button
-                                        key={w}
-                                        className={`park-interval-btn${parkInterval === w ? ' selected' : ''}`}
-                                        onClick={() => setParkInterval(w)}
-                                    >
-                                        {w} {w === 1 ? 'Woche' : 'Wochen'}
-                                    </button>
-                                ))}
-                            </div>
-                            <button className="park-confirm-btn" onClick={handleParkConfirm}>
-                                <i className="ti ti-parking" aria-hidden="true" style={{ marginRight: 4 }} />
-                                Zurückstellen
-                            </button>
-                        </div>
-                    )}
-                </div>
-            ) : null}
         </div>
+
+      {/* ── PARK / UNPARK FOOTER (immer sichtbar, nicht scrollbar) ── */}
+      {ticket.status !== Status.Abgeschlossen && (
+        <div className="park-footer">
+          {ticket.status === Status.Zurueckgestellt ? (
+            <div className="park-section">
+                {ticket.parkedAt && (
+                    <div className="park-info-row">
+                        <i className="ti ti-parking" aria-hidden="true" />
+                        <span>Zurückgestellt seit {fromInputDate(ticket.parkedAt)}</span>
+                        {ticket.parkReminderNextDate && (
+                            <span> · Erinnerung: {fromInputDate(ticket.parkReminderNextDate)}</span>
+                        )}
+                        {ticket.parkReminderInterval && (
+                            <span> (alle {ticket.parkReminderInterval} Wo.)</span>
+                        )}
+                    </div>
+                )}
+                <button className="unpark-btn" onClick={handleUnpark}>
+                    <i className="ti ti-player-play" aria-hidden="true" />
+                    Wieder in Arbeit
+                </button>
+            </div>
+          ) : (
+            <div className="park-section">
+                {!showParkModal ? (
+                    <button className="park-btn" onClick={() => setShowParkModal(true)}>
+                        <i className="ti ti-parking" aria-hidden="true" />
+                        Zurückstellen
+                    </button>
+                ) : (
+                    <div className="park-modal">
+                        <div className="park-modal-title">Zurückstellen – wann erinnern?</div>
+                        <div className="park-interval-options">
+                            {([1, 2, 3, 4] as const).map(w => (
+                                <button
+                                    key={w}
+                                    className="park-interval-btn"
+                                    onClick={() => handleParkConfirm(w)}
+                                >
+                                    {w} {w === 1 ? 'Woche' : 'Wochen'}
+                                </button>
+                            ))}
+                        </div>
+                        <button className="park-confirm-btn" onClick={() => handleParkConfirm(null)}>
+                            <i className="ti ti-parking" aria-hidden="true" style={{ marginRight: 4 }} />
+                            Ohne Erinnerung zurückstellen
+                        </button>
+                    </div>
+                )}
+            </div>
+          )}
+        </div>
+      )}
       </div>
       {viewingImageSrc && (
           <div className="lightbox-overlay" onClick={() => setViewingImageSrc(null)}>

@@ -167,6 +167,14 @@ export type GroupableKey = 'status' | 'technician' | 'priority' | 'area';
 
 export type TicketType = 'reactive' | 'preventive';
 
+/** Interne Chatnachricht zwischen Mitarbeitern an einem Ticket */
+export interface StaffMessage {
+  text: string;
+  author: string; // User-Name des Absenders
+  timestamp: string; // ISO
+  readBy?: string[]; // User-Namen, die gelesen haben (Absender zählt als gelesen)
+}
+
 export interface Ticket {
   id: string;
   ticketType: TicketType;
@@ -193,6 +201,7 @@ export interface Ticket {
   description?: string;
   notes?: string[];
   hasNewNoteFromReporter?: boolean;
+  staffMessages?: StaffMessage[]; // interner Mitarbeiter-Chat (Lesestatus pro Person via readBy)
   is_emergency?: boolean;
   is_reopened?: boolean;
   autoAssigned?: boolean;
