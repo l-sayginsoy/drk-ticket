@@ -498,18 +498,13 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 {/* Zeile 2: Standort */}
                 <div className="card-loc">{ticket.area} · {ticket.location}</div>
 
-                {/* Zeile 3: Melder + Icons rechts auf gleicher Höhe */}
+                {/* Zeile 3: Melder */}
                 <div className="card-who">
                     <div style={{ display:'flex', alignItems:'center', gap:3, minWidth:0, overflow:'hidden' }}>
                         <i className="ti ti-user" aria-hidden="true" />
                         <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                             {ticket.reporter} · {ticket.entryDate.slice(0,5)}.{ticket.entryTime ? ` · ${ticket.entryTime}` : ''}
                         </span>
-                    </div>
-                    <div style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0, marginLeft:6 }}>
-                        {chatState !== 'none' && (
-                            <i className="ti ti-messages" aria-hidden="true" style={{ fontSize:16, color: chatState==='unread' ? '#6366f1' : chatState==='awaiting' ? '#4f46e5' : '#bbb' }} title="Interner Team-Chat" />
-                        )}
                     </div>
                 </div>
 
@@ -526,6 +521,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                             : <span className="av av-un"><i className="ti ti-plus" style={{ fontSize: 10 }} aria-hidden="true" /></span>
                         }
                         {isAutoAssigned && <span className="av-badge-a" title="Automatisch zugewiesen">A</span>}
+                        <i className="ti ti-chevron-down chev" aria-hidden="true" />
                         <select value={ticket.technician} onChange={handleTechnicianSelectChange}>
                             {technicianOptions.map((opt) => {
                                 if (opt === 'N/A') return <option key={opt} value={opt}>Nicht zugewiesen</option>;
@@ -571,8 +567,11 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     </div>
                 )}
 
-                {/* Nachrichten-Pille – ganz rechts */}
-                <div style={{ display:'flex', justifyContent:'flex-end' }}>
+                {/* Chat + Mail – ganz rechts */}
+                <div style={{ display:'flex', justifyContent:'flex-end', alignItems:'center', gap:6 }}>
+                    {chatState !== 'none' && (
+                        <i className="ti ti-messages" aria-hidden="true" style={{ fontSize:15, color: chatState==='unread' ? '#6366f1' : chatState==='awaiting' ? '#4f46e5' : '#bbb' }} title="Interner Team-Chat" />
+                    )}
                     {ticket.hasNewNoteFromReporter ? (
                         <div className="mini-pill mini-pill--msg-unread" title="Neue Nachricht vom Melder">
                             <i className="ti ti-mail" aria-hidden="true" />
