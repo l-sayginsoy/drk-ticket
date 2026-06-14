@@ -85,6 +85,20 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
       .filter(u => u.role === Role.Technician || u.role === Role.Housekeeping)
       .sort((a, b) => a.name.localeCompare(b.name, 'de'));
 
+    // Avatar-Farbe & Initialen für Chat-Absender (gleiche Farbe wie im Kanban)
+    const userColorFor = (name: string) => users.find(u => u.name === name)?.color;
+    const initialsOf = (name: string) => {
+        const parts = name.trim().split(/\s+/).filter(Boolean);
+        if (parts.length > 1) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        return name.slice(0, 2).toUpperCase();
+    };
+    // Helle Absenderfarbe → dunkle Schrift auf dem Avatar (Kontrast)
+    const isLightHex = (hex?: string) => {
+        if (!hex || hex.length < 7) return false;
+        const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+        return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.62;
+    };
+
     const isNewClearedRef = useRef(false);
     useEffect(() => {
         // Clear isNew flag when ticket is first opened (only once per mount)
@@ -332,64 +346,75 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             .section-separator {
                 border: 0; height: 1px; background-color: var(--border); margin: 1.5rem 0;
             }
-            /* ── Interner Staff-Chat ── */
-            .staff-chat-section { margin-bottom: 1.5rem; }
-            .staff-chat-header {
-                display: flex; align-items: center; gap: 6px; width: 100%;
-                background: none; border: none; cursor: pointer; text-align: left;
-                font-family: inherit; padding: 0;
-                font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
-                letter-spacing: 0.06em; color: #6366F1; margin-bottom: 0.6rem;
+            /* ── Zwei getrennte Kanäle: interner Chat (lila) & Melder-Verlauf (bernstein) ── */
+            .channel-card {
+                border: 1px solid var(--border); border-radius: 12px;
+                overflow: hidden; margin-bottom: 1.25rem;
             }
-            .staff-chat-header:hover { opacity: 0.85; }
-            .staff-chat-note { text-transform: none; font-weight: 500; letter-spacing: 0; font-size: 0.7rem; color: var(--text-muted); }
-            .staff-chat-count { background: rgba(99,102,241,0.15); color: #4f46e5; border-radius: 999px; padding: 1px 7px; font-size: 0.7rem; font-weight: 700; }
-            .staff-chat-body { border-left: 2px solid rgba(99,102,241,0.35); padding-left: 10px; }
-            .staff-chat-empty { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px; }
-            .staff-chat-messages { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
-            .staff-chat-bubble {
-                padding: 8px 11px; border-radius: 10px;
-                font-size: 0.85rem; line-height: 1.4; max-width: 85%;
+            .channel-head {
+                display: flex; align-items: center; gap: 7px; width: 100%;
+                border: none; text-align: left; font-family: inherit; cursor: default;
+                padding: 9px 13px; font-size: 0.82rem; font-weight: 600;
             }
-            .staff-chat-bubble--mine {
-                background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.25);
-                align-self: flex-end;
+            .channel-head--chat { background: rgba(99,102,241,0.10); color: #4f46e5; cursor: pointer; }
+            .channel-head--chat:hover { background: rgba(99,102,241,0.16); }
+            .channel-head--melder { background: rgba(217,119,6,0.12); color: #b45309; }
+            [data-theme="dark"] .channel-head--chat { background: rgba(99,102,241,0.24); color: #c7d2fe; }
+            [data-theme="dark"] .channel-head--melder { background: rgba(217,119,6,0.22); color: #fbbf24; }
+            .channel-pill {
+                margin-left: auto; font-size: 0.68rem; font-weight: 600;
+                padding: 2px 9px; border-radius: 999px; white-space: nowrap;
             }
-            .staff-chat-bubble--other {
-                background: var(--bg-tertiary); border: 1px solid var(--border);
-                align-self: flex-start;
+            .channel-pill--chat { background: rgba(99,102,241,0.18); color: #4338ca; }
+            [data-theme="dark"] .channel-pill--chat { background: rgba(99,102,241,0.32); color: #c7d2fe; }
+            .channel-count {
+                font-size: 0.68rem; font-weight: 700; padding: 1px 7px; border-radius: 999px;
+                background: rgba(99,102,241,0.18); color: #4338ca;
             }
-            .staff-chat-meta {
-                font-size: 0.72rem; color: var(--text-muted); margin-top: 3px;
-                display: flex; gap: 5px; align-items: center;
+            [data-theme="dark"] .channel-count { background: rgba(99,102,241,0.32); color: #c7d2fe; }
+            .channel-chevron { font-size: 14px; opacity: 0.65; }
+            .channel-body { padding: 12px 13px; }
+
+            /* Chat-Blasen im WhatsApp-Stil */
+            .chat-messages { display: flex; flex-direction: column; gap: 11px; margin-bottom: 12px; }
+            .chat-row { display: flex; gap: 7px; }
+            .chat-row--mine { justify-content: flex-end; }
+            .chat-row--other { justify-content: flex-start; align-items: flex-end; }
+            .chat-av {
+                width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+                display: flex; align-items: center; justify-content: center;
+                font-size: 0.64rem; font-weight: 700; color: rgba(255,255,255,0.95);
+                background: var(--text-muted);
             }
-            .staff-chat-input-row { display: flex; gap: 6px; align-items: flex-end; }
-            .staff-chat-input {
+            .chat-col { display: flex; flex-direction: column; max-width: 82%; }
+            .chat-author { font-size: 0.7rem; font-weight: 600; color: var(--text-secondary); margin: 0 0 2px 3px; }
+            .chat-bubble { padding: 8px 12px; font-size: 0.86rem; line-height: 1.45; word-break: break-word; }
+            .chat-bubble--mine { background: #6366F1; color: #fff; border-radius: 14px 14px 4px 14px; }
+            .chat-bubble--other { background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border); border-radius: 14px 14px 14px 4px; }
+            .chat-meta { font-size: 0.68rem; color: var(--text-muted); margin-top: 3px; }
+            .chat-meta--mine { text-align: right; margin-right: 3px; }
+            .chat-meta--other { margin-left: 3px; }
+            .chat-empty { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 12px; padding: 2px; }
+
+            /* gemeinsame Eingabezeile (Chat + Melder) */
+            .channel-input-row { display: flex; gap: 6px; align-items: flex-end; }
+            .channel-input {
                 flex: 1; resize: none; border: 1px solid var(--border); border-radius: 8px;
                 background: var(--bg-secondary); color: var(--text-primary);
-                padding: 7px 10px; font-size: 0.85rem; font-family: inherit;
-                transition: border-color 0.2s;
+                padding: 7px 10px; font-size: 0.85rem; font-family: inherit; transition: border-color 0.2s;
             }
-            .staff-chat-input:focus { outline: none; border-color: #6366F1; }
-            .staff-chat-send {
-                flex-shrink: 0; padding: 7px 14px; border-radius: 8px;
-                background: #6366F1; color: #fff; border: none; font-weight: 600;
-                font-size: 0.82rem; cursor: pointer; transition: opacity 0.15s;
-                display: flex; align-items: center; gap: 5px;
+            .channel-input:focus { outline: none; border-color: #6366F1; }
+            .channel-melder-input:focus { border-color: #D97706; }
+            .channel-send {
+                flex-shrink: 0; padding: 8px 14px; border-radius: 8px; border: none; color: #fff;
+                font-weight: 600; font-size: 0.82rem; cursor: pointer; transition: opacity 0.15s;
+                display: flex; align-items: center; gap: 5px; white-space: nowrap;
             }
-            .staff-chat-send:hover { opacity: 0.88; }
-            .staff-chat-send:disabled { opacity: 0.4; cursor: default; }
+            .channel-send:hover { opacity: 0.88; }
+            .channel-send:disabled { opacity: 0.4; cursor: default; }
+            .channel-send--chat { background: #6366F1; }
+            .channel-send--melder { background: #D97706; }
 
-            .notes-title-compact {
-                font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.5rem;
-            }
-            .notes-reporter-warn {
-                display: flex; align-items: center; gap: 6px;
-                background: rgba(245,158,11,0.12); color: #92400e;
-                border: 1px solid rgba(245,158,11,0.35); border-radius: 8px;
-                padding: 6px 10px; font-size: 0.78rem; margin-bottom: 0.75rem;
-            }
-            [data-theme="dark"] .notes-reporter-warn { color: #fcd34d; }
             .notes-list-compact { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem; }
             .note-item-compact {
                 background: var(--bg-tertiary); padding: 0.6rem 0.8rem; border-radius: var(--radius-md);
@@ -947,50 +972,60 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
 
             {/* ── 10. INTERNER STAFF-CHAT ── */}
             {currentUser && (currentUser.role === Role.Admin || currentUser.role === Role.Technician || currentUser.role === Role.Housekeeping) && (
-              <div className="staff-chat-section">
-                <hr className="section-separator" />
-                <button type="button" className="staff-chat-header" onClick={() => setChatOpen(o => !o)}>
-                  <i className="ti ti-lock" style={{ fontSize: 13 }} aria-hidden="true" />
+              <div className="channel-card">
+                <button type="button" className="channel-head channel-head--chat" onClick={() => setChatOpen(o => !o)}>
+                  <i className="ti ti-lock" style={{ fontSize: 15 }} aria-hidden="true" />
                   <span>Interner Chat</span>
-                  <span className="staff-chat-note">nur Mitarbeiter · keine E-Mail</span>
+                  <span className="channel-pill channel-pill--chat">nur das Team</span>
                   {(ticket.staffMessages?.length ?? 0) > 0 && (
-                    <span className="staff-chat-count">{ticket.staffMessages!.length}</span>
+                    <span className="channel-count">{ticket.staffMessages!.length}</span>
                   )}
-                  <i className={`ti ti-chevron-${chatOpen ? 'up' : 'down'}`} style={{ marginLeft: 'auto', fontSize: 14 }} aria-hidden="true" />
+                  <i className={`ti ti-chevron-${chatOpen ? 'up' : 'down'} channel-chevron`} aria-hidden="true" />
                 </button>
                 {chatOpen && (
-                  <div className="staff-chat-body">
+                  <div className="channel-body">
                     {(ticket.staffMessages || []).length > 0 ? (
-                      <div className="staff-chat-messages">
+                      <div className="chat-messages">
                         {ticket.staffMessages!.map((msg, i) => {
                           const isMe = msg.author === currentUser.name;
                           const d = new Date(msg.timestamp);
-                          const formatted = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                          const formatted = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) + ' · ' + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                          if (isMe) {
+                            return (
+                              <div key={i} className="chat-row chat-row--mine">
+                                <div className="chat-col">
+                                  <div className="chat-bubble chat-bubble--mine">{msg.text}</div>
+                                  <div className="chat-meta chat-meta--mine">{formatted}</div>
+                                </div>
+                              </div>
+                            );
+                          }
+                          const color = userColorFor(msg.author);
                           return (
-                            <div key={i} className={`staff-chat-bubble${isMe ? ' staff-chat-bubble--mine' : ' staff-chat-bubble--other'}`}>
-                              <span>{msg.text}</span>
-                              <div className="staff-chat-meta">
-                                <span>{displayNameShort(msg.author)}</span>
-                                <span>·</span>
-                                <span>{formatted}</span>
+                            <div key={i} className="chat-row chat-row--other">
+                              <span className="chat-av" style={color ? { background: color, color: isLightHex(color) ? '#1a1a1a' : 'rgba(255,255,255,0.95)' } : undefined}>{initialsOf(msg.author)}</span>
+                              <div className="chat-col">
+                                <div className="chat-author" style={color ? { color } : undefined}>{displayNameShort(msg.author)}</div>
+                                <div className="chat-bubble chat-bubble--other" style={color ? { background: `${color}1A`, borderColor: `${color}66` } : undefined}>{msg.text}</div>
+                                <div className="chat-meta chat-meta--other">{formatted}</div>
                               </div>
                             </div>
                           );
                         })}
                       </div>
                     ) : (
-                      <div className="staff-chat-empty">Noch keine Nachrichten – nur für Mitarbeiter sichtbar.</div>
+                      <div className="chat-empty">Noch keine Nachrichten – nur für das Team sichtbar.</div>
                     )}
-                    <div className="staff-chat-input-row">
+                    <div className="channel-input-row">
                       <textarea
-                        className="staff-chat-input"
+                        className="channel-input"
                         rows={2}
-                        placeholder="Nachricht an Kollegen..."
+                        placeholder="Nachricht an das Team…"
                         value={newStaffMsg}
                         onChange={e => setNewStaffMsg(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendStaffMessage(); } }}
                       />
-                      <button className="staff-chat-send" onClick={handleSendStaffMessage} disabled={!newStaffMsg.trim()}>
+                      <button className="channel-send channel-send--chat" onClick={handleSendStaffMessage} disabled={!newStaffMsg.trim()}>
                         <i className="ti ti-send" aria-hidden="true" />
                         Senden
                       </button>
@@ -1000,23 +1035,27 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
               </div>
             )}
 
-            {/* ── 11. VERLAUF (an den Melder) ── */}
-            <div className="notes-section">
-                <h3 className="notes-title-compact">Verlauf</h3>
-                <div className="notes-reporter-warn">
-                    <i className="ti ti-mail" aria-hidden="true" />
-                    Geht an den Melder – für interne Absprachen bitte den Chat oben nutzen.
+            {/* ── 11. MELDER-KONVERSATION (Verlauf, an den Melder) ── */}
+            <div className="channel-card">
+                <div className="channel-head channel-head--melder">
+                    <i className="ti ti-mail" style={{ fontSize: 15 }} aria-hidden="true" />
+                    <span>Konversation mit dem Melder</span>
                 </div>
-                {ticket.notes && ticket.notes.length > 0 && (
-                    <div className="notes-list-compact">
-                        {[...ticket.notes].reverse().map((note, index) => (
-                            <div className="note-item-compact" key={index}>{formatNote(note)}</div>
-                        ))}
+                <div className="channel-body">
+                    {ticket.notes && ticket.notes.length > 0 && (
+                        <div className="notes-list-compact">
+                            {[...ticket.notes].reverse().map((note, index) => (
+                                <div className="note-item-compact" key={index}>{formatNote(note)}</div>
+                            ))}
+                        </div>
+                    )}
+                    <div className="channel-input-row">
+                        <textarea className="channel-input channel-melder-input" rows={2} placeholder="Antwort an den Melder…" value={newNote} onChange={e => setNewNote(e.target.value)} />
+                        <button className="channel-send channel-send--melder" onClick={handleAddNote} disabled={!newNote.trim()}>
+                            <i className="ti ti-mail" aria-hidden="true" />
+                            An Melder
+                        </button>
                     </div>
-                )}
-                <div className="new-note-form">
-                    <textarea className="note-textarea-compact" rows={2} placeholder="Eintrag für den Melder…" value={newNote} onChange={e => setNewNote(e.target.value)} />
-                    <button className="add-note-btn-compact" onClick={handleAddNote} disabled={!newNote.trim()}>Eintrag hinzufügen</button>
                 </div>
             </div>
 
