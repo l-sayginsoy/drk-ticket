@@ -57,6 +57,8 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
     const [newNote, setNewNote] = useState('');
     const [newStaffMsg, setNewStaffMsg] = useState('');
     const [chatOpen, setChatOpen] = useState(true);
+    const chatScrollRef = useRef<HTMLDivElement>(null);
+    const notesScrollRef = useRef<HTMLDivElement>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [editDraft, setEditDraft] = useState({ title: '', area: '', location: '', description: '', reporter: '' });
     const [showParkModal, setShowParkModal] = useState(false);
@@ -125,6 +127,16 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
         }, 500);
         return () => clearTimeout(timer);
     }, [ticket, onUpdateTicket, currentUser]);
+
+    // Chat & Melder-Verlauf immer ans Ende scrollen (neueste Nachricht unten sichtbar, wie WhatsApp)
+    useEffect(() => {
+        const el = chatScrollRef.current;
+        if (el) el.scrollTop = el.scrollHeight;
+    }, [ticket.staffMessages?.length, chatOpen]);
+    useEffect(() => {
+        const el = notesScrollRef.current;
+        if (el) el.scrollTop = el.scrollHeight;
+    }, [ticket.notes?.length]);
 
     const toInputDate = (dateStr: string | undefined) => {
         if (!dateStr || dateStr === 'N/A') return '';
@@ -376,7 +388,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             .channel-body { padding: 12px 13px; }
 
             /* Chat-Blasen im WhatsApp-Stil */
-            .chat-messages { display: flex; flex-direction: column; gap: 11px; margin-bottom: 12px; }
+            .chat-messages { display: flex; flex-direction: column; gap: 11px; margin-bottom: 12px; max-height: 300px; overflow-y: auto; padding-right: 4px; }
             .chat-row { display: flex; gap: 7px; }
             .chat-row--mine { justify-content: flex-end; }
             .chat-row--other { justify-content: flex-start; align-items: flex-end; }
@@ -415,7 +427,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             .channel-send--chat { background: #6366F1; }
             .channel-send--melder { background: #D97706; }
 
-            .notes-list-compact { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem; }
+            .notes-list-compact { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem; max-height: 260px; overflow-y: auto; padding-right: 4px; }
             .note-item-compact {
                 background: var(--bg-tertiary); padding: 0.6rem 0.8rem; border-radius: var(--radius-md);
                 font-size: 0.85rem; color: var(--text-primary); line-height: 1.5;
@@ -985,7 +997,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 {chatOpen && (
                   <div className="channel-body">
                     {(ticket.staffMessages || []).length > 0 ? (
-                      <div className="chat-messages">
+                      <div className="chat-messages" ref={chatScrollRef}>
                         {ticket.staffMessages!.map((msg, i) => {
                           const isMe = msg.author === currentUser.name;
                           const d = new Date(msg.timestamp);
@@ -1043,8 +1055,8 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 </div>
                 <div className="channel-body">
                     {ticket.notes && ticket.notes.length > 0 && (
-                        <div className="notes-list-compact">
-                            {[...ticket.notes].reverse().map((note, index) => (
+                        <div className="notes-list-compact" ref={notesScrollRef}>
+                            {ticket.notes.map((note, index) => (
                                 <div className="note-item-compact" key={index}>{formatNote(note)}</div>
                             ))}
                         </div>
