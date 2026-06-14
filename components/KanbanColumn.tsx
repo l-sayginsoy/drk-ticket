@@ -312,8 +312,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
               }
           `}</style>
           <div className={`column-header head-${statusKey}`}>
-              <span className={`column-dot count-${statusKey}`} aria-hidden>●</span>
-              <h2 className={`column-title head-${statusKey}`}>{title}</h2>
+              <h2 className="column-title">{title}</h2>
               <span className={`column-count count-${statusKey}`}>{tickets.length}</span>
           </div>
           <div className="column-body-wrap">
