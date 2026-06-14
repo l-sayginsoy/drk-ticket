@@ -155,7 +155,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
       >
            <style>{`
               .board-column {
-                  background-color: var(--bg-secondary);
+                  background-color: #E9EBEF;
                   border: 1px solid var(--border);
                   border-radius: 12px;
                   padding: 12px 10px 16px;
@@ -163,6 +163,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
                   transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
                   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
               }
+              [data-theme="dark"] .board-column { background-color: #1d1e20; }
               [data-theme="dark"] .board-column {
                   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
               }
@@ -183,9 +184,20 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
                   flex-wrap: nowrap;
                   justify-content: flex-start;
                   align-items: center;
-                  gap: 0.45rem;
-                  padding: 0 6px 12px 6px;
+                  gap: 0.5rem;
+                  margin: -12px -10px 0 -10px;
+                  padding: 11px 14px;
+                  border-radius: 11px 11px 0 0;
               }
+              .column-header.head-offen        { background: rgba(120,120,120,0.10); }
+              .column-header.head-inarbeit     { background: rgba(55,138,221,0.13); }
+              .column-header.head-ueberfaellig { background: rgba(226,75,74,0.12); }
+              .column-title.head-offen        { color: #5F5E5A; }
+              .column-title.head-inarbeit     { color: #185FA5; }
+              .column-title.head-ueberfaellig { color: #A32D2D; }
+              [data-theme="dark"] .column-title.head-offen        { color: #b4b4b4; }
+              [data-theme="dark"] .column-title.head-inarbeit     { color: #6ca8e8; }
+              [data-theme="dark"] .column-title.head-ueberfaellig { color: #f08a8a; }
               .column-header-line {
                   flex: 1;
                   height: 1px;
@@ -299,11 +311,10 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
                   pointer-events: none;
               }
           `}</style>
-          <div className="column-header">
+          <div className={`column-header head-${statusKey}`}>
               <span className={`column-dot count-${statusKey}`} aria-hidden>●</span>
-              <h2 className="column-title">{title}</h2>
+              <h2 className={`column-title head-${statusKey}`}>{title}</h2>
               <span className={`column-count count-${statusKey}`}>{tickets.length}</span>
-              <span className="column-header-line" aria-hidden />
           </div>
           <div className="column-body-wrap">
               <div className="column-body" ref={columnBodyRef}>

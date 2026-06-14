@@ -166,8 +166,8 @@ const Sidebar: React.FC<SidebarProps> = ({
             <style>{`
                 .sidebar {
                     width: 240px;
-                    background: var(--bg-secondary);
-                    border-right: 1px solid var(--border);
+                    background: #353B48;
+                    border-right: 1px solid rgba(0,0,0,0.22);
                     display: flex;
                     flex-direction: column;
                     padding: 0.75rem;
@@ -208,7 +208,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                      align-items: center;
                      padding: 0.75rem 1rem;
                      min-height: 70px;
-                     background: transparent;
+                     background: #ffffff;
+                     border-radius: 10px;
                      margin-bottom: 1rem;
                 }
                  .sidebar.collapsed .sidebar-logo-container {
@@ -245,7 +246,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     align-items: center;
                     gap: 0.5rem;
                     font-size: 0.75rem;
-                    color: var(--text-muted);
+                    color: rgba(255,255,255,0.45);
                     background: transparent;
                     border: none;
                     outline: none;
@@ -323,7 +324,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     font-weight: 700;
                     letter-spacing: 0.07em;
                     text-transform: uppercase;
-                    color: var(--text-muted);
+                    color: rgba(255,255,255,0.38);
                     line-height: 1.2;
                 }
                 .nav-group-rule {
@@ -332,7 +333,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     height: 1px;
                     margin: 0;
                     border: none;
-                    background: var(--border);
+                    background: rgba(255,255,255,0.12);
                     align-self: center;
                     opacity: 0.95;
                 }
@@ -351,7 +352,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     gap: 1rem;
                     padding: 0.65rem 1rem;
                     border-radius: var(--radius-md);
-                    color: var(--text-secondary);
+                    color: rgba(255,255,255,0.70);
                     text-decoration: none;
                     margin: 0.05rem 0;
                     transition: background-color 0.2s ease, color 0.2s ease;
@@ -372,18 +373,18 @@ const Sidebar: React.FC<SidebarProps> = ({
                     margin: 0.125rem 0;
                 }
                 .nav-item:hover {
-                    background: var(--bg-tertiary);
-                    color: var(--text-primary);
+                    background: rgba(255,255,255,0.09);
+                    color: #fff;
                 }
                 .nav-item.active {
-                    background-color: var(--bg-tertiary);
-                    color: var(--text-primary);
+                    background-color: rgba(255,255,255,0.13);
+                    color: #fff;
                     font-weight: 600;
                     box-shadow: none;
                 }
                 .nav-item.active:hover {
-                    background-color: var(--bg-tertiary);
-                    color: var(--text-primary);
+                    background-color: rgba(255,255,255,0.13);
+                    color: #fff;
                 }
                 .nav-item.active::before {
                     content: '';
@@ -446,7 +447,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     height: 10px;
                     border-radius: 50%;
                     font-size: 0;
-                    border: 2px solid var(--bg-secondary);
+                    border: 2px solid #353B48;
                 }
                 
                 /* Tooltip styles */
@@ -526,20 +527,20 @@ const Sidebar: React.FC<SidebarProps> = ({
                 }
 
                 .dropdown-item {
-                    background: none; border: none; color: var(--text-secondary);
+                    background: none; border: none; color: rgba(255,255,255,0.70);
                     padding: 0.6rem 0.8rem; width: 100%; text-align: left;
                     cursor: pointer; font-size: 0.9rem; font-weight: 500;
                     border-radius: var(--radius-sm); transition: background-color 0.2s ease, color 0.2s ease;
                 }
                 .dropdown-item:hover {
-                    color: var(--text-primary);
-                    background-color: var(--bg-tertiary);
+                    color: #fff;
+                    background-color: rgba(255,255,255,0.09);
                 }
 
                 .sidebar-footer {
                     flex-shrink: 0;
                     padding-top: 1rem;
-                    border-top: 1px solid var(--border);
+                    border-top: 1px solid rgba(255,255,255,0.12);
                     display: flex;
                     flex-direction: column;
                     gap: 0.65rem;
@@ -551,14 +552,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                 .collapse-toggle {
                     background: none;
                     border: none;
-                    color: var(--text-muted);
+                    color: rgba(255,255,255,0.45);
                     cursor: pointer;
                     padding: 0.5rem;
                     border-radius: var(--radius-md);
                 }
                 .collapse-toggle:hover {
-                    background: var(--bg-tertiary);
-                    color: var(--text-primary);
+                    background: rgba(255,255,255,0.09);
+                    color: #fff;
                 }
                 .collapse-toggle svg {
                      transition: transform 0.3s ease;

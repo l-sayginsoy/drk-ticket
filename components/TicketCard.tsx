@@ -215,12 +215,10 @@ const TicketCard: React.FC<TicketCardProps> = ({
         return 'normal';
     })();
 
-    const statusBorderColor: Record<string, string> = {
-        [Status.Offen]:        '#888780',
-        [Status.InArbeit]:     '#378ADD',
-        [Status.Ueberfaellig]: '#E24B4A',
-        [Status.Abgeschlossen]:'#639922',
-    };
+    // Linker Karten-Akzent = Priorität (Niedrig grün / Mittel beige-orange / Hoch rot)
+    const priorityBorderColor = (isEmergency || ticket.priority === Priority.Hoch) ? '#E24B4A'
+        : ticket.priority === Priority.Mittel ? '#E6A23C'
+        : '#8FBF4D';
 
     const priorityPillClass = isEmergency ? 'pill-p-hoch'
         : ticket.priority === Priority.Hoch   ? 'pill-p-hoch'
@@ -242,7 +240,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
     return (
         <div
             className={cardClasses}
-            style={{ borderLeftColor: statusBorderColor[ticket.status] ?? '#888780' }}
+            style={{ borderLeftColor: priorityBorderColor }}
             draggable="true"
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
@@ -311,7 +309,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 }
 
                 .card-loc { font-size: 12px; color: #555; font-weight: 500; margin-bottom: 3px; }
-                .card-who { display: flex; align-items: center; gap: 3px; font-size: 11px; color: #666; margin-bottom: 11px; flex-wrap: nowrap; }
+                .card-who { display: flex; align-items: center; gap: 3px; font-size: 11px; color: #666; margin-bottom: 0; flex-wrap: nowrap; }
                 .card-who i { font-size: 11px; color: #999; flex-shrink: 0; }
 
                 /* ── Pills ── */
@@ -345,12 +343,52 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .card-footer {
                     background: #F5F6F7;
                     border-top: 1px solid #E5E5E5;
-                    padding: 8px 14px;
-                    display: flex; align-items: center;
+                    padding: 8px 12px;
+                    display: flex; align-items: center; gap: 7px;
                     cursor: default; transition: background 0.12s;
                     -webkit-user-drag: none;
                 }
                 [data-theme="dark"] .card-footer { background: var(--bg-tertiary); border-top-color: var(--border); }
+                .due-chip {
+                    display: inline-flex; align-items: center; gap: 4px;
+                    font-size: 11px; color: #5F5E5A; background: #ECECEE;
+                    border-radius: 999px; padding: 3px 9px; position: relative;
+                    cursor: pointer; white-space: nowrap; flex-shrink: 0;
+                }
+                [data-theme="dark"] .due-chip { background: rgba(255,255,255,0.08); color: var(--text-secondary); }
+                .due-chip i { font-size: 12px; }
+                .due-chip.soon    { background: #FFF7E6; color: #92400E; }
+                .due-chip.today   { background: #FEF2F2; color: #B91C1C; }
+                .due-chip.overdue { background: #FCEBEB; color: #A32D2D; font-weight: 500; }
+                .mini-pill {
+                    display: inline-flex; align-items: center; gap: 4px;
+                    font-size: 11px; font-weight: 500; border-radius: 999px;
+                    padding: 3px 8px; flex-shrink: 0;
+                }
+                .mini-pill i { font-size: 13px; }
+                .mini-pill--staff-unread   { background: #6366f1; color: #fff; }
+                .mini-pill--staff-awaiting { background: transparent; color: #4f46e5; border: 1px solid #a5b4fc; }
+                [data-theme="dark"] .mini-pill--staff-awaiting { color: #a5b4fc; border-color: rgba(165,180,252,0.5); }
+                .mini-pill--staff-quiet    { background: rgba(99,102,241,0.12); color: var(--text-muted); }
+                .mini-pill--msg-unread { background: #F97316; color: #fff; }
+                .mini-pill--msg-read   { background: rgba(0,0,0,0.07); color: var(--text-secondary); }
+                [data-theme="dark"] .mini-pill--msg-read { background: rgba(255,255,255,0.1); color: var(--text-muted); }
+                .status-menu {
+                    position: relative; display: inline-flex; align-items: center; justify-content: center;
+                    width: 26px; height: 26px; border-radius: 7px; color: #888;
+                    cursor: pointer; flex-shrink: 0; transition: background 0.12s, color 0.12s;
+                }
+                .status-menu:hover { background: rgba(0,0,0,0.06); color: #444; }
+                [data-theme="dark"] .status-menu:hover { background: rgba(255,255,255,0.08); color: #ddd; }
+                .status-menu i { font-size: 17px; pointer-events: none; }
+                .status-menu select { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+                .card-menu { position: relative; display: inline-flex; align-items: center; color: #b0b0b0; cursor: pointer; margin-left: 3px; flex-shrink: 0; }
+                .card-menu i { font-size: 16px; pointer-events: none; }
+                .card-menu:hover i { color: #666; }
+                [data-theme="dark"] .card-menu:hover i { color: #ccc; }
+                .card-menu select { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+                .card-due { margin-top: 9px; }
+                .footer-right { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
 
                 .assignee-chip {
                     display: inline-flex; align-items: center; gap: 5px;
@@ -432,71 +470,14 @@ const TicketCard: React.FC<TicketCardProps> = ({
                         {ticket.hasNewNoteFromReporter && <span className="new-note-indicator" title="Neue Nachricht vom Melder" />}
                         {chatState === 'unread' && <span className="new-staff-msg-indicator" title="Neue interne Nachricht" />}
                         <span className={isNewTicket ? 'card-tnum-new' : 'card-tnum'} title={isNewTicket ? 'Neues Ticket' : ''}>#{ticket.id}</span>
-                    </div>
-                </div>
-
-                {/* Zeile 2: Standort */}
-                <div className="card-loc">{ticket.area} · {ticket.location}</div>
-
-                {/* Zeile 3: Melder + Datum + Uhrzeit */}
-                <div className="card-who">
-                    <i className="ti ti-user" aria-hidden="true" />
-                    <span>{ticket.reporter} · {ticket.entryDate.slice(0,5)}.{ticket.entryTime ? ` · ${ticket.entryTime}` : ''}</span>
-                </div>
-
-                {/* Zeile 4: Pills */}
-                <div className="card-pills" onClick={e => e.stopPropagation()}>
-                    <div className="pill-cell">
-                        <div className="pill-lbl">Priorität</div>
-                        {isEmergency ? (
-                            <div className="pill pill-p-hoch">Notfall</div>
-                        ) : (
-                            <div className={`pill ${priorityPillClass}`}>
-                                {ticket.priority}
-                                <select
-                                    value={ticket.priority}
-                                    onChange={handlePriorityChange}
-                                    onMouseDown={() => { lastSelectChangeRef.current = Date.now(); }}
-                                >
-                                    {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
-                                </select>
-                            </div>
-                        )}
-                    </div>
-                    <div className="pill-cell">
-                        <div className="pill-lbl">Fällig bis</div>
-                        {canEditDate ? (
-                            <div
-                                className={`pill pill-due${dueDateUrgency !== 'normal' ? ` ${dueDateUrgency}` : ''}`}
-                                onClick={e => e.stopPropagation()}
-                            >
-                                <i className="ti ti-calendar-due" aria-hidden="true" style={{ pointerEvents: 'none' }} />
-                                <span style={{ pointerEvents: 'none' }}>{ticket.dueDate.slice(0,5)}.</span>
-                                <input
-                                    ref={dateInputRef}
-                                    type="date"
-                                    value={toInputDate(ticket.dueDate)}
-                                    onChange={handleDueDateChange}
-                                    onClick={e => { e.stopPropagation(); try { (e.currentTarget as HTMLInputElement).showPicker(); } catch {} }}
-                                    style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer', pointerEvents: 'auto' }}
-                                />
-                            </div>
-                        ) : (
-                            <div className={`pill pill-due${dueDateUrgency !== 'normal' ? ` ${dueDateUrgency}` : ''}`}>
-                                <i className="ti ti-calendar-due" aria-hidden="true" />
-                                <span>{ticket.dueDate.slice(0,5)}.</span>
-                            </div>
-                        )}
-                    </div>
-                    <div className="pill-cell">
-                        <div className="pill-lbl">Status</div>
-                        <div className={`pill ${statusPillClass}`}>
-                            {ticket.status}
+                        <div className="card-menu" onClick={e => e.stopPropagation()} title="Status ändern">
+                            <i className="ti ti-dots" aria-hidden="true" />
                             <select
-                                value={ticket.status}
+                                value={ticket.status !== Status.Ueberfaellig ? ticket.status : ''}
                                 onChange={handleStatusChange}
                                 onMouseDown={() => { lastSelectChangeRef.current = Date.now(); }}
                             >
+                                <option value="" disabled hidden></option>
                                 {Object.values(Status).filter(s => s !== Status.Ueberfaellig).map(s => (
                                     <option key={s} value={s}>{s === Status.Abgeschlossen ? 'Abschließen' : s}</option>
                                 ))}
@@ -504,16 +485,25 @@ const TicketCard: React.FC<TicketCardProps> = ({
                         </div>
                     </div>
                 </div>
+
+                {/* Zeile 2: Standort */}
+                <div className="card-loc">{ticket.area} · {ticket.location}</div>
+
+                {/* Zeile 3: Melder + Erfassungsdatum */}
+                <div className="card-who">
+                    <i className="ti ti-user" aria-hidden="true" />
+                    <span>{ticket.reporter} · {ticket.entryDate.slice(0,5)}.{ticket.entryTime ? ` · ${ticket.entryTime}` : ''}</span>
+                </div>
+
             </div>
 
-            {/* Footer: klickbar → Detailansicht */}
-            <div className="card-footer" onClick={() => onSelectTicket(ticket)}>
-                <div className={`assignee-chip${!isAssigned ? ' assignee-chip--unassigned' : ''}`} onClick={e => e.stopPropagation()}>
+            {/* Footer: Bearbeiter-Avatar (links) · Fällig (Mitte) · Chat + Nachrichten (rechts) */}
+            <div className="card-footer" style={{ justifyContent: 'space-between' }} onClick={() => onSelectTicket(ticket)}>
+                <div className={`assignee-chip${!isAssigned ? ' assignee-chip--unassigned' : ''}`} onClick={e => e.stopPropagation()} title={isAssigned ? ticket.technician : 'Bearbeiter zuweisen'}>
                     {isAssigned
                         ? <span className="av" style={{ background: avColor.bg, color: avColor.text }}>{initials}</span>
                         : <span className="av av-un"><i className="ti ti-plus" style={{ fontSize: 10 }} aria-hidden="true" /></span>
                     }
-                    <span>{isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}</span>
                     <i className="ti ti-chevron-down chev" aria-hidden="true" />
                     {isAutoAssigned && <span className="av-badge-a" title="Automatisch zugewiesen">A</span>}
                     <select value={ticket.technician} onChange={handleTechnicianSelectChange}>
@@ -525,39 +515,45 @@ const TicketCard: React.FC<TicketCardProps> = ({
                         })}
                     </select>
                 </div>
-                {isEmergency && (
-                    <div className="footer-info-pill footer-info-pill--emergency">
-                        <i className="ti ti-alert-triangle" aria-hidden="true" />
-                        <span>Notfall</span>
+
+                {canEditDate ? (
+                    <div className={`due-chip${dueDateUrgency !== 'normal' ? ` ${dueDateUrgency}` : ''}`} onClick={e => e.stopPropagation()} title="Fällig bis – zum Ändern klicken">
+                        <i className="ti ti-calendar" aria-hidden="true" style={{ pointerEvents: 'none' }} />
+                        <span style={{ pointerEvents: 'none' }}>{ticket.dueDate.slice(0,5)}.</span>
+                        <input
+                            ref={dateInputRef}
+                            type="date"
+                            value={toInputDate(ticket.dueDate)}
+                            onChange={handleDueDateChange}
+                            onClick={e => { e.stopPropagation(); try { (e.currentTarget as HTMLInputElement).showPicker(); } catch {} }}
+                            style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+                        />
+                    </div>
+                ) : (
+                    <div className={`due-chip${dueDateUrgency !== 'normal' ? ` ${dueDateUrgency}` : ''}`} title="Fällig bis">
+                        <i className="ti ti-calendar" aria-hidden="true" />
+                        <span>{ticket.dueDate.slice(0,5)}.</span>
                     </div>
                 )}
-                {ticket.is_reopened && !isEmergency && (
-                    <div className="footer-info-pill footer-info-pill--reopened">
-                        <i className="ti ti-refresh" aria-hidden="true" />
-                        <span>Wiedereröffnet</span>
-                    </div>
-                )}
-                {chatState !== 'none' && (
-                    <div
-                        className={`footer-info-pill footer-info-pill--staff-${chatState}`}
-                        title={chatState === 'unread' ? 'Neue interne Nachricht'
-                            : chatState === 'awaiting' ? 'Gesendet – wartet auf Antwort'
-                            : 'Interner Chat'}
-                    >
-                        <span>Chat</span>
-                    </div>
-                )}
-                {ticket.hasNewNoteFromReporter ? (
-                    <div className="footer-info-pill footer-info-pill--msg-unread">
-                        <i className="ti ti-message" aria-hidden="true" />
-                        <span>Neue Nachricht</span>
-                    </div>
-                ) : (ticket.notes?.length ?? 0) > 0 ? (
-                    <div className="footer-info-pill footer-info-pill--msg-read">
-                        <i className="ti ti-message" aria-hidden="true" />
-                        <span>{ticket.notes!.length}</span>
-                    </div>
-                ) : null}
+
+                <div className="footer-right">
+                    {chatState !== 'none' && (
+                        <div className={`mini-pill mini-pill--staff-${chatState}`} title="Interner Team-Chat (nur Mitarbeiter)">
+                            <i className="ti ti-messages" aria-hidden="true" />
+                        </div>
+                    )}
+                    {ticket.hasNewNoteFromReporter ? (
+                        <div className="mini-pill mini-pill--msg-unread" title="Neue Nachricht vom Melder">
+                            <i className="ti ti-mail" aria-hidden="true" />
+                            <span>Neu</span>
+                        </div>
+                    ) : (ticket.notes?.length ?? 0) > 0 ? (
+                        <div className="mini-pill mini-pill--msg-read" title="Nachrichten mit dem Melder">
+                            <i className="ti ti-mail" aria-hidden="true" />
+                            <span>{ticket.notes!.length}</span>
+                        </div>
+                    ) : null}
+                </div>
             </div>
         </div>
     );

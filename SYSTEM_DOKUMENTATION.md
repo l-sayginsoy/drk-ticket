@@ -775,6 +775,8 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 
 | Datum | Änderung |
 |---|---|
+| Juni 2026 | **Board-Redesign**: `TicketCard.tsx` — linker Balken = Priorität (rot/orange/grün), keine Pill-Zeile, Footer: Avatar-Chip · Datum-Chip · Icons (`ti-messages` + `ti-mail`), ⋯-Statusmenü. `KanbanColumn.tsx` — farbige Spaltenköpfe (grau/blau/rosa), Spalten-Hintergrund `#E9EBEF` |
+| Juni 2026 | **Sidebar-Redesign**: `Sidebar.tsx` — dunkles Design `#353B48`, DRK-Logo auf weißem Container |
 | Juni 2026 | **CI auf Node 24**: GitHub-Actions in `deploy-firebase.yml` auf Node-24-Runtime gehoben (`actions/checkout@v6`, `actions/setup-node@v6`, `google-github-actions/auth@v3`) wegen Node-20-Abkündigung (GitHub erzwingt Node 24 ab Juni 2026). Nur Workflow-YAML, kein App-Code. `brevo-keepalive.yml` nutzt keine JS-Actions → unverändert |
 | Juni 2026 | **Chat: feste Höhe + Auto-Scroll** (WhatsApp-Stil): Chat & Melder-Verlauf scrollen intern, neueste Nachricht unten, ältere durch Hochscrollen sichtbar |
 | Juni 2026 | **Chat-Redesign**: interner Chat & Melder-Verlauf als zwei farblich getrennte Kanäle; jede Nachricht in der Farbe ihres Absenders (eigene gefüllt rechts), Avatar + Name |

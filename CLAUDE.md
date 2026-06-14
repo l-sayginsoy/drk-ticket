@@ -30,6 +30,20 @@ Tickets & Status · Kanban-Board · SLA/Fälligkeitsdatum · Auto-Zuweisung (Rou
 Serienaufträge (Routinen) · Brevo-E-Mails · Stale-Erinnerungen · **Interner Staff-Chat**
 (nur Team, **keine E-Mail**, Farbe pro Absender, scrollbar) · **Zurückstellen/Parken** · Melder-Portal.
 
+## Zuletzt abgeschlossen (Stand: Juni 2026)
+Folgende Punkte wurden in der letzten Session fertiggestellt, committed und deployed:
+
+- **Interner Staff-Chat** (`utils/staffChat.ts`): `readBy`-Modell pro Person, **kein E-Mail-Versand**,
+  WhatsApp-Bubbles mit Absenderfarbe, zwei Kanäle (Team-Chat / Melder-Verlauf), Auto-Scroll.
+  > Wichtig: `hasNewStaffMessage`-Flag und Mail-Versand für Chat NICHT wieder einbauen.
+- **Zurückstellen/Parken**: direkt per Dropdown, „Ohne Erinnerung" Option (`handleParkConfirm`)
+- **Board-Redesign** (`TicketCard.tsx`, `KanbanColumn.tsx`):
+  - Farbige Spaltenköpfe (grau/blau/rosa), graue Spalte `#E9EBEF` → Tiefe, weiße Karten
+  - Linker Kartenbalken = Priorität (Hoch rot, Mittel orange, Niedrig grün)
+  - Keine Pill-Zeile mehr; Footer: Avatar-Chip · Datum-Chip · Icons (`ti-messages` + `ti-mail`)
+  - ⋯-Menü oben rechts für Statuswechsel (Overlay-`<select>`)
+- **Sidebar** (`components/Sidebar.tsx`): Dunkles Design `#353B48`, DRK-Logo auf weißem Container
+
 ## Arbeitsweise & Konventionen (wichtig)
 - **Vorschau = Live-Prod**: Der Dev-Server (Port 5173) hängt an der **echten** Firestore.
   Beim Testen **keine echten Tickets verändern**.
