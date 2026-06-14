@@ -565,7 +565,6 @@ const TicketCard: React.FC<TicketCardProps> = ({
                             ? <span className="av" style={{ background: avColor.bg, color: avColor.text }}>{initials}</span>
                             : <span className="av av-un"><i className="ti ti-plus" style={{ fontSize: 10 }} aria-hidden="true" /></span>
                         }
-                        <i className="ti ti-chevron-down chev" aria-hidden="true" />
                         {isAutoAssigned && <span className="av-badge-a" title="Automatisch zugewiesen">A</span>}
                         <select value={ticket.technician} onChange={handleTechnicianSelectChange}>
                             {technicianOptions.map((opt) => {
