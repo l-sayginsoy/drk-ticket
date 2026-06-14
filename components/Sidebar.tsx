@@ -93,9 +93,9 @@ const Sidebar: React.FC<SidebarProps> = ({
         { type: 'view', viewName: 'dashboard', icon: <LayoutDashboardIcon />, label: 'Dashboard', requiredRoles: [Role.Admin], section: 'uebersicht' },
         { type: 'view', viewName: 'tickets', icon: <i className="ti ti-menu-2" aria-hidden />, label: 'Listenansicht', requiredRoles: [Role.Admin], section: 'uebersicht' },
         { type: 'view', viewName: 'erledigt', icon: <i className="ti ti-clock" aria-hidden />, label: 'Abgeschlossen', requiredRoles: [Role.Admin], section: 'uebersicht' },
+        { type: 'view', viewName: 'zurueckgestellt', icon: <i className="ti ti-parking" aria-hidden />, label: 'Zurückgestellt', requiredRoles: [Role.Admin], section: 'uebersicht' },
         { type: 'view', viewName: 'routines', icon: <i className="ti ti-repeat" aria-hidden />, label: 'Serienaufträge', requiredRoles: [Role.Admin], section: 'uebersicht' },
         { type: 'view', viewName: 'routine-nachweis', icon: <CalendarIcon />, label: 'Serien‑Nachweis', requiredRoles: [Role.Admin], section: 'uebersicht' },
-        { type: 'view', viewName: 'zurueckgestellt', icon: <i className="ti ti-parking" aria-hidden />, label: 'Zurückgestellt', requiredRoles: [Role.Admin], section: 'uebersicht' },
         // Admin — Verwaltung
         { type: 'view', viewName: 'techniker', icon: <i className="ti ti-users" aria-hidden />, label: 'Team', requiredRoles: [Role.Admin], section: 'verwaltung' },
         { type: 'view', viewName: 'reports', icon: <BarChartIcon />, label: 'Reports', requiredRoles: [Role.Admin], section: 'verwaltung' },
@@ -105,9 +105,9 @@ const Sidebar: React.FC<SidebarProps> = ({
         { type: 'view', viewName: 'tech-dashboard', icon: <LayoutDashboardIcon />, label: 'Dashboard', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
         { type: 'view', viewName: 'tickets', icon: <i className="ti ti-menu-2" aria-hidden />, label: 'Listenansicht', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
         { type: 'view', viewName: 'erledigt', icon: <i className="ti ti-clock" aria-hidden />, label: 'Abgeschlossen', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
+        { type: 'view', viewName: 'zurueckgestellt', icon: <i className="ti ti-parking" aria-hidden />, label: 'Zurückgestellt', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
         { type: 'view', viewName: 'routines', icon: <i className="ti ti-repeat" aria-hidden />, label: 'Serienaufträge', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
         { type: 'view', viewName: 'routine-nachweis', icon: <CalendarIcon />, label: 'Serien‑Nachweis', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
-        { type: 'view', viewName: 'zurueckgestellt', icon: <i className="ti ti-parking" aria-hidden />, label: 'Zurückgestellt', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
 
         // Aktionen (alle Rollen)
         { type: 'action', action: 'newTicket', icon: <DocumentPlusIcon />, label: 'Neues Ticket', requiredRoles: [Role.Admin, Role.Technician, Role.Housekeeping], section: 'aktionen', onClick: onNewTicketClick },
@@ -166,8 +166,8 @@ const Sidebar: React.FC<SidebarProps> = ({
             <style>{`
                 .sidebar {
                     width: 240px;
-                    background: #353B48;
-                    border-right: 1px solid rgba(0,0,0,0.22);
+                    background: var(--bg-secondary);
+                    border-right: 1px solid var(--border);
                     display: flex;
                     flex-direction: column;
                     padding: 0.75rem;
@@ -208,8 +208,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                      align-items: center;
                      padding: 0.75rem 1rem;
                      min-height: 70px;
-                     background: #ffffff;
-                     border-radius: 10px;
+                     background: transparent;
                      margin-bottom: 1rem;
                 }
                  .sidebar.collapsed .sidebar-logo-container {
@@ -246,7 +245,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     align-items: center;
                     gap: 0.5rem;
                     font-size: 0.75rem;
-                    color: rgba(255,255,255,0.45);
+                    color: var(--text-muted);
                     background: transparent;
                     border: none;
                     outline: none;
@@ -324,7 +323,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     font-weight: 700;
                     letter-spacing: 0.07em;
                     text-transform: uppercase;
-                    color: rgba(255,255,255,0.38);
+                    color: var(--text-muted);
                     line-height: 1.2;
                 }
                 .nav-group-rule {
@@ -333,7 +332,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     height: 1px;
                     margin: 0;
                     border: none;
-                    background: rgba(255,255,255,0.12);
+                    background: var(--border);
                     align-self: center;
                     opacity: 0.95;
                 }
@@ -352,7 +351,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     gap: 1rem;
                     padding: 0.65rem 1rem;
                     border-radius: var(--radius-md);
-                    color: rgba(255,255,255,0.70);
+                    color: var(--text-secondary);
                     text-decoration: none;
                     margin: 0.05rem 0;
                     transition: background-color 0.2s ease, color 0.2s ease;
@@ -373,18 +372,18 @@ const Sidebar: React.FC<SidebarProps> = ({
                     margin: 0.125rem 0;
                 }
                 .nav-item:hover {
-                    background: rgba(255,255,255,0.09);
-                    color: #fff;
+                    background: var(--bg-tertiary);
+                    color: var(--text-primary);
                 }
                 .nav-item.active {
-                    background-color: rgba(255,255,255,0.13);
-                    color: #fff;
+                    background-color: var(--bg-tertiary);
+                    color: var(--text-primary);
                     font-weight: 600;
                     box-shadow: none;
                 }
                 .nav-item.active:hover {
-                    background-color: rgba(255,255,255,0.13);
-                    color: #fff;
+                    background-color: var(--bg-tertiary);
+                    color: var(--text-primary);
                 }
                 .nav-item.active::before {
                     content: '';
@@ -447,7 +446,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     height: 10px;
                     border-radius: 50%;
                     font-size: 0;
-                    border: 2px solid #353B48;
+                    border: 2px solid var(--bg-secondary);
                 }
                 
                 /* Tooltip styles */
@@ -527,20 +526,20 @@ const Sidebar: React.FC<SidebarProps> = ({
                 }
 
                 .dropdown-item {
-                    background: none; border: none; color: rgba(255,255,255,0.70);
+                    background: none; border: none; color: var(--text-secondary);
                     padding: 0.6rem 0.8rem; width: 100%; text-align: left;
                     cursor: pointer; font-size: 0.9rem; font-weight: 500;
                     border-radius: var(--radius-sm); transition: background-color 0.2s ease, color 0.2s ease;
                 }
                 .dropdown-item:hover {
-                    color: #fff;
-                    background-color: rgba(255,255,255,0.09);
+                    color: var(--text-primary);
+                    background-color: var(--bg-tertiary);
                 }
 
                 .sidebar-footer {
                     flex-shrink: 0;
                     padding-top: 1rem;
-                    border-top: 1px solid rgba(255,255,255,0.12);
+                    border-top: 1px solid var(--border);
                     display: flex;
                     flex-direction: column;
                     gap: 0.65rem;
@@ -552,14 +551,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                 .collapse-toggle {
                     background: none;
                     border: none;
-                    color: rgba(255,255,255,0.45);
+                    color: var(--text-muted);
                     cursor: pointer;
                     padding: 0.5rem;
                     border-radius: var(--radius-md);
                 }
                 .collapse-toggle:hover {
-                    background: rgba(255,255,255,0.09);
-                    color: #fff;
+                    background: var(--bg-tertiary);
+                    color: var(--text-primary);
                 }
                 .collapse-toggle svg {
                      transition: transform 0.3s ease;
