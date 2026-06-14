@@ -775,6 +775,7 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 
 | Datum | Änderung |
 |---|---|
+| Juni 2026 | **CI auf Node 24**: GitHub-Actions in `deploy-firebase.yml` auf Node-24-Runtime gehoben (`actions/checkout@v6`, `actions/setup-node@v6`, `google-github-actions/auth@v3`) wegen Node-20-Abkündigung (GitHub erzwingt Node 24 ab Juni 2026). Nur Workflow-YAML, kein App-Code. `brevo-keepalive.yml` nutzt keine JS-Actions → unverändert |
 | Juni 2026 | **Chat: feste Höhe + Auto-Scroll** (WhatsApp-Stil): Chat & Melder-Verlauf scrollen intern, neueste Nachricht unten, ältere durch Hochscrollen sichtbar |
 | Juni 2026 | **Chat-Redesign**: interner Chat & Melder-Verlauf als zwei farblich getrennte Kanäle; jede Nachricht in der Farbe ihres Absenders (eigene gefüllt rechts), Avatar + Name |
 | Juni 2026 | **Interner Staff-Chat**: ticketbezogene Mitarbeiter-Nachrichten, Lesestatus pro Person (`readBy`), bewusst keine E-Mails — siehe Kapitel 23 |
