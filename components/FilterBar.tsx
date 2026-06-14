@@ -196,41 +196,42 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                 .view-toggle .toggle-btn { background: transparent; border: none; padding: 0.35rem 0.75rem; border-radius: 4px; cursor: pointer; font-weight: 500; font-size: 0.9rem; color: var(--text-muted); transition: all 0.2s ease; }
                 .view-toggle .toggle-btn.active { background: var(--bg-secondary); color: var(--text-primary); box-shadow: var(--shadow-sm); }
 
-                .custom-select { position: relative; border: 1px solid var(--border); border-radius: 20px; padding-right: 2rem; font-size: 0.875rem; min-width: 110px; cursor: pointer; color: var(--text-secondary); height: 34px; display: flex; align-items: center; transition: var(--transition-smooth); background: var(--bg-primary); }
-                .custom-select:hover { border-color: var(--border-active); background-color: var(--bg-primary); }
-                .custom-select.group-by-select { background-color: var(--bg-primary); padding-left: 0.85rem; border-radius: 20px; }
+                .custom-select { position: relative; border: 1px solid var(--border); border-radius: 9px; padding-right: 1.85rem; font-size: 0.85rem; font-weight: 500; min-width: auto; cursor: pointer; color: var(--text-secondary); height: 36px; display: flex; align-items: center; transition: var(--transition-smooth); background: var(--bg-secondary); box-shadow: var(--shadow-sm); }
+                .custom-select:hover { border-color: var(--border-active); background-color: var(--bg-secondary); }
+                .custom-select.group-by-select { background-color: var(--bg-secondary); padding-left: 0.85rem; border-radius: 9px; }
                 .custom-select.filter-chip {
-                    background-color: var(--bg-primary);
+                    background-color: var(--bg-secondary);
                     padding-left: 0.85rem;
-                    border-radius: 20px;
+                    border-radius: 9px;
                     border: 1px solid var(--border);
                 }
                 .custom-select.filter-chip:hover {
-                    background-color: var(--bg-primary);
+                    background-color: var(--bg-secondary);
                     border-color: var(--border-active);
                 }
                 .custom-select.filter-chip.active {
-                    background-color: var(--bg-primary);
+                    background-color: var(--bg-secondary);
                     border-color: var(--text-secondary);
                     color: var(--text-primary);
                     font-weight: 600;
                 }
                 .custom-select select:focus { outline: none; }
                 .filter-badge {
-                    font-size: 0.78rem;
+                    font-size: 0.74rem;
                     font-weight: 600;
-                    color: var(--text-primary);
-                    background-color: var(--border);
-                    padding: 0.1rem 0.45rem;
-                    border-radius: 10px;
-                    margin-left: 0.4rem;
+                    color: var(--bg-secondary);
+                    background-color: var(--text-secondary);
+                    padding: 0.12rem 0.45rem;
+                    border-radius: 6px;
+                    margin-left: 0.45rem;
+                    letter-spacing: 0.01em;
                 }
 
                 .custom-select span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
                 .custom-select select { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
-                .custom-select svg { position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); pointer-events: none; width: 16px; height: 16px; color: var(--text-muted); }
-                
-                .action-btn { background: var(--bg-primary); border: 1px solid var(--border); color: var(--text-secondary); font-size: 0.875rem; padding: 0.4rem 1rem; border-radius: 20px; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; transition: var(--transition-smooth); font-weight: 500; flex-shrink: 0; height: 34px; box-sizing: border-box; }
+                .custom-select svg { position: absolute; right: 0.7rem; top: 50%; transform: translateY(-50%); pointer-events: none; width: 14px; height: 14px; color: var(--text-muted); }
+
+                .action-btn { background: var(--bg-secondary); border: 1px solid var(--border); color: var(--text-secondary); font-size: 0.85rem; padding: 0.4rem 1rem; border-radius: 9px; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; transition: var(--transition-smooth); font-weight: 500; flex-shrink: 0; height: 36px; box-sizing: border-box; box-shadow: var(--shadow-sm); }
                 .action-btn:hover { background: var(--border); }
                 .action-btn svg { width: 16px; height: 16px; }
                 .action-btn .ti {
@@ -254,6 +255,7 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                     border-color: transparent;
                     color: var(--text-muted);
                     font-weight: 500;
+                    box-shadow: none;
                 }
                 .action-btn--reset:hover {
                     background: var(--bg-tertiary);
@@ -287,7 +289,10 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                 .status-stat--inarbeit { background: #E6F1FB; color: #185FA5; border-color: #B5D4F4; }
                 .status-stat--ueberfaellig { background: #FCEBEB; color: #A32D2D; border-color: #F7C1C1; }
             `}</style>
-            <span style={{ fontSize: '0.88rem', fontWeight: 500, color: 'var(--text-muted)', flexShrink: 0 }}>Filter</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', flexShrink: 0 }}>
+                <i className="ti ti-adjustments-horizontal" aria-hidden style={{ fontSize: 16, color: 'var(--text-muted)' }} />
+                Filter
+            </span>
             <div className="filter-controls">
                 {currentView === 'tickets' && (
                     <>
