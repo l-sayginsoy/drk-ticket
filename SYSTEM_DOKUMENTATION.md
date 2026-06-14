@@ -743,8 +743,9 @@ Der interne Chat verschickt **absichtlich keine E-Mails**. Der Hinweis auf neue 
 | `quiet` | Chat vorhanden, nichts offen | Graue „Chat"-Pille |
 
 ### UI
-- **Detailansicht**: einklappbarer Bereich „🔒 Interner Chat · nur Mitarbeiter · keine E-Mail" mit Nachrichten-Zähler, Sprechblasen (eigene rechts, fremde links) mit Autor + Zeit, Eingabefeld (Enter = senden, Shift+Enter = neue Zeile).
-- **Verlauf-Hinweis**: Über dem Verlauf steht „Geht an den Melder – für interne Absprachen bitte den Chat oben nutzen.", damit interne Notizen nicht versehentlich an den Melder gehen.
+- **Zwei getrennte Kanäle** in der Detailansicht: oben der lila **„Interner Chat"** (einklappbar, Zähler, „nur das Team"), darunter die bernstein **„Konversation mit dem Melder"** (= `notes`/Verlauf). Eigene farbige Kopfbänder machen sofort klar, was intern bleibt und was an den Melder geht.
+- **Sprechblasen im WhatsApp-Stil**: jede Nachricht in der **Farbe ihres Absenders** (getönte Blase + Avatar + Name aus `User.color`); eigene gefüllt rechts, fremde links. Enter = senden, Shift+Enter = neue Zeile.
+- **Feste Höhe + Auto-Scroll**: beide Bereiche scrollen intern (Chat max. 300 px, Melder max. 260 px); die neueste Nachricht steht unten und ist beim Öffnen sichtbar, für ältere nach oben scrollen.
 
 ### Dateien
 - `utils/staffChat.ts` — `getStaffChatState`, `markStaffMessagesRead`
@@ -774,6 +775,8 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 
 | Datum | Änderung |
 |---|---|
+| Juni 2026 | **Chat: feste Höhe + Auto-Scroll** (WhatsApp-Stil): Chat & Melder-Verlauf scrollen intern, neueste Nachricht unten, ältere durch Hochscrollen sichtbar |
+| Juni 2026 | **Chat-Redesign**: interner Chat & Melder-Verlauf als zwei farblich getrennte Kanäle; jede Nachricht in der Farbe ihres Absenders (eigene gefüllt rechts), Avatar + Name |
 | Juni 2026 | **Interner Staff-Chat**: ticketbezogene Mitarbeiter-Nachrichten, Lesestatus pro Person (`readBy`), bewusst keine E-Mails — siehe Kapitel 23 |
 | Juni 2026 | **Zurückstellen verbessert**: Ein-Klick übers Karten-Dropdown, „ohne Erinnerung"-Option, geparkte Tickets von der Überfällig-Erkennung ausgenommen — siehe Kapitel 24 |
 | Juni 2026 | **Dokumentation vollständig aktualisiert**: alle neuen Features seit Mai 2026 eingearbeitet |
