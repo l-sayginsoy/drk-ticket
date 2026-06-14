@@ -235,6 +235,13 @@ const TicketCard: React.FC<TicketCardProps> = ({
     // Interner-Chat-Zustand aus Sicht der angemeldeten Person (neu / wartet / ruhig)
     const chatState = getStaffChatState(ticket, currentUser?.name ?? null);
 
+    const priorityDotColor = (isEmergency || ticket.priority === Priority.Hoch) ? 'red' : ticket.priority === Priority.Mittel ? 'amber' : 'green';
+    const priorityTextColor = (isEmergency || ticket.priority === Priority.Hoch) ? '#A32D2D' : ticket.priority === Priority.Mittel ? '#854F0B' : '#3B6D11';
+    const dueDotColor = (dueDateUrgency === 'overdue' || dueDateUrgency === 'today') ? 'red' : dueDateUrgency === 'soon' ? 'amber' : 'gray';
+    const dueTextColor = (dueDateUrgency === 'overdue' || dueDateUrgency === 'today') ? '#A32D2D' : dueDateUrgency === 'soon' ? '#854F0B' : '#5F5E5A';
+    const statusDotColor = ticket.status === Status.InArbeit ? 'blue' : ticket.status === Status.Ueberfaellig ? 'red' : ticket.status === Status.Abgeschlossen ? 'green' : 'gray';
+    const statusTextColor = ticket.status === Status.InArbeit ? '#185FA5' : ticket.status === Status.Ueberfaellig ? '#A32D2D' : ticket.status === Status.Abgeschlossen ? '#3B6D11' : '#5F5E5A';
+
     const cardClasses = `ticket-card ${selectedTicket?.id === ticket.id ? 'selected' : ''} ${ticket.status === Status.Abgeschlossen ? 'status-done' : ''} ${isEmergency ? 'urgent-alert' : ''} ${isNewTicket ? 'card-is-new' : ''}`;
 
     return (
@@ -281,7 +288,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 /* ── Body ── */
                 .card-body { padding: 12px 14px 12px; }
                 .card-row1 { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 3px; }
-                .card-title { font-size: 13px; font-weight: 500; color: var(--text-primary); flex: 1; line-height: 1.35; margin: 0; }
+                .card-title { font-size: 13px; font-weight: 600; color: var(--text-primary); flex: 1; line-height: 1.35; margin: 0; }
                 .card-icons { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
                 .card-tnum { font-size: 10px; color: #999; white-space: nowrap; margin-top: 2px; }
                 .card-tnum-new {
@@ -349,15 +356,36 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .pill-due.today   { background: #FEF2F2; color: #B91C1C; border-color: #FECACA; }
                 .pill-due.overdue { background: #FCEBEB; color: #A32D2D; border-color: #F7C1C1; }
 
+                /* ── Meta-Zeile ── */
+                .card-meta {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr 1fr;
+                    padding: 5px 10px 8px;
+                    gap: 6px;
+                    -webkit-user-drag: none;
+                }
+                .card-meta-col {
+                    display: flex; flex-direction: column; align-items: center; gap: 3px;
+                    position: relative; cursor: pointer;
+                }
+                .meta-lbl { font-size: 9.5px; color: #999; letter-spacing: 0.02em; }
+                .meta-val { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; }
+                .meta-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+                .meta-dot-red   { background: #E24B4A; }
+                .meta-dot-amber { background: #E6A23C; }
+                .meta-dot-green { background: #8FBF4D; }
+                .meta-dot-blue  { background: #378ADD; }
+                .meta-dot-gray  { background: #B4B2A9; }
+                .meta-col-select { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+
                 /* ── Footer ── */
                 .card-footer {
                     background: #F5F6F7;
                     border-top: 1px solid #E5E5E5;
-                    padding: 8px 12px;
-                    display: grid;
-                    grid-template-columns: 1fr auto 1fr;
+                    padding: 7px 12px;
+                    display: flex;
                     align-items: center;
-                    gap: 6px;
+                    justify-content: space-between;
                     cursor: default; transition: background 0.12s;
                     -webkit-user-drag: none;
                 }
@@ -510,67 +538,75 @@ const TicketCard: React.FC<TicketCardProps> = ({
 
             </div>
 
-            {/* Footer: Avatar · Datum · Status-Wechsel */}
-            <div className="card-footer" onClick={() => onSelectTicket(ticket)}>
-
-                {/* Avatar + Status-Pfeil nebeneinander links */}
-                <div style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0 }}>
-                    <div className={`assignee-chip${!isAssigned ? ' assignee-chip--unassigned' : ''}`} onClick={e => e.stopPropagation()} title={isAssigned ? ticket.technician : 'Bearbeiter zuweisen'}>
-                        {isAssigned
-                            ? <span className="av" style={{ background: avColor.bg, color: avColor.text }}>{initials}</span>
-                            : <span className="av av-un"><i className="ti ti-plus" style={{ fontSize: 10 }} aria-hidden="true" /></span>
-                        }
-                        {isAutoAssigned && <span className="av-badge-a" title="Automatisch zugewiesen">A</span>}
-                        <i className="ti ti-chevron-down chev" aria-hidden="true" />
-                        <select value={ticket.technician} onChange={handleTechnicianSelectChange}>
-                            {technicianOptions.map((opt) => {
-                                if (opt === 'N/A') return <option key={opt} value={opt}>Nicht zugewiesen</option>;
-                                const u = technicians.find((t) => t.name === opt);
-                                const absent = u?.availability.status === AvailabilityStatus.OnLeave;
-                                return <option key={opt} value={opt} disabled={!!absent}>{displayNameShort(opt)}{absent ? ' (Abwesend)' : ''}</option>;
-                            })}
-                        </select>
+            {/* Meta-Zeile: Priorität | Fällig bis | Status */}
+            <div className="card-meta">
+                {/* Priorität */}
+                <div className="card-meta-col" onClick={e => e.stopPropagation()} title="Priorität ändern">
+                    <span className="meta-lbl">Priorität</span>
+                    <div className="meta-val">
+                        <div className={`meta-dot meta-dot-${priorityDotColor}`} />
+                        <span style={{ color: priorityTextColor }}>{isEmergency ? 'Notfall' : ticket.priority}</span>
                     </div>
-                    <div className="status-change-btn" onClick={e => e.stopPropagation()} title="Status ändern">
-                        <i className="ti ti-arrows-transfer-up" aria-hidden="true" />
-                        <select
-                            value={ticket.status !== Status.Ueberfaellig ? ticket.status : ''}
-                            onChange={handleStatusChange}
-                            onMouseDown={() => { lastSelectChangeRef.current = Date.now(); }}
-                        >
-                            <option value="" disabled hidden></option>
-                            {Object.values(Status).filter(s => s !== Status.Ueberfaellig).map(s => (
-                                <option key={s} value={s}>{s === Status.Abgeschlossen ? 'Abschließen' : s}</option>
-                            ))}
-                        </select>
-                    </div>
+                    <select className="meta-col-select" value={ticket.priority} onChange={handlePriorityChange} onMouseDown={() => { lastSelectChangeRef.current = Date.now(); }}>
+                        {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
                 </div>
-
-                {/* Datum Mitte */}
-                {canEditDate ? (
-                    <div className={`due-chip${dueDateUrgency !== 'normal' ? ` ${dueDateUrgency}` : ''}`} onClick={e => e.stopPropagation()} title="Fällig bis – zum Ändern klicken">
-                        <i className="ti ti-calendar" aria-hidden="true" style={{ pointerEvents: 'none' }} />
-                        <span style={{ pointerEvents: 'none' }}>{ticket.dueDate.slice(0,5)}.</span>
-                        <input
-                            ref={dateInputRef}
-                            type="date"
-                            value={toInputDate(ticket.dueDate)}
-                            onChange={handleDueDateChange}
-                            onClick={e => { e.stopPropagation(); try { (e.currentTarget as HTMLInputElement).showPicker(); } catch {} }}
-                            style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
-                        />
+                {/* Fällig bis */}
+                <div className="card-meta-col" onClick={e => e.stopPropagation()} title={canEditDate ? 'Fällig bis – zum Ändern klicken' : 'Fällig bis'}>
+                    <span className="meta-lbl">Fällig bis</span>
+                    <div className="meta-val">
+                        <div className={`meta-dot meta-dot-${dueDotColor}`} />
+                        <span style={{ color: dueTextColor }}>{ticket.dueDate.slice(0,5)}.</span>
                     </div>
-                ) : (
-                    <div className={`due-chip${dueDateUrgency !== 'normal' ? ` ${dueDateUrgency}` : ''}`} title="Fällig bis">
-                        <i className="ti ti-calendar" aria-hidden="true" />
-                        <span>{ticket.dueDate.slice(0,5)}.</span>
+                    {canEditDate && (
+                        <input ref={dateInputRef} type="date" className="meta-col-select"
+                            value={toInputDate(ticket.dueDate)} onChange={handleDueDateChange}
+                            onClick={e => { e.stopPropagation(); try { (e.currentTarget as HTMLInputElement).showPicker(); } catch {} }} />
+                    )}
+                </div>
+                {/* Status */}
+                <div className="card-meta-col" onClick={e => e.stopPropagation()} title="Status ändern">
+                    <span className="meta-lbl">Status</span>
+                    <div className="meta-val">
+                        <div className={`meta-dot meta-dot-${statusDotColor}`} />
+                        <span style={{ color: statusTextColor }}>{ticket.status}</span>
                     </div>
-                )}
+                    <select className="meta-col-select"
+                        value={ticket.status !== Status.Ueberfaellig ? ticket.status : ''}
+                        onChange={handleStatusChange}
+                        onMouseDown={() => { lastSelectChangeRef.current = Date.now(); }}>
+                        <option value="" disabled hidden></option>
+                        {Object.values(Status).filter(s => s !== Status.Ueberfaellig).map(s => (
+                            <option key={s} value={s}>{s === Status.Abgeschlossen ? 'Abschließen' : s}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
 
-                {/* Chat + Mail – ganz rechts */}
-                <div style={{ display:'flex', justifyContent:'flex-end', alignItems:'center', gap:6 }}>
+            {/* Footer: Mitarbeiter + Chat/Mail */}
+            <div className="card-footer" onClick={() => onSelectTicket(ticket)}>
+                <div className={`assignee-chip${!isAssigned ? ' assignee-chip--unassigned' : ''}`} onClick={e => e.stopPropagation()} title={isAssigned ? ticket.technician : 'Bearbeiter zuweisen'}>
+                    {isAssigned
+                        ? <span className="av" style={{ background: avColor.bg, color: avColor.text }}>{initials}</span>
+                        : <span className="av av-un"><i className="ti ti-plus" style={{ fontSize: 10 }} aria-hidden="true" /></span>
+                    }
+                    {isAutoAssigned && <span className="av-badge-a" title="Automatisch zugewiesen">A</span>}
+                    <span style={{ fontSize:11, fontWeight:500, color:'var(--text-primary)' }}>
+                        {isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}
+                    </span>
+                    <i className="ti ti-chevron-down chev" aria-hidden="true" />
+                    <select value={ticket.technician} onChange={handleTechnicianSelectChange}>
+                        {technicianOptions.map((opt) => {
+                            if (opt === 'N/A') return <option key={opt} value={opt}>Nicht zugewiesen</option>;
+                            const u = technicians.find((t) => t.name === opt);
+                            const absent = u?.availability.status === AvailabilityStatus.OnLeave;
+                            return <option key={opt} value={opt} disabled={!!absent}>{displayNameShort(opt)}{absent ? ' (Abwesend)' : ''}</option>;
+                        })}
+                    </select>
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                     {chatState !== 'none' && (
-                        <i className="ti ti-messages" aria-hidden="true" style={{ fontSize:15, color: chatState==='unread' ? '#6366f1' : chatState==='awaiting' ? '#4f46e5' : '#bbb' }} title="Interner Team-Chat" />
+                        <i className="ti ti-message" aria-hidden="true" style={{ fontSize:16, color: chatState==='unread' ? '#6366f1' : chatState==='awaiting' ? '#4f46e5' : '#bbb' }} title="Interner Team-Chat" />
                     )}
                     {ticket.hasNewNoteFromReporter ? (
                         <div className="mini-pill mini-pill--msg-unread" title="Neue Nachricht vom Melder">

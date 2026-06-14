@@ -218,6 +218,12 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
                   letter-spacing: 0.02em;
                   color: var(--text-primary);
               }
+              .column-title--offen        { color: #5F5E5A; }
+              .column-title--inarbeit     { color: #185FA5; }
+              .column-title--ueberfaellig { color: #A32D2D; }
+              [data-theme="dark"] .column-title--offen        { color: #b4b4b4; }
+              [data-theme="dark"] .column-title--inarbeit     { color: #6ca8e8; }
+              [data-theme="dark"] .column-title--ueberfaellig { color: #f08a8a; }
               .column-count {
                   background: transparent;
                   color: var(--text-secondary);
@@ -312,8 +318,10 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
               }
           `}</style>
           <div className={`column-header head-${statusKey}`}>
-              <h2 className="column-title">{title}</h2>
+              <span className={`column-dot count-${statusKey}`}>●</span>
+              <h2 className={`column-title column-title--${statusKey}`}>{title}</h2>
               <span className={`column-count count-${statusKey}`}>{tickets.length}</span>
+              <div className="column-header-line" />
           </div>
           <div className="column-body-wrap">
               <div className="column-body" ref={columnBodyRef}>
