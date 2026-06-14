@@ -3390,7 +3390,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
           </div>
         )}
         {(currentView === 'dashboard' || currentView === 'tech-dashboard') && (
-          <div style={{ display: 'flex', gap: 12, marginTop: 12, marginBottom: 12, maxWidth: 1600, width: '100%', marginLeft: 'auto', marginRight: 'auto', boxSizing: 'border-box' }}>
+          <div style={{ display: 'flex', gap: 12, marginTop: 12, marginBottom: 12, maxWidth: 2000, width: '100%', marginLeft: 'auto', marginRight: 'auto', boxSizing: 'border-box' }}>
             {/* Linke Alert-Karte */}
             {currentView === 'dashboard' && newMeldungenCount > 0 && (
               <div
@@ -3471,7 +3471,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
           <div className="kanban-workbench">
             <style>{`
               .kanban-workbench {
-                max-width: 1600px;
+                max-width: 2000px;
                 width: 100%;
                 margin: 1.25rem auto 0;
                 box-sizing: border-box;
