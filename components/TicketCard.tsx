@@ -286,7 +286,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 /* .ticket-card.selected — kein extra Indikator, Sidebar reicht als Feedback */
 
                 /* ── Body ── */
-                .card-body { padding: 12px 14px 12px; }
+                .card-body { padding: 10px 14px 6px; }
                 .card-row1 { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 3px; }
                 .card-title { font-size: 13px; font-weight: 600; color: var(--text-primary); flex: 1; line-height: 1.35; margin: 0; }
                 .card-icons { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
@@ -360,7 +360,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .card-meta {
                     display: grid;
                     grid-template-columns: 1fr 1fr 1fr;
-                    padding: 5px 10px 8px;
+                    padding: 4px 10px 7px;
                     gap: 6px;
                     -webkit-user-drag: none;
                 }

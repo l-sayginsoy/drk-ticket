@@ -188,10 +188,8 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
                   margin: -12px -10px 0 -10px;
                   padding: 11px 14px;
                   border-radius: 11px 11px 0 0;
+                  background: transparent;
               }
-              .column-header.head-offen        { background: rgba(120,120,120,0.10); }
-              .column-header.head-inarbeit     { background: rgba(55,138,221,0.13); }
-              .column-header.head-ueberfaellig { background: rgba(226,75,74,0.12); }
               .column-title.head-offen        { color: #5F5E5A; }
               .column-title.head-inarbeit     { color: #185FA5; }
               .column-title.head-ueberfaellig { color: #A32D2D; }
@@ -204,7 +202,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
                   background: var(--border);
               }
               .column-dot {
-                  font-size: 10px;
+                  font-size: 14px;
                   line-height: 1;
                   flex-shrink: 0;
               }
@@ -218,16 +216,10 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
                   letter-spacing: 0.02em;
                   color: var(--text-primary);
               }
-              .column-title--offen        { color: #5F5E5A; }
-              .column-title--inarbeit     { color: #185FA5; }
-              .column-title--ueberfaellig { color: #A32D2D; }
-              [data-theme="dark"] .column-title--offen        { color: #b4b4b4; }
-              [data-theme="dark"] .column-title--inarbeit     { color: #6ca8e8; }
-              [data-theme="dark"] .column-title--ueberfaellig { color: #f08a8a; }
               .column-count {
                   background: transparent;
                   color: var(--text-secondary);
-                  font-size: 15px;
+                  font-size: 1.0625rem;
                   font-weight: 700;
                   letter-spacing: 0.02em;
                   padding: 0;
