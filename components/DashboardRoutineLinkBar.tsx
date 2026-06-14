@@ -78,7 +78,7 @@ const DashboardRoutineLinkBar: React.FC<DashboardRoutineLinkBarProps> = ({
       ? `${openCount} Serienaufträge heute offen`
       : 'Alle fälligen Serienaufträge heute erledigt';
 
-  const taskNamesLine = openCount > 0 && openTaskTitles.length > 0 ? openTaskTitles.join(' · ') : '';
+  const taskNamesLine = openCount > 0 && openTaskTitles.length > 0 ? openTaskTitles : [];
 
   const styles = (
     <style>{`
@@ -93,9 +93,9 @@ const DashboardRoutineLinkBar: React.FC<DashboardRoutineLinkBarProps> = ({
         border-radius: 10px;
         border: 1px solid ${ROUTINE_TEAL.border};
         background: ${ROUTINE_TEAL.bg};
-        color: ${ROUTINE_TEAL.dark};
+        color: #1a1a1a;
         font-family: inherit;
-        font-size: 15px;
+        font-size: 17px;
         font-weight: 700;
         letter-spacing: 0.02em;
         cursor: pointer;
@@ -133,9 +133,9 @@ const DashboardRoutineLinkBar: React.FC<DashboardRoutineLinkBarProps> = ({
       }
       .dash-routine-link-bar__title { line-height: 1.2; }
       .dash-routine-link-bar__sub {
-        font-size: 11px;
+        font-size: 13px;
         font-weight: 400;
-        color: #0f6e56;
+        color: #444;
         line-height: 1.3;
         letter-spacing: 0.01em;
       }
@@ -151,7 +151,7 @@ const DashboardRoutineLinkBar: React.FC<DashboardRoutineLinkBarProps> = ({
       style={inline ? { flex: '1 1 0%', minWidth: 0 } : undefined}
       onClick={onOpenRoutines}
       aria-label={
-        taskNamesLine ? `${label}. ${taskNamesLine}. Zu Serienaufträge wechseln.` : `${label}. Zu Serienaufträge wechseln.`
+        taskNamesLine.length > 0 ? `${label}. ${taskNamesLine.join(', ')}. Zu Serienaufträge wechseln.` : `${label}. Zu Serienaufträge wechseln.`
       }
     >
       <span className="dash-routine-link-bar__icon" aria-hidden>
@@ -159,7 +159,16 @@ const DashboardRoutineLinkBar: React.FC<DashboardRoutineLinkBarProps> = ({
       </span>
       <span className="dash-routine-link-bar__text">
         <span className="dash-routine-link-bar__title">{label}</span>
-        {taskNamesLine ? <span className="dash-routine-link-bar__sub">{taskNamesLine}</span> : null}
+        {taskNamesLine.length > 0 ? (
+          <span className="dash-routine-link-bar__sub">
+            {taskNamesLine.map((name, i) => (
+              <span key={i}>
+                {i > 0 && <span style={{ color: '#bbb', margin: '0 6px' }}>•</span>}
+                {name}
+              </span>
+            ))}
+          </span>
+        ) : null}
       </span>
       <span className="dash-routine-link-bar__chevron" aria-hidden>
         <i className="ti ti-chevron-right" />
