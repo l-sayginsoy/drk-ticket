@@ -92,8 +92,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         // Admin — Übersicht
         { type: 'view', viewName: 'dashboard', icon: <LayoutDashboardIcon />, label: 'Dashboard', requiredRoles: [Role.Admin], section: 'uebersicht' },
         { type: 'view', viewName: 'tickets', icon: <i className="ti ti-menu-2" aria-hidden />, label: 'Listenansicht', requiredRoles: [Role.Admin], section: 'uebersicht' },
-        { type: 'view', viewName: 'erledigt', icon: <i className="ti ti-clock" aria-hidden />, label: 'Abgeschlossen', requiredRoles: [Role.Admin], section: 'uebersicht' },
         { type: 'view', viewName: 'zurueckgestellt', icon: <i className="ti ti-parking" aria-hidden />, label: 'Zurückgestellt', requiredRoles: [Role.Admin], section: 'uebersicht' },
+        { type: 'view', viewName: 'erledigt', icon: <i className="ti ti-clock" aria-hidden />, label: 'Abgeschlossen', requiredRoles: [Role.Admin], section: 'uebersicht' },
         { type: 'view', viewName: 'routines', icon: <i className="ti ti-repeat" aria-hidden />, label: 'Serienaufträge', requiredRoles: [Role.Admin], section: 'uebersicht' },
         { type: 'view', viewName: 'routine-nachweis', icon: <CalendarIcon />, label: 'Serien‑Nachweis', requiredRoles: [Role.Admin], section: 'uebersicht' },
         // Admin — Verwaltung
@@ -104,8 +104,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         // Bearbeiter — Übersicht
         { type: 'view', viewName: 'tech-dashboard', icon: <LayoutDashboardIcon />, label: 'Dashboard', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
         { type: 'view', viewName: 'tickets', icon: <i className="ti ti-menu-2" aria-hidden />, label: 'Listenansicht', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
-        { type: 'view', viewName: 'erledigt', icon: <i className="ti ti-clock" aria-hidden />, label: 'Abgeschlossen', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
         { type: 'view', viewName: 'zurueckgestellt', icon: <i className="ti ti-parking" aria-hidden />, label: 'Zurückgestellt', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
+        { type: 'view', viewName: 'erledigt', icon: <i className="ti ti-clock" aria-hidden />, label: 'Abgeschlossen', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
         { type: 'view', viewName: 'routines', icon: <i className="ti ti-repeat" aria-hidden />, label: 'Serienaufträge', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
         { type: 'view', viewName: 'routine-nachweis', icon: <CalendarIcon />, label: 'Serien‑Nachweis', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
 
