@@ -3471,9 +3471,9 @@ const deleteTicketFromFirebase = (ticketId: string) => {
           <div className="kanban-workbench">
             <style>{`
               .kanban-workbench {
-                max-width: 1800px;
+                max-width: 1300px;
                 width: 100%;
-                margin-top: 1.25rem;
+                margin: 1.25rem auto 0;
                 box-sizing: border-box;
                 background: transparent;
               }
