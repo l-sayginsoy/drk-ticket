@@ -389,6 +389,15 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .card-menu select { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
                 .card-due { margin-top: 9px; }
                 .footer-right { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+                .status-footer-chip {
+                    display: inline-flex; align-items: center;
+                    font-size: 10.5px; font-weight: 600; border-radius: 999px;
+                    padding: 3px 9px; position: relative;
+                    cursor: pointer; white-space: nowrap; flex-shrink: 0;
+                    border: 0.5px solid;
+                }
+                .status-footer-chip span { pointer-events: none; }
+                .status-footer-chip select { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; z-index: 1; }
 
                 .assignee-chip {
                     display: inline-flex; align-items: center; gap: 5px;
@@ -470,19 +479,6 @@ const TicketCard: React.FC<TicketCardProps> = ({
                         {ticket.hasNewNoteFromReporter && <span className="new-note-indicator" title="Neue Nachricht vom Melder" />}
                         {chatState === 'unread' && <span className="new-staff-msg-indicator" title="Neue interne Nachricht" />}
                         <span className={isNewTicket ? 'card-tnum-new' : 'card-tnum'} title={isNewTicket ? 'Neues Ticket' : ''}>#{ticket.id}</span>
-                        <div className="card-menu" onClick={e => e.stopPropagation()} title="Status ändern">
-                            <i className="ti ti-dots" aria-hidden="true" />
-                            <select
-                                value={ticket.status !== Status.Ueberfaellig ? ticket.status : ''}
-                                onChange={handleStatusChange}
-                                onMouseDown={() => { lastSelectChangeRef.current = Date.now(); }}
-                            >
-                                <option value="" disabled hidden></option>
-                                {Object.values(Status).filter(s => s !== Status.Ueberfaellig).map(s => (
-                                    <option key={s} value={s}>{s === Status.Abgeschlossen ? 'Abschließen' : s}</option>
-                                ))}
-                            </select>
-                        </div>
                     </div>
                 </div>
 
@@ -497,25 +493,35 @@ const TicketCard: React.FC<TicketCardProps> = ({
 
             </div>
 
-            {/* Footer: Bearbeiter-Avatar (links) · Fällig (Mitte) · Chat + Nachrichten (rechts) */}
+            {/* Footer: Status (links) · Fällig (Mitte) · Avatar + Icons (rechts) */}
             <div className="card-footer" style={{ justifyContent: 'space-between' }} onClick={() => onSelectTicket(ticket)}>
-                <div className={`assignee-chip${!isAssigned ? ' assignee-chip--unassigned' : ''}`} onClick={e => e.stopPropagation()} title={isAssigned ? ticket.technician : 'Bearbeiter zuweisen'}>
-                    {isAssigned
-                        ? <span className="av" style={{ background: avColor.bg, color: avColor.text }}>{initials}</span>
-                        : <span className="av av-un"><i className="ti ti-plus" style={{ fontSize: 10 }} aria-hidden="true" /></span>
-                    }
-                    <i className="ti ti-chevron-down chev" aria-hidden="true" />
-                    {isAutoAssigned && <span className="av-badge-a" title="Automatisch zugewiesen">A</span>}
-                    <select value={ticket.technician} onChange={handleTechnicianSelectChange}>
-                        {technicianOptions.map((opt) => {
-                            if (opt === 'N/A') return <option key={opt} value={opt}>Nicht zugewiesen</option>;
-                            const u = technicians.find((t) => t.name === opt);
-                            const absent = u?.availability.status === AvailabilityStatus.OnLeave;
-                            return <option key={opt} value={opt} disabled={!!absent}>{displayNameShort(opt)}{absent ? ' (Abwesend)' : ''}</option>;
-                        })}
+
+                {/* Status-Chip – klickbar */}
+                <div
+                    className={`status-footer-chip ${statusPillClass}`}
+                    onClick={e => e.stopPropagation()}
+                    title="Status ändern"
+                >
+                    <span>{
+                        ticket.status === Status.Abgeschlossen ? 'Erledigt' :
+                        ticket.status === Status.Zurueckgestellt ? 'Geparkt' :
+                        ticket.status === Status.InArbeit ? 'In Arbeit' :
+                        ticket.status === Status.Ueberfaellig ? 'Überfällig' :
+                        'Offen'
+                    }</span>
+                    <select
+                        value={ticket.status !== Status.Ueberfaellig ? ticket.status : ''}
+                        onChange={handleStatusChange}
+                        onMouseDown={() => { lastSelectChangeRef.current = Date.now(); }}
+                    >
+                        <option value="" disabled hidden></option>
+                        {Object.values(Status).filter(s => s !== Status.Ueberfaellig).map(s => (
+                            <option key={s} value={s}>{s === Status.Abgeschlossen ? 'Abschließen' : s}</option>
+                        ))}
                     </select>
                 </div>
 
+                {/* Datum */}
                 {canEditDate ? (
                     <div className={`due-chip${dueDateUrgency !== 'normal' ? ` ${dueDateUrgency}` : ''}`} onClick={e => e.stopPropagation()} title="Fällig bis – zum Ändern klicken">
                         <i className="ti ti-calendar" aria-hidden="true" style={{ pointerEvents: 'none' }} />
@@ -536,7 +542,24 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     </div>
                 )}
 
+                {/* Avatar + Chat + Nachrichten */}
                 <div className="footer-right">
+                    <div className={`assignee-chip${!isAssigned ? ' assignee-chip--unassigned' : ''}`} onClick={e => e.stopPropagation()} title={isAssigned ? ticket.technician : 'Bearbeiter zuweisen'}>
+                        {isAssigned
+                            ? <span className="av" style={{ background: avColor.bg, color: avColor.text }}>{initials}</span>
+                            : <span className="av av-un"><i className="ti ti-plus" style={{ fontSize: 10 }} aria-hidden="true" /></span>
+                        }
+                        <i className="ti ti-chevron-down chev" aria-hidden="true" />
+                        {isAutoAssigned && <span className="av-badge-a" title="Automatisch zugewiesen">A</span>}
+                        <select value={ticket.technician} onChange={handleTechnicianSelectChange}>
+                            {technicianOptions.map((opt) => {
+                                if (opt === 'N/A') return <option key={opt} value={opt}>Nicht zugewiesen</option>;
+                                const u = technicians.find((t) => t.name === opt);
+                                const absent = u?.availability.status === AvailabilityStatus.OnLeave;
+                                return <option key={opt} value={opt} disabled={!!absent}>{displayNameShort(opt)}{absent ? ' (Abwesend)' : ''}</option>;
+                            })}
+                        </select>
+                    </div>
                     {chatState !== 'none' && (
                         <div className={`mini-pill mini-pill--staff-${chatState}`} title="Interner Team-Chat (nur Mitarbeiter)">
                             <i className="ti ti-messages" aria-hidden="true" />
