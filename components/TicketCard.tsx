@@ -309,7 +309,17 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 }
 
                 .card-loc { font-size: 12px; color: #555; font-weight: 500; margin-bottom: 3px; }
-                .card-who { display: flex; align-items: center; gap: 3px; font-size: 11px; color: #666; margin-bottom: 0; flex-wrap: nowrap; }
+                .card-who { display: flex; align-items: center; justify-content: space-between; gap: 3px; font-size: 11px; color: #666; margin-bottom: 0; }
+                .status-change-btn {
+                    position: relative; display: inline-flex; align-items: center; justify-content: center;
+                    width: 24px; height: 24px; border-radius: 7px;
+                    border: 1px solid var(--border); color: #999;
+                    cursor: pointer; flex-shrink: 0; transition: background 0.12s, color 0.12s;
+                }
+                .status-change-btn:hover { background: var(--bg-tertiary); color: #444; }
+                [data-theme="dark"] .status-change-btn:hover { background: rgba(255,255,255,0.08); color: #ddd; }
+                .status-change-btn i { font-size: 13px; pointer-events: none; }
+                .status-change-btn select { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
                 .card-who i { font-size: 11px; color: #999; flex-shrink: 0; }
 
                 /* ── Pills ── */
@@ -344,7 +354,10 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     background: #F5F6F7;
                     border-top: 1px solid #E5E5E5;
                     padding: 8px 12px;
-                    display: flex; align-items: center; gap: 7px;
+                    display: grid;
+                    grid-template-columns: 1fr auto 1fr;
+                    align-items: center;
+                    gap: 6px;
                     cursor: default; transition: background 0.12s;
                     -webkit-user-drag: none;
                 }
@@ -485,43 +498,59 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 {/* Zeile 2: Standort */}
                 <div className="card-loc">{ticket.area} · {ticket.location}</div>
 
-                {/* Zeile 3: Melder + Erfassungsdatum */}
+                {/* Zeile 3: Melder + Icons rechts auf gleicher Höhe */}
                 <div className="card-who">
-                    <i className="ti ti-user" aria-hidden="true" />
-                    <span>{ticket.reporter} · {ticket.entryDate.slice(0,5)}.{ticket.entryTime ? ` · ${ticket.entryTime}` : ''}</span>
+                    <div style={{ display:'flex', alignItems:'center', gap:3, minWidth:0, overflow:'hidden' }}>
+                        <i className="ti ti-user" aria-hidden="true" />
+                        <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                            {ticket.reporter} · {ticket.entryDate.slice(0,5)}.{ticket.entryTime ? ` · ${ticket.entryTime}` : ''}
+                        </span>
+                    </div>
+                    <div style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0, marginLeft:6 }}>
+                        {chatState !== 'none' && (
+                            <i className="ti ti-messages" aria-hidden="true" style={{ fontSize:16, color: chatState==='unread' ? '#6366f1' : chatState==='awaiting' ? '#4f46e5' : '#bbb' }} title="Interner Team-Chat" />
+                        )}
+                    </div>
                 </div>
 
             </div>
 
-            {/* Footer: Status (links) · Fällig (Mitte) · Avatar + Icons (rechts) */}
-            <div className="card-footer" style={{ justifyContent: 'space-between' }} onClick={() => onSelectTicket(ticket)}>
+            {/* Footer: Avatar · Datum · Status-Wechsel */}
+            <div className="card-footer" onClick={() => onSelectTicket(ticket)}>
 
-                {/* Status-Chip – klickbar */}
-                <div
-                    className={`status-footer-chip ${statusPillClass}`}
-                    onClick={e => e.stopPropagation()}
-                    title="Status ändern"
-                >
-                    <span>{
-                        ticket.status === Status.Abgeschlossen ? 'Erledigt' :
-                        ticket.status === Status.Zurueckgestellt ? 'Geparkt' :
-                        ticket.status === Status.InArbeit ? 'In Arbeit' :
-                        ticket.status === Status.Ueberfaellig ? 'Überfällig' :
-                        'Offen'
-                    }</span>
-                    <select
-                        value={ticket.status !== Status.Ueberfaellig ? ticket.status : ''}
-                        onChange={handleStatusChange}
-                        onMouseDown={() => { lastSelectChangeRef.current = Date.now(); }}
-                    >
-                        <option value="" disabled hidden></option>
-                        {Object.values(Status).filter(s => s !== Status.Ueberfaellig).map(s => (
-                            <option key={s} value={s}>{s === Status.Abgeschlossen ? 'Abschließen' : s}</option>
-                        ))}
-                    </select>
+                {/* Avatar + Status-Pfeil nebeneinander links */}
+                <div style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0 }}>
+                    <div className={`assignee-chip${!isAssigned ? ' assignee-chip--unassigned' : ''}`} onClick={e => e.stopPropagation()} title={isAssigned ? ticket.technician : 'Bearbeiter zuweisen'}>
+                        {isAssigned
+                            ? <span className="av" style={{ background: avColor.bg, color: avColor.text }}>{initials}</span>
+                            : <span className="av av-un"><i className="ti ti-plus" style={{ fontSize: 10 }} aria-hidden="true" /></span>
+                        }
+                        {isAutoAssigned && <span className="av-badge-a" title="Automatisch zugewiesen">A</span>}
+                        <select value={ticket.technician} onChange={handleTechnicianSelectChange}>
+                            {technicianOptions.map((opt) => {
+                                if (opt === 'N/A') return <option key={opt} value={opt}>Nicht zugewiesen</option>;
+                                const u = technicians.find((t) => t.name === opt);
+                                const absent = u?.availability.status === AvailabilityStatus.OnLeave;
+                                return <option key={opt} value={opt} disabled={!!absent}>{displayNameShort(opt)}{absent ? ' (Abwesend)' : ''}</option>;
+                            })}
+                        </select>
+                    </div>
+                    <div className="status-change-btn" onClick={e => e.stopPropagation()} title="Status ändern">
+                        <i className="ti ti-arrows-transfer-up" aria-hidden="true" />
+                        <select
+                            value={ticket.status !== Status.Ueberfaellig ? ticket.status : ''}
+                            onChange={handleStatusChange}
+                            onMouseDown={() => { lastSelectChangeRef.current = Date.now(); }}
+                        >
+                            <option value="" disabled hidden></option>
+                            {Object.values(Status).filter(s => s !== Status.Ueberfaellig).map(s => (
+                                <option key={s} value={s}>{s === Status.Abgeschlossen ? 'Abschließen' : s}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
 
-                {/* Datum */}
+                {/* Datum Mitte */}
                 {canEditDate ? (
                     <div className={`due-chip${dueDateUrgency !== 'normal' ? ` ${dueDateUrgency}` : ''}`} onClick={e => e.stopPropagation()} title="Fällig bis – zum Ändern klicken">
                         <i className="ti ti-calendar" aria-hidden="true" style={{ pointerEvents: 'none' }} />
@@ -542,13 +571,8 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     </div>
                 )}
 
-                {/* Icons + Avatar (Avatar immer ganz rechts) */}
-                <div className="footer-right">
-                    {chatState !== 'none' && (
-                        <div className={`mini-pill mini-pill--staff-${chatState}`} title="Interner Team-Chat (nur Mitarbeiter)">
-                            <i className="ti ti-messages" aria-hidden="true" />
-                        </div>
-                    )}
+                {/* Nachrichten-Pille – ganz rechts */}
+                <div style={{ display:'flex', justifyContent:'flex-end' }}>
                     {ticket.hasNewNoteFromReporter ? (
                         <div className="mini-pill mini-pill--msg-unread" title="Neue Nachricht vom Melder">
                             <i className="ti ti-mail" aria-hidden="true" />
@@ -560,21 +584,6 @@ const TicketCard: React.FC<TicketCardProps> = ({
                             <span>{ticket.notes!.length}</span>
                         </div>
                     ) : null}
-                    <div className={`assignee-chip${!isAssigned ? ' assignee-chip--unassigned' : ''}`} onClick={e => e.stopPropagation()} title={isAssigned ? ticket.technician : 'Bearbeiter zuweisen'}>
-                        {isAssigned
-                            ? <span className="av" style={{ background: avColor.bg, color: avColor.text }}>{initials}</span>
-                            : <span className="av av-un"><i className="ti ti-plus" style={{ fontSize: 10 }} aria-hidden="true" /></span>
-                        }
-                        {isAutoAssigned && <span className="av-badge-a" title="Automatisch zugewiesen">A</span>}
-                        <select value={ticket.technician} onChange={handleTechnicianSelectChange}>
-                            {technicianOptions.map((opt) => {
-                                if (opt === 'N/A') return <option key={opt} value={opt}>Nicht zugewiesen</option>;
-                                const u = technicians.find((t) => t.name === opt);
-                                const absent = u?.availability.status === AvailabilityStatus.OnLeave;
-                                return <option key={opt} value={opt} disabled={!!absent}>{displayNameShort(opt)}{absent ? ' (Abwesend)' : ''}</option>;
-                            })}
-                        </select>
-                    </div>
                 </div>
             </div>
         </div>
