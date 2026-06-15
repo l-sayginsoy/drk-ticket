@@ -3354,39 +3354,87 @@ const deleteTicketFromFirebase = (ticketId: string) => {
             </span>
           </div>
         )}
-        {/* Vergessene Serienaufträge Banner */}
+        {/* Vergessene Serienaufträge – prominenter Warnblock (bleibt stehen bis erledigt) */}
         {missedRoutinesSinceStart.length > 0 && (
           <div
             role="alert"
             style={{
               marginTop: 12,
-              marginBottom: 4,
-              padding: '10px 14px',
-              borderRadius: 10,
-              border: '1px solid rgba(220, 38, 38, 0.35)',
-              background: 'rgba(220, 38, 38, 0.08)',
-              color: 'var(--text-primary)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              fontWeight: 700,
-              fontSize: 14,
-              cursor: 'pointer',
+              marginBottom: 8,
+              maxWidth: 2400,
+              width: '100%',
+              marginLeft: 'auto',
+              marginRight: 'auto',
+              boxSizing: 'border-box',
+              borderRadius: 12,
+              border: '1.5px solid rgba(220, 38, 38, 0.45)',
+              background: 'rgba(220, 38, 38, 0.06)',
+              overflow: 'hidden',
+              boxShadow: '0 1px 3px rgba(220,38,38,0.10)',
             }}
-            onClick={() => changeView('routines')}
           >
-            <span style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 8, background: 'rgba(220,38,38,0.9)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-              <i className="ti ti-alert-triangle" style={{ fontSize: 18 }} aria-hidden="true" />
-            </span>
-            <span style={{ flex: 1, minWidth: 0 }}>
-              {missedRoutinesSinceStart.length === 1
-                ? '1 Serienauftrag wurde nicht abgeschlossen'
-                : `${missedRoutinesSinceStart.length} Serienaufträge wurden nicht abgeschlossen`}
-              <span style={{ fontWeight: 400, marginLeft: 8, opacity: 0.75 }}>— Bitte prüfen</span>
-            </span>
-            <span style={{ flexShrink: 0, opacity: 0.8 }}>
-              <i className="ti ti-chevron-right" style={{ fontSize: 20 }} aria-hidden="true" />
-            </span>
+            <style>{`
+              .missed-routine-row { transition: background 0.12s ease; }
+              .missed-routine-row:hover { background: rgba(220,38,38,0.09); }
+            `}</style>
+            {/* Kopfzeile */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'rgba(220,38,38,0.10)', borderBottom: '1px solid rgba(220,38,38,0.18)' }}>
+              <span style={{ flexShrink: 0, width: 38, height: 38, borderRadius: 9, background: 'rgba(220,38,38,0.95)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                <i className="ti ti-alert-triangle" style={{ fontSize: 21 }} aria-hidden="true" />
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 800, fontSize: 16, color: '#9B1C1C', letterSpacing: '0.01em' }}>
+                  {missedRoutinesSinceStart.length === 1
+                    ? '1 Serienauftrag wurde vergessen'
+                    : `${missedRoutinesSinceStart.length} Serienaufträge wurden vergessen`}
+                </div>
+                <div style={{ fontWeight: 500, fontSize: 12.5, color: '#7A2020' }}>
+                  Nicht rechtzeitig erledigt – bitte nachholen oder prüfen.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => changeView('routines')}
+                style={{ flexShrink: 0, background: 'rgba(220,38,38,0.95)', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 13px', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                Alle ansehen <i className="ti ti-chevron-right" style={{ fontSize: 16 }} aria-hidden="true" />
+              </button>
+            </div>
+            {/* Liste der vergessenen Aufträge */}
+            <div>
+              {missedRoutinesSinceStart.slice(0, 6).map((t, i) => (
+                <div
+                  key={t.id}
+                  className="missed-routine-row"
+                  onClick={() => setSelectedTicket(t)}
+                  title="Öffnen"
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', cursor: 'pointer', borderTop: i === 0 ? 'none' : '1px solid rgba(220,38,38,0.10)' }}
+                >
+                  <i className="ti ti-repeat" style={{ fontSize: 16, color: '#B91C1C', flexShrink: 0 }} aria-hidden="true" />
+                  <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, minWidth: 0 }}>
+                    {t.title}
+                  </span>
+                  {t.area ? <span style={{ fontSize: 12.5, color: 'var(--text-muted)', flexShrink: 0, whiteSpace: 'nowrap' }}>{t.area}</span> : null}
+                  <span style={{ fontSize: 12.5, fontWeight: 700, color: '#B91C1C', flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+                    <i className="ti ti-calendar" style={{ fontSize: 14 }} aria-hidden="true" />
+                    fällig war {t.dueDate}
+                  </span>
+                  {t.technician && t.technician !== 'N/A' ? (
+                    <span style={{ fontSize: 12.5, color: 'var(--text-secondary)', flexShrink: 0, whiteSpace: 'nowrap' }}>· {displayNameShort(t.technician)}</span>
+                  ) : null}
+                  <i className="ti ti-chevron-right" style={{ fontSize: 15, color: 'var(--text-muted)', flexShrink: 0 }} aria-hidden="true" />
+                </div>
+              ))}
+              {missedRoutinesSinceStart.length > 6 && (
+                <div
+                  className="missed-routine-row"
+                  onClick={() => changeView('routines')}
+                  style={{ padding: '10px 16px', borderTop: '1px solid rgba(220,38,38,0.10)', fontSize: 13, fontWeight: 700, color: '#9B1C1C', cursor: 'pointer' }}
+                >
+                  und {missedRoutinesSinceStart.length - 6} weitere … alle ansehen
+                </div>
+              )}
+            </div>
           </div>
         )}
         {(currentView === 'dashboard' || currentView === 'tech-dashboard') && (
