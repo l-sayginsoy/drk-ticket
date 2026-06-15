@@ -502,6 +502,43 @@ export default function RoutineNachweisView({
           </div>
         </div>
 
+        {/* Pro-Person-Auswertung: wer hat wie viel erledigt (sichtbare Routinen, dieses Jahr) */}
+        {(() => {
+          const visIds = new Set(visibleSchedules.map((s) => s.id));
+          const counts = new Map<string, number>();
+          (completions || []).forEach((c) => {
+            if (!visIds.has(c.scheduleId)) return;
+            if (!c.date.startsWith(String(year))) return;
+            counts.set(c.completedBy, (counts.get(c.completedBy) || 0) + 1);
+          });
+          const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+          if (ranked.length === 0) return null;
+          const max = ranked[0][1] || 1;
+          const total = ranked.reduce((s, [, n]) => s + n, 0);
+          return (
+            <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
+                <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>Erledigt nach Person · {year}</h3>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{total} Erledigungen gesamt</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                {ranked.map(([name, n]) => (
+                  <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ width: 130, fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={name}>{displayNameShort(name)}</span>
+                    <div style={{ flex: 1, height: 16, background: 'var(--bg-tertiary)', borderRadius: 5, overflow: 'hidden' }}>
+                      <div style={{ width: `${Math.round((n / max) * 100)}%`, height: '100%', background: ROUTINE_TEAL.accent, borderRadius: 5 }} />
+                    </div>
+                    <span style={{ width: 32, textAlign: 'right', fontSize: '0.82rem', fontWeight: 700, color: ROUTINE_TEAL.dark }}>{n}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 8 }}>
+                Zählt erledigte Serientermine pro Person (sichtbare Aufgaben, {year}).
+              </div>
+            </div>
+          );
+        })()}
+
         {visibleSchedules.length === 0 ? (
           <div style={{ color: 'var(--text-muted)', padding: '1rem 0', textAlign: 'center' }}>
             Keine Serienaufträge sichtbar.
