@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Role, RoutineDayCompletion, RoutineSchedule, User } from '../types';
-import { getDueDatesInYear, isScheduleVisibleForUser, localISODate } from '../utils/routineHelpers';
+import { getDueDatesInYear, getRoutineAssigneeDisplayName, getRoutinePool, isScheduleVisibleForUser, localISODate } from '../utils/routineHelpers';
 import { ROUTINE_AMBER, ROUTINE_TEAL } from '../utils/routineUiPalette';
 import { displayNameShort } from '../utils/displayNames';
 
@@ -97,6 +97,9 @@ export default function RoutineNachweisView({
     return matches.find((c) => c.completedBy === personFilter);
   };
 
+  // Eigenständiger Hover-Tooltip: zeigt sofort, WER erledigt hat (+ wann) bzw. wer zuständig ist/war.
+  const [hoverTip, setHoverTip] = useState<{ x: number; y: number; lines: string[]; tone: 'done' | 'missed' | 'today' | 'future' } | null>(null);
+
   const dueByScheduleId = useMemo(() => {
     const map = new Map<string, string[]>();
     visibleSchedules.forEach((sch) => {
@@ -107,6 +110,30 @@ export default function RoutineNachweisView({
 
   return (
     <div style={{ maxWidth: 1800 }}>
+      {hoverTip && (
+        <div
+          style={{
+            position: 'fixed',
+            left: Math.min(hoverTip.x + 14, (typeof window !== 'undefined' ? window.innerWidth : 99999) - 240),
+            top: hoverTip.y + 16,
+            zIndex: 10000,
+            pointerEvents: 'none',
+            background: '#1f2430',
+            color: '#fff',
+            padding: '7px 11px',
+            borderRadius: 8,
+            fontSize: 12,
+            lineHeight: 1.4,
+            boxShadow: '0 6px 20px rgba(0,0,0,0.28)',
+            maxWidth: 240,
+            borderLeft: `3px solid ${hoverTip.tone === 'done' ? '#34c759' : hoverTip.tone === 'missed' ? '#e0992f' : hoverTip.tone === 'today' ? '#3b82f6' : '#9aa0aa'}`,
+          }}
+        >
+          {hoverTip.lines.map((l, i) => (
+            <div key={i} style={{ fontWeight: i === 0 ? 700 : 400, opacity: i === 0 ? 1 : 0.85 }}>{l}</div>
+          ))}
+        </div>
+      )}
       <div className="nachweis-view-shell">
       <style>{`
         .nachweis-view-shell {
@@ -408,6 +435,11 @@ export default function RoutineNachweisView({
             const pct = dueList.length > 0 ? Math.round((doneCount / dueList.length) * 100) : 0;
             const missedPct = dueList.length > 0 ? Math.round((missedCount / dueList.length) * 100) : 0;
 
+            // Verantwortliche Person nur bei FESTER Zuweisung sicher bestimmbar (Rotation = für
+            // vergangene Tage nicht zuverlässig rekonstruierbar → bewusst kein Name, um nicht falsch zuzuordnen).
+            const pool = getRoutinePool(sch, users);
+            const fixedResponsible = sch.assignment?.type === 'fixed' ? getRoutineAssigneeDisplayName(sch, pool, todayYmd) : null;
+
             return (
               <section key={sch.id} className="nachweis-section">
                 {/* Section header */}
@@ -519,21 +551,39 @@ export default function RoutineNachweisView({
                                       const done = !!comp;
                                       const isPast = ymd < todayYmd;
                                       const isToday = ymd === todayYmd;
+                                      const ddmm = `${String(dayNum).padStart(2,'0')}.${String(mi+1).padStart(2,'0')}.${year}`;
                                       let cls = 'nachweis-day nachweis-day--future';
-                                      let titleStr = `${ymd}: geplant`;
+                                      let lines: string[];
+                                      let tone: 'done' | 'missed' | 'today' | 'future' = 'future';
                                       if (done) {
                                         cls = 'nachweis-day nachweis-day--done';
-                                        titleStr = `Erledigt von ${displayNameShort(comp!.completedBy)}`;
+                                        tone = 'done';
+                                        let when = '';
+                                        if (comp!.completedAt) {
+                                          const d = new Date(comp!.completedAt);
+                                          if (!isNaN(d.getTime())) when = `${d.toLocaleDateString('de-DE')}, ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr`;
+                                        }
+                                        lines = [`✓ Erledigt von ${displayNameShort(comp!.completedBy) || 'unbekannt'}`, when || ddmm];
                                       } else if (isToday) {
                                         cls = 'nachweis-day nachweis-day--today';
-                                        titleStr = 'Heute fällig';
+                                        tone = 'today';
+                                        lines = ['Heute fällig', fixedResponsible ? `Zuständig: ${displayNameShort(fixedResponsible)}` : ddmm];
                                       } else if (isPast) {
                                         cls = 'nachweis-day nachweis-day--missed';
-                                        titleStr = 'Nicht erledigt';
+                                        tone = 'missed';
+                                        lines = ['! Nicht erledigt', fixedResponsible ? `Zuständig war: ${displayNameShort(fixedResponsible)}` : `war fällig am ${ddmm}`];
+                                      } else {
+                                        lines = ['Geplant', fixedResponsible ? `Zuständig: ${displayNameShort(fixedResponsible)}` : ddmm];
                                       }
+                                      const titleStr = lines.join(' — ');
                                       return (
                                         <td key={di}>
-                                          <span className={cls} title={titleStr}>{dayNum}.</span>
+                                          <span
+                                            className={cls}
+                                            title={titleStr}
+                                            onMouseEnter={(e) => setHoverTip({ x: e.clientX, y: e.clientY, lines, tone })}
+                                            onMouseLeave={() => setHoverTip(null)}
+                                          >{dayNum}.</span>
                                         </td>
                                       );
                                     })}
