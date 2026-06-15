@@ -3329,6 +3329,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
               userRole={currentUser.role}
               userName={currentUser.name}
               rpHolidayYmdList={rpHolidayYmdList}
+              missedSinceYmd={ROUTINE_WARN_START}
             />
           );
         case 'erledigt': return <ErledigtTableView

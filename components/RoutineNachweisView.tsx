@@ -34,6 +34,8 @@ interface RoutineNachweisViewProps {
   userRole: Role;
   userName: string;
   rpHolidayYmdList?: string[];
+  /** Tage VOR diesem Datum (YYYY-MM-DD) zählen/zeigen NICHT als „verpasst" (vor Einführung). Leer = alles zählt. */
+  missedSinceYmd?: string;
 }
 
 export default function RoutineNachweisView({
@@ -43,6 +45,7 @@ export default function RoutineNachweisView({
   userRole,
   userName,
   rpHolidayYmdList = [],
+  missedSinceYmd = '',
 }: RoutineNachweisViewProps) {
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
@@ -431,7 +434,7 @@ export default function RoutineNachweisView({
             const dueList = dueByScheduleId.get(sch.id) || [];
             const byMonth = groupYmdsByMonth(dueList);
             const doneCount = dueList.filter((ymd) => !!completionFor(sch.id, ymd)).length;
-            const missedCount = dueList.filter((ymd) => ymd < todayYmd && !completionFor(sch.id, ymd)).length;
+            const missedCount = dueList.filter((ymd) => ymd < todayYmd && ymd >= missedSinceYmd && !completionFor(sch.id, ymd)).length;
             const pct = dueList.length > 0 ? Math.round((doneCount / dueList.length) * 100) : 0;
             const missedPct = dueList.length > 0 ? Math.round((missedCount / dueList.length) * 100) : 0;
 
@@ -473,7 +476,7 @@ export default function RoutineNachweisView({
                     const days = byMonth.get(mi) || [];
                     const isFutureMonth = year === currentYearNum ? mi > currentMonthIndex : year > currentYearNum;
                     const monthDone = days.filter((ymd) => !!completionFor(sch.id, ymd)).length;
-                    const monthMissed = days.filter((ymd) => ymd < todayYmd && !completionFor(sch.id, ymd)).length;
+                    const monthMissed = days.filter((ymd) => ymd < todayYmd && ymd >= missedSinceYmd && !completionFor(sch.id, ymd)).length;
                     const monthTotal = days.length;
                     const donePct = monthTotal > 0 ? (monthDone / monthTotal) * 100 : 0;
                     const missedPctMonth = monthTotal > 0 ? (monthMissed / monthTotal) * 100 : 0;
@@ -568,10 +571,15 @@ export default function RoutineNachweisView({
                                         cls = 'nachweis-day nachweis-day--today';
                                         tone = 'today';
                                         lines = ['Heute fällig', fixedResponsible ? `Zuständig: ${displayNameShort(fixedResponsible)}` : ddmm];
-                                      } else if (isPast) {
+                                      } else if (isPast && ymd >= missedSinceYmd) {
                                         cls = 'nachweis-day nachweis-day--missed';
                                         tone = 'missed';
                                         lines = ['! Nicht erledigt', fixedResponsible ? `Zuständig war: ${displayNameShort(fixedResponsible)}` : `war fällig am ${ddmm}`];
+                                      } else if (isPast) {
+                                        // Vor Einführung der Nachweis-Zählung → neutral, NICHT als verpasst werten
+                                        cls = 'nachweis-day nachweis-day--future';
+                                        tone = 'future';
+                                        lines = ['Vor Einführung', 'wird nicht als verpasst gewertet'];
                                       } else {
                                         lines = ['Geplant', fixedResponsible ? `Zuständig: ${displayNameShort(fixedResponsible)}` : ddmm];
                                       }
