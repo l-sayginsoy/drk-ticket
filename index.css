@@ -137,6 +137,19 @@ main::-webkit-scrollbar,
     display: none;                /* Chrome/Safari/PWA (WebKit/Blink) */
 }
 
+/* Druck / „als PDF" (genutzt v.a. vom Serien-Nachweis). Nur Inhalt drucken,
+   Sidebar/Bedienelemente weg, Farben erhalten, Abschnitte nicht über Seiten brechen. */
+.print-only { display: none; }
+@media print {
+    .sidebar { display: none !important; }
+    .no-print { display: none !important; }
+    .print-only { display: block !important; }
+    html, body, .app-layout { background: #fff !important; height: auto !important; overflow: visible !important; }
+    main { overflow: visible !important; height: auto !important; padding: 10px !important; }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .nachweis-section { break-inside: avoid; page-break-inside: avoid; box-shadow: none !important; }
+}
+
 /* Haupt-Überschrift: Farbe wie Sidebar-Nav (text-primary), minimal größer */
 h1.header-title,
 h2.header-title,

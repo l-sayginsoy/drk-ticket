@@ -456,7 +456,16 @@ export default function RoutineNachweisView({
       `}</style>
 
       {/* Toolbar */}
-      <div className="nachweis-toolbar">
+      <div className="print-only" style={{ marginBottom: 12 }}>
+        <h1 style={{ margin: 0, fontSize: 18, color: '#111' }}>Serien-Nachweis {year}</h1>
+        <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>
+          {scheduleFilter === 'alle' ? 'Alle Aufgaben' : (scheduleSelectOptions.find((s) => s.id === scheduleFilter)?.title || scheduleFilter)}
+          {' · '}
+          {personFilter === 'alle' ? 'Alle Personen' : displayNameShort(personFilter)}
+          {' · Stand: '}{fmtYmd(todayYmd)}
+        </div>
+      </div>
+      <div className="nachweis-toolbar no-print">
         <div className="nachweis-field">
           <label htmlFor="nachweis-jahr">Jahr</label>
           <select id="nachweis-jahr" value={year} onChange={(e) => setYear(Number(e.target.value))}>
@@ -482,6 +491,14 @@ export default function RoutineNachweisView({
             ))}
           </select>
         </div>
+        <button
+          type="button"
+          onClick={() => window.print()}
+          title="Diesen Nachweis drucken oder als PDF speichern"
+          style={{ marginLeft: 'auto', alignSelf: 'flex-end', display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', boxShadow: 'var(--shadow-sm)' }}
+        >
+          <i className="ti ti-printer" aria-hidden="true" /> Drucken / als PDF
+        </button>
       </div>
 
       {/* Body */}
