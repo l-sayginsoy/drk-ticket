@@ -27,6 +27,9 @@ Störungen im **Portal**, Mitarbeiter (Admin / Techniker / Hauswirtschaft) bearb
 
 ## Kernfunktionen (Kurzliste – Details in SYSTEM_DOKUMENTATION.md)
 Tickets & Status · Kanban-Board · SLA/Fälligkeitsdatum · Auto-Zuweisung (Routing-Regeln) ·
+**Selbst-lernendes Routing** (lernt Schlagwort→Person aus manuellen Zuweisungen, ab 2×; manuelle
+Regeln haben Vorrang; Übersicht in Einstellungen → Prozesse & Logik; `App.tsx` `learnedRoutingPick`/
+`learnFromAssignment`, Daten in `appSettings.learnedRouting`) ·
 Serienaufträge (Routinen) · Brevo-E-Mails · Stale-Erinnerungen · **Interner Staff-Chat**
 (nur Team, **keine E-Mail**, Farbe pro Absender, scrollbar) · **Zurückstellen/Parken** · Melder-Portal.
 

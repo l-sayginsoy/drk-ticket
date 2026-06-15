@@ -775,6 +775,7 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 
 | Datum | Änderung |
 |---|---|
+| 15.06.2026 | **Selbst-lernendes Routing** (`App.tsx`, `SettingsView.tsx`): lernt aus manuellen Zuweisungen Schlagwort→Person (`appSettings.learnedRouting`). Manuelle Regeln haben Vorrang; greift keine, wird Gelerntes genutzt — ab 2 gleichen Zuweisungen und nur an Verfügbare, sonst 'N/A' (warten). Übersicht/Korrektur unter Einstellungen → Prozesse & Logik |
 | 15.06.2026 | **SICHERHEIT – Umverteilung** (`App.tsx`): Zentrale Regel `canRedistribute()` → nur `Offen \| In Arbeit \| Überfällig` dürfen bei Abwesenheit/Rückkehr automatisch umverteilt werden. **Abgeschlossen & Zurückgestellt werden NIEMALS automatisch angefasst.** In allen 4 Umverteilungs-Wegen angewendet (vorher: Zurückgestellt ungeschützt, Abgeschlossen-Schutz verstreut) |
 | 15.06.2026 | **Vergessene Serienaufträge – prominenter Warnblock** (`App.tsx`): fester roter Block ganz oben mit Liste der vergessenen Aufträge (Name · Standort · „fällig war <Datum>" · Bearbeiter), klickbar, „Alle ansehen"-Button. Ersetzt den kleinen Banner. Datengrundlage `missedRoutinesSinceStart` |
 | 15.06.2026 | **Scrollbalken ausgeblendet** (`index.css`): auf `main`, `.sidebar` UND `.nav-menu` (`scrollbar-width:none` + `::-webkit-scrollbar{display:none}`). Der 8px-Balken nahm Breite weg und verschob das Layout, sobald er bei kleinerem Fenster erschien. Scrollen per Wheel/Trackpad bleibt. Echter Sidebar-Scroller ist `.nav-menu`, nicht `.sidebar` |
