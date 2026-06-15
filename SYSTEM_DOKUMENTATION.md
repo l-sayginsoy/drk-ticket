@@ -775,6 +775,7 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 
 | Datum | Änderung |
 |---|---|
+| 15.06.2026 | **Vergessene Serienaufträge – prominenter Warnblock** (`App.tsx`): fester roter Block ganz oben mit Liste der vergessenen Aufträge (Name · Standort · „fällig war <Datum>" · Bearbeiter), klickbar, „Alle ansehen"-Button. Ersetzt den kleinen Banner. Datengrundlage `missedRoutinesSinceStart` |
 | 15.06.2026 | **Scrollbalken ausgeblendet** (`index.css`): auf `main`, `.sidebar` UND `.nav-menu` (`scrollbar-width:none` + `::-webkit-scrollbar{display:none}`). Der 8px-Balken nahm Breite weg und verschob das Layout, sobald er bei kleinerem Fenster erschien. Scrollen per Wheel/Trackpad bleibt. Echter Sidebar-Scroller ist `.nav-menu`, nicht `.sidebar` |
 | 15.06.2026 | **Serienauftrag-Banner lesbar** (`DashboardRoutineLinkBar.tsx`): dunkler Text auf hellem Grün (vorher Grün-auf-Grün), Aufgabennamen mit hellgrauen Trennpunkten |
 | 15.06.2026 | **Filter-Leiste moderner** (`FilterBar.tsx`): weiße Controls mit Schatten statt grauer Pillen, eckiger (radius 9px), Chips umschließen Inhalt, aktiver Filter = dunkles Badge, „Filter"-Label mit Icon |

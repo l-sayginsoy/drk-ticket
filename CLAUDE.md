@@ -79,11 +79,15 @@ wie ‚Überfällig' im oberen Menü, mit **Warnhinweis** (‚wurde vergessen / 
 - **Sidebar-Badge** `missedRoutinesCount` am Menüpunkt „Serienaufträge".
 - **Serien-Nachweis-Ansicht** (`components/RoutineNachweisView.tsx`): „! X verpasst" pro Routine.
 
-**Was noch fehlt (= die eigentliche Aufgabe, noch NICHT umgesetzt):**
-- Ein **persistenter, prominenter Warn-Eintrag „wie Überfällig"** mit eigenem Label
-  (z.B. „Vergessen" / „Nicht erledigt") statt nur Banner + Badge.
-- Vor Umsetzung mit Nutzer klären, was „oberes Menü" genau heißt: eigene Kanban-Spalte?
-  eigener Status/Label? prominenter Warnblock ganz oben? (siehe Antwort unten in der Session)
+**Umgesetzt am 15.06.2026 (Nutzer-Entscheidung: „großer Warnblock ganz oben"):**
+- Der kleine Banner ist jetzt ein **prominenter roter Warnblock** ganz oben (`App.tsx` ~Z. 3358),
+  der **stehen bleibt bis erledigt**: Kopfzeile „X Serienaufträge wurden **vergessen**" +
+  „Alle ansehen"-Button → Serienaufträge-Ansicht. Darunter eine **Liste** jedes vergessenen
+  Auftrags (Name · Standort · „fällig war <Datum>" · Bearbeiter), jede Zeile klickbar
+  (öffnet das Ticket via `setSelectedTicket`). Ab 7 Einträgen: „und N weitere … alle ansehen".
+- Datengrundlage unverändert (`missedRoutinesSinceStart`). Block `max-width: 2400` zentriert,
+  bündig zum Board. Wird auf allen Ansichten gezeigt (nicht nur Dashboard), damit er nicht untergeht.
+- Verworfen wurden: eigene 4. Kanban-Spalte und „mit in Überfällig-Spalte" (Nutzer wollte Warnblock).
 
 ## Arbeitsweise & Konventionen (wichtig)
 - **Vorschau = Live-Prod**: Der Dev-Server (Port 5173) hängt an der **echten** Firestore.
