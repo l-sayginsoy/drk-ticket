@@ -36,6 +36,8 @@ interface RoutineNachweisViewProps {
   rpHolidayYmdList?: string[];
   /** Tage VOR diesem Datum (YYYY-MM-DD) zählen/zeigen NICHT als „verpasst" (vor Einführung). Leer = alles zählt. */
   missedSinceYmd?: string;
+  /** Trägt eine Erledigung für einen beliebigen Tag ein (completedBy=null → entfernen). */
+  onSetCompletion?: (scheduleId: string, ymd: string, completedBy: string | null) => void;
 }
 
 export default function RoutineNachweisView({
@@ -46,6 +48,7 @@ export default function RoutineNachweisView({
   userName,
   rpHolidayYmdList = [],
   missedSinceYmd = '',
+  onSetCompletion,
 }: RoutineNachweisViewProps) {
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
@@ -103,6 +106,17 @@ export default function RoutineNachweisView({
   // Eigenständiger Hover-Tooltip: zeigt sofort, WER erledigt hat (+ wann) bzw. wer zuständig ist/war.
   const [hoverTip, setHoverTip] = useState<{ x: number; y: number; lines: string[]; tone: 'done' | 'missed' | 'today' | 'future' } | null>(null);
 
+  // Popover zum Nachtragen/Korrigieren einer Erledigung (Klick auf einen Tag).
+  const [editCell, setEditCell] = useState<
+    { schedId: string; schedTitle: string; ymd: string; x: number; y: number; options: string[]; current?: RoutineDayCompletion } | null
+  >(null);
+  const [personSel, setPersonSel] = useState('');
+
+  const fmtYmd = (ymd: string) => {
+    const [y, m, d] = ymd.split('-');
+    return `${d}.${m}.${y}`;
+  };
+
   const dueByScheduleId = useMemo(() => {
     const map = new Map<string, string[]>();
     visibleSchedules.forEach((sch) => {
@@ -136,6 +150,69 @@ export default function RoutineNachweisView({
             <div key={i} style={{ fontWeight: i === 0 ? 700 : 400, opacity: i === 0 ? 1 : 0.85 }}>{l}</div>
           ))}
         </div>
+      )}
+      {editCell && (
+        <>
+          <div onClick={() => setEditCell(null)} style={{ position: 'fixed', inset: 0, zIndex: 10001 }} />
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'fixed',
+              left: Math.min(editCell.x, (typeof window !== 'undefined' ? window.innerWidth : 99999) - 270),
+              top: Math.min(editCell.y + 14, (typeof window !== 'undefined' ? window.innerHeight : 99999) - 210),
+              zIndex: 10002,
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border)',
+              borderRadius: 10,
+              boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+              padding: 14,
+              width: 250,
+            }}
+          >
+            <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text-primary)' }}>{fmtYmd(editCell.ymd)}</div>
+            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginBottom: 12 }}>{editCell.schedTitle}</div>
+            {editCell.current ? (
+              <>
+                <div style={{ fontSize: 12.5, color: 'var(--text-primary)', marginBottom: 12 }}>
+                  ✓ Erledigt von <strong>{displayNameShort(editCell.current.completedBy)}</strong>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => { onSetCompletion!(editCell.schedId, editCell.ymd, null); setEditCell(null); }}
+                    style={{ flex: 1, padding: '7px 10px', borderRadius: 7, border: '1px solid #e0992f', background: 'var(--bg-secondary)', color: '#b9760f', fontWeight: 600, fontSize: 12.5, cursor: 'pointer' }}
+                  >Rückgängig</button>
+                  <button
+                    onClick={() => setEditCell(null)}
+                    style={{ flex: 1, padding: '7px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-secondary)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer' }}
+                  >Schließen</button>
+                </div>
+              </>
+            ) : editCell.options.length === 0 ? (
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Keine möglichen Bearbeiter hinterlegt.</div>
+            ) : (
+              <>
+                <label style={{ fontSize: 11.5, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Wer hat es erledigt?</label>
+                <select
+                  value={personSel}
+                  onChange={(e) => setPersonSel(e.target.value)}
+                  style={{ width: '100%', padding: '7px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: 13, marginBottom: 12 }}
+                >
+                  {editCell.options.map((n) => <option key={n} value={n}>{displayNameShort(n)}</option>)}
+                </select>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => { if (personSel) onSetCompletion!(editCell.schedId, editCell.ymd, personSel); setEditCell(null); }}
+                    style={{ flex: 1, padding: '7px 10px', borderRadius: 7, border: 'none', background: ROUTINE_TEAL.accent, color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}
+                  >Als erledigt eintragen</button>
+                  <button
+                    onClick={() => setEditCell(null)}
+                    style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-secondary)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer' }}
+                  >Abbr.</button>
+                </div>
+              </>
+            )}
+          </div>
+        </>
       )}
       <div className="nachweis-view-shell">
       <style>{`
@@ -588,9 +665,17 @@ export default function RoutineNachweisView({
                                         <td key={di}>
                                           <span
                                             className={cls}
-                                            title={titleStr}
+                                            title={onSetCompletion && ymd <= todayYmd ? `${titleStr} — klicken zum Eintragen/Korrigieren` : titleStr}
+                                            style={onSetCompletion && ymd <= todayYmd ? { cursor: 'pointer' } : undefined}
                                             onMouseEnter={(e) => setHoverTip({ x: e.clientX, y: e.clientY, lines, tone })}
                                             onMouseLeave={() => setHoverTip(null)}
+                                            onClick={onSetCompletion && ymd <= todayYmd ? (e) => {
+                                              e.stopPropagation();
+                                              setHoverTip(null);
+                                              const opts = pool.length ? pool : users.filter(u => u.isActive && u.role === sch.targetRole).map(u => u.name);
+                                              setPersonSel(opts.includes(userName) ? userName : (opts[0] || userName));
+                                              setEditCell({ schedId: sch.id, schedTitle: sch.title || '', ymd, x: e.clientX, y: e.clientY, options: opts, current: comp });
+                                            } : undefined}
                                           >{dayNum}.</span>
                                         </td>
                                       );

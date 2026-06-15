@@ -2077,6 +2077,18 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
     setAppSettings(next);
     void setDoc(doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS), { value: JSON.parse(JSON.stringify(next)), updated_at: new Date().toISOString() });
   };
+
+  /** Setzt/entfernt eine Erledigung für einen BELIEBIGEN Tag (Nachtragen/Korrigieren im Serien-Nachweis). */
+  const handleSetRoutineCompletion = (scheduleId: string, ymd: string, completedBy: string | null) => {
+    setAppSettings(prev => {
+      const rest = (prev.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd));
+      const next: AppSettings = completedBy
+        ? { ...prev, routineDayCompletions: [...rest, { scheduleId, date: ymd, completedBy, completedAt: new Date().toISOString() }] }
+        : { ...prev, routineDayCompletions: rest };
+      void setDoc(doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS), { value: JSON.parse(JSON.stringify(next)), updated_at: new Date().toISOString() });
+      return next;
+    });
+  };
 const persistDeletedIds = () => {
   localStorage.setItem(
     LOCAL_STORAGE_KEY_DELETED_IDS,
@@ -3330,6 +3342,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
               userName={currentUser.name}
               rpHolidayYmdList={rpHolidayYmdList}
               missedSinceYmd={ROUTINE_WARN_START}
+              onSetCompletion={handleSetRoutineCompletion}
             />
           );
         case 'erledigt': return <ErledigtTableView
