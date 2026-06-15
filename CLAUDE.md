@@ -30,9 +30,28 @@ Tickets & Status · Kanban-Board · SLA/Fälligkeitsdatum · Auto-Zuweisung (Rou
 Serienaufträge (Routinen) · Brevo-E-Mails · Stale-Erinnerungen · **Interner Staff-Chat**
 (nur Team, **keine E-Mail**, Farbe pro Absender, scrollbar) · **Zurückstellen/Parken** · Melder-Portal.
 
-## Zuletzt abgeschlossen (Stand: Juni 2026)
-Folgende Punkte wurden in der letzten Session fertiggestellt, committed und deployed:
+## Zuletzt abgeschlossen
 
+### Session 15.06.2026 – Layout/UI-Feinschliff (committed & deployed)
+- **Board-Breite** (`App.tsx`, `.kanban-workbench`): max-width **2400px** (vorher 1300→1600→2000→2400).
+  Füllt 24"+-Monitore, wächst mit dem Fenster, deckelt erst auf sehr breiten Displays. Die
+  Dashboard-Banner-Zeile ist auf dieselbe max-width 2400 + zentriert gesetzt → bündige Kanten zum Board.
+  > **Deckel hoch halten!** Sonst driftet das zentrierte Board (`margin:auto`) beim Sidebar-Einklappen
+  > zur Mitte (Nutzer: „das Dashboard verschiebt sich"). Bei 2400 füllt es bei üblicher Fensterbreite
+  > in beiden Sidebar-Zuständen → rechte Kante bleibt fix, Board wächst nur nach links mit.
+  > Nutzer-Display ist ~3008px breit und mag **keine leere Fläche rechts**.
+- **Filter-Leiste moderner** (`components/FilterBar.tsx`): weiße Controls mit dezentem Schatten statt
+  grauer Pillen, eckiger (radius 9px), Chips umschließen ihren Inhalt (kein `min-width` mehr),
+  aktiver Filter = dunkles Badge, „Filter"-Label mit `ti-adjustments-horizontal` Icon.
+- **Serienauftrag-Banner** (`components/DashboardRoutineLinkBar.tsx`): dunkler Text auf hellem Grün
+  (vorher Grün-auf-Grün, kaum lesbar), Aufgabennamen mit hellgrauen Trennpunkten (`•`).
+- **Scrollbalken ausgeblendet** (`index.css`): auf `main`, `.sidebar` UND `.nav-menu`
+  (`scrollbar-width:none` + `::-webkit-scrollbar{display:none}`). Grund: der 8px-Balken nahm Breite weg
+  und verschob das Layout, sobald er bei kleinerem Fenster erschien. Scrollen per Wheel/Trackpad bleibt.
+  > **Achtung:** Der echte Sidebar-Scroller ist `.nav-menu`, NICHT `.sidebar` — beide Regeln nötig.
+  > Layout immer auch bei **kleinem** Fenster testen (1280×800) — der Fehler zeigt sich nur dann.
+
+### Frühere Session – Staff-Chat & Board-Redesign
 - **Interner Staff-Chat** (`utils/staffChat.ts`): `readBy`-Modell pro Person, **kein E-Mail-Versand**,
   WhatsApp-Bubbles mit Absenderfarbe, zwei Kanäle (Team-Chat / Melder-Verlauf), Auto-Scroll.
   > Wichtig: `hasNewStaffMessage`-Flag und Mail-Versand für Chat NICHT wieder einbauen.
@@ -40,9 +59,31 @@ Folgende Punkte wurden in der letzten Session fertiggestellt, committed und depl
 - **Board-Redesign** (`TicketCard.tsx`, `KanbanColumn.tsx`):
   - Farbige Spaltenköpfe (grau/blau/rosa), graue Spalte `#E9EBEF` → Tiefe, weiße Karten
   - Linker Kartenbalken = Priorität (Hoch rot, Mittel orange, Niedrig grün)
-  - Keine Pill-Zeile mehr; Footer: Avatar-Chip · Datum-Chip · Icons (`ti-messages` + `ti-mail`)
+  - Karten haben jetzt eine 3-Spalten-Meta-Zeile (Priorität · Fällig bis · Status mit Farb-Dots),
+    Footer = Bearbeiter-Chip + Chat-/Mail-Icons
   - ⋯-Menü oben rechts für Statuswechsel (Overlay-`<select>`)
 - **Sidebar** (`components/Sidebar.tsx`): Dunkles Design `#353B48`, DRK-Logo auf weißem Container
+
+## Serienaufträge – Ist-Zustand & offene Aufgabe (Stand 15.06.2026)
+
+**Wunsch des Nutzers:** „Wenn ein Serienauftrag nicht abgeklickt wurde, muss er **stehen bleiben** –
+wie ‚Überfällig' im oberen Menü, mit **Warnhinweis** (‚wurde vergessen / nicht gemacht')."
+
+**Was heute schon existiert (teilweise umgesetzt):**
+- Serienauftrag-Tickets (`origin === 'routine'`) werden im Kanban-Dashboard **ausgeblendet**
+  (`App.tsx`, `filteredTickets` ~Z. 2657) – sie erscheinen nur in der Listenansicht.
+- `missedRoutinesSinceStart` (`App.tsx` ~Z. 2617): Routine-Tickets mit `Status.Ueberfaellig` und
+  Fälligkeit ≥ `ROUTINE_WARN_START` (`2026-06-16`).
+- **Roter Dashboard-Banner**: „X Serienaufträge wurden nicht abgeschlossen — Bitte prüfen"
+  (`App.tsx` ~Z. 3358), klickbar → Serienaufträge-Ansicht.
+- **Sidebar-Badge** `missedRoutinesCount` am Menüpunkt „Serienaufträge".
+- **Serien-Nachweis-Ansicht** (`components/RoutineNachweisView.tsx`): „! X verpasst" pro Routine.
+
+**Was noch fehlt (= die eigentliche Aufgabe, noch NICHT umgesetzt):**
+- Ein **persistenter, prominenter Warn-Eintrag „wie Überfällig"** mit eigenem Label
+  (z.B. „Vergessen" / „Nicht erledigt") statt nur Banner + Badge.
+- Vor Umsetzung mit Nutzer klären, was „oberes Menü" genau heißt: eigene Kanban-Spalte?
+  eigener Status/Label? prominenter Warnblock ganz oben? (siehe Antwort unten in der Session)
 
 ## Arbeitsweise & Konventionen (wichtig)
 - **Vorschau = Live-Prod**: Der Dev-Server (Port 5173) hängt an der **echten** Firestore.

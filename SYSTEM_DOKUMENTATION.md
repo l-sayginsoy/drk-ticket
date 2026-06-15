@@ -775,6 +775,10 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 
 | Datum | Änderung |
 |---|---|
+| 15.06.2026 | **Scrollbalken ausgeblendet** (`index.css`): auf `main`, `.sidebar` UND `.nav-menu` (`scrollbar-width:none` + `::-webkit-scrollbar{display:none}`). Der 8px-Balken nahm Breite weg und verschob das Layout, sobald er bei kleinerem Fenster erschien. Scrollen per Wheel/Trackpad bleibt. Echter Sidebar-Scroller ist `.nav-menu`, nicht `.sidebar` |
+| 15.06.2026 | **Serienauftrag-Banner lesbar** (`DashboardRoutineLinkBar.tsx`): dunkler Text auf hellem Grün (vorher Grün-auf-Grün), Aufgabennamen mit hellgrauen Trennpunkten |
+| 15.06.2026 | **Filter-Leiste moderner** (`FilterBar.tsx`): weiße Controls mit Schatten statt grauer Pillen, eckiger (radius 9px), Chips umschließen Inhalt, aktiver Filter = dunkles Badge, „Filter"-Label mit Icon |
+| 15.06.2026 | **Board-Breite** (`App.tsx`, `.kanban-workbench`): max-width 1300 → **2400px**, füllt 24"+-Monitore. Behebt „Board verschiebt sich beim Sidebar-Einklappen" (zentriertes Board driftete zur Mitte). Banner-Zeile auf gleiche Breite. Deckel bewusst hoch halten |
 | Juni 2026 | **Board-Redesign**: `TicketCard.tsx` — linker Balken = Priorität (rot/orange/grün), keine Pill-Zeile, Footer: Avatar-Chip · Datum-Chip · Icons (`ti-messages` + `ti-mail`), ⋯-Statusmenü. `KanbanColumn.tsx` — farbige Spaltenköpfe (grau/blau/rosa), Spalten-Hintergrund `#E9EBEF` |
 | Juni 2026 | **Sidebar-Redesign**: `Sidebar.tsx` — dunkles Design `#353B48`, DRK-Logo auf weißem Container |
 | Juni 2026 | **CI auf Node 24**: GitHub-Actions in `deploy-firebase.yml` auf Node-24-Runtime gehoben (`actions/checkout@v6`, `actions/setup-node@v6`, `google-github-actions/auth@v3`) wegen Node-20-Abkündigung (GitHub erzwingt Node 24 ab Juni 2026). Nur Workflow-YAML, kein App-Code. `brevo-keepalive.yml` nutzt keine JS-Actions → unverändert |
