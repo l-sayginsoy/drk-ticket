@@ -536,6 +536,18 @@ const parseISODate = (dateStr: string | undefined): Date | null => {
     return null;
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// HARTE SICHERHEITS-REGEL für automatische Umverteilung (Abwesenheit/Rückkehr).
+// NUR diese drei Status dürfen jemals automatisch einem anderen Bearbeiter
+// zugewiesen werden. Abgeschlossen & Zurückgestellt werden NIEMALS automatisch
+// angefasst – die wurden bewusst manuell verteilt bzw. abgeschlossen und bleiben
+// exakt so, bis ein Mensch sie wieder aufmacht (oder der Melder sie aufschließt).
+// Diese Funktion ist die EINZIGE Stelle, an der diese Regel definiert wird –
+// alle Umverteilungs-Wege müssen sie benutzen.
+const REDISTRIBUTABLE_STATUSES: Status[] = [Status.Offen, Status.InArbeit, Status.Ueberfaellig];
+const canRedistribute = (ticket: { status: Status }): boolean =>
+    REDISTRIBUTABLE_STATUSES.includes(ticket.status);
+
 const compressImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -1601,7 +1613,8 @@ const App: React.FC = () => {
                   if (leaveUntilDate) leaveUntilDate.setHours(23, 59, 59, 999);
 
                   const criticalTickets = currentTickets.filter(t => {
-                      if (t.technician !== absentUser.name || t.status === Status.Abgeschlossen) return false;
+                      // Zentrale Regel: NIE Abgeschlossen/Zurückgestellt automatisch umverteilen
+                      if (t.technician !== absentUser.name || !canRedistribute(t)) return false;
                       if (!leaveUntilDate) return true;
                       if (t.priority === Priority.Hoch) return true;
                       if (t.status === Status.Ueberfaellig) return true;
@@ -1662,7 +1675,9 @@ const App: React.FC = () => {
       if (returningTechnicians.length > 0) {
           console.log("RÜCKKEHR LOGIK: Gefundene Rückkehrer:", returningTechnicians.map(u => u.name));
           setTickets(currentTickets => {
-              const openTickets = currentTickets.filter(t => t.status === Status.Offen);
+              // Rückkehr-Logik zieht bewusst NUR offene Tickets (Teilmenge der erlaubten Status).
+              // canRedistribute zusätzlich als harte Absicherung gegen Abgeschlossen/Zurückgestellt.
+              const openTickets = currentTickets.filter(t => t.status === Status.Offen && canRedistribute(t));
               let ticketsUpdated = false;
               let updatedTickets = [...currentTickets];
               let reassignedCount = 0;
@@ -2888,7 +2903,8 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       
       if (isAbsent) {
           // Diagnostic collection
-          const userTickets = tickets.filter(t => t.technician === user.name && t.status !== Status.Abgeschlossen);
+          // Zentrale Regel: NIE Abgeschlossen/Zurückgestellt automatisch umverteilen
+          const userTickets = tickets.filter(t => t.technician === user.name && canRedistribute(t));
           
           if (userTickets.length === 0) {
               alert(`Info: Bearbeiter ${displayNameShort(user.name)} hat aktuell keine offenen Tickets. Keine Umverteilung nötig.`);
@@ -3058,7 +3074,8 @@ const deleteTicketFromFirebase = (ticketId: string) => {
 
           // Find tickets to move
           const ticketsToMove = tickets.filter(t => {
-              if (t.technician !== absentUser.name || t.status === Status.Abgeschlossen) return false;
+              // Zentrale Regel: NIE Abgeschlossen/Zurückgestellt automatisch umverteilen
+              if (t.technician !== absentUser.name || !canRedistribute(t)) return false;
               
               // If indefinite absence, move all
               if (!leaveUntilDate) return true;
