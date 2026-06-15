@@ -566,8 +566,12 @@ export default function RoutineNachweisView({
             const byMonth = groupYmdsByMonth(dueList);
             const doneCount = dueList.filter((ymd) => !!completionFor(sch.id, ymd)).length;
             const missedCount = dueList.filter((ymd) => ymd < todayYmd && ymd >= missedSinceYmd && !completionFor(sch.id, ymd)).length;
-            const pct = dueList.length > 0 ? Math.round((doneCount / dueList.length) * 100) : 0;
-            const missedPct = dueList.length > 0 ? Math.round((missedCount / dueList.length) * 100) : 0;
+            // Erfüllungsquote NUR bezogen auf bis heute fällige Termine ab Einführung
+            // (nicht aufs ganze Jahr inkl. Zukunft — sonst wirkt es mitten im Jahr künstlich niedrig).
+            // So gilt: erledigt + verpasst = fällig bis heute → Quote = erledigt / (erledigt+verpasst).
+            const countableDueSoFar = dueList.filter((ymd) => ymd >= missedSinceYmd && ymd < todayYmd);
+            const doneSoFar = countableDueSoFar.filter((ymd) => !!completionFor(sch.id, ymd)).length;
+            const pct = countableDueSoFar.length > 0 ? Math.round((doneSoFar / countableDueSoFar.length) * 100) : null;
 
             // Verantwortliche Person nur bei FESTER Zuweisung sicher bestimmbar (Rotation = für
             // vergangene Tage nicht zuverlässig rekonstruierbar → bewusst kein Name, um nicht falsch zuzuordnen).
@@ -595,8 +599,11 @@ export default function RoutineNachweisView({
                         ! {missedCount} verpasst
                       </span>
                     )}
-                    <span className="nachweis-stat-pill nachweis-stat-pill--total">
-                      {pct}%
+                    <span
+                      className="nachweis-stat-pill nachweis-stat-pill--total"
+                      title={'Erfüllung bezogen auf die bis heute fälligen Termine (ab Einführung). „—“ = im Wertungszeitraum noch keine fälligen Termine.'}
+                    >
+                      {pct === null ? '—' : `${pct}%`}
                     </span>
                   </div>
                 </div>
