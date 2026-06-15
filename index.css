@@ -124,12 +124,14 @@ main {
    und vor allem das Verschieben des Layouts, wenn der Balken erscheint
    (er würde sonst 8px Breite wegnehmen). */
 main,
-.sidebar {
+.sidebar,
+.nav-menu {
     scrollbar-width: none;        /* Firefox */
     -ms-overflow-style: none;     /* alte Edge/IE */
 }
 main::-webkit-scrollbar,
-.sidebar::-webkit-scrollbar {
+.sidebar::-webkit-scrollbar,
+.nav-menu::-webkit-scrollbar {
     width: 0;
     height: 0;
     display: none;                /* Chrome/Safari/PWA (WebKit/Blink) */
