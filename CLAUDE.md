@@ -89,6 +89,18 @@ wie ‚Überfällig' im oberen Menü, mit **Warnhinweis** (‚wurde vergessen / 
   bündig zum Board. Wird auf allen Ansichten gezeigt (nicht nur Dashboard), damit er nicht untergeht.
 - Verworfen wurden: eigene 4. Kanban-Spalte und „mit in Überfällig-Spalte" (Nutzer wollte Warnblock).
 
+## ⚠️ Harte Regel: Automatische Umverteilung (Abwesenheit/Rückkehr)
+Bei Abwesend-/Rückkehr-/Aktiv-Schalten eines Mitarbeiters werden Tickets automatisch umverteilt.
+**Nur `Offen`, `In Arbeit`, `Überfällig` dürfen jemals automatisch umverteilt werden.**
+**`Abgeschlossen` und `Zurückgestellt` werden NIEMALS automatisch angefasst** – die wurden bewusst
+manuell verteilt bzw. abgeschlossen und bleiben exakt so, bis ein Mensch sie wieder aufmacht (oder der
+Melder sie aufschließt). Durchgesetzt über die **einzige** zentrale Funktion `canRedistribute(ticket)`
+(`App.tsx` ~Z. 547). Sie wird in allen 4 Umverteilungs-Wegen benutzt (Abwesenheits-Effekt,
+Rückkehr-Effekt, `handleUserUpdated`, `handleManualRedistribution`).
+> **Diese Regel nie aufweichen.** Keine neue Umverteilungs-Logik ohne `canRedistribute()`-Filter.
+> Offen: Die *Regeln innerhalb* der erlaubten Status (z.B. „nur kritische", Rückkehr zieht offene
+> Tickets anderer Abwesender) sollen laut Nutzer noch geprüft/feinjustiert werden.
+
 ## Arbeitsweise & Konventionen (wichtig)
 - **Vorschau = Live-Prod**: Der Dev-Server (Port 5173) hängt an der **echten** Firestore.
   Beim Testen **keine echten Tickets verändern**.
