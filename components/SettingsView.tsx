@@ -1350,6 +1350,71 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                     </datalist>
                 </div>
             </div>
+
+            {/* Gelerntes Routing (automatisch) */}
+            <div className="settings-section">
+                <div className="settings-section-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <h3 className="settings-section-title">Gelerntes Routing (automatisch)</h3>
+                    {Object.keys(appSettings.learnedRouting || {}).length > 0 && (
+                        <button className="btn btn-secondary" style={{ fontSize: '0.8rem' }} onClick={() => {
+                            if (window.confirm('Wirklich das komplette gelernte Routing löschen? Das System lernt dann von vorne.')) {
+                                setAppSettings(prev => ({ ...prev, learnedRouting: {} }));
+                            }
+                        }}>Alles zurücksetzen</button>
+                    )}
+                </div>
+                <div className="settings-section-body">
+                    <p className="form-group-description">
+                        Das System merkt sich automatisch, an wen ihr Tickets mit bestimmten Schlagwörtern zuweist.
+                        Ab <strong>2 gleichen Zuweisungen</strong> wird ein neues Ticket mit dem Schlagwort automatisch
+                        zugewiesen (die manuellen Regeln oben haben Vorrang). Grün = wird bereits aktiv genutzt.
+                        Hier könnt ihr das Gelernte prüfen und korrigieren.
+                    </p>
+                    {Object.keys(appSettings.learnedRouting || {}).length === 0 ? (
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', padding: '0.5rem 0' }}>
+                            Noch nichts gelernt — sobald ihr Tickets manuell zuweist, erscheinen hier die erkannten Schlagwörter.
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            {Object.entries(appSettings.learnedRouting || {})
+                                .sort((a, b) => a[0].localeCompare(b[0]))
+                                .map(([kw, counts]) => {
+                                    const sorted = Object.entries(counts as Record<string, number>).sort((x, y) => y[1] - x[1]);
+                                    const topCount = sorted.length ? sorted[0][1] : 0;
+                                    return (
+                                        <div key={kw} style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 8, padding: '0.6rem 0.85rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                            <span style={{ fontWeight: 700, fontSize: '0.9rem', minWidth: 130, color: 'var(--text-primary)', wordBreak: 'break-word' }}>{kw}</span>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', flex: 1 }}>
+                                                {sorted.map(([name, count]) => {
+                                                    const active = count >= 2 && count === topCount;
+                                                    return (
+                                                        <span key={name} title={active ? 'Wird automatisch genutzt (ab 2 Zuweisungen)' : 'Noch unter der Schwelle (lernt weiter)'} style={{
+                                                            display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 600,
+                                                            borderRadius: 6, padding: '3px 6px 3px 10px',
+                                                            background: active ? 'rgba(5,150,105,0.12)' : 'var(--bg-secondary)',
+                                                            border: active ? '1px solid rgba(5,150,105,0.45)' : '1px solid var(--border)',
+                                                            color: active ? '#059669' : 'var(--text-secondary)',
+                                                        }}>
+                                                            {name.split(' ')[0]} {name.split(' ').slice(-1)[0]} · {count}×
+                                                            <button type="button" title="Diese Zuordnung entfernen" onClick={() => setAppSettings(prev => {
+                                                                const cur = { ...(prev.learnedRouting || {}) };
+                                                                const entry = { ...(cur[kw] || {}) };
+                                                                delete entry[name];
+                                                                if (Object.keys(entry).length === 0) delete cur[kw]; else cur[kw] = entry;
+                                                                return { ...prev, learnedRouting: cur };
+                                                            })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, fontSize: '1rem', lineHeight: 1, opacity: 0.7 }}>×</button>
+                                                        </span>
+                                                    );
+                                                })}
+                                            </div>
+                                            <button onClick={() => setAppSettings(prev => { const cur = { ...(prev.learnedRouting || {}) }; delete cur[kw]; return { ...prev, learnedRouting: cur }; })} className="btn btn-danger-sm" title="Schlagwort komplett löschen"><TrashIcon /></button>
+                                        </div>
+                                    );
+                                })}
+                        </div>
+                    )}
+                </div>
+            </div>
         </>
     );
 
