@@ -124,6 +124,8 @@ export interface AppSettings {
   routineSchedules: RoutineSchedule[];
   routineDayCompletions?: RoutineDayCompletion[];
   adminNotificationEmail?: string;
+  /** Selbst-gelerntes Routing: normalisiertes Schlagwort → { Mitarbeitername → Anzahl manueller Zuweisungen } */
+  learnedRouting?: { [keyword: string]: { [technicianName: string]: number } };
 }
 
 export interface MaintenancePlan {

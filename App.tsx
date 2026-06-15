@@ -620,11 +620,98 @@ const keywordMatchesText = (keyword: string, text: string): boolean => {
     }
 };
 
+// ────────────────────────────────────────────────────────────────────────────
+// SELBST-LERNENDES ROUTING
+// Aus jeder MANUELLEN Zuweisung lernt das System „Schlagwort → Person".
+// Schwelle „Mittel": ab LEARN_THRESHOLD gleichen Zuweisungen für ein Schlagwort
+// wird ein neues Ticket mit diesem Schlagwort automatisch zugewiesen – sonst
+// bleibt es unzugewiesen ('N/A') und wartet auf eine manuelle Zuweisung.
+// Manuell angelegte Routing-Regeln haben IMMER Vorrang (siehe assignTicket).
+const LEARN_THRESHOLD = 2;
+
+type LearnedRouting = { [keyword: string]: { [technicianName: string]: number } };
+
+const LEARN_STOPWORDS = new Set<string>([
+  'der','die','das','und','oder','ist','war','sind','ein','eine','einen','einem','einer','eines',
+  'den','dem','des','für','von','vor','nach','bei','mit','aus','auf','zur','zum','beim','sowie',
+  'nicht','kein','keine','mehr','sehr','auch','schon','aber','wie','was','wer','wann','warum',
+  'dass','weil','wenn','dann','muss','soll','kann','wegen','etwas','hier','dort','sich','man',
+  'wir','ich','sie','ihr','uns','euch','ihre','ihren','seine','sein','dieser','diese','dieses',
+  'alle','alles','durch','über','unter','ohne','gegen','bzw','usw','etc','bitte','noch','wird',
+  'werden','wurde','haben','sowie','bzw',
+]);
+
+/** Bedeutungstragende Wörter aus Betreff + Beschreibung (klein, ohne Füllwörter, ohne sehr kurze). */
+const extractKeywords = (text: string): string[] => {
+  const out = new Set<string>();
+  for (const tok of (text || '').toLowerCase().split(/[^a-zäöüß]+/)) {
+    const w = tok.trim();
+    if (w.length < 4) continue;
+    if (LEARN_STOPWORDS.has(w)) continue;
+    out.add(w);
+  }
+  return [...out];
+};
+
+/** Wählt aus dem Gelernten einen Bearbeiter – NUR wenn ein Schlagwort die Schwelle erreicht
+ *  UND der Gewinner gerade verfügbar ist. Sonst 'N/A' (warten auf manuelle Zuweisung). */
+const learnedRoutingPick = (
+  fullText: string,
+  learned: LearnedRouting | undefined,
+  users: User[],
+  tickets: Ticket[],
+): string => {
+  if (!learned) return 'N/A';
+  const keywords = extractKeywords(fullText);
+  if (keywords.length === 0) return 'N/A';
+
+  const availableNames = new Set(
+    users
+      .filter(u =>
+        (u.role === Role.Technician || u.role === Role.Housekeeping) &&
+        u.isActive &&
+        u.availability.status === AvailabilityStatus.Available)
+      .map(u => u.name)
+  );
+
+  // Jedes Schlagwort, dessen Top-Person die Schwelle erreicht UND verfügbar ist, stimmt mit seiner Anzahl.
+  const votes = new Map<string, number>();
+  for (const kw of keywords) {
+    const entry = learned[kw];
+    if (!entry) continue;
+    let topName = '';
+    let topCount = 0;
+    for (const [name, count] of Object.entries(entry)) {
+      if (count > topCount) { topCount = count; topName = name; }
+    }
+    if (topName && topCount >= LEARN_THRESHOLD && availableNames.has(topName)) {
+      votes.set(topName, (votes.get(topName) || 0) + topCount);
+    }
+  }
+  if (votes.size === 0) return 'N/A';
+
+  // Gewinner = meiste Stimmen; bei Gleichstand der mit geringster aktueller Last.
+  let winner = '';
+  let bestScore = -1;
+  for (const [name, score] of votes.entries()) {
+    if (score > bestScore) {
+      bestScore = score;
+      winner = name;
+    } else if (score === bestScore && winner) {
+      const loadWinner = tickets.filter(t => t.technician === winner && t.status !== Status.Abgeschlossen).length;
+      const loadName = tickets.filter(t => t.technician === name && t.status !== Status.Abgeschlossen).length;
+      if (loadName < loadWinner) winner = name;
+    }
+  }
+  return winner || 'N/A';
+};
+
 const assignTicket = (
     ticketData: { title?: string; description?: string; },
     users: User[],
     tickets: Ticket[],
-    routingRules: RoutingRule[]
+    routingRules: RoutingRule[],
+    learnedRouting?: LearnedRouting
 ): string => {
     const fullText = `${ticketData.title || ''} ${ticketData.description || ''}`.toLowerCase();
 
@@ -633,8 +720,9 @@ const assignTicket = (
         rule.keyword.split(',').some(kw => keywordMatchesText(kw, fullText))
     );
 
-    // Kein Keyword-Match → kein automatisches Zuweisen
-    if (!matchedRule) return 'N/A';
+    // Manuell angelegte Regeln haben Vorrang. Keine Regel getroffen →
+    // Gelerntes konsultieren (füllt nur die Lücken). Kein sicheres Lernen → 'N/A' (warten).
+    if (!matchedRule) return learnedRoutingPick(fullText, learnedRouting, users, tickets);
 
     const availableUsers = users.filter(u =>
         (u.role === Role.Technician || u.role === Role.Housekeeping) &&
@@ -769,6 +857,7 @@ const mergeAppSettingsRemote = (value: unknown, prev: AppSettings): AppSettings 
     ticketCategories: Array.isArray(v.ticketCategories) ? v.ticketCategories : prev.ticketCategories,
     slaMatrix: Array.isArray(v.slaMatrix) ? v.slaMatrix : prev.slaMatrix,
     routingRules: Array.isArray(v.routingRules) ? v.routingRules : prev.routingRules,
+    learnedRouting: (v.learnedRouting && typeof v.learnedRouting === 'object') ? v.learnedRouting : prev.learnedRouting,
     routineSchedules: Array.isArray(v.routineSchedules)
       ? v.routineSchedules.map((remoteS: RoutineSchedule) => {
           const localS = prev.routineSchedules?.find(s => s.id === remoteS.id);
@@ -2036,6 +2125,23 @@ const deleteTicketFromFirebase = (ticketId: string) => {
   void deleteDoc(doc(db, 'routine_tickets', ticketId))
     .catch(() => {}); // silently ignore if not there
 };
+  /** Lernt aus einer MANUELLEN Zuweisung: Schlagwörter des Tickets → gewählte Person (+1). */
+  const learnFromAssignment = (ticket: Ticket, technicianName: string) => {
+    const keywords = extractKeywords(`${ticket.title} ${ticket.description || ''}`);
+    if (keywords.length === 0) return;
+    setAppSettings(prev => {
+      const learned: LearnedRouting = { ...(prev.learnedRouting || {}) };
+      keywords.forEach(kw => {
+        const entry = { ...(learned[kw] || {}) };
+        entry[technicianName] = (entry[technicianName] || 0) + 1;
+        learned[kw] = entry;
+      });
+      const next: AppSettings = { ...prev, learnedRouting: learned };
+      void setDoc(doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS), { value: JSON.parse(JSON.stringify(next)), updated_at: new Date().toISOString() });
+      return next;
+    });
+  };
+
   const commitTicketUpdate = (updatedTicket: Ticket, originalTicket: Ticket) => {
     const ut: Ticket = { ...updatedTicket };
     const statusChanged = originalTicket.status !== ut.status;
@@ -2044,6 +2150,10 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     // Manuelle Technikerzuweisung löscht Auto-Flag
     if (ut.technician !== originalTicket.technician) {
       ut.autoAssigned = false;
+      // SELBST-LERNEN: echte manuelle Zuweisung an eine Person (nicht 'N/A') → Schlagwörter merken
+      if (ut.technician && ut.technician !== 'N/A') {
+        learnFromAssignment(ut, ut.technician);
+      }
     }
 
     // --- Prevent assignment to absent technicians ---
@@ -2054,7 +2164,8 @@ const deleteTicketFromFirebase = (ticketId: string) => {
           { title: ut.title, description: ut.description },
           users,
           tickets,
-          appSettings.routingRules
+          appSettings.routingRules,
+          appSettings.learnedRouting
         );
 
         if (newTech === 'N/A' || newTech === techUser.name) {
@@ -2381,7 +2492,8 @@ const deleteTicketFromFirebase = (ticketId: string) => {
         { title: newTicketData.title, description: newTicketData.description },
         users,
         tickets,
-        appSettings.routingRules
+        appSettings.routingRules,
+        appSettings.learnedRouting
       );
       if (assignedTechnician !== 'N/A') wasAutoAssigned = true;
     }
@@ -2392,7 +2504,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
         const selectedTech = users.find(u => u.name === assignedTechnician);
         if (selectedTech && selectedTech.availability.status === AvailabilityStatus.OnLeave) {
             // Wenn abwesend, automatisch neu zuweisen
-            const autoTech = assignTicket({ title: newTicketData.title, description: newTicketData.description }, users, tickets, appSettings.routingRules);
+            const autoTech = assignTicket({ title: newTicketData.title, description: newTicketData.description }, users, tickets, appSettings.routingRules, appSettings.learnedRouting);
             if (autoTech !== 'N/A' && autoTech !== selectedTech.name) {
                 autoCorrectionNote = `HINWEIS: Gewählter Bearbeiter ${selectedTech.name} ist abwesend. Automatisch zugewiesen an ${autoTech}.`;
                 assignedTechnician = autoTech;
@@ -2408,7 +2520,8 @@ const deleteTicketFromFirebase = (ticketId: string) => {
             { title: newTicketData.title, description: newTicketData.description },
             users,
             tickets,
-            appSettings.routingRules
+            appSettings.routingRules,
+            appSettings.learnedRouting
         );
         if (assignedTechnician !== 'N/A') wasAutoAssigned = true;
     }
