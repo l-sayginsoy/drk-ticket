@@ -11,6 +11,7 @@ import {
 import { ROUTINE_TEAL } from '../utils/routineUiPalette';
 import { displayNameShort } from '../utils/displayNames';
 import { CheckIcon } from './icons/CheckIcon';
+import RoutineEditorModal from './RoutineEditorModal';
 
 interface RoutineSchedulesViewProps {
   userRole: Role;
@@ -23,6 +24,8 @@ interface RoutineSchedulesViewProps {
   completions: RoutineDayCompletion[];
   onComplete: (scheduleId: string) => void;
   onUncomplete: (scheduleId: string) => void;
+  onSaveSchedule: (schedule: RoutineSchedule) => void;
+  onDeleteSchedule: (id: string) => void;
 }
 
 const weekdayLabel: Record<WeekdayKey, string> = {
@@ -81,9 +84,30 @@ function cadenceGroupOf(schedule: RoutineSchedule & { recurrence?: any }): { ord
   return { order: 9, label: 'Sonstige' };
 }
 
+/** Leerer Entwurf für einen neuen Serienauftrag (gleiche Defaults wie in den Einstellungen). */
+function newRoutineDraft(): RoutineSchedule & { recurrence?: any } {
+  return {
+    id: `routine-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    title: '',
+    description: '',
+    area: '',
+    location: '',
+    targetRole: Role.Technician,
+    assignees: [],
+    assignment: { type: 'rotate' },
+    enabled: true,
+    lastGenerated: null,
+    rotationCursor: 0,
+    startDate: localISODate(new Date()),
+    recurrence: { type: 'weekdays', intervalWeeks: 1, weekdays: ['mo'] },
+  };
+}
+
 export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
-  const { userRole, userName, schedules, users, rpHolidayYmdList = [], onReorder, completions, onComplete, onUncomplete } = props;
+  const { userRole, userName, schedules, users, rpHolidayYmdList = [], onReorder, completions, onComplete, onUncomplete, onSaveSchedule, onDeleteSchedule } = props;
   const [dragId, setDragId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{ schedule: RoutineSchedule & { recurrence?: any }; isNew: boolean } | null>(null);
+  const canEdit = userRole === Role.Admin;
   const todayYmd = useMemo(() => localISODate(new Date()), []);
   const rpHolidaySet = useMemo(() => new Set(rpHolidayYmdList), [rpHolidayYmdList]);
 
@@ -187,6 +211,17 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
 
   return (
     <div style={{ maxWidth: 1800 }}>
+      {canEdit && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+          <button
+            type="button"
+            onClick={() => setEditing({ schedule: newRoutineDraft(), isNew: true })}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 15px', borderRadius: 8, border: 'none', background: 'var(--accent-primary)', color: '#fff', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}
+          >
+            <span style={{ fontSize: 17, lineHeight: 1, marginTop: -1 }}>+</span> Neuer Serienauftrag
+          </button>
+        </div>
+      )}
       <div className="routine-view-container">
         <style>{`
           .routine-view-container {
@@ -426,6 +461,9 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                     {group.items.map(s => (
                   <tr
                     key={s.id}
+                    onClick={canEdit ? () => setEditing({ schedule: s, isNew: false }) : undefined}
+                    style={canEdit ? { cursor: 'pointer' } : undefined}
+                    title={canEdit ? 'Zum Bearbeiten klicken' : undefined}
                     onDragOver={(e) => {
                       if (!dragId) return;
                       e.preventDefault();
@@ -447,6 +485,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                             e.dataTransfer.effectAllowed = 'move';
                           }}
                           onDragEnd={() => setDragId(null)}
+                          onClick={(e) => e.stopPropagation()}
                           title="Reihenfolge ändern (ziehen)"
                         >
                           ⋮⋮
@@ -523,7 +562,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                                 className="routine-today-circle routine-today-circle--off"
                                 title="Heute als erledigt markieren"
                                 aria-label="Heute als erledigt markieren"
-                                onClick={() => onComplete(s.id)}
+                                onClick={(e) => { e.stopPropagation(); onComplete(s.id); }}
                               />
                             ) : null}
                             {!completed && !canComplete ? (
@@ -536,7 +575,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                                   className="routine-today-circle routine-today-circle--on"
                                   title="Erledigt – Klick zum Zurücknehmen"
                                   aria-label="Erledigt, Klick zum Zurücknehmen"
-                                  onClick={() => onUncomplete(s.id)}
+                                  onClick={(e) => { e.stopPropagation(); onUncomplete(s.id); }}
                                 >
                                   {checkMark}
                                 </button>
@@ -568,6 +607,16 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
           </table>
         </div>
       </div>
+      {editing && (
+        <RoutineEditorModal
+          schedule={editing.schedule}
+          isNew={editing.isNew}
+          users={users}
+          onSave={(s) => { onSaveSchedule(s); setEditing(null); }}
+          onDelete={(id) => { onDeleteSchedule(id); setEditing(null); }}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </div>
   );
 }

@@ -2053,6 +2053,22 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
     return next;
   });
 };
+
+  // Serienauftrag anlegen/bearbeiten bzw. löschen – direkt aus der Serienaufträge-Ansicht.
+  const handleSaveRoutineSchedule = (sched: RoutineSchedule) => {
+    handleAppSettingsChange((prev) => {
+      const list = [...(((prev.routineSchedules as any[]) || []))];
+      const idx = list.findIndex((x) => x.id === sched.id);
+      if (idx >= 0) list[idx] = sched; else list.push(sched);
+      return { ...prev, routineSchedules: list as any };
+    });
+  };
+  const handleDeleteRoutineSchedule = (id: string) => {
+    handleAppSettingsChange((prev) => ({
+      ...prev,
+      routineSchedules: (((prev.routineSchedules as any[]) || []).filter((x) => x.id !== id)) as any,
+    }));
+  };
   const handleRoutineDayComplete = (scheduleId: string) => {
     if (!currentUser) return;
     const ymd = localISODate(new Date());
@@ -3319,6 +3335,8 @@ const deleteTicketFromFirebase = (ticketId: string) => {
             completions={appSettings.routineDayCompletions || []}
             onComplete={handleRoutineDayComplete}
             onUncomplete={handleRoutineDayUncomplete}
+            onSaveSchedule={handleSaveRoutineSchedule}
+            onDeleteSchedule={handleDeleteRoutineSchedule}
             onReorder={(fromId, toId) => {
               setAppSettings(prev => {
                 const list = [...(prev.routineSchedules || [])] as any[];
