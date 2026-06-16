@@ -603,6 +603,10 @@ export default function RoutineNachweisView({
                     const monthDone = days.filter((ymd) => !!completionFor(sch.id, ymd)).length;
                     const monthMissed = days.filter((ymd) => ymd < todayYmd && ymd >= missedSinceYmd && !completionFor(sch.id, ymd)).length;
                     const monthTotal = days.length;
+                    // „Aktivität" = es wurde erledigt ODER (ab Einführung) verpasst. Monate ohne
+                    // Aktivität (z.B. vor Einführung oder noch ganz in der Zukunft) werden als „—"
+                    // zusammengeklappt – kein voller, grauer Kalender ohne Inhalt.
+                    const monthHasActivity = monthDone > 0 || monthMissed > 0;
                     const donePct = monthTotal > 0 ? (monthDone / monthTotal) * 100 : 0;
                     const missedPctMonth = monthTotal > 0 ? (monthMissed / monthTotal) * 100 : 0;
 
@@ -610,7 +614,7 @@ export default function RoutineNachweisView({
                       <div key={mi} className={`nachweis-month-card${isFutureMonth ? ' future' : ''}`}>
                         <div className="nachweis-month-header">
                           <span className="nachweis-month-name">{monthName}</span>
-                          {monthTotal > 0 && !isFutureMonth && (
+                          {monthHasActivity && (
                             <div className="nachweis-month-summary">
                               {monthDone > 0 && <span style={{ color: ROUTINE_TEAL.dark }}>✓{monthDone}</span>}
                               {monthMissed > 0 && <span style={{ color: ROUTINE_AMBER.dark }}>{monthMissed}</span>}
@@ -622,15 +626,15 @@ export default function RoutineNachweisView({
                         </div>
 
                         {/* Progress bar */}
-                        {monthTotal > 0 && !isFutureMonth && (
+                        {monthHasActivity && (
                           <div className="nachweis-progress">
                             <div className="nachweis-progress-done" style={{ width: `${donePct}%` }} />
                             <div className="nachweis-progress-missed" style={{ width: `${missedPctMonth}%` }} />
                           </div>
                         )}
 
-                        {/* Mini calendar */}
-                        {days.length === 0 ? (
+                        {/* Mini calendar — nur wenn der Monat Aktivität hat, sonst „—" */}
+                        {!monthHasActivity ? (
                           <span className="nachweis-empty">—</span>
                         ) : (() => {
                           // Build a set of due dates for quick lookup
