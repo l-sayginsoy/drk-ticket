@@ -146,7 +146,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <span className="nav-badge">{newMeldungenCount}</span>
             )}
             {viewName === 'tech-dashboard' && userRole !== Role.Admin && (() => {
-                const c = tickets.filter(t => t.technician === userNameFull && t.status === Status.Offen && t.origin !== 'routine').length;
+                // Ganze Arbeitslast: alle aktiven (nicht abgeschlossenen/zurückgestellten) eigenen Tickets
+                const active = [Status.Offen, Status.InArbeit, Status.Ueberfaellig];
+                const c = tickets.filter(t => t.technician === userNameFull && active.includes(t.status) && t.origin !== 'routine').length;
                 return c > 0 ? <span className="nav-badge">{c}</span> : null;
             })()}
             {viewName === 'zurueckgestellt' && parkedCount > 0 && (
