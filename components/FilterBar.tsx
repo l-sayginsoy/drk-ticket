@@ -196,17 +196,17 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                 .view-toggle .toggle-btn { background: transparent; border: none; padding: 0.35rem 0.75rem; border-radius: 4px; cursor: pointer; font-weight: 500; font-size: 0.9rem; color: var(--text-muted); transition: all 0.2s ease; }
                 .view-toggle .toggle-btn.active { background: var(--bg-secondary); color: var(--text-primary); box-shadow: var(--shadow-sm); }
 
-                .custom-select { position: relative; border: 1px solid var(--border); border-radius: 9px; padding-right: 1.85rem; font-size: 0.85rem; font-weight: 500; min-width: auto; cursor: pointer; color: var(--text-secondary); height: 36px; display: flex; align-items: center; transition: var(--transition-smooth); background: var(--bg-secondary); box-shadow: var(--shadow-sm); }
-                .custom-select:hover { border-color: var(--border-active); background-color: var(--bg-secondary); }
-                .custom-select.group-by-select { background-color: var(--bg-secondary); padding-left: 0.85rem; border-radius: 9px; }
+                .custom-select { position: relative; border: 1px solid var(--border); border-radius: 9px; padding-right: 1.85rem; font-size: 0.85rem; font-weight: 500; min-width: auto; cursor: pointer; color: var(--text-secondary); height: 36px; display: flex; align-items: center; transition: var(--transition-smooth); background: var(--bg-tertiary); }
+                .custom-select:hover { border-color: var(--border-active); background-color: var(--bg-tertiary); }
+                .custom-select.group-by-select { background-color: var(--bg-tertiary); padding-left: 0.85rem; border-radius: 9px; }
                 .custom-select.filter-chip {
-                    background-color: var(--bg-secondary);
+                    background-color: var(--bg-tertiary);
                     padding-left: 0.85rem;
                     border-radius: 9px;
                     border: 1px solid var(--border);
                 }
                 .custom-select.filter-chip:hover {
-                    background-color: var(--bg-secondary);
+                    background-color: var(--bg-tertiary);
                     border-color: var(--border-active);
                 }
                 .custom-select.filter-chip.active {
@@ -231,7 +231,7 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                 .custom-select select { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
                 .custom-select svg { position: absolute; right: 0.7rem; top: 50%; transform: translateY(-50%); pointer-events: none; width: 14px; height: 14px; color: var(--text-muted); }
 
-                .action-btn { background: var(--bg-secondary); border: 1px solid var(--border); color: var(--text-secondary); font-size: 0.85rem; padding: 0.4rem 1rem; border-radius: 9px; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; transition: var(--transition-smooth); font-weight: 500; flex-shrink: 0; height: 36px; box-sizing: border-box; box-shadow: var(--shadow-sm); }
+                .action-btn { background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-secondary); font-size: 0.85rem; padding: 0.4rem 1rem; border-radius: 9px; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; transition: var(--transition-smooth); font-weight: 500; flex-shrink: 0; height: 36px; box-sizing: border-box; }
                 .action-btn:hover { background: var(--border); }
                 .action-btn svg { width: 16px; height: 16px; }
                 .action-btn .ti {
