@@ -403,7 +403,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
           }
           .routine-group-row td {
             background: var(--bg-tertiary);
-            padding: 0.75rem 1rem 0.75rem 1.1rem;
+            padding: 0.4rem 1rem 0.4rem 1.1rem;
             border-top: 1px solid var(--border-active);
             border-bottom: 1px solid var(--border-active);
             border-left: 4px solid var(--accent-primary);
@@ -411,24 +411,23 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
           }
           .routine-group-row:hover td { background: var(--bg-tertiary); }
           .routine-group-cell {
-            display: inline-flex;
-            align-items: center;
-            font-size: 0.82rem;
+            font-size: 0.76rem;
             font-weight: 800;
             letter-spacing: 0.07em;
             text-transform: uppercase;
             color: var(--text-primary);
           }
           .routine-group-count {
-            margin-left: 10px;
+            margin-left: 9px;
             font-weight: 700;
-            font-size: 0.72rem;
+            font-size: 0.7rem;
             color: var(--text-secondary);
             background: var(--bg-secondary);
             border: 1px solid var(--border);
             border-radius: 999px;
-            padding: 1px 9px;
-            line-height: 1.5;
+            padding: 1px 8px;
+            vertical-align: middle;
+            display: inline-block;
           }
         `}</style>
         <div className="routine-table-wrap">
