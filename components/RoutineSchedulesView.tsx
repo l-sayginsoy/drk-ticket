@@ -63,6 +63,24 @@ function formatInterval(schedule: RoutineSchedule & { recurrence?: any }): strin
   return '—';
 }
 
+/** Rhythmus-Gruppe für die gruppierte Anzeige: Sortier-Reihenfolge + Überschrift. */
+function cadenceGroupOf(schedule: RoutineSchedule & { recurrence?: any }): { order: number; label: string } {
+  const rec = (schedule as any).recurrence;
+  if (!rec || rec.type === 'daily') return { order: 0, label: 'Täglich' };
+  if (rec.type === 'weekly' || rec.type === 'weekdays') {
+    const n = Math.max(1, Number(rec.intervalWeeks || 1));
+    if (n === 1) return { order: 1, label: 'Wöchentlich' };
+    if (n === 2) return { order: 2, label: 'Alle 2 Wochen' };
+    return { order: 3, label: `Alle ${n} Wochen` };
+  }
+  if (rec.type === 'monthly') {
+    const n = Math.max(1, Number(rec.intervalMonths || 1));
+    return { order: 4, label: n === 1 ? 'Monatlich' : n === 3 ? 'Vierteljährlich' : `Alle ${n} Monate` };
+  }
+  if (rec.type === 'yearly') return { order: 5, label: 'Jährlich' };
+  return { order: 9, label: 'Sonstige' };
+}
+
 export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
   const { userRole, userName, schedules, users, rpHolidayYmdList = [], onReorder, completions, onComplete, onUncomplete } = props;
   const [dragId, setDragId] = useState<string | null>(null);
@@ -99,6 +117,18 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
       return assignees.includes(userName) && poolAll.includes(userName);
     });
   }, [schedules, userRole, userName, activeUsersByRole]);
+
+  // Nach Rhythmus gruppieren: Täglich → Wöchentlich → Alle 2 Wochen → … → Monatlich → Jährlich.
+  const groups = useMemo(() => {
+    const map = new Map<string, { order: number; label: string; items: Array<RoutineSchedule & { recurrence?: any }> }>();
+    const seen: string[] = [];
+    for (const s of visible) {
+      const g = cadenceGroupOf(s);
+      if (!map.has(g.label)) { map.set(g.label, { order: g.order, label: g.label, items: [] }); seen.push(g.label); }
+      map.get(g.label)!.items.push(s);
+    }
+    return seen.map(l => map.get(l)!).sort((a, b) => a.order - b.order || a.label.localeCompare(b.label, 'de'));
+  }, [visible]);
 
   const renderInterval = (s: RoutineSchedule & { recurrence?: any }) => {
     const rec = (s as any).recurrence;
@@ -336,6 +366,30 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
             max-width: 100%;
             text-align: center;
           }
+          .routine-group-row td {
+            background: var(--bg-primary);
+            padding: 0.5rem 1rem;
+            border-top: 2px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+          }
+          .routine-group-row:first-child td { border-top: none; }
+          .routine-group-cell {
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+          }
+          .routine-group-count {
+            margin-left: 8px;
+            font-weight: 700;
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            background: var(--bg-tertiary);
+            border-radius: 999px;
+            padding: 1px 8px;
+          }
         `}</style>
         <div className="routine-table-wrap">
           <table className="routine-table">
@@ -356,7 +410,15 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                   </td>
                 </tr>
               ) : (
-                visible.map(s => (
+                groups.map(group => (
+                  <React.Fragment key={group.label}>
+                    <tr className="routine-group-row">
+                      <td colSpan={5} className="routine-group-cell">
+                        {group.label}
+                        <span className="routine-group-count">{group.items.length}</span>
+                      </td>
+                    </tr>
+                    {group.items.map(s => (
                   <tr
                     key={s.id}
                     onDragOver={(e) => {
@@ -493,6 +555,8 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                       })()}
                     </td>
                   </tr>
+                    ))}
+                  </React.Fragment>
                 ))
               )}
             </tbody>
