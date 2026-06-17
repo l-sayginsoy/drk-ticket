@@ -560,15 +560,11 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                                   <CheckIcon width={14} height={14} strokeWidth={2.5} aria-hidden />
                                 </span>
                                 {by ? <div className="routine-today-by-under" title={rec?.completedBy}>{by}</div> : null}
-                                <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 1 }}>zuletzt {dateLabel}</div>
                               </div>
                             );
                           }
                           return (
-                            <div className="routine-today-stack" title={`Letzter Termin: ${dateLabel} – nicht erledigt`}>
-                              <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
-                              <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 1 }}>fällig war {dateLabel}</div>
-                            </div>
+                            <span style={{ color: 'var(--text-muted)', fontSize: 12 }} title={`Letzter Termin: ${dateLabel} – nicht erledigt`}>—</span>
                           );
                         }
                         const pool = getRoutinePool(s, users);
