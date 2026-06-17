@@ -535,8 +535,40 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                       {(() => {
                         const due = isRoutineDueOnCalendarDay(s, new Date(), rpHolidaySet);
                         if (!due) {
+                          // Heute nicht fällig → letzten fälligen Termin (≤ heute) zeigen,
+                          // damit man sieht, ob er an seinem letzten Termin erledigt wurde.
+                          let lastDate: Date | null = null;
+                          const probe = new Date();
+                          for (let i = 0; i < 200; i++) {
+                            if (isRoutineDueOnCalendarDay(s, probe, rpHolidaySet)) { lastDate = new Date(probe); break; }
+                            probe.setDate(probe.getDate() - 1);
+                          }
+                          if (!lastDate) {
+                            return <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>;
+                          }
+                          const lastYmd = localISODate(lastDate);
+                          const st = routineDayStatus(s, lastYmd, completions);
+                          const wd = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][lastDate.getDay()];
+                          const dateLabel = `${wd} ${String(lastDate.getDate()).padStart(2, '0')}.${String(lastDate.getMonth() + 1).padStart(2, '0')}.`;
+                          const rec = (completions || []).find((c) => c.scheduleId === s.id && c.date === lastYmd && !c.subtaskId)
+                            || (completions || []).find((c) => c.scheduleId === s.id && c.date === lastYmd);
+                          const by = rec?.completedBy ? displayNameShort(rec.completedBy) : null;
+                          if (st.complete) {
+                            return (
+                              <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }} title={`Zuletzt erledigt: ${dateLabel}${rec?.completedBy ? ' · ' + rec.completedBy : ''}`}>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: ROUTINE_TEAL.dark, fontSize: 12.5, fontWeight: 600 }}>
+                                  <CheckIcon width={13} height={13} strokeWidth={2.5} aria-hidden />
+                                  {by || 'erledigt'}
+                                </span>
+                                <span style={{ fontSize: 10.5, color: 'var(--text-muted)', fontWeight: 500 }}>zuletzt {dateLabel}</span>
+                              </div>
+                            );
+                          }
                           return (
-                            <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
+                            <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }} title={`Letzter Termin: ${dateLabel} – nicht erledigt`}>
+                              <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
+                              <span style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>fällig war {dateLabel}</span>
+                            </div>
                           );
                         }
                         const pool = getRoutinePool(s, users);
