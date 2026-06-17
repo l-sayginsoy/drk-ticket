@@ -561,21 +561,6 @@ export default function RoutineNachweisView({
                         </div>
                       ) : null}
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 12, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginRight: 4 }}>Verlauf:</span>
-                        {pastOrToday.slice(-8).map((d) => {
-                          const s2 = routineDayStatus(sch, d, completions);
-                          const past = d < todayYmd;
-                          const counts = d >= missedSinceYmd;
-                          let bg = 'var(--bg-tertiary)';
-                          if (s2.complete) bg = ROUTINE_TEAL.accent;
-                          else if (s2.anyDone) bg = ROUTINE_AMBER.accent;
-                          else if (past && counts) bg = '#E24B4A';
-                          return <span key={d} title={fmtYmd(d) + ': ' + (s2.complete ? 'erledigt' : s2.anyDone ? (s2.done + '/' + s2.total) : (past && counts ? 'verpasst' : 'geplant'))} style={{ width: 14, height: 14, borderRadius: 3, background: bg, border: bg === 'var(--bg-tertiary)' ? '1px solid var(--border)' : 'none', flexShrink: 0 }} />;
-                        })}
-                        {pastOrToday.length === 0 ? <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>noch keine Termine</span> : null}
-                      </div>
-
                       <div style={{ marginTop: 16 }}>
                         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px 14px', marginBottom: 8 }}>
                           <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Jahresübersicht {year}</span>
