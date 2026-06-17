@@ -650,6 +650,17 @@ Die App kann sich in seltenen Fällen aufhängen (veraltete Daten, hängender Li
 - Wird ausschließlich für automatische Stale-Erinnerungen genutzt (kein Pflichtfeld)
 - Beispiel: `torsten@kv-vorderpfalz.drk.de, ali-weiterleitung@kv-vorderpfalz.drk.de`
 
+### Avatar-Farbe
+- Wird über **Bearbeiten** geändert (Feld im UserModal). Der frühere kleine Inline-Farbpunkt rechts neben dem Namen in der Liste wurde entfernt (17.06.2026).
+
+### Login & Passwörter ⚠️
+- Login prüft das **Klartext-Passwort** im `users`-Datensatz (`facility-management-users`); **Name case-insensitive**, Passwort exakt (`components/Portal.tsx`).
+- Fest angelegte Konten: `admin` (Rolle admin), `Heiko Saupert`/`Heiko1`, `Ali Najafi`/`Ali1`, `Torsten Isselhard`/`Torsten1`.
+- Ein Init-Effekt in `App.tsx` (~Z.1578) **normalisiert die Namen** dieser Konten (Tickets referenzieren die vollen Namen — **nicht aufweichen**) und **setzt das Passwort nur, wenn keines vorhanden ist**.
+- **Eigene Passwörter bleiben erhalten** (seit 17.06.2026). `admin`/`admin` funktioniert nur, solange das Admin-Passwortfeld leer ist (Fallback).
+- **Recovery bei vergessenem Passwort:** Passwortfeld des Kontos in Firestore (`facility-management-users`) leeren → beim nächsten Laden greift wieder der Default. Es gibt **kein** eingebautes „Passwort vergessen?" (bewusste Entscheidung — kleines internes Tool).
+- **Empfehlung:** privates Admin-Passwort vergeben und sicher notieren, da `admin/admin` teamweit bekannt ist.
+
 ---
 
 ## 20. Code Splitting & Performance
@@ -775,6 +786,11 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 
 | Datum | Änderung |
 |---|---|
+| 17.06.2026 | **SICHERHEIT – Login/Passwörter** (`App.tsx` ~Z.1578): Der Init-Effekt setzte bei jedem Laden Name **und** Passwort der fest angelegten Konten (admin/Heiko/Ali/Torsten) zwangsweise auf Defaults zurück → ein selbst vergebenes Admin-Passwort ging beim Reload verloren (Lockout). Jetzt: **Name** wird weiter normalisiert (Tickets referenzieren ihn), **Passwort** nur gesetzt, wenn keines vorhanden ist. `admin/admin` ist nur noch Fallback, sobald das Passwortfeld leer ist. **Recovery bei vergessenem Passwort:** Passwortfeld in Firestore (`facility-management-users`) leeren → Default greift wieder. Kein eingebautes „Passwort vergessen?" (bewusste Entscheidung) |
+| 17.06.2026 | **Serienaufträge-Board – „Heute"-Spalte zeigt letzten Termin** (`RoutineSchedulesView.tsx`): Aufgaben, die heute nicht fällig sind (z. B. Dienstags-Routine an einem Mittwoch), zeigten nur „—" und wirkten unerledigt. Jetzt wird der **letzte fällige Termin (≤ heute)** mit demselben Kreis-+-Haken-+-Name-System angezeigt (Datum im Tooltip); nicht erledigt = „—". Heute fällige Aufgaben unverändert (klickbarer Kreis) |
+| 17.06.2026 | **Serien-Nachweis aufgeräumt** (`RoutineNachweisView.tsx`): redundanter „Verlauf"-Streifen im aufgeklappten Auftrag entfernt; stattdessen **Jahresübersicht** (12 Monatskärtchen, Fälligkeitstage farbcodiert) + **Farb-Legende** (erledigt/teilweise/verpasst/geplant) |
+| 17.06.2026 | **Einstellungen: „Serientermine"-Tab entfernt** (`SettingsView.tsx`): redundant, da Erstellen/Bearbeiten jetzt in der Serienaufträge-Ansicht läuft. Tab, Editor, Drag-Sortierung, Pending-Logik und nur dort genutzte Helfer/Imports entfernt |
+| 17.06.2026 | **Benutzer-Liste: Farbpunkt neben Namen entfernt** (`SettingsView.tsx`): der kleine Inline-Farbwähler rechts vom Namen ist raus; Avatar-Farbe weiterhin im Bearbeiten-Dialog änderbar |
 | 16.06.2026 | **Serienauftrag-Unteraufgaben (Checkliste) + Nachweis-Umbau**: Routinen können eine Checkliste haben (`RoutineSchedule.subtasks`), jeder Punkt einzeln abhakbar (Wer/Wann) – Datenmodell `RoutineDayCompletion.subtaskId`, zentrale Logik `routineHelpers.routineDayStatus()`. Pflege im `RoutineEditorModal`. Abhaken im **Serien-Nachweis** (jetzt kompakte **Akkordeon-Liste** statt 12-Monats-Kalenderwand: Zeile → aufklappen → Checkliste + Verlaufs-Streifen) **und** im Serienaufträge-Board („X/N"-Button in „Heute" → Checklisten-Popover) |
 | 16.06.2026 | **Serienaufträge: Erstellen & Bearbeiten direkt in der Ansicht** (`RoutineSchedulesView.tsx`, neues `RoutineEditorModal.tsx`): „Neuer Serienauftrag"-Button + Klick auf Zeile öffnet Editor-Modal mit allen Feldern (Titel, Bereich, Beschreibung, Rolle, Wiederholung inkl. Wochentage/Intervall/monatlich/jährlich, Startdatum, Zuweisung Rotation/Fest, Pool, Aktiv, Löschen). App-Handler `handleSaveRoutineSchedule`/`handleDeleteRoutineSchedule`. Einstellungen → Serientermine dadurch optional/redundant |
 | 16.06.2026 | **Serienaufträge nach Rhythmus gruppiert** (`RoutineSchedulesView.tsx`): Abschnitts-Überschriften (Täglich/Wöchentlich/Alle 2 Wochen/…/Jährlich) mit rotem Akzentbalken, Band-Hintergrund und Anzahl-Chip |

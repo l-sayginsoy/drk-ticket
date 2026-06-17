@@ -35,6 +35,28 @@ Serienaufträge (Routinen) · Brevo-E-Mails · Stale-Erinnerungen · **Interner 
 
 ## Zuletzt abgeschlossen
 
+### Session 17.06.2026 – Login-Fix, Board-Heute-Spalte, Einstellungen aufgeräumt (committed & deployed)
+- **SICHERHEIT – Login/Passwörter** (`App.tsx` ~Z.1578): Der Init-Effekt setzte bei jedem Laden Name
+  **und** Passwort der fest angelegten Konten (admin/Heiko/Ali/Torsten) zwangsweise auf Defaults zurück
+  → ein selbst vergebenes Admin-Passwort ging beim Reload verloren (Lockout). Jetzt: **Name** wird weiter
+  normalisiert (Tickets referenzieren ihn — nicht aufweichen), **Passwort** nur gesetzt, wenn keines
+  vorhanden ist. `admin/admin` ist nur noch Fallback, solange das Passwortfeld leer ist.
+  > **Recovery bei vergessenem Passwort:** Passwortfeld des Kontos in Firestore (`facility-management-users`)
+  > leeren → beim nächsten Laden greift wieder der Default. Es gibt bewusst **kein** „Passwort vergessen?".
+  > Login: Name case-insensitive, Passwort exakt (`components/Portal.tsx`).
+- **Serienaufträge-Board – „Heute"-Spalte zeigt letzten Termin** (`RoutineSchedulesView.tsx`): Aufgaben,
+  die heute nicht fällig sind (z. B. Di-Routine an einem Mi), zeigten nur „—" und wirkten unerledigt.
+  Jetzt: **letzter fälliger Termin (≤ heute)** mit demselben Kreis-+-Haken-+-Name-System (Datum im Tooltip);
+  nicht erledigt = „—". Heute fällige Aufgaben unverändert (klickbarer Kreis).
+  > Nutzer-Wunsch: keine „zuletzt <Datum>"-Zeile in der Zelle — exakt wie die anderen aussehen.
+- **Serien-Nachweis aufgeräumt** (`RoutineNachweisView.tsx`): redundanter „Verlauf"-Streifen entfernt;
+  es bleibt **Jahresübersicht** (12 Monatskärtchen, farbcodierte Fälligkeitstage) + **Farb-Legende**.
+- **Einstellungen: „Serientermine"-Tab entfernt** (`SettingsView.tsx`): redundant — Erstellen/Bearbeiten
+  läuft jetzt in der Serienaufträge-Ansicht. Tab + Editor + Drag-Sortierung + Pending-Logik + tote
+  Helfer/Imports raus.
+- **Benutzer-Liste: Farbpunkt neben Namen entfernt** (`SettingsView.tsx`): der kleine Inline-Farbwähler
+  rechts vom Namen ist weg; Avatar-Farbe weiterhin über **Bearbeiten** änderbar.
+
 ### Session 15.06.2026 – Layout/UI-Feinschliff (committed & deployed)
 - **Board-Breite** (`App.tsx`, `.kanban-workbench`): max-width **2400px** (vorher 1300→1600→2000→2400).
   Füllt 24"+-Monitore, wächst mit dem Fenster, deckelt erst auf sehr breiten Displays. Die
@@ -103,6 +125,15 @@ Rückkehr-Effekt, `handleUserUpdated`, `handleManualRedistribution`).
 > **Diese Regel nie aufweichen.** Keine neue Umverteilungs-Logik ohne `canRedistribute()`-Filter.
 > Offen: Die *Regeln innerhalb* der erlaubten Status (z.B. „nur kritische", Rückkehr zieht offene
 > Tickets anderer Abwesender) sollen laut Nutzer noch geprüft/feinjustiert werden.
+
+## ⚠️ Harte Regel: Login & Passwörter (fest angelegte Konten)
+Login prüft **Klartext-Passwörter** im `users`-Doc (`facility-management-users`); Name case-insensitive,
+Passwort exakt (`components/Portal.tsx`). Der Init-Effekt in `App.tsx` (~Z.1578) **normalisiert die Namen**
+der Konten admin/Heiko/Ali/Torsten (Tickets referenzieren die vollen Namen — **nicht aufweichen**), setzt
+das **Passwort aber NUR, wenn keines vorhanden ist**. Selbst vergebene Passwörter müssen erhalten bleiben.
+> **Diese Regel nie aufweichen** — den Passwort-Zwangs-Reset NICHT wieder einbauen, sonst Admin-Lockout.
+> **Recovery:** Passwortfeld des Kontos in Firestore leeren → Default greift wieder (admin → `admin`).
+> Kein „Passwort vergessen?"-Feature (bewusste Entscheidung). Details: SYSTEM_DOKUMENTATION.md Kap. 19.
 
 ## Arbeitsweise & Konventionen (wichtig)
 - **Vorschau = Live-Prod**: Der Dev-Server (Port 5173) hängt an der **echten** Firestore.
