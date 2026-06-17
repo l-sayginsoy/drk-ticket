@@ -555,19 +555,19 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                           const by = rec?.completedBy ? displayNameShort(rec.completedBy) : null;
                           if (st.complete) {
                             return (
-                              <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }} title={`Zuletzt erledigt: ${dateLabel}${rec?.completedBy ? ' · ' + rec.completedBy : ''}`}>
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: ROUTINE_TEAL.dark, fontSize: 12.5, fontWeight: 600 }}>
-                                  <CheckIcon width={13} height={13} strokeWidth={2.5} aria-hidden />
-                                  {by || 'erledigt'}
+                              <div className="routine-today-stack" title={`Zuletzt erledigt: ${dateLabel}${rec?.completedBy ? ' · ' + rec.completedBy : ''}`}>
+                                <span className="routine-today-circle routine-today-circle--on" aria-label={`Zuletzt erledigt am ${dateLabel}`}>
+                                  <CheckIcon width={14} height={14} strokeWidth={2.5} aria-hidden />
                                 </span>
-                                <span style={{ fontSize: 10.5, color: 'var(--text-muted)', fontWeight: 500 }}>zuletzt {dateLabel}</span>
+                                {by ? <div className="routine-today-by-under" title={rec?.completedBy}>{by}</div> : null}
+                                <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 1 }}>zuletzt {dateLabel}</div>
                               </div>
                             );
                           }
                           return (
-                            <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }} title={`Letzter Termin: ${dateLabel} – nicht erledigt`}>
+                            <div className="routine-today-stack" title={`Letzter Termin: ${dateLabel} – nicht erledigt`}>
                               <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
-                              <span style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>fällig war {dateLabel}</span>
+                              <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 1 }}>fällig war {dateLabel}</div>
                             </div>
                           );
                         }
