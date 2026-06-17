@@ -575,6 +575,46 @@ export default function RoutineNachweisView({
                         })}
                         {pastOrToday.length === 0 ? <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>noch keine Termine</span> : null}
                       </div>
+
+                      <div style={{ marginTop: 16 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px 14px', marginBottom: 8 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Jahresübersicht {year}</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 12, fontSize: 11, color: 'var(--text-muted)' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 11, height: 11, borderRadius: 3, background: ROUTINE_TEAL.accent }} /> erledigt</span>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 11, height: 11, borderRadius: 3, background: ROUTINE_AMBER.accent }} /> teilweise</span>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 11, height: 11, borderRadius: 3, background: '#E24B4A' }} /> verpasst</span>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 11, height: 11, borderRadius: 3, background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }} /> geplant</span>
+                          </span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
+                          {MONTHS_DE.map((mname, mi) => {
+                            const mdays = dueList.filter((d) => Number(d.split('-')[1]) - 1 === mi).sort();
+                            return (
+                              <div key={mi} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', background: 'var(--bg-primary)' }}>
+                                <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>{mname}</div>
+                                {mdays.length === 0 ? (
+                                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>—</span>
+                                ) : (
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                    {mdays.map((d) => {
+                                      const s2 = routineDayStatus(sch, d, completions);
+                                      const past = d < todayYmd;
+                                      const counts = d >= missedSinceYmd;
+                                      let bg = 'var(--bg-tertiary)';
+                                      let fg = 'var(--text-muted)';
+                                      if (s2.complete) { bg = ROUTINE_TEAL.accent; fg = '#fff'; }
+                                      else if (s2.anyDone) { bg = ROUTINE_AMBER.accent; fg = '#fff'; }
+                                      else if (past && counts) { bg = '#E24B4A'; fg = '#fff'; }
+                                      const dn = Number(d.split('-')[2]);
+                                      return <span key={d} title={fmtYmd(d) + ': ' + (s2.complete ? 'erledigt' : s2.anyDone ? (s2.done + '/' + s2.total) : (past && counts ? 'verpasst' : 'geplant'))} style={{ width: 21, height: 21, borderRadius: 4, background: bg, color: fg, fontSize: 10, fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: bg === 'var(--bg-tertiary)' ? '1px solid var(--border)' : 'none' }}>{dn}</span>;
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
                   ) : null}
                 </div>
