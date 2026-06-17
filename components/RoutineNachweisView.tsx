@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { Role, RoutineDayCompletion, RoutineSchedule, User } from '../types';
-import { getDueDatesInYear, getRoutineAssigneeDisplayName, getRoutinePool, isScheduleVisibleForUser, localISODate } from '../utils/routineHelpers';
+import { getDueDatesInYear, getRoutineAssigneeDisplayName, getRoutinePool, isScheduleVisibleForUser, localISODate, routineDayStatus } from '../utils/routineHelpers';
 import { ROUTINE_AMBER, ROUTINE_TEAL } from '../utils/routineUiPalette';
 import { displayNameShort } from '../utils/displayNames';
+import { CheckIcon } from './icons/CheckIcon';
 
 
 const MONTHS_DE = [
@@ -27,6 +28,21 @@ function groupYmdsByMonth(ymds: string[]): Map<number, string[]> {
   return m;
 }
 
+function cadenceLabel(sch: RoutineSchedule & { recurrence?: any }): string {
+  const rec: any = sch.recurrence;
+  if (!rec || rec.type === 'daily') return 'Täglich';
+  if (rec.type === 'weekly') { const n = Math.max(1, Number(rec.intervalWeeks || 1)); return n === 1 ? 'Wöchentlich' : `Alle ${n} Wochen`; }
+  if (rec.type === 'weekdays') {
+    const n = Math.max(1, Number(rec.intervalWeeks || 1));
+    const map: Record<string, string> = { mo: 'Mo', di: 'Di', mi: 'Mi', do: 'Do', fr: 'Fr', sa: 'Sa', so: 'So' };
+    const days = (Array.isArray(rec.weekdays) ? rec.weekdays : []).map((d: string) => map[d] || d).join(' · ');
+    return (n === 1 ? '' : `Alle ${n} Wo · `) + (days || '—');
+  }
+  if (rec.type === 'monthly') { const n = Math.max(1, Number(rec.intervalMonths || 1)); return n === 1 ? 'Monatlich' : n === 3 ? 'Vierteljährlich' : `Alle ${n} Monate`; }
+  if (rec.type === 'yearly') return 'Jährlich';
+  return '—';
+}
+
 interface RoutineNachweisViewProps {
   schedules: Array<RoutineSchedule & { recurrence?: any }>;
   completions: RoutineDayCompletion[];
@@ -38,6 +54,8 @@ interface RoutineNachweisViewProps {
   missedSinceYmd?: string;
   /** Trägt eine Erledigung für einen beliebigen Tag ein (completedBy=null → entfernen). */
   onSetCompletion?: (scheduleId: string, ymd: string, completedBy: string | null) => void;
+  /** Hakt eine einzelne Unter-Aufgabe ab/zurück (completedBy=null → entfernen). */
+  onToggleSubtask?: (scheduleId: string, ymd: string, subtaskId: string, completedBy: string | null) => void;
 }
 
 export default function RoutineNachweisView({
@@ -49,7 +67,9 @@ export default function RoutineNachweisView({
   rpHolidayYmdList = [],
   missedSinceYmd = '',
   onSetCompletion,
+  onToggleSubtask,
 }: RoutineNachweisViewProps) {
+  const [openRows, setOpenRows] = useState<Record<string, boolean>>({});
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
   const [scheduleFilter, setScheduleFilter] = useState<string>('alle');
@@ -556,195 +576,113 @@ export default function RoutineNachweisView({
           );
         })()}
 
+        <style>{`
+          .nz-row { border: 1px solid var(--border); border-radius: 12px; background: var(--bg-secondary); margin-bottom: 8px; overflow: hidden; }
+          .nz-head { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 12px 14px; font: inherit; color: inherit; }
+          .nz-head:hover { background: var(--bg-tertiary); }
+          .nz-title { font-weight: 700; font-size: 14px; color: var(--text-primary); flex: 1; min-width: 0; }
+          .nz-area { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+          .nz-cad { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+          .nz-status { font-size: 12.5px; font-weight: 600; min-width: 96px; text-align: right; white-space: nowrap; }
+          .nz-body { padding: 4px 14px 14px 38px; border-top: 1px solid var(--border); }
+          .nz-sub { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+          .nz-sub:last-child { border-bottom: none; }
+          .nz-circle { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border-active); background: var(--bg-tertiary); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; padding: 0; color: #fff; }
+          .nz-circle:disabled { cursor: default; opacity: 0.6; }
+          .nz-circle--done { border-color: ${ROUTINE_TEAL.border}; background: ${ROUTINE_TEAL.accent}; }
+        `}</style>
         {visibleSchedules.length === 0 ? (
           <div style={{ color: 'var(--text-muted)', padding: '1rem 0', textAlign: 'center' }}>
             Keine Serienaufträge sichtbar.
           </div>
         ) : (
-          visibleSchedules.map((sch) => {
-            const dueList = dueByScheduleId.get(sch.id) || [];
-            const byMonth = groupYmdsByMonth(dueList);
-            const doneCount = dueList.filter((ymd) => !!completionFor(sch.id, ymd)).length;
-            const missedCount = dueList.filter((ymd) => ymd < todayYmd && ymd >= missedSinceYmd && !completionFor(sch.id, ymd)).length;
-            // Verantwortliche Person nur bei FESTER Zuweisung sicher bestimmbar (Rotation = für
-            // vergangene Tage nicht zuverlässig rekonstruierbar → bewusst kein Name, um nicht falsch zuzuordnen).
-            const pool = getRoutinePool(sch, users);
-            const fixedResponsible = sch.assignment?.type === 'fixed' ? getRoutineAssigneeDisplayName(sch, pool, todayYmd) : null;
+          <div>
+            {visibleSchedules.map((sch) => {
+              const dueList = dueByScheduleId.get(sch.id) || [];
+              const pastOrToday = dueList.filter((d) => d <= todayYmd);
+              const currentYmd = pastOrToday.length ? pastOrToday[pastOrToday.length - 1] : (dueList[0] || null);
+              const pool = getRoutinePool(sch, users);
+              const subtasks = sch.subtasks || [];
+              const st = currentYmd ? routineDayStatus(sch, currentYmd, completions) : null;
+              const assignee = currentYmd ? getRoutineAssigneeDisplayName(sch, pool, currentYmd) : '—';
+              const canComplete = userRole === Role.Admin || assignee === userName;
+              const expanded = !!openRows[sch.id];
+              const wholeRec = currentYmd ? (completions || []).find((c) => c.scheduleId === sch.id && c.date === currentYmd && !c.subtaskId) : undefined;
 
-            return (
-              <section key={sch.id} className="nachweis-section">
-                {/* Section header */}
-                <div className="nachweis-section-header">
-                  <div>
-                    <h2 className="nachweis-section-title">{sch.title || '—'}</h2>
-                    <div className="nachweis-section-meta">
-                      {String(sch.area || '').trim() || '—'} · {dueList.length} Termine {year}
-                    </div>
-                  </div>
-                  <div className="nachweis-stats">
-                    {doneCount > 0 && (
-                      <span className="nachweis-stat-pill nachweis-stat-pill--done">
-                        ✓ {doneCount} erledigt
-                      </span>
-                    )}
-                    {missedCount > 0 && (
-                      <span className="nachweis-stat-pill nachweis-stat-pill--missed">
-                        ! {missedCount} verpasst
-                      </span>
-                    )}
-                  </div>
-                </div>
+              let statusEl;
+              if (!currentYmd) {
+                statusEl = <span style={{ color: 'var(--text-muted)' }}>—</span>;
+              } else if (subtasks.length > 0) {
+                const col = st!.complete ? ROUTINE_TEAL.dark : st!.anyDone ? ROUTINE_AMBER.dark : 'var(--text-muted)';
+                statusEl = <span style={{ color: col }}>{st!.done}/{st!.total} erledigt</span>;
+              } else if (st!.complete) {
+                statusEl = <span style={{ color: ROUTINE_TEAL.dark, display: 'inline-flex', alignItems: 'center', gap: 5, justifyContent: 'flex-end' }}><CheckIcon width={14} height={14} strokeWidth={2.5} aria-hidden /> erledigt</span>;
+              } else {
+                statusEl = <span style={{ color: ROUTINE_AMBER.dark }}>offen</span>;
+              }
 
-                {/* Month grid */}
-                <div className="nachweis-month-grid">
-                  {MONTHS_DE.map((monthName, mi) => {
-                    const days = byMonth.get(mi) || [];
-                    const isFutureMonth = year === currentYearNum ? mi > currentMonthIndex : year > currentYearNum;
-                    const monthDone = days.filter((ymd) => !!completionFor(sch.id, ymd)).length;
-                    const monthMissed = days.filter((ymd) => ymd < todayYmd && ymd >= missedSinceYmd && !completionFor(sch.id, ymd)).length;
-                    const monthTotal = days.length;
-                    // „Aktivität" = es wurde erledigt ODER (ab Einführung) verpasst. Monate ohne
-                    // Aktivität (z.B. vor Einführung oder noch ganz in der Zukunft) werden als „—"
-                    // zusammengeklappt – kein voller, grauer Kalender ohne Inhalt.
-                    const monthHasActivity = monthDone > 0 || monthMissed > 0;
-                    const donePct = monthTotal > 0 ? (monthDone / monthTotal) * 100 : 0;
-                    const missedPctMonth = monthTotal > 0 ? (monthMissed / monthTotal) * 100 : 0;
-
-                    return (
-                      <div key={mi} className={`nachweis-month-card${isFutureMonth ? ' future' : ''}`}>
-                        <div className="nachweis-month-header">
-                          <span className="nachweis-month-name">{monthName}</span>
-                          {monthHasActivity && (
-                            <div className="nachweis-month-summary">
-                              {monthDone > 0 && <span style={{ color: ROUTINE_TEAL.dark }}>✓{monthDone}</span>}
-                              {monthMissed > 0 && <span style={{ color: ROUTINE_AMBER.dark }}>{monthMissed}</span>}
-                              {monthTotal - monthDone - monthMissed > 0 && (
-                                <span>{monthTotal - monthDone - monthMissed} offen</span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Progress bar */}
-                        {monthHasActivity && (
-                          <div className="nachweis-progress">
-                            <div className="nachweis-progress-done" style={{ width: `${donePct}%` }} />
-                            <div className="nachweis-progress-missed" style={{ width: `${missedPctMonth}%` }} />
-                          </div>
-                        )}
-
-                        {/* Mini calendar — nur wenn der Monat Aktivität hat, sonst „—" */}
-                        {!monthHasActivity ? (
-                          <span className="nachweis-empty">—</span>
-                        ) : (() => {
-                          // Build a set of due dates for quick lookup
-                          const dueSet = new Set(days.map(d => dayOfMonthFromYmd(d)));
-
-                          // First day of month (0=Sun..6=Sat), convert to Mon-based (0=Mon..6=Sun)
-                          const firstDate = new Date(year, mi, 1);
-                          const firstDow = (firstDate.getDay() + 6) % 7; // Mon=0
-                          const daysInMonth = new Date(year, mi + 1, 0).getDate();
-
-                          // Build week rows
-                          const cells: (number | null)[] = [
-                            ...Array(firstDow).fill(null),
-                            ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-                          ];
-                          // Pad to full weeks
-                          while (cells.length % 7 !== 0) cells.push(null);
-                          const weeks: (number | null)[][] = [];
-                          for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
-
-                          return (
-                            <table className="nachweis-cal">
-                              <thead>
-                                <tr>
-                                  {['Mo','Di','Mi','Do','Fr','Sa','So'].map(d => (
-                                    <th key={d}>{d}</th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {weeks.map((week, wi) => (
-                                  <tr key={wi}>
-                                    {week.map((dayNum, di) => {
-                                      if (!dayNum) return <td key={di} />;
-                                      if (!dueSet.has(dayNum)) {
-                                        return (
-                                          <td key={di}>
-                                            <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:26, height:22, fontSize:11, color:'var(--text-muted)', opacity:0.35 }}>
-                                              {dayNum}.
-                                            </span>
-                                          </td>
-                                        );
-                                      }
-                                      const ymd = `${year}-${String(mi+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
-                                      const comp = completionFor(sch.id, ymd);
-                                      const done = !!comp;
-                                      const isPast = ymd < todayYmd;
-                                      const isToday = ymd === todayYmd;
-                                      const ddmm = `${String(dayNum).padStart(2,'0')}.${String(mi+1).padStart(2,'0')}.${year}`;
-                                      let cls = 'nachweis-day nachweis-day--future';
-                                      let lines: string[];
-                                      let tone: 'done' | 'missed' | 'today' | 'future' = 'future';
-                                      if (done) {
-                                        cls = 'nachweis-day nachweis-day--done';
-                                        tone = 'done';
-                                        let when = '';
-                                        if (comp!.completedAt) {
-                                          const d = new Date(comp!.completedAt);
-                                          if (!isNaN(d.getTime())) when = `${d.toLocaleDateString('de-DE')}, ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr`;
-                                        }
-                                        lines = [`✓ Erledigt von ${displayNameShort(comp!.completedBy) || 'unbekannt'}`, when || ddmm];
-                                      } else if (isToday) {
-                                        cls = 'nachweis-day nachweis-day--today';
-                                        tone = 'today';
-                                        lines = ['Heute fällig', fixedResponsible ? `Zuständig: ${displayNameShort(fixedResponsible)}` : ddmm];
-                                      } else if (isPast && ymd >= missedSinceYmd) {
-                                        cls = 'nachweis-day nachweis-day--missed';
-                                        tone = 'missed';
-                                        lines = ['! Nicht erledigt', fixedResponsible ? `Zuständig war: ${displayNameShort(fixedResponsible)}` : `war fällig am ${ddmm}`];
-                                      } else if (isPast) {
-                                        // Vor Einführung der Nachweis-Zählung → neutral, NICHT als verpasst werten
-                                        cls = 'nachweis-day nachweis-day--future';
-                                        tone = 'future';
-                                        lines = ['Vor Einführung', 'wird nicht als verpasst gewertet'];
-                                      } else {
-                                        lines = ['Geplant', fixedResponsible ? `Zuständig: ${displayNameShort(fixedResponsible)}` : ddmm];
-                                      }
-                                      const titleStr = lines.join(' — ');
-                                      return (
-                                        <td key={di}>
-                                          <span
-                                            className={cls}
-                                            title={onSetCompletion && ymd <= todayYmd ? `${titleStr} — klicken zum Eintragen/Korrigieren` : titleStr}
-                                            style={onSetCompletion && ymd <= todayYmd ? { cursor: 'pointer' } : undefined}
-                                            onMouseEnter={(e) => setHoverTip({ x: e.clientX, y: e.clientY, lines, tone })}
-                                            onMouseLeave={() => setHoverTip(null)}
-                                            onClick={onSetCompletion && ymd <= todayYmd ? (e) => {
-                                              e.stopPropagation();
-                                              setHoverTip(null);
-                                              const opts = pool.length ? pool : users.filter(u => u.isActive && u.role === sch.targetRole).map(u => u.name);
-                                              setPersonSel(opts.includes(userName) ? userName : (opts[0] || userName));
-                                              setEditCell({ schedId: sch.id, schedTitle: sch.title || '', ymd, x: e.clientX, y: e.clientY, options: opts, current: comp });
-                                            } : undefined}
-                                          >{dayNum}.</span>
-                                        </td>
-                                      );
-                                    })}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          );
-                        })()}
+              return (
+                <div key={sch.id} className="nz-row">
+                  <button className="nz-head" onClick={() => setOpenRows((p) => ({ ...p, [sch.id]: !p[sch.id] }))} aria-expanded={expanded}>
+                    <i className={`ti ti-chevron-${expanded ? 'down' : 'right'}`} style={{ color: 'var(--text-muted)', fontSize: 15, flexShrink: 0 }} aria-hidden />
+                    <span className="nz-title">
+                      {sch.title || '—'}
+                      {subtasks.length > 0 ? <span style={{ marginLeft: 7, fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>· {subtasks.length} Punkte</span> : null}
+                    </span>
+                    <span className="nz-area">{String(sch.area || '').trim() || '—'}</span>
+                    <span className="nz-cad">{cadenceLabel(sch)}</span>
+                    <span className="nz-status">{statusEl}</span>
+                  </button>
+                  {expanded ? (
+                    <div className="nz-body">
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', margin: '8px 0 10px' }}>
+                        {currentYmd ? <>Aktueller Termin: {fmtYmd(currentYmd)} · zuständig: {displayNameShort(assignee)}</> : 'Noch kein fälliger Termin.'}
                       </div>
-                    );
-                  })}
+
+                      {currentYmd && subtasks.length > 0 ? subtasks.map((sub) => {
+                        const done = st!.doneSubtaskIds.has(sub.id);
+                        const rec = (completions || []).find((c) => c.scheduleId === sch.id && c.date === currentYmd && c.subtaskId === sub.id);
+                        return (
+                          <div key={sub.id} className="nz-sub">
+                            <button className={`nz-circle${done ? ' nz-circle--done' : ''}`} disabled={!canComplete} onClick={() => onToggleSubtask && onToggleSubtask(sch.id, currentYmd, sub.id, done ? null : userName)} title={done ? 'Erledigt – zurücknehmen' : 'Als erledigt markieren'} aria-label={sub.label || 'Unter-Aufgabe'}>
+                              {done ? <CheckIcon width={13} height={13} strokeWidth={3} aria-hidden /> : null}
+                            </button>
+                            <span style={{ flex: 1, fontSize: 14, color: done ? 'var(--text-secondary)' : 'var(--text-primary)' }}>{sub.label || '—'}</span>
+                            <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{done && rec ? displayNameShort(rec.completedBy) : 'offen'}</span>
+                          </div>
+                        );
+                      }) : null}
+
+                      {currentYmd && subtasks.length === 0 ? (
+                        <div className="nz-sub">
+                          <button className={`nz-circle${st!.complete ? ' nz-circle--done' : ''}`} disabled={!canComplete} onClick={() => onSetCompletion && onSetCompletion(sch.id, currentYmd, st!.complete ? null : userName)} title={st!.complete ? 'Erledigt – zurücknehmen' : 'Als erledigt markieren'} aria-label="Auftrag erledigt">
+                            {st!.complete ? <CheckIcon width={13} height={13} strokeWidth={3} aria-hidden /> : null}
+                          </button>
+                          <span style={{ flex: 1, fontSize: 14 }}>Ganzen Auftrag als erledigt markieren</span>
+                          <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{st!.complete ? (wholeRec ? displayNameShort(wholeRec.completedBy) : 'erledigt') : 'offen'}</span>
+                        </div>
+                      ) : null}
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 12, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginRight: 4 }}>Verlauf:</span>
+                        {pastOrToday.slice(-8).map((d) => {
+                          const s2 = routineDayStatus(sch, d, completions);
+                          const past = d < todayYmd;
+                          const counts = d >= missedSinceYmd;
+                          let bg = 'var(--bg-tertiary)';
+                          if (s2.complete) bg = ROUTINE_TEAL.accent;
+                          else if (s2.anyDone) bg = ROUTINE_AMBER.accent;
+                          else if (past && counts) bg = '#E24B4A';
+                          return <span key={d} title={fmtYmd(d) + ': ' + (s2.complete ? 'erledigt' : s2.anyDone ? (s2.done + '/' + s2.total) : (past && counts ? 'verpasst' : 'geplant'))} style={{ width: 14, height: 14, borderRadius: 3, background: bg, border: bg === 'var(--bg-tertiary)' ? '1px solid var(--border)' : 'none', flexShrink: 0 }} />;
+                        })}
+                        {pastOrToday.length === 0 ? <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>noch keine Termine</span> : null}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
-              </section>
-            );
-          })
+              );
+            })}
+          </div>
         )}
       </div>
       </div>

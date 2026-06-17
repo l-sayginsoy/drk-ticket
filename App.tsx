@@ -3373,6 +3373,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
               rpHolidayYmdList={rpHolidayYmdList}
               missedSinceYmd={ROUTINE_WARN_START}
               onSetCompletion={handleSetRoutineCompletion}
+              onToggleSubtask={handleToggleRoutineSubtask}
             />
           );
         case 'erledigt': return <ErledigtTableView
