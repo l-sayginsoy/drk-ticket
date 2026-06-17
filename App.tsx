@@ -1579,11 +1579,21 @@ const App: React.FC = () => {
     if (isInitialized) {
       setUsers(prev => {
           let changed = false;
+          // Fest angelegte Konten konsistent halten: Name normalisieren (Tickets referenzieren ihn),
+          // Passwort aber NUR setzen, wenn keines vorhanden ist – selbst vergebene Passwörter bleiben erhalten.
+          const fixUser = (u: User, wantName: string, defaultPw: string, nameAliases?: string[]): User => {
+            const fix: Partial<User> = {};
+            const okNames = nameAliases || [wantName];
+            if (!okNames.includes(u.name)) fix.name = wantName;
+            if (!u.password) fix.password = defaultPw;
+            if (Object.keys(fix).length > 0) { changed = true; return { ...u, ...fix }; }
+            return u;
+          };
           const updated = prev.filter(u => u.id !== 'user-5').map(u => {
-            if (u.id === 'user-2' && (u.name !== 'Heiko Saupert' || u.password !== 'Heiko1')) { changed = true; return { ...u, name: 'Heiko Saupert', password: 'Heiko1' }; }
-            if (u.id === 'user-3' && (u.name !== 'Ali Najafi' || u.password !== 'Ali1')) { changed = true; return { ...u, name: 'Ali Najafi', password: 'Ali1' }; }
-            if (u.id === 'user-4' && (u.name !== 'Torsten Isselhard' || u.password !== 'Torsten1')) { changed = true; return { ...u, name: 'Torsten Isselhard', password: 'Torsten1' }; }
-            if (u.id === 'user-1' && (u.name !== 'admin' || u.password !== 'admin')) { changed = true; return { ...u, name: 'admin', password: 'admin' }; }
+            if (u.id === 'user-2') return fixUser(u, 'Heiko Saupert', 'Heiko1');
+            if (u.id === 'user-3') return fixUser(u, 'Ali Najafi', 'Ali1');
+            if (u.id === 'user-4') return fixUser(u, 'Torsten Isselhard', 'Torsten1');
+            if (u.id === 'user-1') return fixUser(u, 'admin', 'admin', ['admin', 'Admin']);
             return u;
           });
           return (changed || updated.length !== prev.length) ? updated : prev;
