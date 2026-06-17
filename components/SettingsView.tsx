@@ -791,18 +791,6 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                                         color: 'white', fontWeight: 700, fontSize: '0.7rem',
                                     }}>{getInitials(user.name)}</div>
                                     <span style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</span>
-                                    {/* Inline color picker dot */}
-                                    <label
-                                        title="Farbe ändern"
-                                        style={{ position: 'relative', width: 14, height: 14, borderRadius: '50%', background: avatarColor, flexShrink: 0, cursor: 'pointer', border: '1.5px solid rgba(0,0,0,0.15)', display: 'inline-block' }}
-                                    >
-                                        <input
-                                            type="color"
-                                            value={avatarColor}
-                                            onChange={e => setUsers(current => current.map(u => u.id === user.id ? { ...u, color: e.target.value } : u))}
-                                            style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer', padding: 0, border: 'none' }}
-                                        />
-                                    </label>
                                 </div>
 
                                 {/* Rolle */}
