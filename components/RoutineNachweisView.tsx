@@ -117,21 +117,6 @@ export default function RoutineNachweisView({
     return Array.from(ys).sort((a, b) => b - a);
   }, [completions, currentYear]);
 
-  const completionFor = (scheduleId: string, ymd: string): RoutineDayCompletion | undefined => {
-    const matches = (completions || []).filter((c) => c.scheduleId === scheduleId && c.date === ymd);
-    if (personFilter === 'alle') return matches[0];
-    return matches.find((c) => c.completedBy === personFilter);
-  };
-
-  // Eigenständiger Hover-Tooltip: zeigt sofort, WER erledigt hat (+ wann) bzw. wer zuständig ist/war.
-  const [hoverTip, setHoverTip] = useState<{ x: number; y: number; lines: string[]; tone: 'done' | 'missed' | 'today' | 'future' } | null>(null);
-
-  // Popover zum Nachtragen/Korrigieren einer Erledigung (Klick auf einen Tag).
-  const [editCell, setEditCell] = useState<
-    { schedId: string; schedTitle: string; ymd: string; x: number; y: number; options: string[]; current?: RoutineDayCompletion } | null
-  >(null);
-  const [personSel, setPersonSel] = useState('');
-
   const fmtYmd = (ymd: string) => {
     const [y, m, d] = ymd.split('-');
     return `${d}.${m}.${y}`;
@@ -147,93 +132,6 @@ export default function RoutineNachweisView({
 
   return (
     <div style={{ maxWidth: 1800 }}>
-      {hoverTip && (
-        <div
-          style={{
-            position: 'fixed',
-            left: Math.min(hoverTip.x + 14, (typeof window !== 'undefined' ? window.innerWidth : 99999) - 240),
-            top: hoverTip.y + 16,
-            zIndex: 10000,
-            pointerEvents: 'none',
-            background: '#1f2430',
-            color: '#fff',
-            padding: '7px 11px',
-            borderRadius: 8,
-            fontSize: 12,
-            lineHeight: 1.4,
-            boxShadow: '0 6px 20px rgba(0,0,0,0.28)',
-            maxWidth: 240,
-            borderLeft: `3px solid ${hoverTip.tone === 'done' ? '#34c759' : hoverTip.tone === 'missed' ? '#e0992f' : hoverTip.tone === 'today' ? '#3b82f6' : '#9aa0aa'}`,
-          }}
-        >
-          {hoverTip.lines.map((l, i) => (
-            <div key={i} style={{ fontWeight: i === 0 ? 700 : 400, opacity: i === 0 ? 1 : 0.85 }}>{l}</div>
-          ))}
-        </div>
-      )}
-      {editCell && (
-        <>
-          <div onClick={() => setEditCell(null)} style={{ position: 'fixed', inset: 0, zIndex: 10001 }} />
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: 'fixed',
-              left: Math.min(editCell.x, (typeof window !== 'undefined' ? window.innerWidth : 99999) - 270),
-              top: Math.min(editCell.y + 14, (typeof window !== 'undefined' ? window.innerHeight : 99999) - 210),
-              zIndex: 10002,
-              background: 'var(--bg-secondary)',
-              border: '1px solid var(--border)',
-              borderRadius: 10,
-              boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
-              padding: 14,
-              width: 250,
-            }}
-          >
-            <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text-primary)' }}>{fmtYmd(editCell.ymd)}</div>
-            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginBottom: 12 }}>{editCell.schedTitle}</div>
-            {editCell.current ? (
-              <>
-                <div style={{ fontSize: 12.5, color: 'var(--text-primary)', marginBottom: 12 }}>
-                  ✓ Erledigt von <strong>{displayNameShort(editCell.current.completedBy)}</strong>
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    onClick={() => { onSetCompletion!(editCell.schedId, editCell.ymd, null); setEditCell(null); }}
-                    style={{ flex: 1, padding: '7px 10px', borderRadius: 7, border: '1px solid #e0992f', background: 'var(--bg-secondary)', color: '#b9760f', fontWeight: 600, fontSize: 12.5, cursor: 'pointer' }}
-                  >Rückgängig</button>
-                  <button
-                    onClick={() => setEditCell(null)}
-                    style={{ flex: 1, padding: '7px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-secondary)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer' }}
-                  >Schließen</button>
-                </div>
-              </>
-            ) : editCell.options.length === 0 ? (
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Keine möglichen Bearbeiter hinterlegt.</div>
-            ) : (
-              <>
-                <label style={{ fontSize: 11.5, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Wer hat es erledigt?</label>
-                <select
-                  value={personSel}
-                  onChange={(e) => setPersonSel(e.target.value)}
-                  style={{ width: '100%', padding: '7px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: 13, marginBottom: 12 }}
-                >
-                  {editCell.options.map((n) => <option key={n} value={n}>{displayNameShort(n)}</option>)}
-                </select>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    onClick={() => { if (personSel) onSetCompletion!(editCell.schedId, editCell.ymd, personSel); setEditCell(null); }}
-                    style={{ flex: 1, padding: '7px 10px', borderRadius: 7, border: 'none', background: ROUTINE_TEAL.accent, color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}
-                  >Als erledigt eintragen</button>
-                  <button
-                    onClick={() => setEditCell(null)}
-                    style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-secondary)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer' }}
-                  >Abbr.</button>
-                </div>
-              </>
-            )}
-          </div>
-        </>
-      )}
       <div className="nachweis-view-shell">
       <style>{`
         .nachweis-view-shell {
