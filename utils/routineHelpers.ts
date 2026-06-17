@@ -1,4 +1,4 @@
-import { Role, RoutineSchedule, User, WeekdayKey } from '../types';
+import { Role, RoutineDayCompletion, RoutineSchedule, User, WeekdayKey } from '../types';
 
 export function weekdayKeyForDate(d: Date): WeekdayKey {
   const day = d.getDay();
@@ -305,4 +305,25 @@ export function getDueDatesInYear(
     d.setDate(d.getDate() + 1);
   }
   return out;
+}
+
+/**
+ * Erledigungs-Status eines Termins an einem Tag – inkl. Unter-Aufgaben (Checkliste).
+ * - Ohne Subtasks: complete = es existiert mindestens ein Completion-Record für den Tag.
+ * - Mit Subtasks: complete = ALLE Subtasks haben einen Record; partial = einige.
+ */
+export function routineDayStatus(
+  schedule: RoutineSchedule & { subtasks?: { id: string; label: string }[] },
+  dateYmd: string,
+  completions: RoutineDayCompletion[]
+): { done: number; total: number; complete: boolean; anyDone: boolean; doneSubtaskIds: Set<string> } {
+  const recs = (completions || []).filter((c) => c.scheduleId === schedule.id && c.date === dateYmd);
+  const subtasks = schedule.subtasks || [];
+  if (subtasks.length === 0) {
+    const complete = recs.length > 0;
+    return { done: complete ? 1 : 0, total: 1, complete, anyDone: complete, doneSubtaskIds: new Set() };
+  }
+  const doneSubtaskIds = new Set(recs.map((c) => c.subtaskId).filter(Boolean) as string[]);
+  const done = subtasks.filter((s) => doneSubtaskIds.has(s.id)).length;
+  return { done, total: subtasks.length, complete: done === subtasks.length, anyDone: done > 0, doneSubtaskIds };
 }

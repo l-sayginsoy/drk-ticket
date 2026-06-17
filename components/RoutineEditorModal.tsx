@@ -163,6 +163,32 @@ export default function RoutineEditorModal({ schedule, isNew, users, onSave, onD
             </div>
           )}
 
+          <label style={label}>Unter-Aufgaben (Checkliste, optional)</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {(draft.subtasks || []).map((st, i) => (
+              <div key={st.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: 13, width: 16, textAlign: 'right' }}>{i + 1}.</span>
+                <input
+                  style={{ ...input, flex: 1 }}
+                  value={st.label}
+                  onChange={e => { const list = [...(draft.subtasks || [])]; list[i] = { ...st, label: e.target.value }; patch({ subtasks: list }); }}
+                  placeholder={`z. B. Unkraut entfernen`}
+                />
+                <button type="button" title="Entfernen" aria-label="Entfernen" onClick={() => patch({ subtasks: (draft.subtasks || []).filter(x => x.id !== st.id) })} style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-muted)', fontSize: 18, lineHeight: 1, cursor: 'pointer' }}>×</button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => patch({ subtasks: [...(draft.subtasks || []), { id: `st-${Date.now()}-${Math.floor(Math.random() * 1000)}`, label: '' }] })}
+              style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, border: '1px dashed var(--border-active)', background: 'var(--bg-primary)', color: 'var(--text-secondary)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
+            >
+              <span style={{ fontSize: 15, lineHeight: 1 }}>+</span> Punkt hinzufügen
+            </button>
+          </div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6 }}>
+            Leer = nur der ganze Auftrag wird abgehakt. Mit Punkten wird jeder einzeln abgehakt (z. B. Unkraut / Müll / Mülleimer / Reinigung).
+          </div>
+
           <label style={{ ...label, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
             <input type="checkbox" checked={draft.enabled !== false} onChange={e => patch({ enabled: e.target.checked })} />
             Aktiv (erzeugt automatisch Termine)

@@ -91,6 +91,8 @@ export interface RoutineSchedule {
   recurrence?: RoutineRecurrence;
   /** Erstes Wiederholungsdatum (YYYY-MM-DD); für monatlich/jährlich erforderlich; bei wöchentlich mit Start: gleicher Wochentag */
   startDate?: string | null;
+  /** Optionale Checkliste: einzeln abhakbare Unter-Aufgaben. Leer/fehlt = nur der ganze Auftrag wird abgehakt. */
+  subtasks?: { id: string; label: string }[];
   enabled: boolean;
   lastGenerated: string | null; // YYYY-MM-DD
   rotationCursor: number; // used when assignment.type === 'rotate'
@@ -102,6 +104,8 @@ export interface RoutineDayCompletion {
   date: string; // YYYY-MM-DD (lokal)
   completedBy: string;
   completedAt: string; // ISO
+  /** Wenn gesetzt: nur diese Unter-Aufgabe (subtask) wurde erledigt. Ohne = ganzer Auftrag (Alt-Verhalten). */
+  subtaskId?: string;
 }
 
 export interface AppSettings {
