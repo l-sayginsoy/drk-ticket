@@ -5,6 +5,7 @@ import {
   getRoutinePool,
   isRoutineDueOnCalendarDay,
   localISODate,
+  routineDayStatus,
   workWeekRefDate,
   ymdForWeekdayInWeekContaining,
 } from '../utils/routineHelpers';
@@ -26,6 +27,7 @@ interface RoutineSchedulesViewProps {
   onUncomplete: (scheduleId: string) => void;
   onSaveSchedule: (schedule: RoutineSchedule) => void;
   onDeleteSchedule: (id: string) => void;
+  onToggleSubtask?: (scheduleId: string, ymd: string, subtaskId: string, completedBy: string | null) => void;
 }
 
 const weekdayLabel: Record<WeekdayKey, string> = {
@@ -104,9 +106,10 @@ function newRoutineDraft(): RoutineSchedule & { recurrence?: any } {
 }
 
 export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
-  const { userRole, userName, schedules, users, rpHolidayYmdList = [], onReorder, completions, onComplete, onUncomplete, onSaveSchedule, onDeleteSchedule } = props;
+  const { userRole, userName, schedules, users, rpHolidayYmdList = [], onReorder, completions, onComplete, onUncomplete, onSaveSchedule, onDeleteSchedule, onToggleSubtask } = props;
   const [dragId, setDragId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ schedule: RoutineSchedule & { recurrence?: any }; isNew: boolean } | null>(null);
+  const [subPop, setSubPop] = useState<{ schedId: string } | null>(null);
   const canEdit = userRole === Role.Admin;
   const todayYmd = useMemo(() => localISODate(new Date()), []);
   const rpHolidaySet = useMemo(() => new Set(rpHolidayYmdList), [rpHolidayYmdList]);
@@ -538,6 +541,22 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                         }
                         const pool = getRoutinePool(s, users);
                         const assignee = getRoutineAssigneeDisplayName(s, pool, todayYmd);
+                        const subtasks = s.subtasks || [];
+                        if (subtasks.length > 0) {
+                          const status = routineDayStatus(s, todayYmd, completions);
+                          const col = status.complete ? ROUTINE_TEAL.dark : status.anyDone ? '#854F0B' : 'var(--text-muted)';
+                          return (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setSubPop({ schedId: s.id }); }}
+                              title="Unter-Aufgaben abhaken"
+                              style={{ background: 'var(--bg-secondary)', border: `1px solid ${status.complete ? ROUTINE_TEAL.border : 'var(--border)'}`, borderRadius: 8, padding: '5px 11px', cursor: 'pointer', fontSize: 12.5, fontWeight: 700, color: col, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                            >
+                              {status.complete ? <CheckIcon width={13} height={13} strokeWidth={2.5} aria-hidden /> : null}
+                              {status.done}/{status.total}
+                            </button>
+                          );
+                        }
                         const completed = (completions || []).some(
                           (c) => c.scheduleId === s.id && c.date === todayYmd
                         );
@@ -615,6 +634,50 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
           </table>
         </div>
       </div>
+      {subPop && (() => {
+        const sched = visible.find((x) => x.id === subPop.schedId);
+        if (!sched) return null;
+        const subs = sched.subtasks || [];
+        const assignee = getRoutineAssigneeDisplayName(sched, getRoutinePool(sched, users), todayYmd);
+        const canAct = userRole === Role.Admin || assignee === userName;
+        const status = routineDayStatus(sched, todayYmd, completions);
+        return (
+          <div onClick={() => setSubPop(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 9999, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '60px 16px', overflow: 'auto' }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 440, background: 'var(--bg-secondary)', borderRadius: 14, boxShadow: '0 12px 40px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
+              <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>{sched.title || '—'}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Heute · {status.done}/{status.total} erledigt</div>
+                </div>
+                <button onClick={() => setSubPop(null)} aria-label="Schließen" style={{ background: 'none', border: 'none', fontSize: 24, lineHeight: 1, color: 'var(--text-muted)', cursor: 'pointer' }}>×</button>
+              </div>
+              <div style={{ padding: '6px 18px 16px' }}>
+                {subs.map((sub) => {
+                  const rec = (completions || []).find((c) => c.scheduleId === sched.id && c.date === todayYmd && c.subtaskId === sub.id);
+                  const done = !!rec;
+                  return (
+                    <div key={sub.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderBottom: '1px solid var(--border)' }}>
+                      <button
+                        type="button"
+                        disabled={!canAct}
+                        className={`routine-today-circle ${done ? 'routine-today-circle--on' : 'routine-today-circle--off'}`}
+                        title={done ? 'Erledigt – zurücknehmen' : 'Als erledigt markieren'}
+                        aria-label={sub.label || 'Unter-Aufgabe'}
+                        onClick={() => onToggleSubtask && onToggleSubtask(sched.id, todayYmd, sub.id, done ? null : userName)}
+                      >
+                        {done ? <CheckIcon width={14} height={14} strokeWidth={2.5} aria-hidden /> : null}
+                      </button>
+                      <span style={{ flex: 1, fontSize: 14, color: done ? 'var(--text-secondary)' : 'var(--text-primary)' }}>{sub.label || '—'}</span>
+                      <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{done && rec ? displayNameShort(rec.completedBy) : 'offen'}</span>
+                    </div>
+                  );
+                })}
+                {!canAct && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 10 }}>Nur die zuständige Person oder ein Admin kann abhaken.</div>}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       {editing && (
         <RoutineEditorModal
           schedule={editing.schedule}
