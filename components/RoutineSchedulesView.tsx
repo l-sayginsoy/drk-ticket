@@ -490,8 +490,17 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                           ⋮⋮
                         </span>
                         <div>
-                          <div className="routine-title">{s.title || '—'}</div>
-                          {s.description ? <div className="routine-sub">{s.description}</div> : null}
+                          <div className="routine-title">
+                            {s.title || '—'}
+                            {s.description && String(s.description).trim() ? (
+                              <i
+                                className="ti ti-notes"
+                                title="Beschreibung vorhanden – zum Lesen/Bearbeiten anklicken"
+                                aria-hidden
+                                style={{ marginLeft: 6, fontSize: 13, color: 'var(--text-muted)', verticalAlign: 'middle' }}
+                              />
+                            ) : null}
+                          </div>
                         </div>
                       </div>
                     </td>
