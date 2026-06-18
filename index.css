@@ -123,19 +123,34 @@ main {
    Scrollbalken wird ausgeblendet. Verhindert den dauerhaft sichtbaren Balken
    und vor allem das Verschieben des Layouts, wenn der Balken erscheint
    (er würde sonst 8px Breite wegnehmen). */
-main,
 .sidebar,
 .nav-menu {
     scrollbar-width: none;        /* Firefox */
     -ms-overflow-style: none;     /* alte Edge/IE */
 }
-main::-webkit-scrollbar,
 .sidebar::-webkit-scrollbar,
 .nav-menu::-webkit-scrollbar {
     width: 0;
     height: 0;
     display: none;                /* Chrome/Safari/PWA (WebKit/Blink) */
 }
+
+/* main: dezenter Scrollbalken, der nur WÄHREND des Scrollens sichtbar ist und
+   danach wieder verschwindet. Die Balkenbreite bleibt konstant (8px) – nur der
+   Thumb wird ein-/ausgeblendet → KEIN Layout-Shift. Die `.is-scrolling`-Klasse
+   setzt ein Scroll-Listener in App.tsx und entfernt sie ~0,9 s nach dem Scrollen.
+   Firefox kann den Thumb nicht faden → dort bleibt der Balken ausgeblendet. */
+main { scrollbar-width: none; }
+main::-webkit-scrollbar { width: 8px; height: 8px; }
+main::-webkit-scrollbar-track { background: transparent; }
+main::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 4px;
+    transition: background 0.35s ease;
+}
+main.is-scrolling::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.32); }
+main.is-scrolling::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.45); }
+[data-theme="dark"] main.is-scrolling::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); }
 
 /* Druck / „als PDF" (genutzt v.a. vom Serien-Nachweis). Nur Inhalt drucken,
    Sidebar/Bedienelemente weg, Farben erhalten, Abschnitte nicht über Seiten brechen. */
