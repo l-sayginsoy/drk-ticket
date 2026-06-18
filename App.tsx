@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { 
-  Ticket, Status, Priority, Role, GroupableKey, User, Location, AppSettings, Asset, MaintenancePlan, AvailabilityStatus, RoutingRule, RoutineSchedule, SLARule
+  Ticket, Status, Priority, Role, GroupableKey, User, Location, AppSettings, Asset, MaintenancePlan, AvailabilityStatus, RoutingRule, RoutineSchedule, RoutineDayCompletion, SLARule
 } from './types';
 import { MOCK_TICKETS, MOCK_USERS, MOCK_LOCATIONS, STATUSES, DEFAULT_APP_SETTINGS, MOCK_ASSETS, MOCK_MAINTENANCE_PLANS } from './constants';
 import { db, functions } from './firebase';
@@ -29,7 +29,7 @@ import CompleteOrderDialog from './components/CompleteOrderDialog';
 import ToastContainer, { type Toast } from './components/ToastContainer';
 import DashboardRoutineLinkBar from './components/DashboardRoutineLinkBar';
 import ZurückgestelltView from './components/ZurückgestelltView';
-import { localISODate, isRoutineDueOnCalendarDay } from './utils/routineHelpers';
+import { localISODate, isRoutineDueOnCalendarDay, routineDayStatus } from './utils/routineHelpers';
 import { fetchRpHolidays } from './utils/rpHolidays';
 import {
   BREVO_MAIL_STATUS_EVENT,
@@ -2079,29 +2079,83 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
       routineSchedules: (((prev.routineSchedules as any[]) || []).filter((x) => x.id !== id)) as any,
     }));
   };
-  const handleRoutineDayComplete = (scheduleId: string) => {
-    if (!currentUser) return;
-    const ymd = localISODate(new Date());
-    const rest = (appSettings.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd));
-    const next: AppSettings = {
-      ...appSettings,
-      routineDayCompletions: [
-        ...rest,
-        { scheduleId, date: ymd, completedBy: currentUser.name, completedAt: new Date().toISOString() },
-      ],
-    };
+  const persistRoutineSettings = (next: AppSettings) => {
     setAppSettings(next);
     void setDoc(doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS), { value: JSON.parse(JSON.stringify(next)), updated_at: new Date().toISOString() });
   };
 
+  /**
+   * Info-Mail bei Serienauftrag-Erledigung. Schickt – falls eine `notifyEmail` hinterlegt ist – eine
+   * stille Mail, sobald der Auftrag für den Tag VOLLSTÄNDIG abgehakt ist (bei Unter-Aufgaben: alle).
+   * Dedupe über `routineNotifySent` (Key `scheduleId|ymd`). Gibt die ggf. erweiterte Liste zurück
+   * (oder null = nichts zu tun), damit der Aufrufer sie in DENSELBEN Firestore-Write mitpersistiert.
+   * WICHTIG: außerhalb von setAppSettings-Updatern aufrufen (sonst doppelter Mailversand im StrictMode).
+   */
+  const ROUTINE_NOTIFY_MAX = 800;
+  const maybeBuildRoutineDoneNotify = (
+    base: AppSettings,
+    scheduleId: string,
+    ymd: string,
+    completions: RoutineDayCompletion[],
+    completedBy: string,
+  ): string[] | null => {
+    const schedule = (base.routineSchedules || []).find((s) => s.id === scheduleId);
+    const emails = (schedule?.notifyEmail || '').trim();
+    if (!schedule || !emails) return null;
+    if (!routineDayStatus(schedule, ymd, completions).complete) return null;
+    const key = `${scheduleId}|${ymd}`;
+    const sent = base.routineNotifySent || [];
+    if (sent.includes(key)) return null;
+    const dateDE = ymd.split('-').reverse().join('.');
+    const whereLine = [schedule.area, schedule.location].filter(Boolean).join(' · ');
+    const subject = `Serienauftrag erledigt: ${schedule.title}`;
+    const bodyText =
+      `Der Serienauftrag „${schedule.title}" wurde am ${dateDE} vollständig erledigt.\n` +
+      (whereLine ? `Bereich: ${whereLine}\n` : '') +
+      `Erledigt von: ${completedBy}`;
+    const bodyHtml =
+      `<p style="margin:0;font-size:15px;line-height:1.55;color:#333;">Der Serienauftrag <strong>${escapeHtml(schedule.title)}</strong> wurde am <strong>${escapeHtml(dateDE)}</strong> vollständig erledigt.</p>` +
+      (whereLine ? `<p style="margin:12px 0 0;font-size:14px;color:#444;">Bereich: ${escapeHtml(whereLine)}</p>` : '') +
+      `<p style="margin:10px 0 0;font-size:14px;color:#444;">Erledigt von: ${escapeHtml(completedBy)}</p>`;
+    emails
+      .split(',')
+      .map((e) => e.trim())
+      .filter(Boolean)
+      .forEach((addr) => void sendDrkBrevoMailAsync(addr, subject, { kind: 'custom', subject, bodyHtml, bodyText }, { silent: true }));
+    return [...sent, key].slice(-ROUTINE_NOTIFY_MAX);
+  };
+
+  /** Entfernt den Dedupe-Marker, damit eine erneute Erledigung am selben Tag wieder benachrichtigt. */
+  const clearRoutineNotifyMarker = (base: AppSettings, scheduleId: string, ymd: string): string[] | undefined => {
+    const sent = base.routineNotifySent;
+    if (!sent || !sent.length) return sent;
+    const key = `${scheduleId}|${ymd}`;
+    return sent.includes(key) ? sent.filter((k) => k !== key) : sent;
+  };
+
+  const handleRoutineDayComplete = (scheduleId: string) => {
+    if (!currentUser) return;
+    const ymd = localISODate(new Date());
+    const rest = (appSettings.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd));
+    const completions: RoutineDayCompletion[] = [
+      ...rest,
+      { scheduleId, date: ymd, completedBy: currentUser.name, completedAt: new Date().toISOString() },
+    ];
+    const notifySent = maybeBuildRoutineDoneNotify(appSettings, scheduleId, ymd, completions, currentUser.name);
+    persistRoutineSettings({
+      ...appSettings,
+      routineDayCompletions: completions,
+      ...(notifySent ? { routineNotifySent: notifySent } : {}),
+    });
+  };
+
   const handleRoutineDayUncomplete = (scheduleId: string) => {
     const ymd = localISODate(new Date());
-    const next: AppSettings = {
+    persistRoutineSettings({
       ...appSettings,
       routineDayCompletions: (appSettings.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd)),
-    };
-    setAppSettings(next);
-    void setDoc(doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS), { value: JSON.parse(JSON.stringify(next)), updated_at: new Date().toISOString() });
+      routineNotifySent: clearRoutineNotifyMarker(appSettings, scheduleId, ymd),
+    });
   };
 
   /** Setzt/entfernt eine Erledigung für einen BELIEBIGEN Tag (Nachtragen/Korrigieren im Serien-Nachweis). */
@@ -2118,14 +2172,23 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
 
   /** Hakt eine EINZELNE Unter-Aufgabe für einen Tag ab bzw. wieder zurück (completedBy=null → entfernen). */
   const handleToggleRoutineSubtask = (scheduleId: string, ymd: string, subtaskId: string, completedBy: string | null) => {
-    setAppSettings(prev => {
-      const rest = (prev.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd && c.subtaskId === subtaskId));
-      const next: AppSettings = completedBy
-        ? { ...prev, routineDayCompletions: [...rest, { scheduleId, date: ymd, subtaskId, completedBy, completedAt: new Date().toISOString() }] }
-        : { ...prev, routineDayCompletions: rest };
-      void setDoc(doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS), { value: JSON.parse(JSON.stringify(next)), updated_at: new Date().toISOString() });
-      return next;
-    });
+    const rest = (appSettings.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd && c.subtaskId === subtaskId));
+    if (completedBy) {
+      const completions: RoutineDayCompletion[] = [...rest, { scheduleId, date: ymd, subtaskId, completedBy, completedAt: new Date().toISOString() }];
+      // Info-Mail erst, wenn mit dieser letzten Unter-Aufgabe ALLE erledigt sind.
+      const notifySent = maybeBuildRoutineDoneNotify(appSettings, scheduleId, ymd, completions, completedBy);
+      persistRoutineSettings({
+        ...appSettings,
+        routineDayCompletions: completions,
+        ...(notifySent ? { routineNotifySent: notifySent } : {}),
+      });
+    } else {
+      persistRoutineSettings({
+        ...appSettings,
+        routineDayCompletions: rest,
+        routineNotifySent: clearRoutineNotifyMarker(appSettings, scheduleId, ymd),
+      });
+    }
   };
 const persistDeletedIds = () => {
   localStorage.setItem(

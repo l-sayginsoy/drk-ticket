@@ -93,6 +93,8 @@ export interface RoutineSchedule {
   startDate?: string | null;
   /** Optionale Checkliste: einzeln abhakbare Unter-Aufgaben. Leer/fehlt = nur der ganze Auftrag wird abgehakt. */
   subtasks?: { id: string; label: string }[];
+  /** Optionale Info-E-Mail(s): wird benachrichtigt, sobald der Auftrag für den Tag vollständig abgehakt ist. Mehrere mit Komma trennen. */
+  notifyEmail?: string;
   enabled: boolean;
   lastGenerated: string | null; // YYYY-MM-DD
   rotationCursor: number; // used when assignment.type === 'rotate'
@@ -127,6 +129,8 @@ export interface AppSettings {
   routingRules: RoutingRule[];
   routineSchedules: RoutineSchedule[];
   routineDayCompletions?: RoutineDayCompletion[];
+  /** Dedupe für Serienauftrag-Erledigt-Mails: Keys `${scheduleId}|${YYYY-MM-DD}`, für die bereits eine Info-Mail rausging. */
+  routineNotifySent?: string[];
   adminNotificationEmail?: string;
   /** Selbst-gelerntes Routing: normalisiertes Schlagwort → { Mitarbeitername → Anzahl manueller Zuweisungen } */
   learnedRouting?: { [keyword: string]: { [technicianName: string]: number } };

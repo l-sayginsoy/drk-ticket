@@ -88,6 +88,12 @@ export default function RoutineEditorModal({ schedule, isNew, users, onSave, onD
           <label style={label}>Beschreibung</label>
           <textarea style={{ ...input, minHeight: 72, resize: 'vertical' }} value={draft.description || ''} onChange={e => patch({ description: e.target.value })} placeholder="Was ist zu tun? (erscheint im erzeugten Ticket)" />
 
+          <label style={label}>Info-E-Mail bei Erledigung (optional)</label>
+          <input style={input} type="text" value={draft.notifyEmail || ''} onChange={e => patch({ notifyEmail: e.target.value })} placeholder="z. B. leitung@drk.de" />
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>
+            Wird automatisch benachrichtigt, sobald der Auftrag für den Tag vollständig abgehakt ist. Mehrere Adressen mit Komma trennen.
+          </div>
+
           <label style={label}>Rolle</label>
           <select style={input} value={draft.targetRole} onChange={e => setRole(e.target.value as Role.Technician | Role.Housekeeping)}>
             <option value={Role.Technician}>Haustechniker</option>
