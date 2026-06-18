@@ -187,6 +187,19 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
         setNewStaffMsg('');
     };
 
+    // Nur Admin darf Nachrichten löschen.
+    const isAdmin = currentUser?.role === Role.Admin;
+    const handleDeleteStaffMessage = (index: number) => {
+        if (!isAdmin) return;
+        if (!window.confirm('Diese Team-Chat-Nachricht wirklich löschen?')) return;
+        onUpdateTicket({ ...ticket, staffMessages: (ticket.staffMessages || []).filter((_, i) => i !== index) });
+    };
+    const handleDeleteNote = (index: number) => {
+        if (!isAdmin) return;
+        if (!window.confirm('Diese Melder-Nachricht wirklich löschen?')) return;
+        onUpdateTicket({ ...ticket, notes: (ticket.notes || []).filter((_, i) => i !== index) });
+    };
+
     const handleToggleEmergency = () => {
         const isCurrentlyEmergency = !!ticket.is_emergency;
         let updatedTicket: Ticket = { ...ticket, is_emergency: !isCurrentlyEmergency };
@@ -403,9 +416,12 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             .chat-bubble { padding: 8px 12px; font-size: 0.86rem; line-height: 1.45; word-break: break-word; }
             .chat-bubble--mine { background: #6366F1; color: #fff; border-radius: 14px 14px 4px 14px; }
             .chat-bubble--other { background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border); border-radius: 14px 14px 14px 4px; }
-            .chat-meta { font-size: 0.68rem; color: var(--text-muted); margin-top: 3px; }
-            .chat-meta--mine { text-align: right; margin-right: 3px; }
+            .chat-meta { display: flex; align-items: center; gap: 6px; font-size: 0.68rem; color: var(--text-muted); margin-top: 3px; }
+            .chat-meta--mine { justify-content: flex-end; margin-right: 3px; }
             .chat-meta--other { margin-left: 3px; }
+            .msg-del-btn { background: none; border: none; padding: 0; cursor: pointer; color: var(--text-muted); opacity: 0.55; display: inline-flex; align-items: center; font-size: 12.5px; line-height: 1; transition: color 0.12s, opacity 0.12s; }
+            .msg-del-btn:hover { color: var(--accent-danger, #dc3545); opacity: 1; }
+            .note-del-btn { position: absolute; top: 6px; right: 6px; }
             .chat-empty { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 12px; padding: 2px; }
 
             /* gemeinsame Eingabezeile (Chat + Melder) */
@@ -429,9 +445,11 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
 
             .notes-list-compact { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem; max-height: 260px; overflow-y: auto; padding-right: 4px; }
             .note-item-compact {
+                position: relative;
                 background: var(--bg-tertiary); padding: 0.6rem 0.8rem; border-radius: var(--radius-md);
                 font-size: 0.85rem; color: var(--text-primary); line-height: 1.5;
             }
+            .note-item-compact:has(.note-del-btn) { padding-right: 1.9rem; }
             .note-meta-reformatted {
                 display: block; text-align: right; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;
             }
@@ -1007,7 +1025,10 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                               <div key={i} className="chat-row chat-row--mine">
                                 <div className="chat-col">
                                   <div className="chat-bubble chat-bubble--mine">{msg.text}</div>
-                                  <div className="chat-meta chat-meta--mine">{formatted}</div>
+                                  <div className="chat-meta chat-meta--mine">
+                                    {formatted}
+                                    {isAdmin && <button type="button" className="msg-del-btn" title="Nachricht löschen" onClick={() => handleDeleteStaffMessage(i)}><i className="ti ti-trash" aria-hidden="true" /></button>}
+                                  </div>
                                 </div>
                               </div>
                             );
@@ -1019,7 +1040,10 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                               <div className="chat-col">
                                 <div className="chat-author" style={color ? { color } : undefined}>{displayNameShort(msg.author)}</div>
                                 <div className="chat-bubble chat-bubble--other" style={color ? { background: `${color}1A`, borderColor: `${color}66` } : undefined}>{msg.text}</div>
-                                <div className="chat-meta chat-meta--other">{formatted}</div>
+                                <div className="chat-meta chat-meta--other">
+                                  {formatted}
+                                  {isAdmin && <button type="button" className="msg-del-btn" title="Nachricht löschen" onClick={() => handleDeleteStaffMessage(i)}><i className="ti ti-trash" aria-hidden="true" /></button>}
+                                </div>
                               </div>
                             </div>
                           );
@@ -1057,7 +1081,10 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                     {ticket.notes && ticket.notes.length > 0 && (
                         <div className="notes-list-compact" ref={notesScrollRef}>
                             {ticket.notes.map((note, index) => (
-                                <div className="note-item-compact" key={index}>{formatNote(note)}</div>
+                                <div className="note-item-compact" key={index}>
+                                    {formatNote(note)}
+                                    {isAdmin && <button type="button" className="msg-del-btn note-del-btn" title="Nachricht löschen" onClick={() => handleDeleteNote(index)}><i className="ti ti-trash" aria-hidden="true" /></button>}
+                                </div>
                             ))}
                         </div>
                     )}
