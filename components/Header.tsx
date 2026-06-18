@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { SearchIcon } from './icons/SearchIcon';
 
 interface HeaderProps {
@@ -8,12 +8,6 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ filters, setFilters, currentView }) => {
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    setTimeout(() => window.location.reload(), 400);
-  };
   const getPageTitle = () => {
     switch (currentView) {
       case 'dashboard':
@@ -98,33 +92,6 @@ const Header: React.FC<HeaderProps> = ({ filters, setFilters, currentView }) => 
                     .search-container { width: 100%; }
                     .search-input { width: 100%; }
                 }
-                .refresh-btn {
-                    background: var(--bg-secondary);
-                    border: 1px solid var(--border);
-                    border-radius: 8px;
-                    padding: 0.6rem 0.75rem;
-                    cursor: pointer;
-                    color: var(--text-secondary);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    transition: var(--transition-smooth);
-                    flex-shrink: 0;
-                }
-                .refresh-btn:hover {
-                    background: var(--bg-tertiary);
-                    color: var(--text-primary);
-                    border-color: var(--accent-primary);
-                }
-                .refresh-btn svg {
-                    width: 18px;
-                    height: 18px;
-                    transition: transform 0.4s ease;
-                }
-                .refresh-btn.spinning svg {
-                    transform: rotate(360deg);
-                }
-
             `}</style>
       <div className="header-left">
         {pageTitle ? (
@@ -148,18 +115,6 @@ const Header: React.FC<HeaderProps> = ({ filters, setFilters, currentView }) => 
             />
           </div>
         ) : null}
-        <button
-          className={`refresh-btn${isRefreshing ? ' spinning' : ''}`}
-          onClick={handleRefresh}
-          title="App aktualisieren"
-          aria-label="App aktualisieren"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="23 4 23 10 17 10" />
-            <polyline points="1 20 1 14 7 14" />
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-          </svg>
-        </button>
       </div>
     </header>
   );

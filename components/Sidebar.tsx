@@ -141,7 +141,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             {icon}
             <span className="nav-label">{label}</span>
             {viewName === 'tickets' && newNotesCount > 0 && (
-                <span className="nav-badge">{newNotesCount}</span>
+                <span className="nav-badge" style={{ backgroundColor: '#F97316' }} title="Neue Melder-Nachrichten">{newNotesCount}</span>
             )}
             {viewName === 'dashboard' && userRole === Role.Admin && newMeldungenCount > 0 && (
                 <span className="nav-badge">{newMeldungenCount}</span>
@@ -263,6 +263,28 @@ const Sidebar: React.FC<SidebarProps> = ({
                     justify-content: center;
                     padding: 0.5rem 0.25rem 0.65rem;
                 }
+                .sidebar-refresh-btn {
+                    margin-left: auto;
+                    background: none;
+                    border: none;
+                    outline: none;
+                    box-shadow: none;
+                    padding: 4px;
+                    cursor: pointer;
+                    color: var(--text-muted);
+                    opacity: 0.6;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 6px;
+                    transition: opacity 0.15s, color 0.15s;
+                }
+                .sidebar-refresh-btn:hover {
+                    opacity: 1;
+                    color: var(--text-secondary);
+                }
+                .sidebar-refresh-btn i { font-size: 15px; }
+                .sidebar.collapsed .sidebar-refresh-btn { display: none; }
                 .sidebar-sync-dot {
                     width: 8px;
                     height: 8px;
@@ -660,6 +682,15 @@ const Sidebar: React.FC<SidebarProps> = ({
                 >
                     <div className={`sidebar-sync-dot ${isSyncing ? 'syncing' : ''}`}></div>
                     {!isCollapsed && <span>{isSyncing ? 'Synchronisiere...' : 'Synchronisiert'}</span>}
+                    <button
+                        type="button"
+                        className="sidebar-refresh-btn"
+                        onClick={() => window.location.reload()}
+                        title="App aktualisieren"
+                        aria-label="App aktualisieren"
+                    >
+                        <i className="ti ti-refresh" aria-hidden="true" />
+                    </button>
                 </div>
             ) : null}
             {userRole === Role.Admin && brevoMailOk !== undefined && brevoMailOk !== null && brevoMailLastChecked ? (

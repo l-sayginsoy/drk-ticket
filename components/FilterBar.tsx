@@ -338,8 +338,9 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                         title={`${reporterActivityCount} neue Melder-Nachricht${reporterActivityCount > 1 ? 'en' : ''}`}
                         style={{
                             display: 'inline-flex', alignItems: 'center', gap: 6,
+                            height: 36, padding: '0 14px', boxSizing: 'border-box',
                             fontSize: '0.85rem', fontWeight: 800,
-                            padding: '5px 12px', borderRadius: 20,
+                            borderRadius: 20,
                             background: '#F97316', color: '#fff',
                             boxShadow: '0 1px 6px rgba(249,115,22,0.45)',
                             whiteSpace: 'nowrap', userSelect: 'none',
@@ -354,8 +355,9 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                         title={`${chatActivityCount} Ticket${chatActivityCount > 1 ? 's' : ''} mit ungelesen Team-Chat`}
                         style={{
                             display: 'inline-flex', alignItems: 'center', gap: 6,
+                            height: 36, padding: '0 14px', boxSizing: 'border-box',
                             fontSize: '0.85rem', fontWeight: 800,
-                            padding: '5px 12px', borderRadius: 20,
+                            borderRadius: 20,
                             background: '#6366f1', color: '#fff',
                             boxShadow: '0 1px 6px rgba(99,102,241,0.45)',
                             whiteSpace: 'nowrap', userSelect: 'none',
