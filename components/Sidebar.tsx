@@ -6,6 +6,7 @@ import ThemeToggle from './ThemeToggle';
 import { ChevronsLeftRightIcon } from './icons/ChevronsLeftRightIcon';
 import { Role, Ticket, Status, AppSettings } from '../types';
 import { DocumentPlusIcon } from './icons/DocumentPlusIcon';
+import { TicketPlusIcon } from './icons/TicketPlusIcon';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
 import { BarChartIcon } from './icons/BarChartIcon';
 import { CalendarIcon } from './icons/CalendarIcon';
@@ -110,7 +111,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         { type: 'view', viewName: 'routine-nachweis', icon: <CalendarIcon />, label: 'Serien‑Nachweis', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
 
         // Aktionen (alle Rollen)
-        { type: 'action', action: 'newTicket', icon: <DocumentPlusIcon />, label: 'Neues Ticket', requiredRoles: [Role.Admin, Role.Technician, Role.Housekeeping], section: 'aktionen', onClick: onNewTicketClick },
+        { type: 'action', action: 'newTicket', icon: <TicketPlusIcon />, label: 'Neues Ticket', requiredRoles: [Role.Admin, Role.Technician, Role.Housekeeping], section: 'aktionen', onClick: onNewTicketClick },
     ];
 
     const SECTION_HEADING: Record<NavSection, string> = {
