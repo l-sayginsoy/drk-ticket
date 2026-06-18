@@ -3647,39 +3647,39 @@ const deleteTicketFromFirebase = (ticketId: string) => {
             </span>
           </div>
         )}
-        {/* Neue Nachrichten / Chat – schmaler Hinweis-Streifen */}
+        {/* Neue Nachrichten / Chat – schwebendes Badge-Chip oben rechts, nimmt keinen Platz weg */}
         {messageActivityTickets.length > 0 && (
-          <div
-            onClick={() => changeView('tickets')}
-            style={{
-              marginTop: 12,
-              marginBottom: 8,
-              maxWidth: 2400,
-              width: '100%',
-              marginLeft: 'auto',
-              marginRight: 'auto',
-              boxSizing: 'border-box',
-              borderRadius: 8,
-              border: '1.5px solid rgba(249,115,22,0.35)',
-              background: 'rgba(249,115,22,0.07)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              padding: '7px 14px',
-              cursor: 'pointer',
-              userSelect: 'none',
-            }}
-          >
-            <i className="ti ti-mail" style={{ fontSize: 17, color: '#F97316', flexShrink: 0 }} aria-hidden="true" />
-            <span style={{ fontWeight: 700, fontSize: 13.5, color: '#c2410c', flex: 1, minWidth: 0 }}>
-              {[
-                reporterMsgCount > 0 ? `${reporterMsgCount} neue${reporterMsgCount === 1 ? '' : ''} ${reporterMsgCount === 1 ? 'Melder-Nachricht' : 'Melder-Nachrichten'}` : null,
-                chatMsgCount > 0 ? `${chatMsgCount} neue${chatMsgCount === 1 ? 'r' : ''} ${chatMsgCount === 1 ? 'Chat' : 'Chats'}` : null,
+          <div style={{ position: 'sticky', top: 0, zIndex: 20, height: 0, display: 'flex', justifyContent: 'flex-end', pointerEvents: 'none' }}>
+            <button
+              onClick={() => changeView('tickets')}
+              title={[
+                reporterMsgCount > 0 ? `${reporterMsgCount} neue Melder-Nachricht${reporterMsgCount > 1 ? 'en' : ''}` : null,
+                chatMsgCount > 0 ? `${chatMsgCount} neuer Chat${chatMsgCount > 1 ? 's' : ''}` : null,
               ].filter(Boolean).join(' · ')}
-            </span>
-            <span style={{ fontSize: 12, color: '#F97316', fontWeight: 600, flexShrink: 0, whiteSpace: 'nowrap' }}>
-              Ansehen <i className="ti ti-chevron-right" style={{ fontSize: 12 }} aria-hidden="true" />
-            </span>
+              style={{
+                pointerEvents: 'all',
+                transform: 'translateY(8px)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '5px 11px 5px 9px',
+                borderRadius: 20,
+                border: '1.5px solid rgba(249,115,22,0.45)',
+                background: '#fff7ed',
+                color: '#c2410c',
+                fontWeight: 700,
+                fontSize: 13,
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(249,115,22,0.18)',
+                whiteSpace: 'nowrap',
+                fontFamily: 'inherit',
+              }}
+            >
+              <i className="ti ti-messages" style={{ fontSize: 17, color: '#F97316' }} aria-hidden="true" />
+              {messageActivityTickets.length}
+              {' '}
+              <span style={{ fontWeight: 500, fontSize: 12 }}>neu</span>
+            </button>
           </div>
         )}
         {/* Vergessene Serienaufträge – prominenter Warnblock (bleibt stehen bis erledigt) */}
