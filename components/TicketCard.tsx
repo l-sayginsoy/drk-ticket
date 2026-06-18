@@ -613,20 +613,18 @@ const TicketCard: React.FC<TicketCardProps> = ({
                             title="Interner Team-Chat"
                         >
                             <i className="ti ti-message-dots" aria-hidden="true" />
-                            <span>{chatState==='unread' ? 'Neu' : (ticket.staffMessages?.length ?? 0)}</span>
+                            <span>{ticket.staffMessages?.length ?? 0}</span>
                         </div>
                     )}
-                    {ticket.hasNewNoteFromReporter ? (
-                        <div className="mini-pill mini-pill--msg-unread" title="Neue Nachricht vom Melder">
-                            <i className="ti ti-mail" aria-hidden="true" />
-                            <span>Neu</span>
-                        </div>
-                    ) : (ticket.notes?.length ?? 0) > 0 ? (
-                        <div className="mini-pill mini-pill--msg-read" title="Nachrichten mit dem Melder">
+                    {(ticket.notes?.length ?? 0) > 0 && (
+                        <div
+                            className={`mini-pill ${ticket.hasNewNoteFromReporter ? 'mini-pill--msg-unread' : 'mini-pill--msg-read'}`}
+                            title={ticket.hasNewNoteFromReporter ? 'Neue Nachricht vom Melder' : 'Nachrichten mit dem Melder'}
+                        >
                             <i className="ti ti-mail" aria-hidden="true" />
                             <span>{ticket.notes!.length}</span>
                         </div>
-                    ) : null}
+                    )}
                 </div>
             </div>
         </div>

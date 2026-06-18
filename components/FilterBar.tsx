@@ -19,9 +19,11 @@ interface FilterBarProps {
     panelEmbed?: boolean;
     /** Anzahl aktiver Tickets für die Statusleiste */
     statusCounts?: { offen: number; inArbeit: number; ueberfaellig: number };
+    /** Anzahl Tickets mit neuer Melder-Nachricht oder ungelesenen Chat */
+    messageActivityCount?: number;
 }
 
-const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, technicians, statuses, reporters = [], groupBy, setGroupBy, currentView, userRole, panelEmbed = false, statusCounts }) => {
+const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, technicians, statuses, reporters = [], groupBy, setGroupBy, currentView, userRole, panelEmbed = false, statusCounts, messageActivityCount = 0 }) => {
     
     if (currentView === 'techniker' || currentView === 'reports' || currentView === 'routines' || currentView === 'routine-nachweis') {
         return null;
@@ -269,7 +271,6 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                     display: flex;
                     align-items: center;
                     gap: 0.5rem;
-                    margin-left: auto;
                     flex-shrink: 0;
                 }
                 .status-stat {
@@ -314,21 +315,39 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                 )}
                 {renderFiltersForView()}
             </div>
-            {statusCounts && currentView === 'tickets' && (
-                <div className="status-summary">
-                    <span className="status-stat status-stat--offen">
-                        {statusCounts.offen} Offen
-                    </span>
-                    <span className="status-stat status-stat--inarbeit">
-                        {statusCounts.inArbeit} In Arbeit
-                    </span>
-                    {statusCounts.ueberfaellig > 0 && (
-                        <span className="status-stat status-stat--ueberfaellig">
-                            {statusCounts.ueberfaellig} Überfällig
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                {statusCounts && currentView === 'tickets' && (
+                    <div className="status-summary">
+                        <span className="status-stat status-stat--offen">
+                            {statusCounts.offen} Offen
                         </span>
-                    )}
-                </div>
-            )}
+                        <span className="status-stat status-stat--inarbeit">
+                            {statusCounts.inArbeit} In Arbeit
+                        </span>
+                        {statusCounts.ueberfaellig > 0 && (
+                            <span className="status-stat status-stat--ueberfaellig">
+                                {statusCounts.ueberfaellig} Überfällig
+                            </span>
+                        )}
+                    </div>
+                )}
+                {messageActivityCount > 0 && (
+                    <span
+                        title={`${messageActivityCount} Ticket${messageActivityCount > 1 ? 's' : ''} mit neuen Nachrichten`}
+                        style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 5,
+                            fontSize: '0.78rem', fontWeight: 700,
+                            padding: '3px 10px', borderRadius: 20,
+                            background: '#fff7ed', color: '#c2410c',
+                            border: '1.5px solid rgba(249,115,22,0.35)',
+                            whiteSpace: 'nowrap', userSelect: 'none',
+                        }}
+                    >
+                        <i className="ti ti-message-circle" style={{ fontSize: 14 }} aria-hidden="true" />
+                        {messageActivityCount}
+                    </span>
+                )}
+            </div>
         </div>
     );
 };

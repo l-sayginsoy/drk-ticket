@@ -3647,41 +3647,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
             </span>
           </div>
         )}
-        {/* Neue Nachrichten / Chat – schwebendes Badge-Chip oben rechts, nimmt keinen Platz weg */}
-        {messageActivityTickets.length > 0 && (
-          <div style={{ position: 'sticky', top: 0, zIndex: 20, height: 0, display: 'flex', justifyContent: 'flex-end', pointerEvents: 'none' }}>
-            <button
-              onClick={() => changeView('tickets')}
-              title={[
-                reporterMsgCount > 0 ? `${reporterMsgCount} neue Melder-Nachricht${reporterMsgCount > 1 ? 'en' : ''}` : null,
-                chatMsgCount > 0 ? `${chatMsgCount} neuer Chat${chatMsgCount > 1 ? 's' : ''}` : null,
-              ].filter(Boolean).join(' · ')}
-              style={{
-                pointerEvents: 'all',
-                transform: 'translateY(8px)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '5px 11px 5px 9px',
-                borderRadius: 20,
-                border: '1.5px solid rgba(249,115,22,0.45)',
-                background: '#fff7ed',
-                color: '#c2410c',
-                fontWeight: 700,
-                fontSize: 13,
-                cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(249,115,22,0.18)',
-                whiteSpace: 'nowrap',
-                fontFamily: 'inherit',
-              }}
-            >
-              <i className="ti ti-messages" style={{ fontSize: 17, color: '#F97316' }} aria-hidden="true" />
-              {messageActivityTickets.length}
-              {' '}
-              <span style={{ fontWeight: 500, fontSize: 12 }}>neu</span>
-            </button>
-          </div>
-        )}
+        {/* Nachrichten-Badge: wird in der FilterBar rechts angezeigt (messageActivityCount-Prop) */}
         {/* Vergessene Serienaufträge – prominenter Warnblock (bleibt stehen bis erledigt) */}
         {missedRoutinesSinceStart.length > 0 && (
           <div
@@ -3866,6 +3832,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
               setGroupBy={setGroupBy}
               currentView={currentView}
               statusCounts={listStatusCounts}
+              messageActivityCount={messageActivityTickets.length}
               panelEmbed
             />
             {renderCurrentView()}
@@ -3877,7 +3844,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
             ) : (
               (currentView === 'tickets' || currentView === 'erledigt' || currentView === 'techniker') && (
                 <>
-                  <FilterBar filters={filters} setFilters={setFilters} locations={locationOptionsWithCounts} technicians={['Alle', ...activeTechnicians.map((t) => t.name)]} statuses={STATUSES} reporters={reporterOptions} userRole={currentUser.role} groupBy={groupBy} setGroupBy={setGroupBy} currentView={currentView} statusCounts={listStatusCounts} />
+                  <FilterBar filters={filters} setFilters={setFilters} locations={locationOptionsWithCounts} technicians={['Alle', ...activeTechnicians.map((t) => t.name)]} statuses={STATUSES} reporters={reporterOptions} userRole={currentUser.role} groupBy={groupBy} setGroupBy={setGroupBy} currentView={currentView} statusCounts={listStatusCounts} messageActivityCount={messageActivityTickets.length} />
                   {completedSearchCount > 0 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.6rem 1rem', background: '#e6f1fb', border: '1px solid #b5d4f4', borderRadius: 8, fontSize: '0.875rem', color: '#185fa5' }}>
                       <i className="ti ti-search" />
