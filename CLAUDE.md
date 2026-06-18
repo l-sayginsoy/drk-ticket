@@ -35,6 +35,20 @@ Serienaufträge (Routinen) · Brevo-E-Mails · Stale-Erinnerungen · **Interner 
 
 ## Zuletzt abgeschlossen
 
+### Session 18.06.2026 (2) – Serienauftrag-Info-Mail, Serienaufträge-Optik, einheitliche Prioritäts-Pillen (committed & deployed)
+- **Serienauftrag: Info-E-Mail bei Erledigung** (`types.ts` `notifyEmail`, `RoutineEditorModal.tsx`, `App.tsx`):
+  pro Serienauftrag eine (oder mehrere, kommagetrennt) E-Mail hinterlegbar. Sobald der Auftrag für den
+  Tag **vollständig** abgehakt ist (Checkliste: letzte Unteraufgabe), geht eine stille Brevo-Mail raus.
+  Dedupe über `appSettings.routineNotifySent` (`scheduleId|YYYY-MM-DD`), beim Zurücknehmen Marker gelöscht.
+  Versand in `handleRoutineDayComplete` + `handleToggleRoutineSubtask` (`maybeBuildRoutineDoneNotify`).
+  Das Nachweis-Korrektur-Tool (`handleSetRoutineCompletion`) löst bewusst KEINE Mail aus (Backfill).
+- **Serienaufträge-Liste beruhigt** (`RoutineSchedulesView.tsx`): Drag-Griff entfernt, Gruppen als graue
+  Bänder (grauer Balken + Label + Zähler), kompakte Zeilen, „Zuständig"-Namen in normaler Textfarbe
+  (vorher grün), Spaltenbreiten ausgewogen (Aufgabe 30 %).
+- **Prioritäts-Pillen einheitlich** (`ErledigtTableView`, `ZurückgestelltView`, `TicketTableView`):
+  `.priority-pill { min-width: 72px; box-sizing: border-box }` → Hoch/Mittel/Niedrig gleich breit.
+  Kanban-Karten-Pillen (`TicketCard` `.pill`) absichtlich nicht angefasst.
+
 ### Session 18.06.2026 – E-Mail-Link öffnet Ticket sofort, Serienauftrag-Warnblock respektiert Board-Haken (committed & deployed)
 - **E-Mail-Status-Link öffnet das Ticket SOFORT** (`components/Portal.tsx`): Der Link aus der Mail
   zeigte oft „Ticket wurde nicht gefunden", obwohl die Nummer stimmte — erst „zurück + Status prüfen"
