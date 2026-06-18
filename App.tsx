@@ -2793,15 +2793,25 @@ const deleteTicketFromFirebase = (ticketId: string) => {
   // Banner für vergessene Serienaufträge — nur ab Montag 16.06.2026
   const ROUTINE_WARN_START = '2026-06-16';
   const missedRoutinesSinceStart = useMemo(() => {
+    const completions = appSettings.routineDayCompletions || [];
     return routineTickets.filter(t => {
       if (t.status !== Status.Ueberfaellig) return false;
       if (!t.dueDate) return false;
       const parts = t.dueDate.split('.');
       if (parts.length !== 3) return false;
       const iso = `${parts[2].length === 2 ? '20' + parts[2] : parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
-      return iso >= ROUTINE_WARN_START;
+      if (iso < ROUTINE_WARN_START) return false;
+      // Im Serienaufträge-Board abgehakt? Dann NICHT „vergessen". Der Haken im Board
+      // schreibt einen routineDayCompletion-Eintrag (App.tsx ~Z.2082), ändert aber den
+      // Ticket-Status nicht. Hier den abgehakten Auftrag aus dem Warnblock ausblenden:
+      // ein Erledigt-Eintrag für denselben Zeitplan am Fälligkeitstag (oder später,
+      // = verspätet abgehakt) zählt als erledigt.
+      if (t.routineScheduleId && completions.some(
+        c => c.scheduleId === t.routineScheduleId && c.date >= iso
+      )) return false;
+      return true;
     });
-  }, [routineTickets]);
+  }, [routineTickets, appSettings.routineDayCompletions]);
 
   const filteredTickets = useMemo(() => {
     const source = currentView === 'erledigt' ? completedTickets : [...tickets, ...routineTickets];
