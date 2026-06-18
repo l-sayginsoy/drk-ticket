@@ -337,32 +337,32 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                     <span
                         title={`${reporterActivityCount} neue Melder-Nachricht${reporterActivityCount > 1 ? 'en' : ''}`}
                         style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 5,
-                            fontSize: '0.78rem', fontWeight: 700,
-                            padding: '3px 10px', borderRadius: 20,
-                            background: '#fff7ed', color: '#c2410c',
-                            border: '1.5px solid rgba(249,115,22,0.40)',
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                            fontSize: '0.85rem', fontWeight: 800,
+                            padding: '5px 12px', borderRadius: 20,
+                            background: '#F97316', color: '#fff',
+                            boxShadow: '0 1px 6px rgba(249,115,22,0.45)',
                             whiteSpace: 'nowrap', userSelect: 'none',
                         }}
                     >
-                        <i className="ti ti-mail" style={{ fontSize: 14 }} aria-hidden="true" />
-                        {reporterActivityCount}
+                        <i className="ti ti-mail" style={{ fontSize: 16 }} aria-hidden="true" />
+                        {reporterActivityCount} neu
                     </span>
                 )}
                 {chatActivityCount > 0 && (
                     <span
                         title={`${chatActivityCount} Ticket${chatActivityCount > 1 ? 's' : ''} mit ungelesen Team-Chat`}
                         style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 5,
-                            fontSize: '0.78rem', fontWeight: 700,
-                            padding: '3px 10px', borderRadius: 20,
-                            background: 'rgba(99,102,241,0.08)', color: '#4338ca',
-                            border: '1.5px solid rgba(99,102,241,0.35)',
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                            fontSize: '0.85rem', fontWeight: 800,
+                            padding: '5px 12px', borderRadius: 20,
+                            background: '#6366f1', color: '#fff',
+                            boxShadow: '0 1px 6px rgba(99,102,241,0.45)',
                             whiteSpace: 'nowrap', userSelect: 'none',
                         }}
                     >
-                        <i className="ti ti-message-circle" style={{ fontSize: 14 }} aria-hidden="true" />
-                        {chatActivityCount}
+                        <i className="ti ti-message-circle" style={{ fontSize: 16 }} aria-hidden="true" />
+                        {chatActivityCount} neu
                     </span>
                 )}
             </div>
