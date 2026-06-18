@@ -361,7 +361,7 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                             whiteSpace: 'nowrap', userSelect: 'none',
                         }}
                     >
-                        <i className="ti ti-messages" style={{ fontSize: 14 }} aria-hidden="true" />
+                        <i className="ti ti-message-circle" style={{ fontSize: 14 }} aria-hidden="true" />
                         {chatActivityCount}
                     </span>
                 )}
