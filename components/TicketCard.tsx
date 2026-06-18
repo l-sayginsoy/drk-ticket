@@ -406,7 +406,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     font-size: 11px; font-weight: 500; border-radius: 999px;
                     padding: 3px 8px; flex-shrink: 0;
                 }
-                .mini-pill i { font-size: 14px; }
+                .mini-pill i { font-size: 16px; }
                 /* ungelesen = farbig (indigo), gelesen/wartend = grau – analog zur Mail-Pille */
                 .mini-pill--staff-unread   { background: #6366f1; color: #fff; }
                 .mini-pill--staff-awaiting,
