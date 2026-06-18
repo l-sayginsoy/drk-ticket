@@ -35,6 +35,24 @@ Serienaufträge (Routinen) · Brevo-E-Mails · Stale-Erinnerungen · **Interner 
 
 ## Zuletzt abgeschlossen
 
+### Session 18.06.2026 – E-Mail-Link öffnet Ticket sofort, Serienauftrag-Warnblock respektiert Board-Haken (committed & deployed)
+- **E-Mail-Status-Link öffnet das Ticket SOFORT** (`components/Portal.tsx`): Der Link aus der Mail
+  zeigte oft „Ticket wurde nicht gefunden", obwohl die Nummer stimmte — erst „zurück + Status prüfen"
+  ging. Zwei Ursachen: (1) **abgeschlossene Tickets** werden nicht live ins Portal geladen → nie
+  gefunden; (2) der Deep-Link rastete „nicht gefunden" **dauerhaft** ein, wenn das Ticket beim ersten
+  Laden noch nicht im Speicher war. Neu: Resolver `resolveTicketById` — erst Speicher (sofort), sonst
+  **direkt aus Firestore** (`tickets`/`routine_tickets`/`completed_tickets`, alle `allow read: if true`).
+  Kein `dataReady`-Warten mehr, findet auch abgeschlossene Tickets. „Status prüfen" nutzt denselben
+  Resolver.
+  > **Achtung React-StrictMode:** das alte cancel-on-cleanup-Flag wurde im Dev-Doppel-Mount abgebrochen
+  > → Spinner hing ewig. Jetzt Ref-Guard `deepLinkStarted` (einmalige Auflösung), **kein** cancel-Flag.
+  > Nicht wieder einbauen.
+- **Serienauftrag-Warnblock respektiert jetzt den Board-Haken** (`App.tsx` `missedRoutinesSinceStart`):
+  Der rote Block blieb stehen, obwohl die Aufgabe im Serienaufträge-Board abgehakt war — weil Block
+  (Ticket-`Status.Ueberfaellig`) und Board-Haken (`routineDayCompletions`, Zeitplan+Tag) **zwei
+  getrennte Datentöpfe** sind. Jetzt wird ein Auftrag ausgeblendet, wenn ein Erledigt-Eintrag desselben
+  Zeitplans am Fälligkeitstag **oder später** existiert. Reine Anzeige-Logik, keine Status-Mutation.
+
 ### Session 17.06.2026 – Login-Fix, Board-Heute-Spalte, Einstellungen aufgeräumt (committed & deployed)
 - **SICHERHEIT – Login/Passwörter** (`App.tsx` ~Z.1578): Der Init-Effekt setzte bei jedem Laden Name
   **und** Passwort der fest angelegten Konten (admin/Heiko/Ali/Torsten) zwangsweise auf Defaults zurück
