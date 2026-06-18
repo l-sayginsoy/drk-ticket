@@ -222,7 +222,7 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({
                 .ticket-title { font-weight: 500; color: var(--text-primary); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
                 .ticket-title-cell { max-width: 280px; }
                 .reporter-name { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
-                .priority-pill { padding: 0.18rem 0.65rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; display: inline-block; border: 1.5px solid transparent; text-align: center; white-space: nowrap; }
+                .priority-pill { padding: 0.18rem 0.65rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; display: inline-block; min-width: 72px; box-sizing: border-box; border: 1.5px solid transparent; text-align: center; white-space: nowrap; }
                 .priority-pill.priority-high { background: #FCEBEB; color: #A32D2D; border-color: #F7C1C1; }
                 .priority-pill.priority-medium { background: #FAEEDA; color: #854F0B; border-color: #FAC775; }
                 .priority-pill.priority-low { background: #EAF3DE; color: #3B6D11; border-color: #C0DD97; }

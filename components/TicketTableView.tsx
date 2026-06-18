@@ -572,6 +572,7 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
                     text-align: center;
                     white-space: nowrap;
                 }
+                .priority-pill { min-width: 72px; box-sizing: border-box; }
                 .priority-pill.priority-high { background: #FCEBEB; color: #A32D2D; border-color: #F7C1C1; }
                 .priority-pill.priority-medium { background: #FAEEDA; color: #854F0B; border-color: #FAC775; }
                 .priority-pill.priority-low { background: #EAF3DE; color: #3B6D11; border-color: #C0DD97; }
