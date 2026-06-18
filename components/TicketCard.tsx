@@ -298,6 +298,16 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 }
                 .urgent-icon { color: #E24B4A; }
                 .stagnating-icon { color: #378ADD; }
+                @keyframes pulse-orange {
+                    0%   { box-shadow: 0 0 0 0 rgba(249,115,22,0.7); }
+                    70%  { box-shadow: 0 0 0 6px rgba(249,115,22,0); }
+                    100% { box-shadow: 0 0 0 0 rgba(249,115,22,0); }
+                }
+                @keyframes pulse-indigo {
+                    0%   { box-shadow: 0 0 0 0 rgba(99,102,241,0.7); }
+                    70%  { box-shadow: 0 0 0 6px rgba(99,102,241,0); }
+                    100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); }
+                }
                 .new-note-indicator {
                     display: inline-block;
                     width: 8px; height: 8px;
@@ -305,6 +315,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     background: #F97316;
                     flex-shrink: 0;
                     margin-top: 3px;
+                    animation: pulse-orange 1.5s infinite;
                 }
                 .new-staff-msg-indicator {
                     display: inline-block;
@@ -313,6 +324,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     background: #6366f1;
                     flex-shrink: 0;
                     margin-top: 3px;
+                    animation: pulse-indigo 1.5s infinite;
                 }
 
                 .card-loc { font-size: 12px; color: #555; font-weight: 500; margin-bottom: 3px; }
@@ -616,13 +628,13 @@ const TicketCard: React.FC<TicketCardProps> = ({
                             <span>{ticket.staffMessages?.length ?? 0}</span>
                         </div>
                     )}
-                    {(ticket.notes?.length ?? 0) > 0 && (
+                    {(ticket.hasNewNoteFromReporter || (ticket.notes?.length ?? 0) > 0) && (
                         <div
                             className={`mini-pill ${ticket.hasNewNoteFromReporter ? 'mini-pill--msg-unread' : 'mini-pill--msg-read'}`}
                             title={ticket.hasNewNoteFromReporter ? 'Neue Nachricht vom Melder' : 'Nachrichten mit dem Melder'}
                         >
                             <i className="ti ti-mail" aria-hidden="true" />
-                            <span>{ticket.notes!.length}</span>
+                            <span>{ticket.notes?.length ?? 0}</span>
                         </div>
                     )}
                 </div>
