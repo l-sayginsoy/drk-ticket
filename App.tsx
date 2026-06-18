@@ -30,6 +30,7 @@ import ToastContainer, { type Toast } from './components/ToastContainer';
 import DashboardRoutineLinkBar from './components/DashboardRoutineLinkBar';
 import ZurückgestelltView from './components/ZurückgestelltView';
 import { localISODate, isRoutineDueOnCalendarDay, routineDayStatus } from './utils/routineHelpers';
+import { getStaffChatState } from './utils/staffChat';
 import { fetchRpHolidays } from './utils/rpHolidays';
 import {
   BREVO_MAIL_STATUS_EVENT,
@@ -3004,6 +3005,21 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     ).length;
   }, [tickets]);
 
+  // Info-Leiste „neue Nachrichten": Tickets mit neuer Melder-Nachricht bzw. neuem internen
+  // Chat (ungelesen für die angemeldete Person). Über ALLE aktiven Tickets (kein Routine-Ticket).
+  const messageActivityTickets = useMemo(() => {
+    const active = [...tickets, ...routineTickets].filter(t => t.status !== Status.Abgeschlossen && t.origin !== 'routine');
+    const map = new Map<string, { ticket: Ticket; reporter: boolean; chat: boolean }>();
+    active.forEach(t => {
+      const reporter = !!t.hasNewNoteFromReporter;
+      const chat = getStaffChatState(t, currentUser?.name ?? null) === 'unread';
+      if (reporter || chat) map.set(t.id, { ticket: t, reporter, chat });
+    });
+    return Array.from(map.values());
+  }, [tickets, routineTickets, currentUser]);
+  const reporterMsgCount = useMemo(() => messageActivityTickets.filter(e => e.reporter).length, [messageActivityTickets]);
+  const chatMsgCount = useMemo(() => messageActivityTickets.filter(e => e.chat).length, [messageActivityTickets]);
+
   const techOffeneCount = useMemo(() => {
     if (!currentUser || !isServiceTeamRole(currentUser.role)) return 0;
     return ticketsForUser.filter(t => t.status === Status.Offen && t.origin !== 'routine').length;
@@ -3387,6 +3403,24 @@ const deleteTicketFromFirebase = (ticketId: string) => {
   };
   const handleLogout = () => { setCurrentUser(null); setCurrentView('dashboard'); };
 
+  // Dezenter Auto-Hide-Scrollbalken im Hauptbereich: `is-scrolling` nur während
+  // des Scrollens setzen, ~0,9 s danach wieder entfernen (CSS faded den Thumb).
+  useEffect(() => {
+    const main = document.querySelector('main');
+    if (!main) return;
+    let hideTimer: number | undefined;
+    const onScroll = () => {
+      main.classList.add('is-scrolling');
+      if (hideTimer) window.clearTimeout(hideTimer);
+      hideTimer = window.setTimeout(() => main.classList.remove('is-scrolling'), 900);
+    };
+    main.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      main.removeEventListener('scroll', onScroll);
+      if (hideTimer) window.clearTimeout(hideTimer);
+    };
+  }, [currentUser, currentView]);
+
   const portalElement = (
     <Portal
       appSettings={appSettings}
@@ -3610,6 +3644,41 @@ const deleteTicketFromFirebase = (ticketId: string) => {
             </span>
             <span style={{ flexShrink: 0, opacity: 0.8 }}>
               <i className="ti ti-chevron-right" style={{ fontSize: 20 }} aria-hidden="true" />
+            </span>
+          </div>
+        )}
+        {/* Neue Nachrichten / Chat – schmaler Hinweis-Streifen */}
+        {messageActivityTickets.length > 0 && (
+          <div
+            onClick={() => changeView('tickets')}
+            style={{
+              marginTop: 12,
+              marginBottom: 8,
+              maxWidth: 2400,
+              width: '100%',
+              marginLeft: 'auto',
+              marginRight: 'auto',
+              boxSizing: 'border-box',
+              borderRadius: 8,
+              border: '1.5px solid rgba(249,115,22,0.35)',
+              background: 'rgba(249,115,22,0.07)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '7px 14px',
+              cursor: 'pointer',
+              userSelect: 'none',
+            }}
+          >
+            <i className="ti ti-mail" style={{ fontSize: 17, color: '#F97316', flexShrink: 0 }} aria-hidden="true" />
+            <span style={{ fontWeight: 700, fontSize: 13.5, color: '#c2410c', flex: 1, minWidth: 0 }}>
+              {[
+                reporterMsgCount > 0 ? `${reporterMsgCount} neue${reporterMsgCount === 1 ? '' : ''} ${reporterMsgCount === 1 ? 'Melder-Nachricht' : 'Melder-Nachrichten'}` : null,
+                chatMsgCount > 0 ? `${chatMsgCount} neue${chatMsgCount === 1 ? 'r' : ''} ${chatMsgCount === 1 ? 'Chat' : 'Chats'}` : null,
+              ].filter(Boolean).join(' · ')}
+            </span>
+            <span style={{ fontSize: 12, color: '#F97316', fontWeight: 600, flexShrink: 0, whiteSpace: 'nowrap' }}>
+              Ansehen <i className="ti ti-chevron-right" style={{ fontSize: 12 }} aria-hidden="true" />
             </span>
           </div>
         )}
