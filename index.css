@@ -242,15 +242,7 @@ main > header.main-header .header-actions {
     }
 }
 
-.new-note-indicator {
-    width: 12px;
-    height: 12px;
-    background-color: var(--accent-danger);
-    border-radius: 50%;
-    animation: pulse-danger 1.5s infinite;
-    display: inline-block;
-    flex-shrink: 0;
-}
+/* .new-note-indicator und .new-staff-msg-indicator sind in TicketCard.tsx definiert */
 
 /* Dark mode: priority chip text needs more contrast */
 [data-theme="dark"] .custom-dropdown.priority-high,

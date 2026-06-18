@@ -628,15 +628,17 @@ const TicketCard: React.FC<TicketCardProps> = ({
                             <span>{ticket.staffMessages?.length ?? 0}</span>
                         </div>
                     )}
-                    {(ticket.hasNewNoteFromReporter || (ticket.notes?.length ?? 0) > 0) && (
-                        <div
-                            className={`mini-pill ${ticket.hasNewNoteFromReporter ? 'mini-pill--msg-unread' : 'mini-pill--msg-read'}`}
-                            title={ticket.hasNewNoteFromReporter ? 'Neue Nachricht vom Melder' : 'Nachrichten mit dem Melder'}
-                        >
+                    {ticket.hasNewNoteFromReporter ? (
+                        <div className="mini-pill mini-pill--msg-unread" title="Neue Nachricht vom Melder">
                             <i className="ti ti-mail" aria-hidden="true" />
-                            <span>{ticket.notes?.length ?? 0}</span>
+                            <span>Neu</span>
                         </div>
-                    )}
+                    ) : (ticket.notes?.length ?? 0) > 0 ? (
+                        <div className="mini-pill mini-pill--msg-read" title="Nachrichten mit dem Melder">
+                            <i className="ti ti-mail" aria-hidden="true" />
+                            <span>{ticket.notes!.length}</span>
+                        </div>
+                    ) : null}
                 </div>
             </div>
         </div>
