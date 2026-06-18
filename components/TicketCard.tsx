@@ -406,11 +406,13 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     font-size: 11px; font-weight: 500; border-radius: 999px;
                     padding: 3px 8px; flex-shrink: 0;
                 }
-                .mini-pill i { font-size: 13px; }
+                .mini-pill i { font-size: 14px; }
+                /* ungelesen = farbig (indigo), gelesen/wartend = grau – analog zur Mail-Pille */
                 .mini-pill--staff-unread   { background: #6366f1; color: #fff; }
-                .mini-pill--staff-awaiting { background: transparent; color: #4f46e5; border: 1px solid #a5b4fc; }
-                [data-theme="dark"] .mini-pill--staff-awaiting { color: #a5b4fc; border-color: rgba(165,180,252,0.5); }
-                .mini-pill--staff-quiet    { background: rgba(99,102,241,0.12); color: var(--text-muted); }
+                .mini-pill--staff-awaiting,
+                .mini-pill--staff-quiet    { background: rgba(0,0,0,0.07); color: var(--text-secondary); }
+                [data-theme="dark"] .mini-pill--staff-awaiting,
+                [data-theme="dark"] .mini-pill--staff-quiet { background: rgba(255,255,255,0.1); color: var(--text-muted); }
                 .mini-pill--msg-unread { background: #F97316; color: #fff; }
                 .mini-pill--msg-read   { background: rgba(0,0,0,0.07); color: var(--text-secondary); }
                 [data-theme="dark"] .mini-pill--msg-read { background: rgba(255,255,255,0.1); color: var(--text-muted); }
@@ -604,9 +606,15 @@ const TicketCard: React.FC<TicketCardProps> = ({
                         })}
                     </select>
                 </div>
-                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                     {chatState !== 'none' && (
-                        <i className="ti ti-message" aria-hidden="true" style={{ fontSize:16, color: chatState==='unread' ? '#6366f1' : chatState==='awaiting' ? '#4f46e5' : '#bbb' }} title="Interner Team-Chat" />
+                        <div
+                            className={`mini-pill ${chatState==='unread' ? 'mini-pill--staff-unread' : chatState==='awaiting' ? 'mini-pill--staff-awaiting' : 'mini-pill--staff-quiet'}`}
+                            title="Interner Team-Chat"
+                        >
+                            <i className="ti ti-message-dots" aria-hidden="true" />
+                            <span>{chatState==='unread' ? 'Neu' : (ticket.staffMessages?.length ?? 0)}</span>
+                        </div>
                     )}
                     {ticket.hasNewNoteFromReporter ? (
                         <div className="mini-pill mini-pill--msg-unread" title="Neue Nachricht vom Melder">
