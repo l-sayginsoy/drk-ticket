@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 import { Ticket, Priority, Role, User, AppSettings, Status } from '../types';
 import { PlusIcon } from './icons/PlusIcon';
 import { SearchIcon } from './icons/SearchIcon';
@@ -334,40 +336,71 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
   const [loginAttempt, setLoginAttempt] = useState({ name: '', password: '' });
   const [loginError, setLoginError] = useState('');
   const [copied, setCopied] = useState(false);
-  const urlTicketFromQuery = useRef<string | null>(null);
-  const urlTicketDeepLinkHandled = useRef(false);
   const isTicketDeepLink = useRef(false);
+  const deepLinkStarted = useRef(false);
+  const [deepLinkResolving, setDeepLinkResolving] = useState(false);
 
+  /** Normalisiert eine Ticket-ID: trimmt, Großbuchstaben, entfernt "M-"-Präfix aus Melder-Links. */
+  const normalizeTicketId = (raw: string): string => {
+    let id = raw.trim().toUpperCase();
+    if (id.startsWith('M-')) id = id.substring(2);
+    return id;
+  };
+
+  /**
+   * Findet ein Ticket anhand seiner ID – zuerst im bereits geladenen Speicher (sofort),
+   * dann als Fallback direkt aus Firestore. Der Direkt-Abruf ist wichtig, weil
+   * (a) abgeschlossene Tickets NICHT live ins Portal geladen werden (nur aktive/Routine) und
+   * (b) der Link aus der E-Mail sofort funktionieren muss, ohne auf die Realtime-Listener
+   * zu warten. Deshalb braucht der Deep-Link kein `dataReady` mehr abzuwarten.
+   */
+  const resolveTicketById = async (rawId: string): Promise<Ticket | null> => {
+    const id = normalizeTicketId(rawId);
+    if (!id) return null;
+    const inMem = tickets.find((t) => t.id.toUpperCase() === id);
+    if (inMem) return inMem;
+    for (const coll of ['tickets', 'routine_tickets', 'completed_tickets']) {
+      try {
+        const snap = await getDoc(doc(db, coll, id));
+        if (snap.exists()) return snap.data() as Ticket;
+      } catch {
+        /* Sammel-Lookup: einzelne Fehlschläge ignorieren, nächste Collection versuchen. */
+      }
+    }
+    return null;
+  };
+
+  // Deep-Link aus der E-Mail (?ticket=…): Ticket SOFORT direkt aus Firestore auflösen,
+  // unabhängig von den Realtime-Listenern. Kein dauerhaftes "nicht gefunden"-Latch mehr.
   useEffect(() => {
-    if (urlTicketFromQuery.current !== null) return;
+    // Nur einmal pro Mount auflösen. Der Ref-Guard verhindert, dass React-StrictMode
+    // (doppeltes Mount/Cleanup im Dev) die Auflösung abbricht – bewusst KEIN
+    // cancel-on-cleanup-Flag, das würde den Status-Abruf im StrictMode killen.
+    if (deepLinkStarted.current) return;
     const raw = new URLSearchParams(window.location.search).get('ticket')?.trim();
     if (!raw) return;
+    deepLinkStarted.current = true;
     isTicketDeepLink.current = true;
-    let t = raw.toUpperCase();
-    if (t.startsWith('M-')) t = t.substring(2);
-    urlTicketFromQuery.current = t;
-    // Direkt die Status-Ansicht zeigen, damit es keinen "Flash" vom Hauptmenü gibt.
-    setView('status-result');
+    const shown = normalizeTicketId(raw);
+    setTicketIdInput(shown);
+    setView('status-result');           // kein "Flash" vom Hauptmenü
+    setDeepLinkResolving(true);
+    // ?ticket= aus der URL entfernen, damit ein Reload nicht erneut springt.
     const path = window.location.pathname || '/';
     window.history.replaceState({}, '', path);
+    void (async () => {
+      const hit = await resolveTicketById(raw);
+      setFoundTicket(hit);
+      setSearchError(hit ? null : `Ticket mit der ID "${shown}" wurde nicht gefunden.`);
+      setNoteAdded(false);
+      setDeepLinkResolving(false);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (urlTicketDeepLinkHandled.current) return;
-    const want = urlTicketFromQuery.current;
-    if (!want || !dataReady) return;
-    const hit = tickets.find((x) => x.id.toUpperCase() === want);
-    setTicketIdInput(want);
-    setFoundTicket(hit || null);
-    setSearchError(hit ? null : `Ticket mit der ID "${want}" wurde nicht gefunden.`);
-    setNoteAdded(false);
-    setView('status-result');
-    urlTicketDeepLinkHandled.current = true;
-  }, [tickets, dataReady]);
-
-  // Bei Deep-Link (aus E-Mail) erst rendern, wenn die Ticketdaten geladen sind.
+  // Bei Deep-Link (aus E-Mail) Lade-Spinner zeigen, solange das Ticket aufgelöst wird.
   // So sieht der Nutzer keinen "kaputten" Zwischenzustand.
-  if (isTicketDeepLink.current && !dataReady) {
+  if (isTicketDeepLink.current && deepLinkResolving) {
     return (
       <div className="portal-container">
         <style>{`
@@ -426,31 +459,27 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
     });
   };
 
-  const handleTicketPruefen = (e: React.FormEvent) => {
+  const handleTicketPruefen = async (e: React.FormEvent) => {
     e.preventDefault();
     setSearchError(null);
     setFoundTicket(null);
     setNoteAdded(false);
-    
-    let trimmedId = ticketIdInput.trim().toUpperCase();
-    if (trimmedId.startsWith('M-')) {
-        trimmedId = trimmedId.substring(2);
-    }
-    
+
+    const trimmedId = normalizeTicketId(ticketIdInput);
     if (!trimmedId) {
         setSearchError('Bitte geben Sie eine Ticket-ID ein.');
         setView('status-result');
         return;
     }
 
-    const ticket = tickets.find(t => t.id.toUpperCase() === trimmedId);
-    
-    if (ticket) {
-      setFoundTicket(ticket);
-    } else {
-      setSearchError(`Ticket mit der ID "${trimmedId}" wurde nicht gefunden.`);
-    }
     setView('status-result');
+    setDeepLinkResolving(true);
+    // Gleicher Resolver wie beim E-Mail-Link: erst Speicher, dann Firestore direkt
+    // (findet so auch abgeschlossene Tickets, die nicht live geladen sind).
+    const ticket = await resolveTicketById(trimmedId);
+    setFoundTicket(ticket);
+    setSearchError(ticket ? null : `Ticket mit der ID "${trimmedId}" wurde nicht gefunden.`);
+    setDeepLinkResolving(false);
   };
 
   const handleTechnicianLogin = (e: React.FormEvent) => {
@@ -623,7 +652,7 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                    <div className="header-spacer" />
                 </div>
                 <div style={{ overflowY: 'auto', flex: '1 1 auto', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                    {!dataReady ? (
+                    {(!dataReady || deepLinkResolving) ? (
                         <p className="search-result-text">Lade Ticketdaten…</p>
                     ) : searchError ? (
                         <p className="search-result-text error">{searchError}</p>
