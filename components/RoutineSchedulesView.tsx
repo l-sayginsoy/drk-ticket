@@ -244,7 +244,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
             table-layout: fixed;
           }
           .routine-th {
-            padding: 1rem 1rem;
+            padding: 0.7rem 1rem;
             border-bottom: 1px solid var(--border);
             color: var(--text-muted);
             font-size: 0.875rem;
@@ -252,9 +252,9 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
             background-color: var(--bg-primary);
           }
           .routine-td {
-            padding: 1rem 1rem;
+            padding: 0.55rem 1rem;
             border-bottom: 1px solid var(--border);
-            vertical-align: top;
+            vertical-align: middle;
             color: var(--text-secondary);
             font-size: 0.9rem;
           }
@@ -325,32 +325,18 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
             font-weight: 600;
             border: none;
             background: transparent;
-            color: rgb(25, 135, 84);
+            color: var(--text-primary);
             max-width: 100%;
           }
           .routine-rotation {
             color: var(--text-muted);
-            font-size: 12px;
-            line-height: 1.35;
-            margin-top: 8px;
+            font-size: 11px;
+            line-height: 1.3;
+            margin-top: 5px;
+            opacity: 0.85;
             word-break: break-word;
           }
-          .routine-rotation strong { font-weight: 700; }
-          .routine-drag {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 28px;
-            height: 28px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            background: var(--bg-secondary);
-            color: var(--text-muted);
-            cursor: grab;
-            user-select: none;
-            margin-right: 10px;
-          }
-          .routine-drag:active { cursor: grabbing; }
+          .routine-rotation strong { font-weight: 600; }
           .routine-today-stack {
             display: inline-flex;
             flex-direction: column;
@@ -406,22 +392,24 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
           }
           .routine-group-row td {
             background: var(--bg-tertiary);
-            padding: 0.4rem 1rem 0.4rem 1.1rem;
-            border-top: 1px solid var(--border-active);
-            border-bottom: 1px solid var(--border-active);
-            border-left: 4px solid var(--accent-primary);
+            padding: 0.5rem 1rem;
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            border-left: 3px solid var(--border-active);
             text-align: left;
           }
           .routine-group-row:hover td { background: var(--bg-tertiary); }
           .routine-group-cell {
-            font-size: 0.76rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            font-size: 0.74rem;
             font-weight: 800;
-            letter-spacing: 0.07em;
+            letter-spacing: 0.08em;
             text-transform: uppercase;
-            color: var(--text-primary);
+            color: var(--text-secondary);
           }
           .routine-group-count {
-            margin-left: 9px;
             font-weight: 700;
             font-size: 0.7rem;
             color: var(--text-secondary);
@@ -429,19 +417,18 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
             border: 1px solid var(--border);
             border-radius: 999px;
             padding: 1px 8px;
-            vertical-align: middle;
-            display: inline-block;
+            line-height: 1.5;
           }
         `}</style>
         <div className="routine-table-wrap">
           <table className="routine-table">
             <thead>
               <tr>
-                <th className="routine-th" style={{ width: '26%' }}>Aufgabe</th>
+                <th className="routine-th" style={{ width: '30%' }}>Aufgabe</th>
                 <th className="routine-th" style={{ width: '18%' }}>Bereich</th>
-                <th className="routine-th" style={{ width: '18%' }}>Intervall</th>
-                <th className="routine-th" style={{ width: '22%' }}>Zuständig</th>
-                <th className="routine-th" style={{ width: '16%' }}>Heute</th>
+                <th className="routine-th" style={{ width: '17%' }}>Intervall</th>
+                <th className="routine-th" style={{ width: '21%' }}>Zuständig</th>
+                <th className="routine-th" style={{ width: '14%' }}>Heute</th>
               </tr>
             </thead>
             <tbody>
@@ -455,9 +442,11 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                 groups.map(group => (
                   <React.Fragment key={group.label}>
                     <tr className="routine-group-row">
-                      <td colSpan={5} className="routine-group-cell">
-                        {group.label}
-                        <span className="routine-group-count">{group.items.length}</span>
+                      <td colSpan={5}>
+                        <span className="routine-group-cell">
+                          {group.label}
+                          <span className="routine-group-count">{group.items.length}</span>
+                        </span>
                       </td>
                     </tr>
                     {group.items.map(s => (
@@ -466,45 +455,18 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                     onClick={canEdit ? () => setEditing({ schedule: s, isNew: false }) : undefined}
                     style={canEdit ? { cursor: 'pointer' } : undefined}
                     title={canEdit ? 'Zum Bearbeiten klicken' : undefined}
-                    onDragOver={(e) => {
-                      if (!dragId) return;
-                      e.preventDefault();
-                    }}
-                    onDrop={(e) => {
-                      if (!dragId) return;
-                      e.preventDefault();
-                      onReorder(dragId, s.id);
-                      setDragId(null);
-                    }}
                   >
                     <td className="routine-td">
-                      <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-                        <span
-                          className="routine-drag"
-                          draggable
-                          onDragStart={(e) => {
-                            setDragId(s.id);
-                            e.dataTransfer.effectAllowed = 'move';
-                          }}
-                          onDragEnd={() => setDragId(null)}
-                          onClick={(e) => e.stopPropagation()}
-                          title="Reihenfolge ändern (ziehen)"
-                        >
-                          ⋮⋮
-                        </span>
-                        <div>
-                          <div className="routine-title">
-                            {s.title || '—'}
-                            {s.description && String(s.description).trim() ? (
-                              <i
-                                className="ti ti-notes"
-                                title="Beschreibung vorhanden – zum Lesen/Bearbeiten anklicken"
-                                aria-hidden
-                                style={{ marginLeft: 6, fontSize: 13, color: 'var(--text-muted)', verticalAlign: 'middle' }}
-                              />
-                            ) : null}
-                          </div>
-                        </div>
+                      <div className="routine-title">
+                        {s.title || '—'}
+                        {s.description && String(s.description).trim() ? (
+                          <i
+                            className="ti ti-notes"
+                            title="Beschreibung vorhanden – zum Lesen/Bearbeiten anklicken"
+                            aria-hidden
+                            style={{ marginLeft: 6, fontSize: 13, color: 'var(--text-muted)', verticalAlign: 'middle' }}
+                          />
+                        ) : null}
                       </div>
                     </td>
                     <td className="routine-td">
