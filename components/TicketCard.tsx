@@ -631,7 +631,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     {ticket.hasNewNoteFromReporter ? (
                         <div className="mini-pill mini-pill--msg-unread" title="Neue Nachricht vom Melder">
                             <i className="ti ti-mail" aria-hidden="true" />
-                            <span>Neu</span>
+                            <span>{ticket.notes?.length ?? 0}</span>
                         </div>
                     ) : (ticket.notes?.length ?? 0) > 0 ? (
                         <div className="mini-pill mini-pill--msg-read" title="Nachrichten mit dem Melder">
