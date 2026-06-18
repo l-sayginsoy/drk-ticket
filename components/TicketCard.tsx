@@ -612,7 +612,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                             className={`mini-pill ${chatState==='unread' ? 'mini-pill--staff-unread' : chatState==='awaiting' ? 'mini-pill--staff-awaiting' : 'mini-pill--staff-quiet'}`}
                             title="Interner Team-Chat"
                         >
-                            <i className="ti ti-message-dots" aria-hidden="true" />
+                            <i className="ti ti-messages" aria-hidden="true" />
                             <span>{ticket.staffMessages?.length ?? 0}</span>
                         </div>
                     )}
