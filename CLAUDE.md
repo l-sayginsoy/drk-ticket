@@ -35,6 +35,25 @@ Serienaufträge (Routinen) · Brevo-E-Mails · Stale-Erinnerungen · **Interner 
 
 ## Zuletzt abgeschlossen
 
+### Session 19.06.2026 – Zuweisung an Abwesende → „Wartet auf Rückkehr" (committed & deployed)
+**Konzept (bewusst einfach, KEIN Schalter):** Ein erster Versuch mit einem dauerhaften
+`assigneeLocked`-Schalter („Nur <Name> – bei Abwesenheit parken") wurde komplett zurückgenommen
+(verwirrte, weil er auch bei Anwesenheit angezeigt wurde). Jetzt rein zustandsgetrieben:
+- **Bearbeiter-Dropdowns** (`TicketCard`, `TicketDetailSidebar`): Abwesende sind auswählbar, nur mit
+  „(Abwesend)" markiert (kein `disabled` mehr).
+- **Zuweisung an einen Abwesenden** (`commitTicketUpdate` + `handleAddNewTicket`): Ticket →
+  `Status.Zurückgestellt` + Feld `parkedForReturnOf=<Name>` + `parkedAt`. In `ZurückgestelltView`
+  oranges Label „Wartet auf Rückkehr von <Name>".
+- **Rückkehr** (eigener `useEffect`, Deps `[tickets, users]`, ist-zustand-basiert → robust auch nach
+  Reload): `parkedForReturnOf`-Person wieder verfügbar → Ticket automatisch wieder `Offen`, Marker weg.
+- **Umweisen** eines geparkten Tickets an eine andere/verfügbare Person → reaktiviert (Marker weg).
+  Manuelles Entparken (beide Wege) löscht den Marker.
+- Es gibt **nur** das Feld `parkedForReturnOf` (kein `assigneeLocked`). Die alte **Auto-Umleitung weg vom
+  Abwesenden** in `commitTicketUpdate`/`handleAddNewTicket` ist **entfernt** — sie verhinderte die
+  bewusste Zuweisung. **Nicht wieder einbauen.**
+> **Harte Umverteilungs-Regel bleibt intakt:** Das Auto-Zurückholen fasst NUR Tickets mit
+> `parkedForReturnOf`-Marker an, nie manuell zurückgestellte. Den Marker-Check nicht entfernen.
+
 ### Session 18.06.2026 (2) – Serienauftrag-Info-Mail, Serienaufträge-Optik, einheitliche Prioritäts-Pillen (committed & deployed)
 - **Serienauftrag: Info-E-Mail bei Erledigung** (`types.ts` `notifyEmail`, `RoutineEditorModal.tsx`, `App.tsx`):
   pro Serienauftrag eine (oder mehrere, kommagetrennt) E-Mail hinterlegbar. Sobald der Auftrag für den
