@@ -333,23 +333,6 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                         )}
                     </div>
                 )}
-                {reporterActivityCount > 0 && (
-                    <span
-                        title={`${reporterActivityCount} neue Melder-Nachricht${reporterActivityCount > 1 ? 'en' : ''}`}
-                        style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 6,
-                            height: 36, padding: '0 14px', boxSizing: 'border-box',
-                            fontSize: '0.85rem', fontWeight: 800,
-                            borderRadius: 20,
-                            background: '#F97316', color: '#fff',
-                            boxShadow: '0 1px 6px rgba(249,115,22,0.45)',
-                            whiteSpace: 'nowrap', userSelect: 'none',
-                        }}
-                    >
-                        <i className="ti ti-mail" style={{ fontSize: 16 }} aria-hidden="true" />
-                        {reporterActivityCount} neu
-                    </span>
-                )}
                 {chatActivityCount > 0 && (
                     <span
                         title={`${chatActivityCount} Ticket${chatActivityCount > 1 ? 's' : ''} mit ungelesen Team-Chat`}
@@ -365,6 +348,23 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                     >
                         <i className="ti ti-message-circle" style={{ fontSize: 16 }} aria-hidden="true" />
                         {chatActivityCount} neu
+                    </span>
+                )}
+                {reporterActivityCount > 0 && (
+                    <span
+                        title={`${reporterActivityCount} neue Melder-Nachricht${reporterActivityCount > 1 ? 'en' : ''}`}
+                        style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                            height: 36, padding: '0 14px', boxSizing: 'border-box',
+                            fontSize: '0.85rem', fontWeight: 800,
+                            borderRadius: 20,
+                            background: '#F97316', color: '#fff',
+                            boxShadow: '0 1px 6px rgba(249,115,22,0.45)',
+                            whiteSpace: 'nowrap', userSelect: 'none',
+                        }}
+                    >
+                        <i className="ti ti-mail" style={{ fontSize: 16 }} aria-hidden="true" />
+                        {reporterActivityCount} neu
                     </span>
                 )}
             </div>
