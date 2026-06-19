@@ -10,6 +10,7 @@ import { TicketPlusIcon } from './icons/TicketPlusIcon';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
 import { BarChartIcon } from './icons/BarChartIcon';
 import { CalendarIcon } from './icons/CalendarIcon';
+import { hasUnreadReporterNote } from '../utils/staffChat';
 
 
 interface SidebarProps {
@@ -68,8 +69,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     
     const [isExportOpen, setExportOpen] = useState(false);
     const newNotesCount = useMemo(() => {
-        return tickets.filter(t => t.hasNewNoteFromReporter && t.status !== Status.Abgeschlossen).length;
-    }, [tickets]);
+        return tickets.filter(t => hasUnreadReporterNote(t, userNameFull ?? null) && t.status !== Status.Abgeschlossen).length;
+    }, [tickets, userNameFull]);
 
     const parkedCount = useMemo(() => {
         return tickets.filter(t => t.status === Status.Zurueckgestellt).length;

@@ -36,3 +36,28 @@ export const markStaffMessagesRead = (ticket: Ticket, me: string): Ticket | null
   });
   return changed ? { ...ticket, staffMessages: updated } : null;
 };
+
+/**
+ * Neue Melder-Nachricht aus Sicht von `me`? `hasNewNoteFromReporter` ist ein
+ * globales Flag (gesetzt, wenn der Melder schreibt); `reporterNoteReadBy` merkt
+ * sich PRO PERSON, wer sie schon gesehen hat. So verschwindet das Orange nur für
+ * den, der das Ticket selbst geöffnet hat – nicht für alle, sobald irgendwer
+ * (z. B. zum Chatten) reinschaut.
+ */
+export const hasUnreadReporterNote = (ticket: Ticket, me?: string | null): boolean => {
+  if (!ticket.hasNewNoteFromReporter) return false;
+  if (!me) return true;
+  return !(ticket.reporterNoteReadBy ?? []).includes(me);
+};
+
+/**
+ * Markiert die aktuelle Melder-Nachricht als von `me` gelesen (fügt `me` zu
+ * `reporterNoteReadBy` hinzu). Gibt das aktualisierte Ticket zurück – oder null,
+ * wenn nichts zu ändern war (verhindert Render-Schleifen).
+ */
+export const markReporterNoteRead = (ticket: Ticket, me: string): Ticket | null => {
+  if (!ticket.hasNewNoteFromReporter) return null;
+  const readBy = ticket.reporterNoteReadBy ?? [];
+  if (readBy.includes(me)) return null;
+  return { ...ticket, reporterNoteReadBy: [...readBy, me] };
+};

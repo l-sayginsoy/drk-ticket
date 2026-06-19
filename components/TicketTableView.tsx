@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Ticket, Status, Priority, GroupableKey } from '../types';
+import { Ticket, Status, Priority, GroupableKey, User } from '../types';
 import { SortAscendingIcon } from './icons/SortAscendingIcon';
 import { SortDescendingIcon } from './icons/SortDescendingIcon';
 import { statusColorMap, statusBgColorMap, statusBorderColorMap } from '../constants';
 import { ClockIcon } from './icons/ClockIcon';
 import { RefreshIcon } from './icons/RefreshIcon';
 import { displayNameShort } from '../utils/displayNames';
+import { hasUnreadReporterNote } from '../utils/staffChat';
 
 interface TicketTableViewProps {
   tickets: Ticket[];
@@ -16,6 +17,7 @@ interface TicketTableViewProps {
   selectedTicket: Ticket | null;
   groupBy: GroupableKey | 'none';
   showRoutineSection?: boolean;
+  currentUser?: User | null;
 }
 
 type SortableKeys = keyof Ticket | 'entryDate' | 'dueDate' | 'location';
@@ -109,7 +111,7 @@ const PriorityPill: React.FC<{ priority: Priority }> = ({ priority }) => {
 const technicianCell = (name: string) => (name === 'N/A' ? 'N/A' : displayNameShort(name));
 
 
-const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTicket, selectedTicketIds, setSelectedTicketIds, selectedTicket, groupBy, showRoutineSection = false }) => {
+const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTicket, selectedTicketIds, setSelectedTicketIds, selectedTicket, groupBy, showRoutineSection = false, currentUser }) => {
     const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>({ key: 'entryDate', direction: 'descending' });
     const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
     const routineTickets = useMemo(() => tickets.filter(t => t.origin === 'routine'), [tickets]);
@@ -253,7 +255,7 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
                 <td>
                   <div className="ticket-id-cell">
                     {ticket.id}
-                    {ticket.hasNewNoteFromReporter && <span className="new-note-indicator" title="Neue Nachricht vom Melder"></span>}
+                    {hasUnreadReporterNote(ticket, currentUser?.name ?? null) && <span className="new-note-indicator" title="Neue Nachricht vom Melder"></span>}
                   </div>
                 </td>
                 <td className="icons-cell">

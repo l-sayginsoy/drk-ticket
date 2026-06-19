@@ -211,6 +211,7 @@ export interface Ticket {
   description?: string;
   notes?: string[];
   hasNewNoteFromReporter?: boolean;
+  reporterNoteReadBy?: string[]; // wer die aktuelle Melder-Nachricht schon gesehen hat (pro Person, analog readBy)
   staffMessages?: StaffMessage[]; // interner Mitarbeiter-Chat (Lesestatus pro Person via readBy)
   is_emergency?: boolean;
   is_reopened?: boolean;

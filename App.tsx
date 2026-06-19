@@ -30,7 +30,7 @@ import ToastContainer, { type Toast } from './components/ToastContainer';
 import DashboardRoutineLinkBar from './components/DashboardRoutineLinkBar';
 import ZurückgestelltView from './components/ZurückgestelltView';
 import { localISODate, isRoutineDueOnCalendarDay, routineDayStatus } from './utils/routineHelpers';
-import { getStaffChatState } from './utils/staffChat';
+import { getStaffChatState, hasUnreadReporterNote } from './utils/staffChat';
 import { fetchRpHolidays } from './utils/rpHolidays';
 import {
   BREVO_MAIL_STATUS_EVENT,
@@ -3011,7 +3011,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     const active = [...tickets, ...routineTickets].filter(t => t.status !== Status.Abgeschlossen && t.origin !== 'routine');
     const map = new Map<string, { ticket: Ticket; reporter: boolean; chat: boolean }>();
     active.forEach(t => {
-      const reporter = !!t.hasNewNoteFromReporter;
+      const reporter = hasUnreadReporterNote(t, currentUser?.name ?? null);
       const chat = getStaffChatState(t, currentUser?.name ?? null) === 'unread';
       if (reporter || chat) map.set(t.id, { ticket: t, reporter, chat });
     });
@@ -3453,7 +3453,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
               currentUser={currentUser}
             />
           );
-        case 'tickets': return <TicketTableView tickets={filteredTickets} onUpdateTicket={handleTicketUpdate} onSelectTicket={setSelectedTicket} selectedTicketIds={selectedTicketIds} setSelectedTicketIds={setSelectedTicketIds} selectedTicket={selectedTicket} groupBy={groupBy} showRoutineSection={false} />;
+        case 'tickets': return <TicketTableView tickets={filteredTickets} onUpdateTicket={handleTicketUpdate} onSelectTicket={setSelectedTicket} selectedTicketIds={selectedTicketIds} setSelectedTicketIds={setSelectedTicketIds} selectedTicket={selectedTicket} groupBy={groupBy} showRoutineSection={false} currentUser={currentUser} />;
         case 'routines': return (
           <RoutineSchedulesView
             userRole={currentUser.role}

@@ -520,8 +520,8 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
     const noteTextWithMeta = `${newNote.trim()} (Melder am ${formattedDate}, ${formattedTime})`;
 
     const updatedNotes = [...(foundTicket.notes || []), noteTextWithMeta];
-    const updatedTicket = { ...foundTicket, notes: updatedNotes, hasNewNoteFromReporter: true };
-    
+    const updatedTicket = { ...foundTicket, notes: updatedNotes, hasNewNoteFromReporter: true, reporterNoteReadBy: [] };
+
     onUpdateTicket(updatedTicket);
     setFoundTicket(updatedTicket); // Update local state to show new note immediately
     setNewNote('');
@@ -541,7 +541,7 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
     }
 
     const updatedNotes = [...(foundTicket.notes || []), noteTextWithMeta];
-    const updatedTicket = { ...foundTicket, status: Status.InArbeit, notes: updatedNotes, hasNewNoteFromReporter: true, is_reopened: true };
+    const updatedTicket = { ...foundTicket, status: Status.InArbeit, notes: updatedNotes, hasNewNoteFromReporter: true, reporterNoteReadBy: [], is_reopened: true };
 
     onUpdateTicket(updatedTicket);
     setFoundTicket(updatedTicket);

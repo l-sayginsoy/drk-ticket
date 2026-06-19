@@ -6,7 +6,7 @@ import { CheckIcon } from './icons/CheckIcon';
 import { ClockIcon } from './icons/ClockIcon';
 import { RefreshIcon } from './icons/RefreshIcon';
 import { displayNameShort } from '../utils/displayNames';
-import { getStaffChatState } from '../utils/staffChat';
+import { getStaffChatState, hasUnreadReporterNote } from '../utils/staffChat';
 
 interface TicketCardProps {
   ticket: Ticket;
@@ -234,6 +234,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
 
     // Interner-Chat-Zustand aus Sicht der angemeldeten Person (neu / wartet / ruhig)
     const chatState = getStaffChatState(ticket, currentUser?.name ?? null);
+    const reporterUnread = hasUnreadReporterNote(ticket, currentUser?.name ?? null);
 
     const priorityDotColor = (isEmergency || ticket.priority === Priority.Hoch) ? 'red' : ticket.priority === Priority.Mittel ? 'amber' : 'green';
     const priorityTextColor = (isEmergency || ticket.priority === Priority.Hoch) ? '#A32D2D' : ticket.priority === Priority.Mittel ? '#854F0B' : '#3B6D11';
@@ -531,7 +532,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                         )}
                         {isTicketStagnating && <span title="Ticket stagniert"><ClockIcon className="stagnating-icon" width="13" height="13" /></span>}
                         {isEmergency && <span className="urgent-icon" title="Notfall"><ExclamationTriangleIcon width="13" height="13" /></span>}
-                        {ticket.hasNewNoteFromReporter && <span className="new-note-indicator" title="Neue Nachricht vom Melder" />}
+                        {reporterUnread && <span className="new-note-indicator" title="Neue Nachricht vom Melder" />}
                         {chatState === 'unread' && <span className="new-staff-msg-indicator" title="Neue interne Nachricht" />}
                         <span className={isNewTicket ? 'card-tnum-new' : 'card-tnum'} title={isNewTicket ? 'Neues Ticket' : ''}>#{ticket.id}</span>
                     </div>
@@ -628,7 +629,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                             <span>{ticket.staffMessages?.length ?? 0}</span>
                         </div>
                     )}
-                    {ticket.hasNewNoteFromReporter ? (
+                    {reporterUnread ? (
                         <div className="mini-pill mini-pill--msg-unread" title="Neue Nachricht vom Melder">
                             <i className="ti ti-mail" aria-hidden="true" />
                             <span>{ticket.notes?.length ?? 0}</span>

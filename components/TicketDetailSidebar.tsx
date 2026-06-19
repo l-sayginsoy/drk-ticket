@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 // FIX: Import User type to align with App state
 import { Ticket, Status, Priority, Role, User, AppSettings, AvailabilityStatus, StaffMessage } from '../types';
-import { markStaffMessagesRead } from '../utils/staffChat';
+import { markStaffMessagesRead, markReporterNoteRead } from '../utils/staffChat';
 import { XIcon } from './icons/XIcon';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
 import { statusColorMap, statusBgColorMap } from '../constants';
@@ -115,16 +115,20 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
     }, []);
 
     useEffect(() => {
-        // Melder-Notiz als gelesen markieren UND interne Chat-Nachrichten für mich
-        // (pro Person über readBy). Beides nach kurzer Verzögerung in einem Update.
-        const needNoteRead = !!ticket.hasNewNoteFromReporter;
-        const readTicket = currentUser ? markStaffMessagesRead(ticket, currentUser.name) : null;
-        if (!needNoteRead && !readTicket) return;
-        const timer = setTimeout(() => {
-            let updated = readTicket ?? ticket;
-            if (needNoteRead) updated = { ...updated, hasNewNoteFromReporter: false };
-            onUpdateTicket(updated);
-        }, 500);
+        // Beim Öffnen für MICH (pro Person) als gelesen markieren: interne Chat-
+        // Nachrichten (readBy) UND die Melder-Nachricht (reporterNoteReadBy).
+        // Wichtig: KEIN globales hasNewNoteFromReporter=false mehr – sonst würde
+        // das Orange auch bei allen anderen verschwinden, die das Ticket nie
+        // geöffnet haben (z. B. nur weil jemand zum Chatten reinschaut).
+        if (!currentUser) return;
+        const me = currentUser.name;
+        let next = ticket;
+        const chatRead = markStaffMessagesRead(next, me);
+        if (chatRead) next = chatRead;
+        const noteRead = markReporterNoteRead(next, me);
+        if (noteRead) next = noteRead;
+        if (next === ticket) return;
+        const timer = setTimeout(() => onUpdateTicket(next), 500);
         return () => clearTimeout(timer);
     }, [ticket, onUpdateTicket, currentUser]);
 
