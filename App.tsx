@@ -1939,6 +1939,36 @@ const App: React.FC = () => {
       prevUsersRef.current = users;
   }, [users, appSettings.routingRules]);
 
+  // „An Bearbeiter gebundene" (assigneeLocked) Aufgaben FORTLAUFEND parken, sobald ihr Bearbeiter
+  // abwesend ist – nicht nur im Moment des Abwesend-Schaltens. Deckt Tickets ab, die ERST WÄHREND
+  // der Abwesenheit reinkommen, (neu) zugewiesen oder erst dann gebunden werden (Dashboard).
+  // Idempotent: parkt nur aktive Tickets (canRedistribute) ohne bestehenden parkedForReturnOf-Marker.
+  useEffect(() => {
+      const absentNames = new Set(
+          users
+              .filter(u => u.availability?.status === AvailabilityStatus.OnLeave)
+              .map(u => u.name)
+      );
+      if (absentNames.size === 0) return;
+      const toPark = tickets.filter(t =>
+          t.assigneeLocked && canRedistribute(t) && absentNames.has(t.technician) && !t.parkedForReturnOf
+      );
+      if (toPark.length === 0) return;
+
+      const date = new Date();
+      const stamp = `${date.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric' })}, ${date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
+      const todayISO = new Date().toISOString().slice(0, 10);
+
+      setTickets(prev => {
+          let working = prev;
+          new Set(toPark.map(t => t.technician)).forEach(name => {
+              working = parkLockedTicketsForAbsent(working, name, todayISO, stamp).next;
+          });
+          working.forEach((t, i) => { if (t !== prev[i]) saveTicketToFirebase(t); });
+          return working;
+      });
+  }, [tickets, users]);
+
   // Maintenance Scheduler Simulation
   useEffect(() => {
     const today = new Date(2026, 1, 7); // Changed for Safari
