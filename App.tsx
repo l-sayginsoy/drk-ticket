@@ -549,6 +549,74 @@ const REDISTRIBUTABLE_STATUSES: Status[] = [Status.Offen, Status.InArbeit, Statu
 const canRedistribute = (ticket: { status: Status }): boolean =>
     REDISTRIBUTABLE_STATUSES.includes(ticket.status);
 
+// ────────────────────────────────────────────────────────────────────────────
+// „An den Bearbeiter gebundene" Aufgaben (assigneeLocked): Diese dürfen bei
+// Abwesenheit NICHT an Kollegen umverteilt werden (nur die betreffende Person
+// kann sie erledigen). Stattdessen werden sie ZURÜCKGESTELLT und mit
+// parkedForReturnOf markiert – bei Rückkehr der Person holt der Rückkehr-Effekt
+// sie automatisch wieder hervor.
+//
+// WICHTIG zur harten Umverteilungs-Regel: Das Auto-Zurückholen fasst AUSSCHLIESSLICH
+// Tickets mit gesetztem parkedForReturnOf an (also vom System geparkt) – NIEMALS
+// manuell zurückgestellte Tickets. Damit bleibt die Regel „Zurückgestellt wird nie
+// automatisch angefasst" für alles andere intakt; dies ist eine eng begrenzte,
+// klar markierte Ausnahme.
+
+/** Parkt gebundene (assigneeLocked) aktive Tickets eines abwesenden Bearbeiters. Reine Funktion. */
+const parkLockedTicketsForAbsent = (
+    ticketsArr: Ticket[],
+    absentName: string,
+    stampDateISO: string,
+    noteStamp: string
+): { next: Ticket[]; parkedCount: number } => {
+    let parkedCount = 0;
+    const next = ticketsArr.map((t) => {
+        if (t.technician === absentName && t.assigneeLocked && canRedistribute(t)) {
+            parkedCount++;
+            return {
+                ...t,
+                status: Status.Zurueckgestellt,
+                parkedForReturnOf: absentName,
+                parkedAt: stampDateISO,
+                notes: [
+                    ...(t.notes || []),
+                    `GEBUNDEN-GEPARKT: ${absentName} ist abwesend – Aufgabe wartet auf Rückkehr (${noteStamp}).`,
+                ],
+            };
+        }
+        return t;
+    });
+    return { next, parkedCount };
+};
+
+/** Holt die für einen Rückkehrer auto-geparkten gebundenen Tickets zurück (→ wieder Offen). Reine Funktion. */
+const restoreLockedTicketsOnReturn = (
+    ticketsArr: Ticket[],
+    returnedName: string,
+    noteStamp: string
+): { next: Ticket[]; restoredCount: number } => {
+    let restoredCount = 0;
+    const next = ticketsArr.map((t) => {
+        if (t.parkedForReturnOf === returnedName && t.status === Status.Zurueckgestellt && t.technician === returnedName) {
+            restoredCount++;
+            return {
+                ...t,
+                status: Status.Offen,
+                parkedForReturnOf: undefined,
+                parkedAt: undefined,
+                parkReminderNextDate: undefined,
+                parkReminderInterval: undefined,
+                notes: [
+                    ...(t.notes || []),
+                    `RÜCKKEHR: ${returnedName} ist zurück – gebundene Aufgabe wieder offen (${noteStamp}).`,
+                ],
+            };
+        }
+        return t;
+    });
+    return { next, restoredCount };
+};
+
 const compressImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -1685,70 +1753,87 @@ const App: React.FC = () => {
           console.log("Redistribution triggered for:", newlyAbsentUsers.map(u => u.name));
           
           setTickets(currentTickets => {
-              let ticketsToUpdate = [...currentTickets];
-              let updated = false;
+              const date = new Date();
+              const formattedDate = date.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric' });
+              const formattedTime = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+              const stamp = `${formattedDate}, ${formattedTime}`;
+              const todayISO = new Date().toISOString().slice(0, 10);
+
+              // SCHRITT 1: „An Bearbeiter gebundene" Aufgaben PARKEN (nicht umverteilen).
+              // Danach sind sie Zurückgestellt → von canRedistribute automatisch ausgeschlossen.
+              let working = [...currentTickets];
+              let parkedTotal = 0;
+              newlyAbsentUsers.forEach(absentUser => {
+                  const r = parkLockedTicketsForAbsent(working, absentUser.name, todayISO, stamp);
+                  working = r.next;
+                  parkedTotal += r.parkedCount;
+              });
+
+              // SCHRITT 2: restliche kritische Tickets umverteilen
+              let ticketsToUpdate = [...working];
               let movedTotal = 0;
 
-              const availableTechnicians = users.filter(u => 
-                  (u.role === Role.Technician || u.role === Role.Housekeeping) && 
-                  u.isActive && 
-                  u.availability && 
+              const availableTechnicians = users.filter(u =>
+                  (u.role === Role.Technician || u.role === Role.Housekeeping) &&
+                  u.isActive &&
+                  u.availability &&
                   (u.availability.status === AvailabilityStatus.Available)
               );
 
               if (availableTechnicians.length === 0) {
-                  console.warn("No available technicians for redistribution.");
-                  alert("Warnung: Ein Bearbeiter ist jetzt abwesend, aber es gibt keine verfügbaren Kollegen für die Umverteilung!");
-                  return currentTickets; 
-              }
-
-              const techLoadMap = new Map<string, number>();
-              availableTechnicians.forEach(tech => {
-                  const currentLoad = currentTickets.filter(t => t.technician === tech.name && t.status !== Status.Abgeschlossen).length;
-                  techLoadMap.set(tech.name, currentLoad);
-              });
-
-              newlyAbsentUsers.forEach(absentUser => {
-                  const leaveUntilDate = parseISODate(absentUser.availability.leaveUntil);
-                  if (leaveUntilDate) leaveUntilDate.setHours(23, 59, 59, 999);
-
-                  const criticalTickets = currentTickets.filter(t => {
-                      // Zentrale Regel: NIE Abgeschlossen/Zurückgestellt automatisch umverteilen
-                      if (t.technician !== absentUser.name || !canRedistribute(t)) return false;
-                      if (!leaveUntilDate) return true;
-                      if (t.priority === Priority.Hoch) return true;
-                      if (t.status === Status.Ueberfaellig) return true;
-                      if (t.dueDate) {
-                          const dueDate = parseGermanDate(t.dueDate);
-                          if (dueDate && dueDate.getTime() <= leaveUntilDate.getTime()) return true;
-                      }
-                      return false;
+                  // Keine Kollegen für Umverteilung – aber GEPARKTE Aufgaben trotzdem behalten/speichern.
+                  if (parkedTotal === 0) {
+                      console.warn("No available technicians for redistribution.");
+                      alert("Warnung: Ein Bearbeiter ist jetzt abwesend, aber es gibt keine verfügbaren Kollegen für die Umverteilung!");
+                      return currentTickets;
+                  }
+              } else {
+                  const techLoadMap = new Map<string, number>();
+                  availableTechnicians.forEach(tech => {
+                      const currentLoad = working.filter(t => t.technician === tech.name && t.status !== Status.Abgeschlossen).length;
+                      techLoadMap.set(tech.name, currentLoad);
                   });
 
-                  if (criticalTickets.length > 0) {
+                  newlyAbsentUsers.forEach(absentUser => {
+                      const leaveUntilDate = parseISODate(absentUser.availability.leaveUntil);
+                      if (leaveUntilDate) leaveUntilDate.setHours(23, 59, 59, 999);
+
+                      const criticalTickets = working.filter(t => {
+                          // Zentrale Regel: NIE Abgeschlossen/Zurückgestellt automatisch umverteilen.
+                          // Gebundene Tickets sind nach Schritt 1 bereits Zurückgestellt → fallen hier raus.
+                          if (t.technician !== absentUser.name || !canRedistribute(t)) return false;
+                          if (!leaveUntilDate) return true;
+                          if (t.priority === Priority.Hoch) return true;
+                          if (t.status === Status.Ueberfaellig) return true;
+                          if (t.dueDate) {
+                              const dueDate = parseGermanDate(t.dueDate);
+                              if (dueDate && dueDate.getTime() <= leaveUntilDate.getTime()) return true;
+                          }
+                          return false;
+                      });
+
                       criticalTickets.forEach(ticket => {
                           availableTechnicians.sort((a, b) => (techLoadMap.get(a.name) || 0) - (techLoadMap.get(b.name) || 0));
                           const targetTech = availableTechnicians[0];
                           if (targetTech) {
                               const ticketIndex = ticketsToUpdate.findIndex(t => t.id === ticket.id);
                               if (ticketIndex !== -1) {
-                                  const date = new Date();
-                                  const formattedDate = date.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric' });
-                                  const formattedTime = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                                  const note = `AUTO-UMVERTEILUNG: Von ${absentUser.name} an ${targetTech.name}. Grund: Abwesend bis ${absentUser.availability.leaveUntil || 'unbekannt'}. (${formattedDate}, ${formattedTime})`;
+                                  const note = `AUTO-UMVERTEILUNG: Von ${absentUser.name} an ${targetTech.name}. Grund: Abwesend bis ${absentUser.availability.leaveUntil || 'unbekannt'}. (${stamp})`;
                                   ticketsToUpdate[ticketIndex] = { ...ticketsToUpdate[ticketIndex], technician: targetTech.name, notes: [...(ticketsToUpdate[ticketIndex].notes || []), note] };
-                                  updated = true;
                                   movedTotal++;
                                   techLoadMap.set(targetTech.name, (techLoadMap.get(targetTech.name) || 0) + 1);
                               }
                           }
                       });
-                  }
-              });
+                  });
+              }
 
-              if (updated) {
-                  alert(`Erfolg: ${movedTotal} Tickets wurden automatisch umverteilt.`);
+              if (movedTotal > 0 || parkedTotal > 0) {
                   ticketsToUpdate.forEach((t, i) => { if (t !== currentTickets[i]) saveTicketToFirebase(t); });
+                  const parts: string[] = [];
+                  if (movedTotal > 0) parts.push(`${movedTotal} Tickets umverteilt`);
+                  if (parkedTotal > 0) parts.push(`${parkedTotal} gebundene Aufgabe(n) geparkt – warten auf Rückkehr`);
+                  alert(`Abwesenheit verarbeitet: ${parts.join(' · ')}.`);
                   return ticketsToUpdate;
               }
               return currentTickets;
@@ -1775,11 +1860,25 @@ const App: React.FC = () => {
       if (returningTechnicians.length > 0) {
           console.log("RÜCKKEHR LOGIK: Gefundene Rückkehrer:", returningTechnicians.map(u => u.name));
           setTickets(currentTickets => {
+              const rDate = new Date();
+              const rStamp = `${rDate.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric' })}, ${rDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
+
+              // SCHRITT 0: Für den/die Rückkehrer auto-geparkte „gebundene" Aufgaben automatisch
+              // wieder hervorholen (→ Offen, beim selben Bearbeiter). Fasst NUR Tickets mit
+              // parkedForReturnOf an – niemals manuell zurückgestellte.
+              let working = [...currentTickets];
+              let restoredTotal = 0;
+              returningTechnicians.forEach(rt => {
+                  const r = restoreLockedTicketsOnReturn(working, rt.name, rStamp);
+                  working = r.next;
+                  restoredTotal += r.restoredCount;
+              });
+
               // Rückkehr-Logik zieht bewusst NUR offene Tickets (Teilmenge der erlaubten Status).
               // canRedistribute zusätzlich als harte Absicherung gegen Abgeschlossen/Zurückgestellt.
-              const openTickets = currentTickets.filter(t => t.status === Status.Offen && canRedistribute(t));
+              const openTickets = working.filter(t => t.status === Status.Offen && canRedistribute(t));
               let ticketsUpdated = false;
-              let updatedTickets = [...currentTickets];
+              let updatedTickets = [...working];
               let reassignedCount = 0;
 
               // Helfer zur Lastberechnung
@@ -1823,10 +1922,14 @@ const App: React.FC = () => {
                   }
               });
 
-              if (ticketsUpdated) {
-                  console.log(`RÜCKKEHR LOGIK: ${reassignedCount} Tickets neu zugewiesen.`);
-                  alert(`Willkommen zurück! ${returningTechnicians.map((u) => displayNameShort(u.name)).join(', ')} ist wieder verfügbar. ${reassignedCount} offene Tickets wurden zur Lastverteilung automatisch zugewiesen.`);
+              if (ticketsUpdated || restoredTotal > 0) {
                   updatedTickets.forEach((t, i) => { if (t !== currentTickets[i]) saveTicketToFirebase(t); });
+                  const who = returningTechnicians.map((u) => displayNameShort(u.name)).join(', ');
+                  const parts: string[] = [];
+                  if (restoredTotal > 0) parts.push(`${restoredTotal} gebundene Aufgabe(n) wieder aktiviert`);
+                  if (reassignedCount > 0) parts.push(`${reassignedCount} offene Tickets zur Lastverteilung zugewiesen`);
+                  console.log(`RÜCKKEHR LOGIK: ${parts.join(' · ')}.`);
+                  alert(`Willkommen zurück, ${who}! ${parts.join(' · ')}.`);
                   return updatedTickets;
               }
               return currentTickets;

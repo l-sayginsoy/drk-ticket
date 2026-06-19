@@ -212,6 +212,8 @@ export interface Ticket {
   notes?: string[];
   hasNewNoteFromReporter?: boolean;
   reporterNoteReadBy?: string[]; // wer die aktuelle Melder-Nachricht schon gesehen hat (pro Person, analog readBy)
+  assigneeLocked?: boolean;      // an den Bearbeiter gebunden: bei Abwesenheit NICHT umverteilen, sondern parken
+  parkedForReturnOf?: string;    // Name des Abwesenden, für den dieses Ticket auto-geparkt wurde (auto-Rückkehr)
   staffMessages?: StaffMessage[]; // interner Mitarbeiter-Chat (Lesestatus pro Person via readBy)
   is_emergency?: boolean;
   is_reopened?: boolean;
