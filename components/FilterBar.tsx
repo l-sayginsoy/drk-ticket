@@ -317,7 +317,7 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                 )}
                 {renderFiltersForView()}
             </div>
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, flexWrap: 'nowrap', alignSelf: 'center' }}>
                 {statusCounts && currentView === 'tickets' && (
                     <div className="status-summary">
                         <span className="status-stat status-stat--offen">
