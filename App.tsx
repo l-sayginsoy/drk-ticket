@@ -3029,10 +3029,13 @@ const deleteTicketFromFirebase = (ticketId: string) => {
   }, [tickets, routineTickets, currentUser]);
   const reporterMsgCount = useMemo(() => messageActivityTickets.filter(e => e.reporter).length, [messageActivityTickets]);
   const chatMsgCount = useMemo(() => messageActivityTickets.filter(e => e.chat).length, [messageActivityTickets]);
-  // Wie viele ZURÜCKGESTELLTE Tickets haben neue Nachrichten/Chat (für die angemeldete Person)?
-  // → Signal am Sidebar-Menüpunkt „Zurückgestellt", damit man weiß, dort reinzuschauen.
-  const parkedActivityCount = useMemo(() =>
-    messageActivityTickets.filter(e => e.ticket.status === Status.Zurueckgestellt).length,
+  // Signal am Sidebar-Menüpunkt „Zurückgestellt": getrennt nach Chat (indigo) und Melder (orange),
+  // damit nicht beides fälschlich als „Chat" zusammengezählt wird.
+  const parkedChatActive = useMemo(() =>
+    messageActivityTickets.some(e => e.ticket.status === Status.Zurueckgestellt && e.chat),
+  [messageActivityTickets]);
+  const parkedReporterActive = useMemo(() =>
+    messageActivityTickets.some(e => e.ticket.status === Status.Zurueckgestellt && e.reporter),
   [messageActivityTickets]);
 
   const techOffeneCount = useMemo(() => {
@@ -3576,7 +3579,8 @@ const deleteTicketFromFirebase = (ticketId: string) => {
         brevoMailOk={currentUser.role === Role.Admin ? brevoMailOk : null}
         brevoMailLastChecked={currentUser.role === Role.Admin ? brevoMailLastChecked : null}
         missedRoutinesCount={missedRoutinesSinceStart.length}
-        parkedActivityCount={parkedActivityCount}
+        parkedChatActive={parkedChatActive}
+        parkedReporterActive={parkedReporterActive}
       />
       <main>
         <Header filters={filters} setFilters={setFilters} currentView={currentView} />

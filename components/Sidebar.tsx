@@ -39,8 +39,10 @@ interface SidebarProps {
     brevoMailLastChecked?: Date | null;
     /** Anzahl überfälliger / vergessener Serienaufträge */
     missedRoutinesCount?: number;
-    /** Anzahl zurückgestellter Tickets mit neuer Nachricht/Chat (für die angemeldete Person) */
-    parkedActivityCount?: number;
+    /** Zurückgestellte Tickets mit ungelesenem Team-Chat (für die angemeldete Person) */
+    parkedChatActive?: boolean;
+    /** Zurückgestellte Tickets mit neuer Melder-Nachricht (für die angemeldete Person) */
+    parkedReporterActive?: boolean;
 }
 
 
@@ -66,7 +68,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     brevoMailOk,
     brevoMailLastChecked,
     missedRoutinesCount = 0,
-    parkedActivityCount = 0,
+    parkedChatActive = false,
+    parkedReporterActive = false,
 }) => {
     
     const [isExportOpen, setExportOpen] = useState(false);
@@ -149,13 +152,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                 const c = tickets.filter(t => t.technician === userNameFull && active.includes(t.status) && t.origin !== 'routine').length;
                 return c > 0 ? <span className="nav-badge">{c}</span> : null;
             })()}
-            {viewName === 'zurueckgestellt' && parkedActivityCount > 0 && (
+            {viewName === 'zurueckgestellt' && (parkedChatActive || parkedReporterActive) && (
                 <span
-                    className="nav-badge"
-                    style={{ backgroundColor: '#6366f1', display: 'inline-flex', alignItems: 'center', gap: 3 }}
-                    title={`${parkedActivityCount} zurückgestellte${parkedActivityCount === 1 ? 's Ticket hat' : ' Tickets haben'} neue Nachrichten`}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0 }}
+                    title={`Neue Nachrichten in zurückgestellten Tickets${parkedChatActive ? ' · Team-Chat' : ''}${parkedReporterActive ? ' · Melder' : ''}`}
                 >
-                    <i className="ti ti-message-circle" style={{ fontSize: 11 }} aria-hidden="true" />{parkedActivityCount}
+                    {parkedChatActive && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#6366f1', display: 'inline-block' }} />}
+                    {parkedReporterActive && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#F97316', display: 'inline-block' }} />}
                 </span>
             )}
             {viewName === 'zurueckgestellt' && parkedCount > 0 && (
