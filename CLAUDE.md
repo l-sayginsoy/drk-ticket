@@ -173,6 +173,10 @@ umverteilen**, sondern **parken**, bei Rückkehr **automatisch** wieder aktivier
 - Rückkehr (`restoreLockedTicketsOnReturn`): Tickets mit `parkedForReturnOf===Rückkehrer` → wieder `Offen`.
 - `ZurückgestelltView`: oranges Label „Wartet auf Rückkehr von <Name>". Manuelles Entparken (beide Wege)
   löscht den Marker.
+- **Zuweisung an Abwesende erlaubt:** Die Auto-Umleitung weg vom abwesenden Bearbeiter wurde in
+  `commitTicketUpdate` UND `handleAddNewTicket` **entfernt** (Dropdowns nicht mehr `disabled`). Man kann
+  Aufgaben jetzt bewusst einem Abwesenden zuweisen (nur Hinweis-Notiz). Ist die Aufgabe `assigneeLocked`,
+  parkt der Wächter sie automatisch. **Diese Umleitung nicht wieder einbauen** — sie verhindert die Anforderung.
 > **Kontrollierte Ausnahme zur harten Regel:** Das Auto-Zurückholen fasst **ausschließlich** Tickets mit
 > gesetztem `parkedForReturnOf` an (vom System geparkt) — **niemals** manuell zurückgestellte. Diesen
 > Marker-Check **nie** entfernen. `assigneeLocked` ist default aus → kein Verhaltenswechsel für Bestands-Tickets.
