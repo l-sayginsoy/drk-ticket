@@ -1836,6 +1836,44 @@ const App: React.FC = () => {
       prevUsersRef.current = users;
   }, [users, appSettings.routingRules]);
 
+  // Auto-Rückkehr: Tickets, die an einen Abwesenden zugewiesen (geparkt) wurden, kommen automatisch
+  // wieder als „Offen" zurück, sobald diese Person wieder VERFÜGBAR ist. State-basiert (nicht an ein
+  // Übergangs-Event gebunden) → robust auch nach Reload. Fasst NUR Tickets mit parkedForReturnOf an,
+  // niemals manuell zurückgestellte.
+  useEffect(() => {
+      const availableNames = new Set(
+          users
+              .filter(u => (u.role === Role.Technician || u.role === Role.Housekeeping) && u.isActive && u.availability?.status === AvailabilityStatus.Available)
+              .map(u => u.name)
+      );
+      const toRestore = tickets.filter(t =>
+          t.parkedForReturnOf && t.status === Status.Zurueckgestellt && availableNames.has(t.parkedForReturnOf)
+      );
+      if (toRestore.length === 0) return;
+
+      const d = new Date();
+      const stamp = `${d.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric' })}, ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
+      setTickets(prev => {
+          let changed = false;
+          const next = prev.map(t => {
+              if (t.parkedForReturnOf && t.status === Status.Zurueckgestellt && availableNames.has(t.parkedForReturnOf)) {
+                  changed = true;
+                  return {
+                      ...t,
+                      status: Status.Offen,
+                      parkedForReturnOf: undefined,
+                      parkedAt: undefined,
+                      notes: [...(t.notes || []), `RÜCKKEHR: ${t.parkedForReturnOf} ist zurück – Aufgabe wieder offen (${stamp}).`],
+                  };
+              }
+              return t;
+          });
+          if (!changed) return prev;
+          next.forEach((t, i) => { if (t !== prev[i]) saveTicketToFirebase(t); });
+          return next;
+      });
+  }, [tickets, users]);
+
   // Maintenance Scheduler Simulation
   useEffect(() => {
     const today = new Date(2026, 1, 7); // Changed for Safari
@@ -2270,51 +2308,28 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       }
     }
 
-    // --- Prevent assignment to absent technicians ---
-    if (ut.technician !== 'N/A' && (ut.technician !== originalTicket.technician || originalTicket.technician === 'N/A')) {
+    // --- Zuweisung an einen ABWESENDEN → Aufgabe parken („wartet auf Rückkehr") ---
+    // Wird eine Aufgabe einem abwesenden Bearbeiter zugewiesen, fliegt sie in „Zurückgestellt"
+    // mit Marker parkedForReturnOf. Bei dessen Rückkehr holt der Wächter sie automatisch zurück.
+    // Gegenstück: wird ein bereits geparktes Ticket an eine andere/verfügbare Person umgewiesen,
+    // wird es reaktiviert (Marker weg, wieder Offen).
+    if (ut.technician !== 'N/A' && ut.technician !== originalTicket.technician) {
       const techUser = users.find((u) => u.name === ut.technician);
+      const d = new Date();
+      const stamp = `${d.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric' })}, ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
       if (techUser && techUser.availability.status === AvailabilityStatus.OnLeave) {
-        let newTech = assignTicket(
-          { title: ut.title, description: ut.description },
-          users,
-          tickets,
-          appSettings.routingRules,
-          appSettings.learnedRouting
-        );
-
-        if (newTech === 'N/A' || newTech === techUser.name) {
-          const availableTechs = users.filter(
-            (u) =>
-              (u.role === Role.Technician || u.role === Role.Housekeeping) &&
-              u.isActive &&
-              u.availability.status === AvailabilityStatus.Available
-          );
-
-          if (availableTechs.length > 0) {
-            const techsWithLoad = availableTechs.map((tech) => ({
-              ...tech,
-              load: tickets.filter((t) => t.technician === tech.name && t.status !== Status.Abgeschlossen).length,
-            }));
-            techsWithLoad.sort((a, b) => a.load - b.load);
-            newTech = techsWithLoad[0].name;
-          } else {
-            newTech = 'N/A';
-          }
-        }
-
-        if (newTech !== 'N/A' && newTech !== techUser.name) {
-          alert(
-            `Hinweis: ${displayNameShort(techUser.name)} ist derzeit abwesend. Das Ticket wurde automatisch an ${displayNameShort(newTech)} umgeleitet.`
-          );
-          ut.technician = newTech;
-          ut.notes = [
-            ...(ut.notes || []),
-            `AUTO-KORREKTUR: Ursprünglich zugewiesen an abwesenden Bearbeiter ${techUser.name}. Automatisch zugewiesen an ${newTech}.`,
-          ];
-        } else {
-          alert(`Warnung: ${displayNameShort(techUser.name)} ist abwesend, aber es konnte kein verfügbarer Ersatz gefunden werden.`);
-          ut.technician = 'N/A';
-        }
+        ut.status = Status.Zurueckgestellt;
+        ut.parkedForReturnOf = techUser.name;
+        ut.parkedAt = d.toISOString().slice(0, 10);
+        ut.notes = [
+          ...(ut.notes || []),
+          `GEPARKT: an abwesenden ${techUser.name} zugewiesen – wartet auf Rückkehr (${stamp}).`,
+        ];
+      } else if (ut.parkedForReturnOf && ut.parkedForReturnOf !== ut.technician) {
+        ut.parkedForReturnOf = undefined;
+        ut.parkedAt = undefined;
+        if (ut.status === Status.Zurueckgestellt) ut.status = Status.Offen;
+        ut.notes = [...(ut.notes || []), `REAKTIVIERT: an ${ut.technician} umgewiesen (${stamp}).`];
       }
     }
 
@@ -2612,21 +2627,15 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       if (assignedTechnician !== 'N/A') wasAutoAssigned = true;
     }
     let autoCorrectionNote = '';
+    let parkForReturnOf: string | undefined;
 
-    // Wenn ein Bearbeiter manuell gewählt wurde, prüfen ob er abwesend ist
+    // Wenn ein Bearbeiter manuell gewählt wurde: Zuweisung an einen Abwesenden ist erlaubt –
+    // die Aufgabe wird dann direkt geparkt („wartet auf Rückkehr") statt offen liegen zu bleiben.
     if (assignedTechnician !== 'N/A') {
         const selectedTech = users.find(u => u.name === assignedTechnician);
         if (selectedTech && selectedTech.availability.status === AvailabilityStatus.OnLeave) {
-            // Wenn abwesend, automatisch neu zuweisen
-            const autoTech = assignTicket({ title: newTicketData.title, description: newTicketData.description }, users, tickets, appSettings.routingRules, appSettings.learnedRouting);
-            if (autoTech !== 'N/A' && autoTech !== selectedTech.name) {
-                autoCorrectionNote = `HINWEIS: Gewählter Bearbeiter ${selectedTech.name} ist abwesend. Automatisch zugewiesen an ${autoTech}.`;
-                assignedTechnician = autoTech;
-                alert(autoCorrectionNote);
-            } else {
-                assignedTechnician = 'N/A';
-                alert(`Warnung: ${displayNameShort(selectedTech.name)} ist abwesend. Ticket wurde auf 'Nicht zugewiesen' gesetzt.`);
-            }
+            parkForReturnOf = selectedTech.name;
+            autoCorrectionNote = `GEPARKT: an abwesenden ${selectedTech.name} zugewiesen – wartet auf Rückkehr.`;
         }
     } else {
         // Reaktiv + präventiv: Keyword-Routing für automatische Zuweisung nutzen.
@@ -2683,7 +2692,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       id: `${Math.floor(Math.random() * 10000) + 30000}`,
       entryDate: entryDateStr,
       entryTime: entryTimeStr,
-      status: Status.Offen,
+      status: parkForReturnOf ? Status.Zurueckgestellt : Status.Offen,
       priority: determinedPriority,
       technician: assignedTechnician,
       categoryId: resolvedCategoryId,
@@ -2693,6 +2702,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       is_emergency: false,
       autoAssigned: wasAutoAssigned,
       isNew: true,
+      ...(parkForReturnOf ? { parkedForReturnOf: parkForReturnOf, parkedAt: new Date().toISOString().slice(0, 10) } : {}),
     };
     if (reporterEmail) {
       newTicket.reporter_email = reporterEmail;

@@ -132,7 +132,7 @@ const ZurückgestelltView: React.FC<ZurückgestelltViewProps> = ({
 
   const handleUnpark = (e: React.MouseEvent, ticket: Ticket) => {
     e.stopPropagation();
-    onUpdateTicket({ ...ticket, status: Status.InArbeit, parkReminderInterval: undefined, parkReminderNextDate: undefined, parkedAt: undefined });
+    onUpdateTicket({ ...ticket, status: Status.InArbeit, parkReminderInterval: undefined, parkReminderNextDate: undefined, parkedAt: undefined, parkedForReturnOf: undefined });
   };
 
   const isReminderDue = (ticket: Ticket) => ticket.parkReminderNextDate && ticket.parkReminderNextDate <= today;
@@ -253,6 +253,16 @@ const ZurückgestelltView: React.FC<ZurückgestelltViewProps> = ({
                 <td className="ticket-title-cell">
                   <div className="ticket-title">{ticket.title}</div>
                   <div className="reporter-name">{ticket.reporter}</div>
+                  {ticket.parkedForReturnOf && (
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 3,
+                      fontSize: '0.7rem', fontWeight: 700, padding: '1px 7px', borderRadius: 999,
+                      background: 'rgba(249,115,22,0.10)', color: '#c2410c', border: '1px solid rgba(249,115,22,0.35)',
+                    }}>
+                      <i className="ti ti-clock-hour-4" style={{ fontSize: 11 }} aria-hidden="true" />
+                      Wartet auf Rückkehr von {displayNameShort(ticket.parkedForReturnOf)}
+                    </span>
+                  )}
                 </td>
                 <td style={{ maxWidth: 180 }}>
                   <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ticket.area}</div>
