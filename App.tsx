@@ -2414,17 +2414,31 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       }
     }
 
-    // --- Zuweisung an ABWESENDE bewusst ERLAUBT (keine Auto-Umleitung mehr) ---
-    // Manche Aufgaben kann nur eine bestimmte Person erledigen – die darf man auch dann zuweisen,
-    // wenn sie gerade abwesend ist. Ist die Aufgabe „an Bearbeiter gebunden" (assigneeLocked),
-    // parkt der laufende Wächter sie automatisch als „wartet auf Rückkehr"; sonst bleibt sie
-    // der abwesenden Person zugewiesen (mit Hinweis-Notiz für die Nachvollziehbarkeit).
+    // --- Zuweisung an einen ABWESENDEN → Aufgabe automatisch PARKEN (wartet auf Rückkehr) ---
+    // Man kann eine Aufgabe bewusst einem Abwesenden zuweisen (nur diese Person kann sie erledigen).
+    // Sobald das passiert, fliegt sie in „Zurückgestellt" mit Marker parkedForReturnOf – der laufende
+    // Wächter holt sie bei Rückkehr der Person automatisch wieder als „Offen" zurück.
     if (ut.technician !== 'N/A' && ut.technician !== originalTicket.technician) {
       const techUser = users.find((u) => u.name === ut.technician);
+      const d = new Date();
+      const stamp = `${d.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric' })}, ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
       if (techUser && techUser.availability.status === AvailabilityStatus.OnLeave) {
+        ut.status = Status.Zurueckgestellt;
+        ut.parkedForReturnOf = techUser.name;
+        ut.parkedAt = d.toISOString().slice(0, 10);
         ut.notes = [
           ...(ut.notes || []),
-          `HINWEIS: ${techUser.name} ist derzeit abwesend – Aufgabe bewusst zugewiesen.`,
+          `GEBUNDEN-GEPARKT: an abwesenden ${techUser.name} zugewiesen – wartet auf Rückkehr (${stamp}).`,
+        ];
+      } else if (ut.parkedForReturnOf && ut.parkedForReturnOf !== ut.technician) {
+        // Wartete auf Rückkehr von X, wird jetzt an eine (verfügbare) andere Person umgewiesen
+        // → reaktivieren statt geparkt lassen.
+        ut.parkedForReturnOf = undefined;
+        ut.parkedAt = undefined;
+        if (ut.status === Status.Zurueckgestellt) ut.status = Status.Offen;
+        ut.notes = [
+          ...(ut.notes || []),
+          `REAKTIVIERT: an ${ut.technician} umgewiesen (${stamp}).`,
         ];
       }
     }
@@ -2723,13 +2737,15 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       if (assignedTechnician !== 'N/A') wasAutoAssigned = true;
     }
     let autoCorrectionNote = '';
+    let parkForReturnOf: string | undefined;
 
-    // Wenn ein Bearbeiter manuell gewählt wurde: Zuweisung an Abwesende ist bewusst ERLAUBT
-    // (keine Auto-Umleitung). Nur eine Hinweis-Notiz für die Nachvollziehbarkeit.
+    // Wenn ein Bearbeiter manuell gewählt wurde: Zuweisung an einen Abwesenden ist erlaubt – die
+    // Aufgabe wird dann direkt geparkt (wartet auf Rückkehr), statt offen liegen zu bleiben.
     if (assignedTechnician !== 'N/A') {
         const selectedTech = users.find(u => u.name === assignedTechnician);
         if (selectedTech && selectedTech.availability.status === AvailabilityStatus.OnLeave) {
-            autoCorrectionNote = `HINWEIS: ${selectedTech.name} ist derzeit abwesend – Aufgabe bewusst zugewiesen.`;
+            parkForReturnOf = selectedTech.name;
+            autoCorrectionNote = `GEBUNDEN-GEPARKT: an abwesenden ${selectedTech.name} zugewiesen – wartet auf Rückkehr.`;
         }
     } else {
         // Reaktiv + präventiv: Keyword-Routing für automatische Zuweisung nutzen.
@@ -2786,7 +2802,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       id: `${Math.floor(Math.random() * 10000) + 30000}`,
       entryDate: entryDateStr,
       entryTime: entryTimeStr,
-      status: Status.Offen,
+      status: parkForReturnOf ? Status.Zurueckgestellt : Status.Offen,
       priority: determinedPriority,
       technician: assignedTechnician,
       categoryId: resolvedCategoryId,
@@ -2796,6 +2812,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       is_emergency: false,
       autoAssigned: wasAutoAssigned,
       isNew: true,
+      ...(parkForReturnOf ? { parkedForReturnOf: parkForReturnOf, parkedAt: new Date().toISOString().slice(0, 10) } : {}),
     };
     if (reporterEmail) {
       newTicket.reporter_email = reporterEmail;
