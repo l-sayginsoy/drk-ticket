@@ -2414,51 +2414,18 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       }
     }
 
-    // --- Prevent assignment to absent technicians ---
-    if (ut.technician !== 'N/A' && (ut.technician !== originalTicket.technician || originalTicket.technician === 'N/A')) {
+    // --- Zuweisung an ABWESENDE bewusst ERLAUBT (keine Auto-Umleitung mehr) ---
+    // Manche Aufgaben kann nur eine bestimmte Person erledigen – die darf man auch dann zuweisen,
+    // wenn sie gerade abwesend ist. Ist die Aufgabe „an Bearbeiter gebunden" (assigneeLocked),
+    // parkt der laufende Wächter sie automatisch als „wartet auf Rückkehr"; sonst bleibt sie
+    // der abwesenden Person zugewiesen (mit Hinweis-Notiz für die Nachvollziehbarkeit).
+    if (ut.technician !== 'N/A' && ut.technician !== originalTicket.technician) {
       const techUser = users.find((u) => u.name === ut.technician);
       if (techUser && techUser.availability.status === AvailabilityStatus.OnLeave) {
-        let newTech = assignTicket(
-          { title: ut.title, description: ut.description },
-          users,
-          tickets,
-          appSettings.routingRules,
-          appSettings.learnedRouting
-        );
-
-        if (newTech === 'N/A' || newTech === techUser.name) {
-          const availableTechs = users.filter(
-            (u) =>
-              (u.role === Role.Technician || u.role === Role.Housekeeping) &&
-              u.isActive &&
-              u.availability.status === AvailabilityStatus.Available
-          );
-
-          if (availableTechs.length > 0) {
-            const techsWithLoad = availableTechs.map((tech) => ({
-              ...tech,
-              load: tickets.filter((t) => t.technician === tech.name && t.status !== Status.Abgeschlossen).length,
-            }));
-            techsWithLoad.sort((a, b) => a.load - b.load);
-            newTech = techsWithLoad[0].name;
-          } else {
-            newTech = 'N/A';
-          }
-        }
-
-        if (newTech !== 'N/A' && newTech !== techUser.name) {
-          alert(
-            `Hinweis: ${displayNameShort(techUser.name)} ist derzeit abwesend. Das Ticket wurde automatisch an ${displayNameShort(newTech)} umgeleitet.`
-          );
-          ut.technician = newTech;
-          ut.notes = [
-            ...(ut.notes || []),
-            `AUTO-KORREKTUR: Ursprünglich zugewiesen an abwesenden Bearbeiter ${techUser.name}. Automatisch zugewiesen an ${newTech}.`,
-          ];
-        } else {
-          alert(`Warnung: ${displayNameShort(techUser.name)} ist abwesend, aber es konnte kein verfügbarer Ersatz gefunden werden.`);
-          ut.technician = 'N/A';
-        }
+        ut.notes = [
+          ...(ut.notes || []),
+          `HINWEIS: ${techUser.name} ist derzeit abwesend – Aufgabe bewusst zugewiesen.`,
+        ];
       }
     }
 
@@ -2757,20 +2724,12 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     }
     let autoCorrectionNote = '';
 
-    // Wenn ein Bearbeiter manuell gewählt wurde, prüfen ob er abwesend ist
+    // Wenn ein Bearbeiter manuell gewählt wurde: Zuweisung an Abwesende ist bewusst ERLAUBT
+    // (keine Auto-Umleitung). Nur eine Hinweis-Notiz für die Nachvollziehbarkeit.
     if (assignedTechnician !== 'N/A') {
         const selectedTech = users.find(u => u.name === assignedTechnician);
         if (selectedTech && selectedTech.availability.status === AvailabilityStatus.OnLeave) {
-            // Wenn abwesend, automatisch neu zuweisen
-            const autoTech = assignTicket({ title: newTicketData.title, description: newTicketData.description }, users, tickets, appSettings.routingRules, appSettings.learnedRouting);
-            if (autoTech !== 'N/A' && autoTech !== selectedTech.name) {
-                autoCorrectionNote = `HINWEIS: Gewählter Bearbeiter ${selectedTech.name} ist abwesend. Automatisch zugewiesen an ${autoTech}.`;
-                assignedTechnician = autoTech;
-                alert(autoCorrectionNote);
-            } else {
-                assignedTechnician = 'N/A';
-                alert(`Warnung: ${displayNameShort(selectedTech.name)} ist abwesend. Ticket wurde auf 'Nicht zugewiesen' gesetzt.`);
-            }
+            autoCorrectionNote = `HINWEIS: ${selectedTech.name} ist derzeit abwesend – Aufgabe bewusst zugewiesen.`;
         }
     } else {
         // Reaktiv + präventiv: Keyword-Routing für automatische Zuweisung nutzen.
