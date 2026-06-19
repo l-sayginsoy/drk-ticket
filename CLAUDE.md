@@ -167,6 +167,9 @@ umverteilen**, sondern **parken**, bei Rückkehr **automatisch** wieder aktivier
 - `types.ts`: `assigneeLocked` (Schalter im Ticket-Detail unter „Bearbeiter") + `parkedForReturnOf` (Marker).
 - Abwesenheit (`App.tsx` `parkLockedTicketsForAbsent`): gebundene aktive Tickets → `Status.Zurückgestellt`
   + `parkedForReturnOf=Name`. Parken bleibt auch ohne verfügbare Kollegen erhalten.
+- **Fortlaufendes Parken** (eigener `useEffect`, Deps `[tickets, users]`): parkt gebundene aktive Tickets
+  eines bereits Abwesenden auch dann, wenn sie ERST WÄHREND der Abwesenheit reinkommen/zugewiesen/gebunden
+  werden (sonst blieben sie auf dem Dashboard liegen). Idempotent (canRedistribute + `!parkedForReturnOf`).
 - Rückkehr (`restoreLockedTicketsOnReturn`): Tickets mit `parkedForReturnOf===Rückkehrer` → wieder `Offen`.
 - `ZurückgestelltView`: oranges Label „Wartet auf Rückkehr von <Name>". Manuelles Entparken (beide Wege)
   löscht den Marker.
