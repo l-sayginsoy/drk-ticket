@@ -3,6 +3,7 @@ import { Ticket, Status, Priority, Role } from '../types';
 import { SortAscendingIcon } from './icons/SortAscendingIcon';
 import { SortDescendingIcon } from './icons/SortDescendingIcon';
 import { displayNameShort } from '../utils/displayNames';
+import { getStaffChatState, hasUnreadReporterNote } from '../utils/staffChat';
 
 interface ZurückgestelltViewProps {
   tickets: Ticket[];
@@ -262,6 +263,20 @@ const ZurückgestelltView: React.FC<ZurückgestelltViewProps> = ({
                       <i className="ti ti-clock-hour-4" style={{ fontSize: 11 }} aria-hidden="true" />
                       Wartet auf Rückkehr von {displayNameShort(ticket.parkedForReturnOf)}
                     </span>
+                  )}
+                  {(getStaffChatState(ticket, currentUserName ?? null) === 'unread' || hasUnreadReporterNote(ticket, currentUserName ?? null)) && (
+                    <div style={{ display: 'flex', gap: 5, marginTop: 3, flexWrap: 'wrap' }}>
+                      {getStaffChatState(ticket, currentUserName ?? null) === 'unread' && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.7rem', fontWeight: 700, padding: '1px 7px', borderRadius: 999, background: '#6366f1', color: '#fff' }}>
+                          <i className="ti ti-message-circle" style={{ fontSize: 11 }} aria-hidden="true" />Neuer Chat
+                        </span>
+                      )}
+                      {hasUnreadReporterNote(ticket, currentUserName ?? null) && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.7rem', fontWeight: 700, padding: '1px 7px', borderRadius: 999, background: '#F97316', color: '#fff' }}>
+                          <i className="ti ti-mail" style={{ fontSize: 11 }} aria-hidden="true" />Melder
+                        </span>
+                      )}
+                    </div>
                   )}
                 </td>
                 <td style={{ maxWidth: 180 }}>
