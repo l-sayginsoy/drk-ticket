@@ -1939,21 +1939,29 @@ const App: React.FC = () => {
       prevUsersRef.current = users;
   }, [users, appSettings.routingRules]);
 
-  // „An Bearbeiter gebundene" (assigneeLocked) Aufgaben FORTLAUFEND parken, sobald ihr Bearbeiter
-  // abwesend ist – nicht nur im Moment des Abwesend-Schaltens. Deckt Tickets ab, die ERST WÄHREND
-  // der Abwesenheit reinkommen, (neu) zugewiesen oder erst dann gebunden werden (Dashboard).
-  // Idempotent: parkt nur aktive Tickets (canRedistribute) ohne bestehenden parkedForReturnOf-Marker.
+  // „An Bearbeiter gebundene" (assigneeLocked) Aufgaben FORTLAUFEND mit dem Ist-Zustand abgleichen –
+  // nicht nur beim Umschalten (Übergangs-Erkennung ist fragil, z. B. nach Reload). State-basiert:
+  //  • Bearbeiter abwesend + gebundenes aktives Ticket  → PARKEN (auch wenn Ticket erst später kommt)
+  //  • parkedForReturnOf-Person wieder VERFÜGBAR         → automatisch ZURÜCKHOLEN (→ Offen)
+  // Idempotent über canRedistribute / Marker → kein Render-Loop. Fasst beim Zurückholen NUR
+  // system-geparkte Tickets (parkedForReturnOf) an, niemals manuell zurückgestellte.
   useEffect(() => {
       const absentNames = new Set(
+          users.filter(u => u.availability?.status === AvailabilityStatus.OnLeave).map(u => u.name)
+      );
+      const availableNames = new Set(
           users
-              .filter(u => u.availability?.status === AvailabilityStatus.OnLeave)
+              .filter(u => (u.role === Role.Technician || u.role === Role.Housekeeping) && u.isActive && u.availability?.status === AvailabilityStatus.Available)
               .map(u => u.name)
       );
-      if (absentNames.size === 0) return;
+
       const toPark = tickets.filter(t =>
           t.assigneeLocked && canRedistribute(t) && absentNames.has(t.technician) && !t.parkedForReturnOf
       );
-      if (toPark.length === 0) return;
+      const toRestore = tickets.filter(t =>
+          t.parkedForReturnOf && t.status === Status.Zurueckgestellt && availableNames.has(t.parkedForReturnOf)
+      );
+      if (toPark.length === 0 && toRestore.length === 0) return;
 
       const date = new Date();
       const stamp = `${date.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric' })}, ${date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
@@ -1963,6 +1971,9 @@ const App: React.FC = () => {
           let working = prev;
           new Set(toPark.map(t => t.technician)).forEach(name => {
               working = parkLockedTicketsForAbsent(working, name, todayISO, stamp).next;
+          });
+          new Set(toRestore.map(t => t.parkedForReturnOf as string)).forEach(name => {
+              working = restoreLockedTicketsOnReturn(working, name, stamp).next;
           });
           working.forEach((t, i) => { if (t !== prev[i]) saveTicketToFirebase(t); });
           return working;
