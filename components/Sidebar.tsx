@@ -689,10 +689,12 @@ const Sidebar: React.FC<SidebarProps> = ({
             ) : null}
             {userRole === Role.Admin && brevoMailOk !== undefined && brevoMailOk !== null && brevoMailLastChecked ? (
                 <div
-                    className="sidebar-sync"
-                    title={brevoMailOk ? `Brevo geprüft: ${brevoMailLastChecked.toLocaleTimeString()}` : 'E-Mail inaktiv – klicken um Brevo zu öffnen'}
-                    onClick={!brevoMailOk ? () => window.open('https://app.brevo.com', '_blank') : undefined}
-                    style={!brevoMailOk ? { cursor: 'pointer' } : undefined}
+                    className="sidebar-sync sidebar-sync--clickable"
+                    title={brevoMailOk
+                        ? `E-Mail aktiv (Brevo zuletzt geprüft: ${brevoMailLastChecked.toLocaleTimeString()}) – klicken, um Brevo zu öffnen`
+                        : 'E-Mail inaktiv – klicken, um Brevo zu öffnen und zu prüfen'}
+                    onClick={() => window.open('https://app.brevo.com', '_blank')}
+                    style={{ cursor: 'pointer' }}
                 >
                     <div
                         className="sidebar-sync-dot"
@@ -701,6 +703,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         }}
                     />
                     {!isCollapsed && <span>{brevoMailOk ? 'E-Mail aktiv' : '⚠ E-Mail inaktiv'}</span>}
+                    {!isCollapsed && <i className="ti ti-external-link" aria-hidden="true" style={{ marginLeft: 'auto', fontSize: 13, opacity: 0.55 }} />}
                 </div>
             ) : null}
             <div className="sidebar-footer">
