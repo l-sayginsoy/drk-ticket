@@ -23,13 +23,9 @@ interface FilterBarProps {
     reporterActivityCount?: number;
     /** Tickets mit ungelesen Team-Chat (indigo) */
     chatActivityCount?: number;
-    /** Klick auf das orange Badge → erstes Ticket mit neuer Melder-Nachricht öffnen */
-    onReporterBadgeClick?: () => void;
-    /** Klick auf das indigo Badge → erstes Ticket mit ungelesenem Chat öffnen */
-    onChatBadgeClick?: () => void;
 }
 
-const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, technicians, statuses, reporters = [], groupBy, setGroupBy, currentView, userRole, panelEmbed = false, statusCounts, reporterActivityCount = 0, chatActivityCount = 0, onReporterBadgeClick, onChatBadgeClick }) => {
+const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, technicians, statuses, reporters = [], groupBy, setGroupBy, currentView, userRole, panelEmbed = false, statusCounts, reporterActivityCount = 0, chatActivityCount = 0 }) => {
     
     if (currentView === 'techniker' || currentView === 'reports' || currentView === 'routines' || currentView === 'routine-nachweis') {
         return null;
@@ -338,42 +334,38 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                     </div>
                 )}
                 {chatActivityCount > 0 && (
-                    <button
-                        type="button"
-                        onClick={onChatBadgeClick}
-                        title={`${chatActivityCount} Ticket${chatActivityCount > 1 ? 's' : ''} mit ungelesenem Team-Chat – klicken zum Öffnen`}
+                    <span
+                        title={`${chatActivityCount} Ticket${chatActivityCount > 1 ? 's' : ''} mit ungelesenem Team-Chat`}
                         style={{
                             display: 'inline-flex', alignItems: 'center', gap: 6,
                             height: 36, padding: '0 14px', boxSizing: 'border-box',
                             fontSize: '0.85rem', fontWeight: 800,
-                            borderRadius: 20, border: 'none',
+                            borderRadius: 20,
                             background: '#6366f1', color: '#fff',
                             boxShadow: '0 1px 6px rgba(99,102,241,0.45)',
-                            whiteSpace: 'nowrap', userSelect: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                            whiteSpace: 'nowrap', userSelect: 'none',
                         }}
                     >
                         <i className="ti ti-message-circle" style={{ fontSize: 16 }} aria-hidden="true" />
                         {chatActivityCount} neu
-                    </button>
+                    </span>
                 )}
                 {reporterActivityCount > 0 && (
-                    <button
-                        type="button"
-                        onClick={onReporterBadgeClick}
-                        title={`${reporterActivityCount} neue Melder-Nachricht${reporterActivityCount > 1 ? 'en' : ''} – klicken zum Öffnen`}
+                    <span
+                        title={`${reporterActivityCount} neue Melder-Nachricht${reporterActivityCount > 1 ? 'en' : ''}`}
                         style={{
                             display: 'inline-flex', alignItems: 'center', gap: 6,
                             height: 36, padding: '0 14px', boxSizing: 'border-box',
                             fontSize: '0.85rem', fontWeight: 800,
-                            borderRadius: 20, border: 'none',
+                            borderRadius: 20,
                             background: '#F97316', color: '#fff',
                             boxShadow: '0 1px 6px rgba(249,115,22,0.45)',
-                            whiteSpace: 'nowrap', userSelect: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                            whiteSpace: 'nowrap', userSelect: 'none',
                         }}
                     >
                         <i className="ti ti-mail" style={{ fontSize: 16 }} aria-hidden="true" />
                         {reporterActivityCount} neu
-                    </button>
+                    </span>
                 )}
             </div>
         </div>

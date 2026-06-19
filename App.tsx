@@ -3029,16 +3029,11 @@ const deleteTicketFromFirebase = (ticketId: string) => {
   }, [tickets, routineTickets, currentUser]);
   const reporterMsgCount = useMemo(() => messageActivityTickets.filter(e => e.reporter).length, [messageActivityTickets]);
   const chatMsgCount = useMemo(() => messageActivityTickets.filter(e => e.chat).length, [messageActivityTickets]);
-  // Klick auf das obere „neu"-Badge: erstes betroffene Ticket direkt öffnen – egal in welcher Ansicht
-  // es liegt (z. B. auch zurückgestellte Tickets, die nicht auf dem Board sind).
-  const openFirstReporterActivity = useCallback(() => {
-    const e = messageActivityTickets.find(x => x.reporter);
-    if (e) setSelectedTicket(e.ticket);
-  }, [messageActivityTickets]);
-  const openFirstChatActivity = useCallback(() => {
-    const e = messageActivityTickets.find(x => x.chat);
-    if (e) setSelectedTicket(e.ticket);
-  }, [messageActivityTickets]);
+  // Wie viele ZURÜCKGESTELLTE Tickets haben neue Nachrichten/Chat (für die angemeldete Person)?
+  // → Signal am Sidebar-Menüpunkt „Zurückgestellt", damit man weiß, dort reinzuschauen.
+  const parkedActivityCount = useMemo(() =>
+    messageActivityTickets.filter(e => e.ticket.status === Status.Zurueckgestellt).length,
+  [messageActivityTickets]);
 
   const techOffeneCount = useMemo(() => {
     if (!currentUser || !isServiceTeamRole(currentUser.role)) return 0;
@@ -3581,6 +3576,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
         brevoMailOk={currentUser.role === Role.Admin ? brevoMailOk : null}
         brevoMailLastChecked={currentUser.role === Role.Admin ? brevoMailLastChecked : null}
         missedRoutinesCount={missedRoutinesSinceStart.length}
+        parkedActivityCount={parkedActivityCount}
       />
       <main>
         <Header filters={filters} setFilters={setFilters} currentView={currentView} />
@@ -3852,7 +3848,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
               setGroupBy={setGroupBy}
               currentView={currentView}
               statusCounts={listStatusCounts}
-              reporterActivityCount={reporterMsgCount} chatActivityCount={chatMsgCount} onReporterBadgeClick={openFirstReporterActivity} onChatBadgeClick={openFirstChatActivity}
+              reporterActivityCount={reporterMsgCount} chatActivityCount={chatMsgCount}
               panelEmbed
             />
             {renderCurrentView()}
@@ -3864,7 +3860,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
             ) : (
               (currentView === 'tickets' || currentView === 'erledigt' || currentView === 'techniker') && (
                 <>
-                  <FilterBar filters={filters} setFilters={setFilters} locations={locationOptionsWithCounts} technicians={['Alle', ...activeTechnicians.map((t) => t.name)]} statuses={STATUSES} reporters={reporterOptions} userRole={currentUser.role} groupBy={groupBy} setGroupBy={setGroupBy} currentView={currentView} statusCounts={listStatusCounts} reporterActivityCount={reporterMsgCount} chatActivityCount={chatMsgCount} onReporterBadgeClick={openFirstReporterActivity} onChatBadgeClick={openFirstChatActivity} />
+                  <FilterBar filters={filters} setFilters={setFilters} locations={locationOptionsWithCounts} technicians={['Alle', ...activeTechnicians.map((t) => t.name)]} statuses={STATUSES} reporters={reporterOptions} userRole={currentUser.role} groupBy={groupBy} setGroupBy={setGroupBy} currentView={currentView} statusCounts={listStatusCounts} reporterActivityCount={reporterMsgCount} chatActivityCount={chatMsgCount} />
                   {completedSearchCount > 0 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.6rem 1rem', background: '#e6f1fb', border: '1px solid #b5d4f4', borderRadius: 8, fontSize: '0.875rem', color: '#185fa5' }}>
                       <i className="ti ti-search" />
