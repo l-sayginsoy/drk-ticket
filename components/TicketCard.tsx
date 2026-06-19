@@ -615,7 +615,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                             if (opt === 'N/A') return <option key={opt} value={opt}>Nicht zugewiesen</option>;
                             const u = technicians.find((t) => t.name === opt);
                             const absent = u?.availability.status === AvailabilityStatus.OnLeave;
-                            return <option key={opt} value={opt}>{displayNameShort(opt)}{absent ? ' (Abwesend)' : ''}</option>;
+                            return <option key={opt} value={opt} disabled={!!absent}>{displayNameShort(opt)}{absent ? ' (Abwesend)' : ''}</option>;
                         })}
                     </select>
                 </div>

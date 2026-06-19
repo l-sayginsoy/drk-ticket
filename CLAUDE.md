@@ -157,29 +157,6 @@ Rückkehr-Effekt, `handleUserUpdated`, `handleManualRedistribution`).
 > **Diese Regel nie aufweichen.** Keine neue Umverteilungs-Logik ohne `canRedistribute()`-Filter.
 > Offen: Die *Regeln innerhalb* der erlaubten Status (z.B. „nur kritische", Rückkehr zieht offene
 > Tickets anderer Abwesender) sollen laut Nutzer noch geprüft/feinjustiert werden.
-> **Hinweis:** Nur der **Abwesenheits-/Rückkehr-`useEffect`** (`App.tsx`, Deps `[users, …]`) ist
-> tatsächlich aktiv. `handleUserUpdated`/`handleManualRedistribution` sind **toter Code** (nirgends
-> aufgerufen) — neue Logik gehört in den `useEffect`.
-
-### Session 19.06.2026 – „An Bearbeiter gebundene" Aufgaben (committed & deployed)
-**Anforderung:** Manche Aufgaben kann nur die zugewiesene Person erledigen → bei Abwesenheit **nicht
-umverteilen**, sondern **parken**, bei Rückkehr **automatisch** wieder aktivieren.
-- `types.ts`: `assigneeLocked` (Schalter im Ticket-Detail unter „Bearbeiter") + `parkedForReturnOf` (Marker).
-- Abwesenheit (`App.tsx` `parkLockedTicketsForAbsent`): gebundene aktive Tickets → `Status.Zurückgestellt`
-  + `parkedForReturnOf=Name`. Parken bleibt auch ohne verfügbare Kollegen erhalten.
-- **Fortlaufendes Parken** (eigener `useEffect`, Deps `[tickets, users]`): parkt gebundene aktive Tickets
-  eines bereits Abwesenden auch dann, wenn sie ERST WÄHREND der Abwesenheit reinkommen/zugewiesen/gebunden
-  werden (sonst blieben sie auf dem Dashboard liegen). Idempotent (canRedistribute + `!parkedForReturnOf`).
-- Rückkehr (`restoreLockedTicketsOnReturn`): Tickets mit `parkedForReturnOf===Rückkehrer` → wieder `Offen`.
-- `ZurückgestelltView`: oranges Label „Wartet auf Rückkehr von <Name>". Manuelles Entparken (beide Wege)
-  löscht den Marker.
-- **Zuweisung an Abwesende erlaubt:** Die Auto-Umleitung weg vom abwesenden Bearbeiter wurde in
-  `commitTicketUpdate` UND `handleAddNewTicket` **entfernt** (Dropdowns nicht mehr `disabled`). Man kann
-  Aufgaben jetzt bewusst einem Abwesenden zuweisen (nur Hinweis-Notiz). Ist die Aufgabe `assigneeLocked`,
-  parkt der Wächter sie automatisch. **Diese Umleitung nicht wieder einbauen** — sie verhindert die Anforderung.
-> **Kontrollierte Ausnahme zur harten Regel:** Das Auto-Zurückholen fasst **ausschließlich** Tickets mit
-> gesetztem `parkedForReturnOf` an (vom System geparkt) — **niemals** manuell zurückgestellte. Diesen
-> Marker-Check **nie** entfernen. `assigneeLocked` ist default aus → kein Verhaltenswechsel für Bestands-Tickets.
 
 ## ⚠️ Harte Regel: Login & Passwörter (fest angelegte Konten)
 Login prüft **Klartext-Passwörter** im `users`-Doc (`facility-management-users`); Name case-insensitive,

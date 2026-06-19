@@ -549,74 +549,6 @@ const REDISTRIBUTABLE_STATUSES: Status[] = [Status.Offen, Status.InArbeit, Statu
 const canRedistribute = (ticket: { status: Status }): boolean =>
     REDISTRIBUTABLE_STATUSES.includes(ticket.status);
 
-// ────────────────────────────────────────────────────────────────────────────
-// „An den Bearbeiter gebundene" Aufgaben (assigneeLocked): Diese dürfen bei
-// Abwesenheit NICHT an Kollegen umverteilt werden (nur die betreffende Person
-// kann sie erledigen). Stattdessen werden sie ZURÜCKGESTELLT und mit
-// parkedForReturnOf markiert – bei Rückkehr der Person holt der Rückkehr-Effekt
-// sie automatisch wieder hervor.
-//
-// WICHTIG zur harten Umverteilungs-Regel: Das Auto-Zurückholen fasst AUSSCHLIESSLICH
-// Tickets mit gesetztem parkedForReturnOf an (also vom System geparkt) – NIEMALS
-// manuell zurückgestellte Tickets. Damit bleibt die Regel „Zurückgestellt wird nie
-// automatisch angefasst" für alles andere intakt; dies ist eine eng begrenzte,
-// klar markierte Ausnahme.
-
-/** Parkt gebundene (assigneeLocked) aktive Tickets eines abwesenden Bearbeiters. Reine Funktion. */
-const parkLockedTicketsForAbsent = (
-    ticketsArr: Ticket[],
-    absentName: string,
-    stampDateISO: string,
-    noteStamp: string
-): { next: Ticket[]; parkedCount: number } => {
-    let parkedCount = 0;
-    const next = ticketsArr.map((t) => {
-        if (t.technician === absentName && t.assigneeLocked && canRedistribute(t)) {
-            parkedCount++;
-            return {
-                ...t,
-                status: Status.Zurueckgestellt,
-                parkedForReturnOf: absentName,
-                parkedAt: stampDateISO,
-                notes: [
-                    ...(t.notes || []),
-                    `GEBUNDEN-GEPARKT: ${absentName} ist abwesend – Aufgabe wartet auf Rückkehr (${noteStamp}).`,
-                ],
-            };
-        }
-        return t;
-    });
-    return { next, parkedCount };
-};
-
-/** Holt die für einen Rückkehrer auto-geparkten gebundenen Tickets zurück (→ wieder Offen). Reine Funktion. */
-const restoreLockedTicketsOnReturn = (
-    ticketsArr: Ticket[],
-    returnedName: string,
-    noteStamp: string
-): { next: Ticket[]; restoredCount: number } => {
-    let restoredCount = 0;
-    const next = ticketsArr.map((t) => {
-        if (t.parkedForReturnOf === returnedName && t.status === Status.Zurueckgestellt && t.technician === returnedName) {
-            restoredCount++;
-            return {
-                ...t,
-                status: Status.Offen,
-                parkedForReturnOf: undefined,
-                parkedAt: undefined,
-                parkReminderNextDate: undefined,
-                parkReminderInterval: undefined,
-                notes: [
-                    ...(t.notes || []),
-                    `RÜCKKEHR: ${returnedName} ist zurück – gebundene Aufgabe wieder offen (${noteStamp}).`,
-                ],
-            };
-        }
-        return t;
-    });
-    return { next, restoredCount };
-};
-
 const compressImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -1753,87 +1685,70 @@ const App: React.FC = () => {
           console.log("Redistribution triggered for:", newlyAbsentUsers.map(u => u.name));
           
           setTickets(currentTickets => {
-              const date = new Date();
-              const formattedDate = date.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric' });
-              const formattedTime = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-              const stamp = `${formattedDate}, ${formattedTime}`;
-              const todayISO = new Date().toISOString().slice(0, 10);
-
-              // SCHRITT 1: „An Bearbeiter gebundene" Aufgaben PARKEN (nicht umverteilen).
-              // Danach sind sie Zurückgestellt → von canRedistribute automatisch ausgeschlossen.
-              let working = [...currentTickets];
-              let parkedTotal = 0;
-              newlyAbsentUsers.forEach(absentUser => {
-                  const r = parkLockedTicketsForAbsent(working, absentUser.name, todayISO, stamp);
-                  working = r.next;
-                  parkedTotal += r.parkedCount;
-              });
-
-              // SCHRITT 2: restliche kritische Tickets umverteilen
-              let ticketsToUpdate = [...working];
+              let ticketsToUpdate = [...currentTickets];
+              let updated = false;
               let movedTotal = 0;
 
-              const availableTechnicians = users.filter(u =>
-                  (u.role === Role.Technician || u.role === Role.Housekeeping) &&
-                  u.isActive &&
-                  u.availability &&
+              const availableTechnicians = users.filter(u => 
+                  (u.role === Role.Technician || u.role === Role.Housekeeping) && 
+                  u.isActive && 
+                  u.availability && 
                   (u.availability.status === AvailabilityStatus.Available)
               );
 
               if (availableTechnicians.length === 0) {
-                  // Keine Kollegen für Umverteilung – aber GEPARKTE Aufgaben trotzdem behalten/speichern.
-                  if (parkedTotal === 0) {
-                      console.warn("No available technicians for redistribution.");
-                      alert("Warnung: Ein Bearbeiter ist jetzt abwesend, aber es gibt keine verfügbaren Kollegen für die Umverteilung!");
-                      return currentTickets;
-                  }
-              } else {
-                  const techLoadMap = new Map<string, number>();
-                  availableTechnicians.forEach(tech => {
-                      const currentLoad = working.filter(t => t.technician === tech.name && t.status !== Status.Abgeschlossen).length;
-                      techLoadMap.set(tech.name, currentLoad);
+                  console.warn("No available technicians for redistribution.");
+                  alert("Warnung: Ein Bearbeiter ist jetzt abwesend, aber es gibt keine verfügbaren Kollegen für die Umverteilung!");
+                  return currentTickets; 
+              }
+
+              const techLoadMap = new Map<string, number>();
+              availableTechnicians.forEach(tech => {
+                  const currentLoad = currentTickets.filter(t => t.technician === tech.name && t.status !== Status.Abgeschlossen).length;
+                  techLoadMap.set(tech.name, currentLoad);
+              });
+
+              newlyAbsentUsers.forEach(absentUser => {
+                  const leaveUntilDate = parseISODate(absentUser.availability.leaveUntil);
+                  if (leaveUntilDate) leaveUntilDate.setHours(23, 59, 59, 999);
+
+                  const criticalTickets = currentTickets.filter(t => {
+                      // Zentrale Regel: NIE Abgeschlossen/Zurückgestellt automatisch umverteilen
+                      if (t.technician !== absentUser.name || !canRedistribute(t)) return false;
+                      if (!leaveUntilDate) return true;
+                      if (t.priority === Priority.Hoch) return true;
+                      if (t.status === Status.Ueberfaellig) return true;
+                      if (t.dueDate) {
+                          const dueDate = parseGermanDate(t.dueDate);
+                          if (dueDate && dueDate.getTime() <= leaveUntilDate.getTime()) return true;
+                      }
+                      return false;
                   });
 
-                  newlyAbsentUsers.forEach(absentUser => {
-                      const leaveUntilDate = parseISODate(absentUser.availability.leaveUntil);
-                      if (leaveUntilDate) leaveUntilDate.setHours(23, 59, 59, 999);
-
-                      const criticalTickets = working.filter(t => {
-                          // Zentrale Regel: NIE Abgeschlossen/Zurückgestellt automatisch umverteilen.
-                          // Gebundene Tickets sind nach Schritt 1 bereits Zurückgestellt → fallen hier raus.
-                          if (t.technician !== absentUser.name || !canRedistribute(t)) return false;
-                          if (!leaveUntilDate) return true;
-                          if (t.priority === Priority.Hoch) return true;
-                          if (t.status === Status.Ueberfaellig) return true;
-                          if (t.dueDate) {
-                              const dueDate = parseGermanDate(t.dueDate);
-                              if (dueDate && dueDate.getTime() <= leaveUntilDate.getTime()) return true;
-                          }
-                          return false;
-                      });
-
+                  if (criticalTickets.length > 0) {
                       criticalTickets.forEach(ticket => {
                           availableTechnicians.sort((a, b) => (techLoadMap.get(a.name) || 0) - (techLoadMap.get(b.name) || 0));
                           const targetTech = availableTechnicians[0];
                           if (targetTech) {
                               const ticketIndex = ticketsToUpdate.findIndex(t => t.id === ticket.id);
                               if (ticketIndex !== -1) {
-                                  const note = `AUTO-UMVERTEILUNG: Von ${absentUser.name} an ${targetTech.name}. Grund: Abwesend bis ${absentUser.availability.leaveUntil || 'unbekannt'}. (${stamp})`;
+                                  const date = new Date();
+                                  const formattedDate = date.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric' });
+                                  const formattedTime = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                                  const note = `AUTO-UMVERTEILUNG: Von ${absentUser.name} an ${targetTech.name}. Grund: Abwesend bis ${absentUser.availability.leaveUntil || 'unbekannt'}. (${formattedDate}, ${formattedTime})`;
                                   ticketsToUpdate[ticketIndex] = { ...ticketsToUpdate[ticketIndex], technician: targetTech.name, notes: [...(ticketsToUpdate[ticketIndex].notes || []), note] };
+                                  updated = true;
                                   movedTotal++;
                                   techLoadMap.set(targetTech.name, (techLoadMap.get(targetTech.name) || 0) + 1);
                               }
                           }
                       });
-                  });
-              }
+                  }
+              });
 
-              if (movedTotal > 0 || parkedTotal > 0) {
+              if (updated) {
+                  alert(`Erfolg: ${movedTotal} Tickets wurden automatisch umverteilt.`);
                   ticketsToUpdate.forEach((t, i) => { if (t !== currentTickets[i]) saveTicketToFirebase(t); });
-                  const parts: string[] = [];
-                  if (movedTotal > 0) parts.push(`${movedTotal} Tickets umverteilt`);
-                  if (parkedTotal > 0) parts.push(`${parkedTotal} gebundene Aufgabe(n) geparkt – warten auf Rückkehr`);
-                  alert(`Abwesenheit verarbeitet: ${parts.join(' · ')}.`);
                   return ticketsToUpdate;
               }
               return currentTickets;
@@ -1860,25 +1775,11 @@ const App: React.FC = () => {
       if (returningTechnicians.length > 0) {
           console.log("RÜCKKEHR LOGIK: Gefundene Rückkehrer:", returningTechnicians.map(u => u.name));
           setTickets(currentTickets => {
-              const rDate = new Date();
-              const rStamp = `${rDate.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric' })}, ${rDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
-
-              // SCHRITT 0: Für den/die Rückkehrer auto-geparkte „gebundene" Aufgaben automatisch
-              // wieder hervorholen (→ Offen, beim selben Bearbeiter). Fasst NUR Tickets mit
-              // parkedForReturnOf an – niemals manuell zurückgestellte.
-              let working = [...currentTickets];
-              let restoredTotal = 0;
-              returningTechnicians.forEach(rt => {
-                  const r = restoreLockedTicketsOnReturn(working, rt.name, rStamp);
-                  working = r.next;
-                  restoredTotal += r.restoredCount;
-              });
-
               // Rückkehr-Logik zieht bewusst NUR offene Tickets (Teilmenge der erlaubten Status).
               // canRedistribute zusätzlich als harte Absicherung gegen Abgeschlossen/Zurückgestellt.
-              const openTickets = working.filter(t => t.status === Status.Offen && canRedistribute(t));
+              const openTickets = currentTickets.filter(t => t.status === Status.Offen && canRedistribute(t));
               let ticketsUpdated = false;
-              let updatedTickets = [...working];
+              let updatedTickets = [...currentTickets];
               let reassignedCount = 0;
 
               // Helfer zur Lastberechnung
@@ -1922,14 +1823,10 @@ const App: React.FC = () => {
                   }
               });
 
-              if (ticketsUpdated || restoredTotal > 0) {
+              if (ticketsUpdated) {
+                  console.log(`RÜCKKEHR LOGIK: ${reassignedCount} Tickets neu zugewiesen.`);
+                  alert(`Willkommen zurück! ${returningTechnicians.map((u) => displayNameShort(u.name)).join(', ')} ist wieder verfügbar. ${reassignedCount} offene Tickets wurden zur Lastverteilung automatisch zugewiesen.`);
                   updatedTickets.forEach((t, i) => { if (t !== currentTickets[i]) saveTicketToFirebase(t); });
-                  const who = returningTechnicians.map((u) => displayNameShort(u.name)).join(', ');
-                  const parts: string[] = [];
-                  if (restoredTotal > 0) parts.push(`${restoredTotal} gebundene Aufgabe(n) wieder aktiviert`);
-                  if (reassignedCount > 0) parts.push(`${reassignedCount} offene Tickets zur Lastverteilung zugewiesen`);
-                  console.log(`RÜCKKEHR LOGIK: ${parts.join(' · ')}.`);
-                  alert(`Willkommen zurück, ${who}! ${parts.join(' · ')}.`);
                   return updatedTickets;
               }
               return currentTickets;
@@ -1938,47 +1835,6 @@ const App: React.FC = () => {
 
       prevUsersRef.current = users;
   }, [users, appSettings.routingRules]);
-
-  // „An Bearbeiter gebundene" (assigneeLocked) Aufgaben FORTLAUFEND mit dem Ist-Zustand abgleichen –
-  // nicht nur beim Umschalten (Übergangs-Erkennung ist fragil, z. B. nach Reload). State-basiert:
-  //  • Bearbeiter abwesend + gebundenes aktives Ticket  → PARKEN (auch wenn Ticket erst später kommt)
-  //  • parkedForReturnOf-Person wieder VERFÜGBAR         → automatisch ZURÜCKHOLEN (→ Offen)
-  // Idempotent über canRedistribute / Marker → kein Render-Loop. Fasst beim Zurückholen NUR
-  // system-geparkte Tickets (parkedForReturnOf) an, niemals manuell zurückgestellte.
-  useEffect(() => {
-      const absentNames = new Set(
-          users.filter(u => u.availability?.status === AvailabilityStatus.OnLeave).map(u => u.name)
-      );
-      const availableNames = new Set(
-          users
-              .filter(u => (u.role === Role.Technician || u.role === Role.Housekeeping) && u.isActive && u.availability?.status === AvailabilityStatus.Available)
-              .map(u => u.name)
-      );
-
-      const toPark = tickets.filter(t =>
-          t.assigneeLocked && canRedistribute(t) && absentNames.has(t.technician) && !t.parkedForReturnOf
-      );
-      const toRestore = tickets.filter(t =>
-          t.parkedForReturnOf && t.status === Status.Zurueckgestellt && availableNames.has(t.parkedForReturnOf)
-      );
-      if (toPark.length === 0 && toRestore.length === 0) return;
-
-      const date = new Date();
-      const stamp = `${date.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric' })}, ${date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
-      const todayISO = new Date().toISOString().slice(0, 10);
-
-      setTickets(prev => {
-          let working = prev;
-          new Set(toPark.map(t => t.technician)).forEach(name => {
-              working = parkLockedTicketsForAbsent(working, name, todayISO, stamp).next;
-          });
-          new Set(toRestore.map(t => t.parkedForReturnOf as string)).forEach(name => {
-              working = restoreLockedTicketsOnReturn(working, name, stamp).next;
-          });
-          working.forEach((t, i) => { if (t !== prev[i]) saveTicketToFirebase(t); });
-          return working;
-      });
-  }, [tickets, users]);
 
   // Maintenance Scheduler Simulation
   useEffect(() => {
@@ -2414,32 +2270,51 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       }
     }
 
-    // --- Zuweisung an einen ABWESENDEN → Aufgabe automatisch PARKEN (wartet auf Rückkehr) ---
-    // Man kann eine Aufgabe bewusst einem Abwesenden zuweisen (nur diese Person kann sie erledigen).
-    // Sobald das passiert, fliegt sie in „Zurückgestellt" mit Marker parkedForReturnOf – der laufende
-    // Wächter holt sie bei Rückkehr der Person automatisch wieder als „Offen" zurück.
-    if (ut.technician !== 'N/A' && ut.technician !== originalTicket.technician) {
+    // --- Prevent assignment to absent technicians ---
+    if (ut.technician !== 'N/A' && (ut.technician !== originalTicket.technician || originalTicket.technician === 'N/A')) {
       const techUser = users.find((u) => u.name === ut.technician);
-      const d = new Date();
-      const stamp = `${d.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric' })}, ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
       if (techUser && techUser.availability.status === AvailabilityStatus.OnLeave) {
-        ut.status = Status.Zurueckgestellt;
-        ut.parkedForReturnOf = techUser.name;
-        ut.parkedAt = d.toISOString().slice(0, 10);
-        ut.notes = [
-          ...(ut.notes || []),
-          `GEBUNDEN-GEPARKT: an abwesenden ${techUser.name} zugewiesen – wartet auf Rückkehr (${stamp}).`,
-        ];
-      } else if (ut.parkedForReturnOf && ut.parkedForReturnOf !== ut.technician) {
-        // Wartete auf Rückkehr von X, wird jetzt an eine (verfügbare) andere Person umgewiesen
-        // → reaktivieren statt geparkt lassen.
-        ut.parkedForReturnOf = undefined;
-        ut.parkedAt = undefined;
-        if (ut.status === Status.Zurueckgestellt) ut.status = Status.Offen;
-        ut.notes = [
-          ...(ut.notes || []),
-          `REAKTIVIERT: an ${ut.technician} umgewiesen (${stamp}).`,
-        ];
+        let newTech = assignTicket(
+          { title: ut.title, description: ut.description },
+          users,
+          tickets,
+          appSettings.routingRules,
+          appSettings.learnedRouting
+        );
+
+        if (newTech === 'N/A' || newTech === techUser.name) {
+          const availableTechs = users.filter(
+            (u) =>
+              (u.role === Role.Technician || u.role === Role.Housekeeping) &&
+              u.isActive &&
+              u.availability.status === AvailabilityStatus.Available
+          );
+
+          if (availableTechs.length > 0) {
+            const techsWithLoad = availableTechs.map((tech) => ({
+              ...tech,
+              load: tickets.filter((t) => t.technician === tech.name && t.status !== Status.Abgeschlossen).length,
+            }));
+            techsWithLoad.sort((a, b) => a.load - b.load);
+            newTech = techsWithLoad[0].name;
+          } else {
+            newTech = 'N/A';
+          }
+        }
+
+        if (newTech !== 'N/A' && newTech !== techUser.name) {
+          alert(
+            `Hinweis: ${displayNameShort(techUser.name)} ist derzeit abwesend. Das Ticket wurde automatisch an ${displayNameShort(newTech)} umgeleitet.`
+          );
+          ut.technician = newTech;
+          ut.notes = [
+            ...(ut.notes || []),
+            `AUTO-KORREKTUR: Ursprünglich zugewiesen an abwesenden Bearbeiter ${techUser.name}. Automatisch zugewiesen an ${newTech}.`,
+          ];
+        } else {
+          alert(`Warnung: ${displayNameShort(techUser.name)} ist abwesend, aber es konnte kein verfügbarer Ersatz gefunden werden.`);
+          ut.technician = 'N/A';
+        }
       }
     }
 
@@ -2737,15 +2612,21 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       if (assignedTechnician !== 'N/A') wasAutoAssigned = true;
     }
     let autoCorrectionNote = '';
-    let parkForReturnOf: string | undefined;
 
-    // Wenn ein Bearbeiter manuell gewählt wurde: Zuweisung an einen Abwesenden ist erlaubt – die
-    // Aufgabe wird dann direkt geparkt (wartet auf Rückkehr), statt offen liegen zu bleiben.
+    // Wenn ein Bearbeiter manuell gewählt wurde, prüfen ob er abwesend ist
     if (assignedTechnician !== 'N/A') {
         const selectedTech = users.find(u => u.name === assignedTechnician);
         if (selectedTech && selectedTech.availability.status === AvailabilityStatus.OnLeave) {
-            parkForReturnOf = selectedTech.name;
-            autoCorrectionNote = `GEBUNDEN-GEPARKT: an abwesenden ${selectedTech.name} zugewiesen – wartet auf Rückkehr.`;
+            // Wenn abwesend, automatisch neu zuweisen
+            const autoTech = assignTicket({ title: newTicketData.title, description: newTicketData.description }, users, tickets, appSettings.routingRules, appSettings.learnedRouting);
+            if (autoTech !== 'N/A' && autoTech !== selectedTech.name) {
+                autoCorrectionNote = `HINWEIS: Gewählter Bearbeiter ${selectedTech.name} ist abwesend. Automatisch zugewiesen an ${autoTech}.`;
+                assignedTechnician = autoTech;
+                alert(autoCorrectionNote);
+            } else {
+                assignedTechnician = 'N/A';
+                alert(`Warnung: ${displayNameShort(selectedTech.name)} ist abwesend. Ticket wurde auf 'Nicht zugewiesen' gesetzt.`);
+            }
         }
     } else {
         // Reaktiv + präventiv: Keyword-Routing für automatische Zuweisung nutzen.
@@ -2802,7 +2683,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       id: `${Math.floor(Math.random() * 10000) + 30000}`,
       entryDate: entryDateStr,
       entryTime: entryTimeStr,
-      status: parkForReturnOf ? Status.Zurueckgestellt : Status.Offen,
+      status: Status.Offen,
       priority: determinedPriority,
       technician: assignedTechnician,
       categoryId: resolvedCategoryId,
@@ -2812,7 +2693,6 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       is_emergency: false,
       autoAssigned: wasAutoAssigned,
       isNew: true,
-      ...(parkForReturnOf ? { parkedForReturnOf: parkForReturnOf, parkedAt: new Date().toISOString().slice(0, 10) } : {}),
     };
     if (reporterEmail) {
       newTicket.reporter_email = reporterEmail;

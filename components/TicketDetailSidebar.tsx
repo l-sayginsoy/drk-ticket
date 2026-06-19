@@ -242,7 +242,6 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             parkReminderInterval: undefined,
             parkReminderNextDate: undefined,
             parkedAt: undefined,
-            parkedForReturnOf: undefined,
         });
     };
 
@@ -960,7 +959,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                                 <select style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }} value={ticket.technician} onChange={e => handleFieldChange('technician', e.target.value)}>
                                     <option value="N/A">Nicht zugewiesen</option>
                                     {technicians.map(t => (
-                                        <option key={t.id} value={t.name}>
+                                        <option key={t.id} value={t.name} disabled={t.availability.status === AvailabilityStatus.OnLeave}>
                                             {displayNameShort(t.name)}{t.availability.status === AvailabilityStatus.OnLeave ? ' (Abwesend)' : ''}
                                         </option>
                                     ))}
@@ -968,29 +967,6 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                             </div>
                         );
                     })()}
-                    {ticket.technician && ticket.technician !== 'N/A' && (
-                        <label
-                            title="Bei Abwesenheit wird diese Aufgabe nicht an Kollegen verteilt, sondern geparkt – und kommt bei Rückkehr automatisch zurück."
-                            style={{
-                                display: 'flex', alignItems: 'flex-start', gap: 8,
-                                marginTop: 8, padding: '8px 10px', borderRadius: 8,
-                                border: `1px solid ${ticket.assigneeLocked ? 'rgba(249,115,22,0.45)' : 'var(--border)'}`,
-                                background: ticket.assigneeLocked ? 'rgba(249,115,22,0.07)' : 'var(--bg-tertiary)',
-                                cursor: 'pointer', userSelect: 'none',
-                            }}
-                        >
-                            <input
-                                type="checkbox"
-                                checked={!!ticket.assigneeLocked}
-                                onChange={e => handleFieldChange('assigneeLocked', e.target.checked)}
-                                style={{ marginTop: 2, accentColor: '#F97316', cursor: 'pointer', flexShrink: 0 }}
-                            />
-                            <span style={{ fontSize: '0.8rem', lineHeight: 1.35, color: 'var(--text-secondary)' }}>
-                                <i className="ti ti-lock" aria-hidden="true" style={{ fontSize: 13, marginRight: 4, color: ticket.assigneeLocked ? '#c2410c' : 'var(--text-muted)' }} />
-                                <strong style={{ color: ticket.assigneeLocked ? '#c2410c' : 'var(--text-primary)' }}>Nur {displayNameShort(ticket.technician)}</strong> – bei Abwesenheit parken statt umverteilen
-                            </span>
-                        </label>
-                    )}
                 </div>
                 <div>
                     <p className="detail-label-compact">Kategorie</p>
