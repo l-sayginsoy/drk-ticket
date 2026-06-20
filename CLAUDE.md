@@ -62,6 +62,10 @@ Serienaufträge (Routinen) · Brevo-E-Mails · Stale-Erinnerungen · **Interner 
   Jetzt **heller Knopf in derselben Formensprache** wie `.custom-select` (`var(--bg-tertiary)`, feiner
   Rand, radius 9px); **Rot (`#DC2626`/`BELL_COLOR`) nur noch als Akzent** (Glocken-Icon + Zahl). NICHT
   wieder vollflächig rot machen.
+- **Feinschliff (Nutzer-Test):** Knopf über eigene Klasse `.msg-inbox-btn`, die `.custom-select` 1:1
+  spiegelt → per Messung **pixelidentisch** (36px, gleicher Hintergrund/Rand/Ecken); Browser-**Fokus-Ring
+  entfernt** (war der sichtbare Unterschied). **Dropdown-Icons solide** (Chat `#6366f1`, Melder `#F97316`,
+  weißes Icon) wie die Karten-Pillen, statt zart getönt. NICHT wieder die getönten Kreise einbauen.
 - **Verifikation:** `tsc` + Build grün; Vorschau (als Admin) rendert sauber, Badge = reine Anzahl,
   Glocke korrekt ausgeblendet (kein Ungelesenes für Admin). Live-Demo der Glocke heute nicht möglich
   (Firestore-Tageslimit erneut erschöpft + Admin ohne Ungelesenes); zeigt sich als Torsten.

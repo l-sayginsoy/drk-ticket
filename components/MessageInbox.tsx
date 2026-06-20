@@ -81,22 +81,28 @@ const MessageInbox: React.FC<MessageInboxProps> = ({ items, onOpenTicket }) => {
 
   return (
     <>
+      <style>{`
+        /* Spiegelt .custom-select aus FilterBar 1:1, damit die Glocke exakt wie die
+           anderen Filter-Bedienelemente aussieht (Höhe, Hintergrund, Rand, Ecken). */
+        .msg-inbox-btn {
+          display: inline-flex; align-items: center; gap: 7px;
+          height: 36px; box-sizing: border-box; padding: 0 12px;
+          border: 1px solid var(--border); border-radius: 9px;
+          background: var(--bg-tertiary); color: var(--text-secondary);
+          font-size: 0.85rem; font-weight: 500; font-family: inherit;
+          cursor: pointer; white-space: nowrap; user-select: none; flex-shrink: 0;
+          transition: var(--transition-smooth);
+        }
+        .msg-inbox-btn:hover { border-color: var(--border-active); }
+        .msg-inbox-btn:focus { outline: none; }
+        .msg-inbox-btn:focus-visible { outline: 2px solid var(--border-active); outline-offset: 1px; }
+      `}</style>
       <button
         ref={btnRef}
         type="button"
+        className="msg-inbox-btn"
         onClick={() => setOpen((o) => !o)}
         title={`${notifications.length} neue Nachricht${notifications.length > 1 ? 'en' : ''}`}
-        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-active)'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; }}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 7,
-          height: 36, padding: '0 12px', boxSizing: 'border-box',
-          fontSize: '0.85rem', fontWeight: 500, cursor: 'pointer',
-          borderRadius: 9, border: '1px solid var(--border)',
-          background: 'var(--bg-tertiary)', color: 'var(--text-secondary)',
-          whiteSpace: 'nowrap', userSelect: 'none', flexShrink: 0,
-          transition: 'border-color .15s ease, background-color .15s ease',
-        }}
       >
         <i className="ti ti-bell" style={{ fontSize: 16, color: BELL_COLOR }} aria-hidden="true" />
         <span><span style={{ color: BELL_COLOR, fontWeight: 700 }}>{notifications.length}</span> neu</span>
@@ -144,8 +150,8 @@ const MessageInbox: React.FC<MessageInboxProps> = ({ items, onOpenTicket }) => {
                 <span
                   style={{
                     flexShrink: 0, width: 30, height: 30, borderRadius: '50%',
-                    background: isChat ? 'rgba(99,102,241,0.16)' : 'rgba(249,115,22,0.16)',
-                    color: isChat ? CHAT_BLUE : MELDER_ORANGE,
+                    background: isChat ? CHAT_BLUE : MELDER_ORANGE,
+                    color: '#fff',
                     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                   }}
                 >
