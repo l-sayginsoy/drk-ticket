@@ -90,7 +90,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         { type: 'view', viewName: 'dashboard', icon: <LayoutDashboardIcon />, label: 'Dashboard', requiredRoles: [Role.Admin], section: 'uebersicht' },
         { type: 'view', viewName: 'tickets', icon: <i className="ti ti-menu-2" aria-hidden />, label: 'Listenansicht', requiredRoles: [Role.Admin], section: 'uebersicht' },
         { type: 'view', viewName: 'zurueckgestellt', icon: <i className="ti ti-parking" aria-hidden />, label: 'Zurückgestellt', requiredRoles: [Role.Admin], section: 'uebersicht' },
-        { type: 'view', viewName: 'erledigt', icon: <i className="ti ti-clock" aria-hidden />, label: 'Abgeschlossen', requiredRoles: [Role.Admin], section: 'uebersicht' },
+        { type: 'view', viewName: 'erledigt', icon: <i className="ti ti-circle-check" aria-hidden />, label: 'Abgeschlossen', requiredRoles: [Role.Admin], section: 'uebersicht' },
         { type: 'view', viewName: 'routines', icon: <i className="ti ti-repeat" aria-hidden />, label: 'Serienaufträge', requiredRoles: [Role.Admin], section: 'uebersicht' },
         { type: 'view', viewName: 'routine-nachweis', icon: <CalendarIcon />, label: 'Serien‑Nachweis', requiredRoles: [Role.Admin], section: 'uebersicht' },
         // Admin — Verwaltung
@@ -102,12 +102,12 @@ const Sidebar: React.FC<SidebarProps> = ({
         { type: 'view', viewName: 'tech-dashboard', icon: <LayoutDashboardIcon />, label: 'Dashboard', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
         { type: 'view', viewName: 'tickets', icon: <i className="ti ti-menu-2" aria-hidden />, label: 'Listenansicht', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
         { type: 'view', viewName: 'zurueckgestellt', icon: <i className="ti ti-parking" aria-hidden />, label: 'Zurückgestellt', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
-        { type: 'view', viewName: 'erledigt', icon: <i className="ti ti-clock" aria-hidden />, label: 'Abgeschlossen', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
+        { type: 'view', viewName: 'erledigt', icon: <i className="ti ti-circle-check" aria-hidden />, label: 'Abgeschlossen', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
         { type: 'view', viewName: 'routines', icon: <i className="ti ti-repeat" aria-hidden />, label: 'Serienaufträge', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
         { type: 'view', viewName: 'routine-nachweis', icon: <CalendarIcon />, label: 'Serien‑Nachweis', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
 
         // Aktionen (alle Rollen)
-        { type: 'action', action: 'newTicket', icon: <i className="ti ti-ticket" aria-hidden />, label: 'Neues Ticket', requiredRoles: [Role.Admin, Role.Technician, Role.Housekeeping], section: 'aktionen', onClick: onNewTicketClick },
+        { type: 'action', action: 'newTicket', icon: <i className="ti ti-clipboard-plus" aria-hidden />, label: 'Neues Ticket', requiredRoles: [Role.Admin, Role.Technician, Role.Housekeeping], section: 'aktionen', onClick: onNewTicketClick },
     ];
 
     const SECTION_HEADING: Record<NavSection, string> = {
