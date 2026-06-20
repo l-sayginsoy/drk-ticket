@@ -152,17 +152,15 @@ const Sidebar: React.FC<SidebarProps> = ({
                 const c = tickets.filter(t => t.technician === userNameFull && active.includes(t.status) && t.origin !== 'routine').length;
                 return c > 0 ? <span className="nav-badge">{c}</span> : null;
             })()}
-            {viewName === 'zurueckgestellt' && (parkedChatActive || parkedReporterActive) && (
-                <span
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0 }}
-                    title={`Neue Nachrichten in zurückgestellten Tickets${parkedChatActive ? ' · Team-Chat' : ''}${parkedReporterActive ? ' · Melder' : ''}`}
-                >
-                    {parkedChatActive && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#6366f1', display: 'inline-block' }} />}
-                    {parkedReporterActive && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#F97316', display: 'inline-block' }} />}
-                </span>
-            )}
             {viewName === 'zurueckgestellt' && parkedCount > 0 && (
-                <span className="nav-badge" style={{ backgroundColor: 'rgba(255, 140, 0, 0.9)' }}>{parkedCount}</span>
+                <span
+                    className="nav-badge"
+                    style={{ backgroundColor: 'rgba(255, 140, 0, 0.9)', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                    title={(parkedChatActive || parkedReporterActive) ? 'Es liegen neue Nachrichten in zurückgestellten Tickets' : undefined}
+                >
+                    {(parkedChatActive || parkedReporterActive) && <i className="ti ti-message-circle" style={{ fontSize: 11 }} aria-hidden="true" />}
+                    {parkedCount}
+                </span>
             )}
             {viewName === 'routines' && missedRoutinesCount > 0 && (
                 <span className="nav-badge" style={{ backgroundColor: 'rgba(220, 38, 38, 0.9)' }} title="Überfällige Serienaufträge">

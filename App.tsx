@@ -2382,32 +2382,18 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       ut.is_reopened = false;
     }
 
-    const dueDateManuallyChangedForMail = updatedTicket.dueDate !== originalTicket.dueDate;
+    // E-Mails an den Melder bewusst MINIMAL halten – KEIN Versand beim Umverteilen, Statuswechsel
+    // (z. B. „In Arbeit") oder Terminänderungen, sonst fluten wir. Nur noch zwei Anlässe hier:
+    //  • Ticket abgeschlossen → Abschluss-Info
+    //  • Mitarbeiter schreibt eine Notiz an den Melder → genau diese Nachricht
+    // (Die Eingangsbestätigung läuft separat bei der Ticket-Erstellung; der interne Chat
+    //  verschickt bewusst NIE eine Mail.)
     const reporterMailTo = ut.reporter_email?.trim();
     if (reporterMailTo) {
-      if (dueDateManuallyChangedForMail && (ut.status === Status.InArbeit || ut.status === Status.Ueberfaellig)) {
-        sendDrkBrevoMail(reporterMailTo, `Terminänderung zu Ihrer Meldung – Ticket ${ut.id}`, {
-          kind: 'due_date_changed',
-          ticketId: ut.id,
-          title: ut.title || '—',
-          newDueDate: ut.dueDate || '—',
-        });
-      } else if (statusChanged && ut.status === Status.Abgeschlossen) {
+      if (statusChanged && ut.status === Status.Abgeschlossen) {
         sendDrkBrevoMail(reporterMailTo, `Ihre Meldung wurde abgeschlossen – Ticket ${ut.id}`, {
           kind: 'ticket_closed',
           ticketId: ut.id,
-        });
-      } else if (statusChanged && ut.status === Status.InArbeit) {
-        sendDrkBrevoMail(reporterMailTo, `Ihre Meldung wird bearbeitet – Ticket ${ut.id}`, {
-          kind: 'ticket_in_progress',
-          ticketId: ut.id,
-          title: ut.title || '—',
-          area: ut.area || '—',
-          location: ut.location || '',
-          priority: String(ut.priority),
-          technician: ut.technician || 'N/A',
-          dueDate: ut.dueDate || '—',
-          description: ut.description || '',
         });
       } else if ((ut.notes?.length || 0) > (originalTicket.notes?.length || 0)) {
         const latestNote = ut.notes![ut.notes!.length - 1];
