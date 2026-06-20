@@ -39,10 +39,6 @@ interface SidebarProps {
     brevoMailLastChecked?: Date | null;
     /** Anzahl überfälliger / vergessener Serienaufträge */
     missedRoutinesCount?: number;
-    /** Zurückgestellte Tickets mit ungelesenem Team-Chat (für die angemeldete Person) */
-    parkedChatActive?: boolean;
-    /** Zurückgestellte Tickets mit neuer Melder-Nachricht (für die angemeldete Person) */
-    parkedReporterActive?: boolean;
 }
 
 
@@ -68,8 +64,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     brevoMailOk,
     brevoMailLastChecked,
     missedRoutinesCount = 0,
-    parkedChatActive = false,
-    parkedReporterActive = false,
 }) => {
     
     const [isExportOpen, setExportOpen] = useState(false);
@@ -155,10 +149,9 @@ const Sidebar: React.FC<SidebarProps> = ({
             {viewName === 'zurueckgestellt' && parkedCount > 0 && (
                 <span
                     className="nav-badge"
-                    style={{ backgroundColor: 'rgba(255, 140, 0, 0.9)', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                    title={(parkedChatActive || parkedReporterActive) ? 'Es liegen neue Nachrichten in zurückgestellten Tickets' : undefined}
+                    style={{ backgroundColor: 'rgba(255, 140, 0, 0.9)' }}
+                    title="Anzahl zurückgestellter Tickets"
                 >
-                    {(parkedChatActive || parkedReporterActive) && <i className="ti ti-message-circle" style={{ fontSize: 11 }} aria-hidden="true" />}
                     {parkedCount}
                 </span>
             )}

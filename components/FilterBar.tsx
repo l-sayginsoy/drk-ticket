@@ -1,8 +1,9 @@
 import React from 'react';
 import { PRIORITIES } from '../constants';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
-import { Role, GroupableKey } from '../types';
+import { Role, GroupableKey, Ticket } from '../types';
 import { displayNameShort } from '../utils/displayNames';
+import MessageInbox, { MessageActivityItem } from './MessageInbox';
 
 interface FilterBarProps {
     filters: any;
@@ -19,13 +20,13 @@ interface FilterBarProps {
     panelEmbed?: boolean;
     /** Anzahl aktiver Tickets für die Statusleiste */
     statusCounts?: { offen: number; inArbeit: number; ueberfaellig: number };
-    /** Tickets mit neuer Melder-Nachricht (orange) */
-    reporterActivityCount?: number;
-    /** Tickets mit ungelesen Team-Chat (indigo) */
-    chatActivityCount?: number;
+    /** Tickets mit neuer Aktivität (Chat/Melder) – speist die Benachrichtigungs-Glocke */
+    messageActivity?: MessageActivityItem[];
+    /** Öffnet ein Ticket aus der Benachrichtigungsliste in der Detailansicht */
+    onOpenTicket?: (ticket: Ticket) => void;
 }
 
-const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, technicians, statuses, reporters = [], groupBy, setGroupBy, currentView, userRole, panelEmbed = false, statusCounts, reporterActivityCount = 0, chatActivityCount = 0 }) => {
+const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, technicians, statuses, reporters = [], groupBy, setGroupBy, currentView, userRole, panelEmbed = false, statusCounts, messageActivity = [], onOpenTicket }) => {
     
     if (currentView === 'techniker' || currentView === 'reports' || currentView === 'routines' || currentView === 'routine-nachweis') {
         return null;
@@ -333,40 +334,7 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                         )}
                     </div>
                 )}
-                {chatActivityCount > 0 && (
-                    <span
-                        title={`${chatActivityCount} Ticket${chatActivityCount > 1 ? 's' : ''} mit ungelesenem Team-Chat`}
-                        style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 6,
-                            height: 36, padding: '0 14px', boxSizing: 'border-box',
-                            fontSize: '0.85rem', fontWeight: 800,
-                            borderRadius: 20,
-                            background: '#6366f1', color: '#fff',
-                            boxShadow: '0 1px 6px rgba(99,102,241,0.45)',
-                            whiteSpace: 'nowrap', userSelect: 'none',
-                        }}
-                    >
-                        <i className="ti ti-message-circle" style={{ fontSize: 16 }} aria-hidden="true" />
-                        {chatActivityCount} neu
-                    </span>
-                )}
-                {reporterActivityCount > 0 && (
-                    <span
-                        title={`${reporterActivityCount} neue Melder-Nachricht${reporterActivityCount > 1 ? 'en' : ''}`}
-                        style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 6,
-                            height: 36, padding: '0 14px', boxSizing: 'border-box',
-                            fontSize: '0.85rem', fontWeight: 800,
-                            borderRadius: 20,
-                            background: '#F97316', color: '#fff',
-                            boxShadow: '0 1px 6px rgba(249,115,22,0.45)',
-                            whiteSpace: 'nowrap', userSelect: 'none',
-                        }}
-                    >
-                        <i className="ti ti-mail" style={{ fontSize: 16 }} aria-hidden="true" />
-                        {reporterActivityCount} neu
-                    </span>
-                )}
+                <MessageInbox items={messageActivity} onOpenTicket={onOpenTicket} />
             </div>
         </div>
     );

@@ -35,6 +35,26 @@ Serienaufträge (Routinen) · Brevo-E-Mails · Stale-Erinnerungen · **Interner 
 
 ## Zuletzt abgeschlossen
 
+### Session 20.06.2026 (2) – Neue-Nachrichten-Glocke statt verstreuter Signale (committed & deployed)
+- **Problem (Nutzer-Feedback):** Das Chat-/Melder-Signal war verstreut und verwirrend: zwei „X neu"-Pillen
+  oben (Chat blau / Melder orange) **plus** ein Chat-Sprechblasen-Icon im orangen „Zurückgestellt"-Badge
+  der Sidebar. Es zeigte nicht, **WO** die Nachricht liegt; da zurückgestellte Tickets vom Board
+  ausgeblendet sind, wirkte „neuer Chat" wie ein Phantom. **Chat-Logik geprüft (`utils/staffChat.ts`):
+  korrekt** — es war ein echter ungelesener Chat auf einem geparkten (versteckten) Ticket, kein Bug.
+- **Lösung (wie große Systeme: Benachrichtigungs-Inbox):** neue Komponente `components/MessageInbox.tsx`
+  — eine **Glocke** oben in der Filterleiste (`FilterBar.tsx`) mit aufklappbarer **Liste** aller Tickets
+  mit neuer Aktivität (Chat und/oder Melder). Je Zeile: Ticket-Nr., Titel, Art (Chat = blaues Icon,
+  Melder = oranges Icon), „zurückgestellt"-Etikett. **Klick öffnet das Ticket direkt** (`onOpenTicket`
+  → `setSelectedTicket`). Dropdown als **Portal am `<body>`** (kein Abschneiden durch `overflow`).
+  Datengrundlage unverändert (`messageActivityTickets` in `App.tsx`).
+- **Sidebar „Zurückgestellt" zeigt wieder NUR die orange Anzahl** (Nutzer-Wunsch: gewohnte Farbe).
+  `parkedChatActive`/`parkedReporterActive` (+ die zwei „neu"-Pillen in `FilterBar`) **entfernt**.
+- **Verifikation:** `tsc` + Build grün; Vorschau (als Admin) rendert sauber, Badge = reine Anzahl,
+  Glocke korrekt ausgeblendet (kein Ungelesenes für Admin). Live-Demo der Glocke heute nicht möglich
+  (Firestore-Tageslimit erneut erschöpft + Admin ohne Ungelesenes); zeigt sich als Torsten.
+  > **NICHT wieder einbauen:** das Chat-Sprechblasen-Icon im Sidebar-Badge und die zwei „X neu"-Pillen.
+  > Neue Nachrichten laufen jetzt **ausschließlich** über die `MessageInbox`-Glocke. Vgl. [[staff-chat-design]].
+
 ### Session 20.06.2026 – Firestore-Quota-Fix: Lesekosten drastisch gesenkt (committed & deployed)
 - **Problem:** „Free daily read units per project exceeded" — die App lief ins harte Tageslimit. Wichtig:
   Das Projekt ist **schon auf Blaze**, aber die App-Datenbank ist die **AI-Studio-DB**
