@@ -7,3 +7,5 @@ dist
 .env.test.local
 .env.production.local
 *.log
+.DS_Store
+.claude
