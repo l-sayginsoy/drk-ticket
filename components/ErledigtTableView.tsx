@@ -180,45 +180,14 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({
                   border: 1px solid var(--border);
                   border-radius: 8px;
                   margin-top: 0;
-                  /* Eigener Scrollbereich für die Tabelle: vertikal scrollen, Kopf bleibt stehen.
-                     So gibt es einen dedizierten, sichtbaren Scrollbalken genau hier. */
-                  overflow: auto;
-                  max-height: calc(100vh - 13rem);
-                  /* Dünner, auto-ausblendender Scrollbalken: im Ruhezustand transparent (unsichtbar),
-                     erscheint beim Hover über die Tabelle und während des Scrollens. */
-                  scrollbar-width: thin;
-                  scrollbar-color: transparent transparent;
-                  transition: scrollbar-color 0.3s;
-                }
-                .table-view-container:hover {
-                  scrollbar-color: rgba(0,0,0,0.22) transparent;
-                }
-                .table-view-container::-webkit-scrollbar {
-                  display: block;
-                  width: 8px;
-                  height: 8px;
-                }
-                .table-view-container::-webkit-scrollbar-track {
-                  background: transparent;
-                }
-                .table-view-container::-webkit-scrollbar-thumb {
-                  background: transparent;
-                  border-radius: 10px;
-                  border: 2px solid transparent;
-                  background-clip: content-box;
-                  transition: background 0.3s;
-                }
-                .table-view-container:hover::-webkit-scrollbar-thumb {
-                  background: rgba(0,0,0,0.22);
-                  background-clip: content-box;
-                }
-                [data-theme="dark"] .table-view-container:hover::-webkit-scrollbar-thumb {
-                  background: rgba(255,255,255,0.28);
-                  background-clip: content-box;
+                  /* Nur horizontaler Notfall-Scroll (sehr schmale Fenster). KEIN eigener
+                     vertikaler Scrollbereich – sonst entstehen zwei verschachtelte Scroller
+                     und das Scrollen „hakt" (scroll chaining). Vertikal scrollt die Seite (main). */
+                  overflow-x: auto;
                 }
                 .ticket-table { width: 100%; border-collapse: collapse; text-align: left; }
                 .ticket-table th, .ticket-table td { padding: 1rem 1rem; border-bottom: 1px solid var(--border); vertical-align: middle; white-space: nowrap; }
-                .ticket-table th { color: var(--text-muted); font-weight: 500; font-size: 0.875rem; background-color: var(--bg-primary); cursor: pointer; user-select: none; position: sticky; top: 0; z-index: 1; }
+                .ticket-table th { color: var(--text-muted); font-weight: 500; font-size: 0.875rem; background-color: var(--bg-primary); cursor: pointer; user-select: none; }
                 .ticket-table th:hover { background-color: var(--bg-tertiary); }
                 .sortable-header { display: flex; align-items: center; gap: 0.5rem; }
                 .sort-icon svg { width: 14px; height: 14px; color: var(--text-primary); }

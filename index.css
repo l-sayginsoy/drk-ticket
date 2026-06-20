@@ -140,17 +140,20 @@ main {
    Thumb wird ein-/ausgeblendet → KEIN Layout-Shift. Die `.is-scrolling`-Klasse
    setzt ein Scroll-Listener in App.tsx und entfernt sie ~0,9 s nach dem Scrollen.
    Firefox kann den Thumb nicht faden → dort bleibt der Balken ausgeblendet. */
-main { scrollbar-width: none; }
-main::-webkit-scrollbar { width: 8px; height: 8px; }
+main { scrollbar-width: thin; scrollbar-color: transparent transparent; transition: scrollbar-color 0.35s ease; }
+main.is-scrolling { scrollbar-color: rgba(0,0,0,0.4) transparent; }
+main::-webkit-scrollbar { width: 9px; height: 9px; }
 main::-webkit-scrollbar-track { background: transparent; }
 main::-webkit-scrollbar-thumb {
     background: transparent;
-    border-radius: 4px;
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: content-box;
     transition: background 0.35s ease;
 }
-main.is-scrolling::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.32); }
-main.is-scrolling::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.45); }
-[data-theme="dark"] main.is-scrolling::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); }
+main.is-scrolling::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.4); background-clip: content-box; }
+main.is-scrolling::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.55); background-clip: content-box; }
+[data-theme="dark"] main.is-scrolling::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.4); background-clip: content-box; }
 
 /* Druck / „als PDF" (genutzt v.a. vom Serien-Nachweis). Nur Inhalt drucken,
    Sidebar/Bedienelemente weg, Farben erhalten, Abschnitte nicht über Seiten brechen. */

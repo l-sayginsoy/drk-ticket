@@ -3462,7 +3462,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     const onScroll = () => {
       main.classList.add('is-scrolling');
       if (hideTimer) window.clearTimeout(hideTimer);
-      hideTimer = window.setTimeout(() => main.classList.remove('is-scrolling'), 900);
+      hideTimer = window.setTimeout(() => main.classList.remove('is-scrolling'), 1200);
     };
     main.addEventListener('scroll', onScroll, { passive: true });
     return () => {

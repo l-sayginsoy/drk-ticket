@@ -1,0 +1,1442 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stundenverwaltung – Übungsleiter</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+  :root { --accent: #1D898D; --accent-dark: #156669; --accent-light: #e6f4f4; }
+  body { background: #1a1a1a; font-family: 'Inter', system-ui, sans-serif; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: var(--accent-dark); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .accent-text { color: var(--accent); }
+  .accent-bg { background: var(--accent); }
+  .accent-light-bg { background: var(--accent-light); }
+  .accent-border { border-color: var(--accent); }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(29,137,141,0.15); }
+  .modal-backdrop { background: rgba(0,0,0,0.5); }
+  .progress-bar { background: #e5e7eb; border-radius: 9999px; overflow: hidden; }
+  .progress-fill { background: var(--accent); transition: width 0.5s ease; border-radius: 9999px; }
+  .progress-fill.over { background: #10b981; }
+  .progress-fill.danger { background: #ef4444; }
+  .accordion-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+  .accordion-content.open { max-height: 2000px; }
+  .tab-btn { border-bottom: 2px solid transparent; }
+  .tab-btn.active { border-bottom-color: var(--accent); color: var(--accent); }
+  .pin-input { text-align: center; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #f1f5f9; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  .fade-in { animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .slide-up { animation: slideUp 0.3s ease; }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  .table-scroll { overflow-x: auto; }
+  .matrix-table { border-collapse: collapse; white-space: nowrap; }
+  .matrix-table th, .matrix-table td { padding: 8px 12px; border: 1px solid #e5e7eb; font-size: 0.8125rem; }
+  .matrix-table thead th { background: #f8fafc; font-weight: 600; position: sticky; top: 0; }
+  .matrix-table tbody tr:hover { background: #f8fafc; }
+  .badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; }
+  .badge-green { background: #dcfce7; color: #166534; }
+  .badge-red { background: #fee2e2; color: #991b1b; }
+  .badge-orange { background: #ffedd5; color: #9a3412; }
+  .badge-gray { background: #f1f5f9; color: #475569; }
+  .badge-blue { background: #dbeafe; color: #1e40af; }
+  .toggle { position: relative; display: inline-block; width: 40px; height: 22px; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider { position: absolute; cursor: pointer; inset: 0; background: #cbd5e1; border-radius: 22px; transition: .3s; }
+  .toggle-slider:before { content: ''; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: white; border-radius: 50%; transition: .3s; }
+  input:checked + .toggle-slider { background: var(--accent); }
+  input:checked + .toggle-slider:before { transform: translateX(18px); }
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- ===================== APP ROOT ===================== -->
+<div id="app"></div>
+
+<script>
+// ============================================================
+// DATA LAYER – localStorage wrapper (easy to swap for backend)
+// ============================================================
+const DB = {
+  get(key, fallback = null) {
+    try { const v = localStorage.getItem('sl_' + key); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
+  },
+  set(key, value) { localStorage.setItem('sl_' + key, JSON.stringify(value)); },
+  remove(key) { localStorage.removeItem('sl_' + key); },
+
+  // Config
+  getConfig() { return this.get('config', null); },
+  setConfig(cfg) { this.set('config', cfg); },
+
+  // Trainers
+  getTrainers() { return this.get('trainers', []); },
+  setTrainers(t) { this.set('trainers', t); },
+  getTrainer(id) { return this.getTrainers().find(t => t.id === id) || null; },
+  addTrainer(t) { const arr = this.getTrainers(); arr.push(t); this.setTrainers(arr); },
+  updateTrainer(id, data) {
+    const arr = this.getTrainers().map(t => t.id === id ? { ...t, ...data } : t);
+    this.setTrainers(arr);
+  },
+  deleteTrainer(id) { this.setTrainers(this.getTrainers().filter(t => t.id !== id)); },
+
+  // Entries
+  getEntries() { return this.get('entries', []); },
+  setEntries(e) { this.set('entries', e); },
+  getEntriesForTrainer(tid) { return this.getEntries().filter(e => e.trainerId === tid); },
+  addEntry(e) { const arr = this.getEntries(); arr.push(e); this.setEntries(arr); },
+  updateEntry(id, data) {
+    const arr = this.getEntries().map(e => e.id === id ? { ...e, ...data } : e);
+    this.setEntries(arr);
+  },
+  deleteEntry(id) { this.setEntries(this.getEntries().filter(e => e.id !== id)); },
+
+  // Closed months per trainer: { trainerId_YYYY-MM: true }
+  getClosedMonths() { return this.get('closedMonths', {}); },
+  closeMonth(trainerId, ym) {
+    const m = this.getClosedMonths();
+    m[`${trainerId}_${ym}`] = true;
+    this.set('closedMonths', m);
+  },
+  isMonthClosed(trainerId, ym) { return !!this.getClosedMonths()[`${trainerId}_${ym}`]; },
+
+  // Concessions
+  getConcessions() { return this.get('concessions', {}); },
+  setConcession(trainerId, ym, val) {
+    const c = this.getConcessions();
+    c[`${trainerId}_${ym}`] = val;
+    this.set('concessions', c);
+  },
+  getConcession(trainerId, ym) { return !!this.getConcessions()[`${trainerId}_${ym}`]; },
+};
+
+// ============================================================
+// UTILS
+// ============================================================
+const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+const MONTHS_DE = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+const MONTHS_DE_SHORT = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+
+function formatYM(year, month) { // month 1-12
+  return `${year}-${String(month).padStart(2,'0')}`;
+}
+function parseYM(ym) {
+  const [y, m] = ym.split('-');
+  return { year: parseInt(y), month: parseInt(m) };
+}
+function ymLabel(ym) {
+  const { year, month } = parseYM(ym);
+  return `${MONTHS_DE[month-1]} ${year}`;
+}
+function calcHours(from, to) { // "HH:MM" strings
+  const [fh, fm] = from.split(':').map(Number);
+  const [th, tm] = to.split(':').map(Number);
+  return Math.max(0, (th * 60 + tm - fh * 60 - fm) / 60);
+}
+function fmtHours(h) {
+  if (h === undefined || h === null || isNaN(h)) return '0,00';
+  return h.toFixed(2).replace('.', ',');
+}
+function getDaysInMonth(year, month) { return new Date(year, month, 0).getDate(); }
+
+// Returns ordered list of YM strings for a fiscal year starting at startMonth (1-12), startYear
+function getFiscalYearMonths(startMonth, startYear) {
+  const months = [];
+  for (let i = 0; i < 12; i++) {
+    let m = ((startMonth - 1 + i) % 12) + 1;
+    let y = startYear + Math.floor((startMonth - 1 + i) / 12);
+    months.push(formatYM(y, m));
+  }
+  return months;
+}
+
+// Determine the current "open" YM for a trainer (oldest unclosed month up to today)
+function getCurrentOpenMonth(trainerId) {
+  const config = DB.getConfig();
+  if (!config) return null;
+  const now = new Date();
+  const currentYM = formatYM(now.getFullYear(), now.getMonth() + 1);
+  // fiscal year start
+  let startYear = config.fiscalStartYear;
+  let startMonth = config.fiscalStartMonth;
+  // generate up to 24 months
+  const candidates = [];
+  for (let i = 0; i < 24; i++) {
+    let m = ((startMonth - 1 + i) % 12) + 1;
+    let y = startYear + Math.floor((startMonth - 1 + i) / 12);
+    const ym = formatYM(y, m);
+    if (ym > currentYM) break;
+    candidates.push(ym);
+  }
+  // find oldest not closed
+  for (const ym of candidates) {
+    if (!DB.isMonthClosed(trainerId, ym)) return ym;
+  }
+  return currentYM;
+}
+
+function getTotalHoursForTrainerMonth(trainerId, ym) {
+  return DB.getEntriesForTrainer(trainerId)
+    .filter(e => e.date.startsWith(ym))
+    .reduce((s, e) => s + (e.hours || 0), 0);
+}
+
+// ============================================================
+// STATE
+// ============================================================
+let state = {
+  view: 'loading', // loading | setup | login | trainerDash | adminDash
+  loginStep: 'select', // select | trainer | admin
+  currentTrainer: null,
+  adminLoggedIn: false,
+  adminTab: 'hours',
+  adminMonth: null,
+  notification: null,
+};
+
+function setState(patch) {
+  Object.assign(state, patch);
+  render();
+}
+
+// ============================================================
+// NOTIFICATION
+// ============================================================
+function notify(msg, type = 'success') {
+  state.notification = { msg, type };
+  render();
+  setTimeout(() => { state.notification = null; render(); }, 3000);
+}
+
+// ============================================================
+// RENDER DISPATCH
+// ============================================================
+function render() {
+  const app = document.getElementById('app');
+  if (state.notification) {
+    let existing = document.getElementById('notif-banner');
+    if (!existing) {
+      existing = document.createElement('div');
+      existing.id = 'notif-banner';
+      existing.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-sm font-medium transition-all slide-up';
+      document.body.appendChild(existing);
+    }
+    existing.textContent = state.notification.msg;
+    existing.className = `fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-sm font-medium slide-up ${state.notification.type === 'error' ? 'bg-red-500 text-white' : 'bg-emerald-600 text-white'}`;
+    existing.style.display = 'block';
+  } else {
+    const existing = document.getElementById('notif-banner');
+    if (existing) existing.style.display = 'none';
+  }
+
+  switch (state.view) {
+    case 'loading': app.innerHTML = renderLoading(); break;
+    case 'setup': app.innerHTML = renderSetup(); break;
+    case 'login': app.innerHTML = renderLogin(); break;
+    case 'trainerDash': app.innerHTML = renderTrainerDash(); break;
+    case 'adminDash': app.innerHTML = renderAdminDash(); break;
+    default: app.innerHTML = renderLogin();
+  }
+  lucide.createIcons();
+  attachEventListeners();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  const config = DB.getConfig();
+  if (!config) { setState({ view: 'setup' }); }
+  else { setState({ view: 'login' }); }
+}
+
+// ============================================================
+// LOADING
+// ============================================================
+function renderLoading() {
+  return `<div class="flex items-center justify-center min-h-screen">
+    <div class="text-gray-400 text-sm">Laden…</div>
+  </div>`;
+}
+
+// ============================================================
+// SETUP
+// ============================================================
+function renderSetup() {
+  return `
+  <div class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-teal-50 to-gray-100">
+    <div class="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md slide-up">
+      <div class="text-center mb-8">
+        <div class="w-14 h-14 rounded-2xl accent-bg flex items-center justify-center mx-auto mb-3">
+          <i data-lucide="clock" class="text-white w-7 h-7"></i>
+        </div>
+        <h1 class="text-2xl font-bold text-gray-900">Ersteinrichtung</h1>
+        <p class="text-gray-500 text-sm mt-1">Konfigurieren Sie die App einmalig</p>
+      </div>
+      <form id="setupForm" class="space-y-5">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Monatliche Pflichtstunden pro Leiter</label>
+          <input type="number" id="s_hours" value="6.75" step="0.25" min="0.5" max="40"
+            class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm" required>
+          <p class="text-xs text-gray-400 mt-1">z.B. 6.75 für 6 Stunden 45 Minuten</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Admin Master-PIN (6 Stellen)</label>
+          <input type="password" id="s_pin" maxlength="6" class="w-full border border-gray-200 rounded-xl px-4 py-3 pin-input" placeholder="••••••" required pattern="[0-9]{6}">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">PIN bestätigen</label>
+          <input type="password" id="s_pin2" maxlength="6" class="w-full border border-gray-200 rounded-xl px-4 py-3 pin-input" placeholder="••••••" required pattern="[0-9]{6}">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Startmonat Fiskaljahr</label>
+            <select id="s_startMonth" class="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm">
+              ${MONTHS_DE.map((m,i) => `<option value="${i+1}" ${i===2?'selected':''}>${m}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Startjahr</label>
+            <input type="number" id="s_startYear" value="${new Date().getFullYear()}" class="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm" min="2020" max="2040">
+          </div>
+        </div>
+        <button type="submit" class="w-full btn-primary py-3 rounded-xl font-semibold text-sm transition">App einrichten →</button>
+      </form>
+    </div>
+  </div>`;
+}
+
+// ============================================================
+// LOGIN
+// ============================================================
+function renderLogin() {
+  if (state.loginStep === 'trainer') return renderTrainerLoginForm();
+  if (state.loginStep === 'admin') return renderAdminLoginForm();
+  return renderLoginSelect();
+}
+
+function renderLoginSelect() {
+  return `
+  <div class="min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-sm slide-up">
+      <!-- Card -->
+      <div class="bg-white rounded-3xl overflow-hidden shadow-2xl">
+        <!-- Header -->
+        <div class="accent-bg px-6 py-5 flex items-center gap-4">
+          <div class="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center flex-shrink-0">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+              <path d="M14 2C14 2 8 6 8 11C8 14.3 10.7 17 14 17C17.3 17 20 14.3 20 11C20 6 14 2 14 2Z" fill="white" opacity="0.9"/>
+              <path d="M14 26C14 26 20 22 20 17C20 13.7 17.3 11 14 11C10.7 11 8 13.7 8 17C8 22 14 26 14 26Z" fill="white" opacity="0.9"/>
+              <path d="M2 14C2 14 6 8 11 8C14.3 8 17 10.7 17 14C17 17.3 14.3 20 11 20C6 20 2 14 2 14Z" fill="white" opacity="0.6"/>
+              <path d="M26 14C26 14 22 20 17 20C13.7 20 11 17.3 11 14C11 10.7 13.7 8 17 8C22 8 26 14 26 14Z" fill="white" opacity="0.6"/>
+            </svg>
+          </div>
+          <div>
+            <div class="text-white font-bold text-xl leading-tight">MSBW</div>
+            <div class="text-white/70 text-sm">Stundenverwaltung</div>
+          </div>
+        </div>
+
+        <!-- Body -->
+        <div class="px-6 py-8 bg-gray-50">
+          <h1 class="text-2xl font-bold text-gray-900 mb-1">Login Bereich</h1>
+          <p class="text-gray-400 text-sm mb-8">Bitte wähle deinen Zugang.</p>
+
+          <!-- Übungsleiter Button (large, prominent) -->
+          <button onclick="setState({loginStep:'trainer'})"
+            class="w-full bg-white border-2 accent-border rounded-2xl p-8 mb-4 flex flex-col items-center gap-3 hover:bg-teal-50 transition active:scale-[0.98]">
+            <div class="w-14 h-14 accent-light-bg rounded-full flex items-center justify-center">
+              <i data-lucide="user" class="w-7 h-7 accent-text"></i>
+            </div>
+            <span class="font-bold text-lg accent-text">Übungsleiter/in</span>
+          </button>
+
+          <!-- Admin Button (flat, secondary) -->
+          <button onclick="setState({loginStep:'admin'})"
+            class="w-full bg-white border border-gray-200 rounded-2xl px-6 py-4 flex items-center justify-center gap-3 text-gray-600 hover:bg-gray-100 transition active:scale-[0.98]">
+            <i data-lucide="shield" class="w-5 h-5 text-gray-400"></i>
+            <span class="font-medium text-base">Admin Zugang</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderTrainerLoginForm() {
+  return `
+  <div class="min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-sm slide-up">
+      <div class="bg-white rounded-3xl overflow-hidden shadow-2xl">
+        <!-- Header -->
+        <div class="accent-bg px-6 py-5 flex items-center gap-3">
+          <button onclick="setState({loginStep:'select'})" class="w-9 h-9 bg-white/20 hover:bg-white/30 rounded-xl flex items-center justify-center transition">
+            <i data-lucide="arrow-left" class="w-4 h-4 text-white"></i>
+          </button>
+          <div>
+            <div class="text-white font-bold">Übungsleiter/in</div>
+            <div class="text-white/70 text-xs">Anmeldung</div>
+          </div>
+        </div>
+        <!-- Form -->
+        <div class="px-6 py-8 bg-gray-50">
+          <form id="trainerLoginForm" class="space-y-4">
+            <div>
+              <label class="text-xs font-medium text-gray-500 mb-1.5 block">Vor- und Nachname</label>
+              <input type="text" id="tl_name" placeholder="z.B. Maria Mustermann"
+                class="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm" autocomplete="off">
+            </div>
+            <div>
+              <label class="text-xs font-medium text-gray-500 mb-1.5 block">4-stelliger PIN</label>
+              <input type="password" id="tl_pin" maxlength="4" placeholder="••••"
+                class="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 pin-input text-lg" pattern="[0-9]{4}" inputmode="numeric">
+            </div>
+            <button type="submit" class="w-full btn-primary py-3.5 rounded-xl font-semibold text-sm transition mt-2 flex items-center justify-center gap-2">
+              <i data-lucide="log-in" class="w-4 h-4"></i> Einloggen
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderAdminLoginForm() {
+  return `
+  <div class="min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-sm slide-up">
+      <div class="bg-white rounded-3xl overflow-hidden shadow-2xl">
+        <!-- Header -->
+        <div class="bg-gray-800 px-6 py-5 flex items-center gap-3">
+          <button onclick="setState({loginStep:'select'})" class="w-9 h-9 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center transition">
+            <i data-lucide="arrow-left" class="w-4 h-4 text-white"></i>
+          </button>
+          <div>
+            <div class="text-white font-bold">Admin Zugang</div>
+            <div class="text-white/50 text-xs">Geschützter Bereich</div>
+          </div>
+        </div>
+        <!-- Form -->
+        <div class="px-6 py-8 bg-gray-50">
+          <form id="adminLoginForm" class="space-y-4">
+            <div>
+              <label class="text-xs font-medium text-gray-500 mb-1.5 block">6-stelliger Master-PIN</label>
+              <input type="password" id="al_pin" maxlength="6" placeholder="••••••"
+                class="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 pin-input text-lg" pattern="[0-9]{6}" inputmode="numeric">
+            </div>
+            <button type="submit" class="w-full bg-gray-800 hover:bg-gray-900 text-white py-3.5 rounded-xl font-semibold text-sm transition flex items-center justify-center gap-2">
+              <i data-lucide="shield" class="w-4 h-4"></i> Admin-Bereich öffnen
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ============================================================
+// TRAINER DASHBOARD
+// ============================================================
+function renderTrainerDash() {
+  const trainer = state.currentTrainer;
+  if (!trainer) { setState({ view: 'login' }); return ''; }
+  const config = DB.getConfig();
+  const openYM = getCurrentOpenMonth(trainer.id);
+  const { year, month } = parseYM(openYM);
+  const entries = DB.getEntriesForTrainer(trainer.id).filter(e => e.date.startsWith(openYM)).sort((a,b) => a.date.localeCompare(b.date));
+  const totalHours = entries.reduce((s,e) => s + (e.hours||0), 0);
+  const target = config.monthlyHours;
+  const pct = Math.min(100, (totalHours / target) * 100);
+  const isClosed = DB.isMonthClosed(trainer.id, openYM);
+  const daysInMonth = getDaysInMonth(year, month);
+  const minDate = `${openYM}-01`;
+  const maxDate = `${openYM}-${String(daysInMonth).padStart(2,'0')}`;
+
+  return `
+  <div class="min-h-screen bg-gray-50">
+    <!-- Header -->
+    <div class="accent-bg text-white px-4 py-4 shadow-md">
+      <div class="max-w-xl mx-auto flex items-center justify-between">
+        <div>
+          <div class="text-xs opacity-75">Willkommen,</div>
+          <div class="font-bold text-lg leading-tight">${trainer.firstName}</div>
+        </div>
+        <button id="logoutBtn" class="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 rounded-xl px-3 py-2 text-sm transition">
+          <i data-lucide="log-out" class="w-4 h-4"></i> Abmelden
+        </button>
+      </div>
+    </div>
+
+    <div class="max-w-xl mx-auto px-4 py-5 space-y-4">
+      <!-- Month Progress Card -->
+      <div class="bg-white rounded-2xl shadow-sm p-5">
+        <div class="flex items-center justify-between mb-1">
+          <div class="font-semibold text-gray-800">${ymLabel(openYM)}</div>
+          ${isClosed ? '<span class="badge badge-gray"><i data-lucide="lock" class="w-3 h-3"></i> Abgeschlossen</span>' : '<span class="badge badge-blue">Offen</span>'}
+        </div>
+        <div class="text-2xl font-bold accent-text mb-1">${fmtHours(totalHours)} <span class="text-sm font-normal text-gray-400">/ ${fmtHours(target)} Std.</span></div>
+        <div class="progress-bar h-3 my-2">
+          <div class="progress-fill h-3 ${pct >= 100 ? 'over' : pct < 50 ? 'danger' : ''}" style="width:${pct}%"></div>
+        </div>
+        <div class="text-xs text-gray-400">${pct >= 100 ? '✓ Ziel erreicht!' : `Noch ${fmtHours(target - totalHours)} Std. bis zum Ziel`}</div>
+      </div>
+
+      <!-- Add Entry (only if not closed) -->
+      ${!isClosed ? `
+      <div class="bg-white rounded-2xl shadow-sm p-5">
+        <h3 class="font-semibold text-gray-800 mb-4 flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4 accent-text"></i> Zeit erfassen</h3>
+        <form id="addEntryForm" class="space-y-3">
+          <div>
+            <label class="text-xs text-gray-500 font-medium">Datum</label>
+            <input type="date" id="e_date" min="${minDate}" max="${maxDate}" value="${minDate}" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm mt-1" required>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-gray-500 font-medium">Von</label>
+              <input type="time" id="e_from" value="09:00" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm mt-1" required>
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 font-medium">Bis</label>
+              <input type="time" id="e_to" value="11:00" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm mt-1" required>
+            </div>
+          </div>
+          <div id="hoursPreview" class="text-sm text-gray-500 text-center py-1"></div>
+          <button type="submit" class="w-full btn-primary py-3 rounded-xl font-semibold text-sm transition flex items-center justify-center gap-2">
+            <i data-lucide="plus" class="w-4 h-4"></i> Eintrag hinzufügen
+          </button>
+        </form>
+      </div>` : ''}
+
+      <!-- Entries List -->
+      <div class="bg-white rounded-2xl shadow-sm p-5">
+        <h3 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+          <i data-lucide="list" class="w-4 h-4 accent-text"></i> Einträge ${ymLabel(openYM)}
+        </h3>
+        ${entries.length === 0 ? `<p class="text-gray-400 text-sm text-center py-4">Noch keine Einträge.</p>` :
+          entries.map(e => `
+          <div class="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
+            <div>
+              <div class="text-sm font-medium text-gray-700">${formatDateDE(e.date)}</div>
+              <div class="text-xs text-gray-400">${e.from} – ${e.to} Uhr</div>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-sm font-semibold accent-text">${fmtHours(e.hours)} Std.</span>
+              ${!isClosed ? `<button class="text-red-400 hover:text-red-600 transition" onclick="deleteEntry('${e.id}')"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
+            </div>
+          </div>`).join('')}
+      </div>
+
+      <!-- Close Month Button -->
+      ${!isClosed ? `
+      <button id="closeMonthBtn" class="w-full bg-gray-800 hover:bg-gray-900 text-white py-4 rounded-2xl font-semibold text-sm transition flex items-center justify-center gap-2 shadow-sm">
+        <i data-lucide="lock" class="w-4 h-4"></i> Monat endgültig abschließen
+      </button>` : `
+      <div class="text-center text-sm text-gray-400 pb-4 flex items-center justify-center gap-1">
+        <i data-lucide="check-circle" class="w-4 h-4 text-emerald-500"></i> Monat abgeschlossen
+      </div>`}
+    </div>
+  </div>`;
+}
+
+function formatDateDE(dateStr) {
+  const [y,m,d] = dateStr.split('-');
+  return `${d}.${m}.${y}`;
+}
+
+// ============================================================
+// ADMIN DASHBOARD
+// ============================================================
+function renderAdminDash() {
+  const config = DB.getConfig();
+  const tabs = [
+    { id: 'hours', label: 'Stunden-Ansicht', icon: 'clock' },
+    { id: 'payroll', label: 'Lohnbuchhaltung', icon: 'file-text' },
+    { id: 'annual', label: 'Jahresübersicht', icon: 'calendar' },
+    { id: 'trainers', label: 'Trainer-Verwaltung', icon: 'users' },
+  ];
+
+  let tabContent = '';
+  switch (state.adminTab) {
+    case 'hours': tabContent = renderAdminHours(); break;
+    case 'payroll': tabContent = renderAdminPayroll(); break;
+    case 'annual': tabContent = renderAdminAnnual(); break;
+    case 'trainers': tabContent = renderAdminTrainers(); break;
+  }
+
+  return `
+  <div class="min-h-screen bg-gray-50">
+    <!-- Header -->
+    <div class="accent-bg text-white shadow-md">
+      <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
+            <i data-lucide="shield" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="font-bold text-lg">Admin-Dashboard</div>
+            <div class="text-xs opacity-70">Stundenverwaltung · ${config.fiscalStartYear}</div>
+          </div>
+        </div>
+        <button id="logoutBtn" class="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 rounded-xl px-3 py-2 text-sm transition">
+          <i data-lucide="log-out" class="w-4 h-4"></i> Abmelden
+        </button>
+      </div>
+      <!-- Tabs -->
+      <div class="max-w-6xl mx-auto px-6">
+        <div class="flex gap-1 overflow-x-auto">
+          ${tabs.map(t => `
+          <button class="tab-btn flex items-center gap-1.5 px-4 py-3 text-sm font-medium text-white/80 hover:text-white transition whitespace-nowrap ${state.adminTab === t.id ? 'active border-white/90 text-white' : ''}"
+            onclick="switchAdminTab('${t.id}')">
+            <i data-lucide="${t.icon}" class="w-4 h-4"></i> ${t.label}
+          </button>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="max-w-6xl mx-auto px-4 md:px-6 py-6">
+      ${tabContent}
+    </div>
+  </div>
+  ${renderModals()}`;
+}
+
+// ---- TAB A: Hours ----
+function renderAdminHours() {
+  const config = DB.getConfig();
+  const trainers = DB.getTrainers();
+  const allEntries = DB.getEntries();
+
+  // Collect all YMs that have entries or from fiscal year
+  const fiscalMonths = getFiscalYearMonths(config.fiscalStartMonth, config.fiscalStartYear);
+  const now = new Date();
+  const currentYM = formatYM(now.getFullYear(), now.getMonth()+1);
+  const availableMonths = fiscalMonths.filter(ym => ym <= currentYM);
+  if (!state.adminMonth || !availableMonths.includes(state.adminMonth)) {
+    state.adminMonth = availableMonths[availableMonths.length - 1] || currentYM;
+  }
+  const selYM = state.adminMonth;
+
+  return `
+  <div>
+    <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+      <h2 class="text-lg font-bold text-gray-900">Stunden-Ansicht</h2>
+      <div class="flex items-center gap-2">
+        <button onclick="prevMonth()" class="p-2 rounded-xl border border-gray-200 hover:bg-gray-100 transition"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+        <select id="monthSelect" onchange="selectMonth(this.value)" class="border border-gray-200 rounded-xl px-3 py-2 text-sm">
+          ${availableMonths.map(ym => `<option value="${ym}" ${ym===selYM?'selected':''}>${ymLabel(ym)}</option>`).join('')}
+        </select>
+        <button onclick="nextMonth()" class="p-2 rounded-xl border border-gray-200 hover:bg-gray-100 transition"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+      </div>
+    </div>
+
+    <div class="space-y-3">
+    ${trainers.length === 0 ? `<div class="bg-white rounded-2xl shadow-sm p-8 text-center text-gray-400">Noch keine Trainer angelegt.</div>` :
+      trainers.map(trainer => {
+        const entries = DB.getEntriesForTrainer(trainer.id).filter(e => e.date.startsWith(selYM)).sort((a,b)=>a.date.localeCompare(b.date));
+        const total = entries.reduce((s,e) => s+(e.hours||0), 0);
+        const target = config.monthlyHours;
+        const reached = total >= target;
+        const concession = DB.getConcession(trainer.id, selYM);
+        const isClosed = DB.isMonthClosed(trainer.id, selYM);
+        const accordionId = `acc_${trainer.id}`;
+        return `
+        <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div class="p-4">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="font-semibold text-gray-900">${trainer.firstName} ${trainer.lastName}</span>
+                  ${trainer.status === 'paused' ? `<span class="badge badge-orange">Pausiert</span>` : ''}
+                  ${isClosed ? `<span class="badge badge-gray"><i data-lucide="lock" class="w-3 h-3 mr-0.5"></i>Abgeschlossen</span>` : ''}
+                </div>
+                <div class="text-xs text-gray-400 mt-0.5">${trainer.facility}</div>
+                <div class="flex items-center gap-3 mt-2">
+                  <span class="text-lg font-bold accent-text">${fmtHours(total)}</span>
+                  <span class="text-xs text-gray-400">/ ${fmtHours(target)} Std.</span>
+                  ${reached ? `<span class="badge badge-green"><i data-lucide="check" class="w-3 h-3"></i> Ziel erreicht</span>`
+                    : `<span class="badge badge-red"><i data-lucide="x" class="w-3 h-3"></i> Nicht erreicht</span>`}
+                </div>
+              </div>
+              <button onclick="toggleAccordion('${accordionId}')" class="p-2 rounded-xl hover:bg-gray-100 transition flex-shrink-0">
+                <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform" id="chevron_${accordionId}"></i>
+              </button>
+            </div>
+            ${!reached ? `
+            <div class="mt-3 flex items-center gap-3 pt-3 border-t border-gray-50">
+              <span class="text-xs text-gray-600">Kulanz / Auszahlung:</span>
+              <label class="toggle">
+                <input type="checkbox" ${concession?'checked':''} onchange="toggleConcession('${trainer.id}','${selYM}',this.checked)">
+                <span class="toggle-slider"></span>
+              </label>
+              <span class="text-xs ${concession ? 'text-emerald-600 font-medium' : 'text-gray-400'}">${concession ? 'Ja – Kulanz gewährt' : 'Nein'}</span>
+            </div>` : ''}
+          </div>
+          <!-- Accordion -->
+          <div class="accordion-content" id="${accordionId}">
+            <div class="border-t border-gray-100 px-4 py-3">
+              ${entries.length === 0 ? `<p class="text-sm text-gray-400 py-2">Keine Einträge für diesen Monat.</p>` : `
+              <table class="w-full text-sm">
+                <thead><tr class="text-xs text-gray-400 text-left">
+                  <th class="pb-2">Datum</th><th class="pb-2">Von</th><th class="pb-2">Bis</th><th class="pb-2">Std.</th><th class="pb-2 w-20">Aktionen</th>
+                </tr></thead>
+                <tbody>
+                ${entries.map(e => `
+                  <tr class="border-t border-gray-50" id="row_${e.id}">
+                    <td class="py-2">${formatDateDE(e.date)}</td>
+                    <td>${e.from}</td>
+                    <td>${e.to}</td>
+                    <td class="font-medium accent-text">${fmtHours(e.hours)}</td>
+                    <td>
+                      <div class="flex gap-1">
+                        <button onclick="openEditEntry('${e.id}')" class="p-1 rounded-lg hover:bg-blue-50 text-blue-500 transition"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
+                        <button onclick="adminDeleteEntry('${e.id}')" class="p-1 rounded-lg hover:bg-red-50 text-red-400 transition"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                      </div>
+                    </td>
+                  </tr>`).join('')}
+                </tbody>
+              </table>`}
+              <button onclick="openAdminAddEntry('${trainer.id}','${selYM}')" class="mt-3 text-xs accent-text flex items-center gap-1 hover:underline">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Eintrag hinzufügen
+              </button>
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+// ---- TAB B: Payroll ----
+function renderAdminPayroll() {
+  const config = DB.getConfig();
+  const fiscalMonths = getFiscalYearMonths(config.fiscalStartMonth, config.fiscalStartYear);
+  const now = new Date();
+  const currentYM = formatYM(now.getFullYear(), now.getMonth()+1);
+  const availableMonths = fiscalMonths.filter(ym => ym <= currentYM);
+  if (!state.adminMonth) state.adminMonth = availableMonths[availableMonths.length-1] || currentYM;
+  const selYM = state.adminMonth;
+  const trainers = DB.getTrainers();
+
+  const rows = trainers.map(t => {
+    const total = getTotalHoursForTrainerMonth(t.id, selYM);
+    const reached = total >= config.monthlyHours;
+    const concession = DB.getConcession(t.id, selYM);
+    return { ...t, total, reached, concession };
+  });
+
+  const payrollRows = rows.filter(r => r.reached || r.concession);
+  const allRows = rows;
+
+  return `
+  <div>
+    <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+      <h2 class="text-lg font-bold text-gray-900">Lohnbuchhaltung</h2>
+      <select onchange="selectMonth(this.value)" class="border border-gray-200 rounded-xl px-3 py-2 text-sm">
+        ${availableMonths.map(ym => `<option value="${ym}" ${ym===selYM?'selected':''}>${ymLabel(ym)}</option>`).join('')}
+      </select>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-4 mb-6">
+      <div class="bg-white rounded-2xl shadow-sm p-5">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-8 h-8 bg-emerald-100 rounded-xl flex items-center justify-center"><i data-lucide="download" class="w-4 h-4 text-emerald-600"></i></div>
+          <div>
+            <div class="font-semibold text-gray-900 text-sm">Export Lohnbüro</div>
+            <div class="text-xs text-gray-400">Nur Trainer mit Auszahlung</div>
+          </div>
+        </div>
+        <p class="text-xs text-gray-500 mb-3">Enthält <strong>${payrollRows.length} Trainer</strong> (Ziel erreicht oder Kulanz gewährt).<br>Spalten: Vorname; Name; Klinik; Gesamtstunden; Auszahlung</p>
+        <button onclick="exportPayroll('${selYM}')" class="btn-primary px-4 py-2 rounded-xl text-sm font-medium transition flex items-center gap-2">
+          <i data-lucide="file-down" class="w-4 h-4"></i> CSV Lohnbüro herunterladen
+        </button>
+      </div>
+      <div class="bg-white rounded-2xl shadow-sm p-5">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-8 h-8 bg-blue-100 rounded-xl flex items-center justify-center"><i data-lucide="download" class="w-4 h-4 text-blue-600"></i></div>
+          <div>
+            <div class="font-semibold text-gray-900 text-sm">Export Alle</div>
+            <div class="text-xs text-gray-400">Vollständige Übersicht</div>
+          </div>
+        </div>
+        <p class="text-xs text-gray-500 mb-3">Enthält <strong>alle ${allRows.length} Trainer</strong>.<br>Spalten: Einrichtung; Vorname; Name; Status; Gesamtstunden</p>
+        <button onclick="exportAll('${selYM}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition flex items-center gap-2">
+          <i data-lucide="file-down" class="w-4 h-4"></i> CSV Alle herunterladen
+        </button>
+      </div>
+    </div>
+
+    <!-- Preview Table -->
+    <div class="bg-white rounded-2xl shadow-sm p-5">
+      <h3 class="font-semibold text-gray-800 mb-3 text-sm">Vorschau – ${ymLabel(selYM)}</h3>
+      <div class="table-scroll">
+        <table class="matrix-table w-full">
+          <thead><tr>
+            <th>Vorname</th><th>Name</th><th>Einrichtung</th><th>Stunden</th><th>Ziel?</th><th>Kulanz</th><th>Auszahlung</th>
+          </tr></thead>
+          <tbody>
+          ${rows.map(r => `<tr>
+            <td>${r.firstName}</td><td>${r.lastName}</td><td>${r.facility}</td>
+            <td class="font-medium">${fmtHours(r.total)}</td>
+            <td>${r.reached ? '<span class="badge badge-green">Ja</span>' : '<span class="badge badge-red">Nein</span>'}</td>
+            <td>${r.concession ? '<span class="badge badge-orange">Ja</span>' : '–'}</td>
+            <td>${(r.reached||r.concession) ? '<span class="badge badge-green">Ja</span>' : '<span class="badge badge-gray">Nein</span>'}</td>
+          </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ---- TAB C: Annual ----
+function renderAdminAnnual() {
+  const config = DB.getConfig();
+  const fiscalMonths = getFiscalYearMonths(config.fiscalStartMonth, config.fiscalStartYear);
+  const now = new Date();
+  const currentYM = formatYM(now.getFullYear(), now.getMonth()+1);
+  const trainers = DB.getTrainers();
+  const target = config.monthlyHours;
+  const yearTarget = target * 12;
+
+  return `
+  <div>
+    <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+      <div>
+        <h2 class="text-lg font-bold text-gray-900">Jahresübersicht</h2>
+        <p class="text-sm text-gray-400">Fiskaljahr ab ${MONTHS_DE[config.fiscalStartMonth-1]} ${config.fiscalStartYear}</p>
+      </div>
+      <button onclick="exportAnnual()" class="btn-primary px-4 py-2 rounded-xl text-sm font-medium transition flex items-center gap-2">
+        <i data-lucide="file-down" class="w-4 h-4"></i> Jahr Export (CSV)
+      </button>
+    </div>
+    <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+      <div class="table-scroll p-0">
+        <table class="matrix-table">
+          <thead>
+            <tr>
+              <th class="sticky left-0 bg-gray-50 z-10 min-w-32">Name</th>
+              ${fiscalMonths.map(ym => `<th class="${ym > currentYM ? 'text-gray-300' : ''}">${MONTHS_DE_SHORT[parseYM(ym).month-1]}<br><span class="font-normal text-gray-400">${parseYM(ym).year}</span></th>`).join('')}
+              <th class="bg-teal-50 text-teal-700">Ist</th>
+              <th class="bg-gray-100">Soll</th>
+              <th class="bg-gray-100">Diff.</th>
+            </tr>
+          </thead>
+          <tbody>
+          ${trainers.map(trainer => {
+            let yearTotal = 0;
+            const cells = fiscalMonths.map(ym => {
+              const h = getTotalHoursForTrainerMonth(trainer.id, ym);
+              if (ym <= currentYM) yearTotal += h;
+              return { ym, h };
+            });
+            const diff = yearTotal - yearTarget;
+            return `<tr>
+              <td class="sticky left-0 bg-white font-medium">
+                ${trainer.firstName} ${trainer.lastName}
+                ${trainer.status==='paused'?'<br><span class="badge badge-orange text-xs">Pausiert</span>':''}
+              </td>
+              ${cells.map(c => `<td class="${c.ym > currentYM ? 'text-gray-200 bg-gray-50' : c.h > 0 ? 'accent-text font-medium' : 'text-gray-300'}">
+                ${c.ym <= currentYM ? fmtHours(c.h) : '–'}
+              </td>`).join('')}
+              <td class="bg-teal-50 font-bold accent-text">${fmtHours(yearTotal)}</td>
+              <td class="bg-gray-50 text-gray-600">${fmtHours(yearTarget)}</td>
+              <td class="${diff >= 0 ? 'text-emerald-600 bg-emerald-50' : 'text-red-500 bg-red-50'} font-medium">
+                ${diff >= 0 ? '+' : ''}${fmtHours(diff)}
+              </td>
+            </tr>`;
+          }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ---- TAB D: Trainer Management ----
+function renderAdminTrainers() {
+  const trainers = DB.getTrainers();
+  return `
+  <div>
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-bold text-gray-900">Trainer-Verwaltung</h2>
+      <button onclick="openTrainerModal()" class="btn-primary px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center gap-2">
+        <i data-lucide="user-plus" class="w-4 h-4"></i> Trainer anlegen
+      </button>
+    </div>
+    ${trainers.length === 0 ? `
+    <div class="bg-white rounded-2xl shadow-sm p-12 text-center">
+      <i data-lucide="users" class="w-12 h-12 text-gray-200 mx-auto mb-3"></i>
+      <p class="text-gray-400 text-sm">Noch keine Trainer. Legen Sie den ersten an.</p>
+    </div>` : `
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+    ${trainers.map(t => `
+      <div class="bg-white rounded-2xl shadow-sm p-4 ${t.status==='paused'?'border-l-4 border-orange-300':''}">
+        <div class="flex items-start justify-between mb-2">
+          <div>
+            <div class="font-semibold text-gray-900">${t.firstName} ${t.lastName}</div>
+            <div class="text-xs text-gray-400">${t.facility}</div>
+          </div>
+          <div class="flex gap-1">
+            <button onclick="openTrainerModal('${t.id}')" class="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500 transition"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
+            <button onclick="deleteTrainer('${t.id}')" class="p-1.5 rounded-lg hover:bg-red-50 text-red-400 transition"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-1.5 mt-2">
+          ${t.status==='paused' ? `<span class="badge badge-orange">Pausiert</span>` : `<span class="badge badge-green">Aktiv</span>`}
+          ${t.phone ? `<span class="badge badge-gray"><i data-lucide="phone" class="w-3 h-3"></i> ${t.phone}</span>` : ''}
+        </div>
+        ${t.email ? `<div class="text-xs text-gray-400 mt-1.5">${t.email}</div>` : ''}
+        ${t.notes ? `<div class="text-xs text-gray-500 mt-1.5 italic">${t.notes}</div>` : ''}
+      </div>`).join('')}
+    </div>`}
+  </div>`;
+}
+
+// ============================================================
+// MODALS
+// ============================================================
+function renderModals() {
+  return `
+  <!-- Trainer Modal -->
+  <div id="trainerModal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg slide-up max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between p-6 border-b border-gray-100">
+        <h3 class="font-bold text-gray-900" id="trainerModalTitle">Trainer anlegen</h3>
+        <button onclick="closeModal('trainerModal')" class="p-2 rounded-xl hover:bg-gray-100 transition"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <form id="trainerForm" class="p-6 space-y-4">
+        <input type="hidden" id="tm_id">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-medium text-gray-600 mb-1 block">Vorname *</label>
+            <input type="text" id="tm_firstName" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" required>
+          </div>
+          <div>
+            <label class="text-xs font-medium text-gray-600 mb-1 block">Nachname *</label>
+            <input type="text" id="tm_lastName" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" required>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-600 mb-1 block">Einrichtung *</label>
+          <input type="text" id="tm_facility" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" required placeholder="z.B. Klinikum Nord">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-600 mb-1 block">4-stelliger Login-PIN *</label>
+          <input type="password" id="tm_pin" maxlength="4" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm pin-input" required pattern="[0-9]{4}" placeholder="••••">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-600 mb-1 block">Status *</label>
+          <select id="tm_status" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm">
+            <option value="active">Aktiv</option>
+            <option value="paused">Pausiert</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-medium text-gray-600 mb-1 block">Telefon</label>
+            <input type="tel" id="tm_phone" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm">
+          </div>
+          <div>
+            <label class="text-xs font-medium text-gray-600 mb-1 block">E-Mail</label>
+            <input type="email" id="tm_email" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm">
+          </div>
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-600 mb-1 block">Adresse</label>
+          <input type="text" id="tm_address" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-600 mb-1 block">Notizen</label>
+          <textarea id="tm_notes" rows="2" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm resize-none"></textarea>
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button type="button" onclick="closeModal('trainerModal')" class="flex-1 border border-gray-200 hover:bg-gray-50 text-gray-700 py-3 rounded-xl text-sm font-medium transition">Abbrechen</button>
+          <button type="submit" class="flex-1 btn-primary py-3 rounded-xl text-sm font-semibold transition">Speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Entry Modal -->
+  <div id="editEntryModal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm slide-up">
+      <div class="flex items-center justify-between p-5 border-b border-gray-100">
+        <h3 class="font-bold text-gray-900">Eintrag bearbeiten</h3>
+        <button onclick="closeModal('editEntryModal')" class="p-2 rounded-xl hover:bg-gray-100 transition"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <form id="editEntryForm" class="p-5 space-y-4">
+        <input type="hidden" id="ee_id">
+        <div>
+          <label class="text-xs font-medium text-gray-600 mb-1 block">Datum</label>
+          <input type="date" id="ee_date" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" required>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-medium text-gray-600 mb-1 block">Von</label>
+            <input type="time" id="ee_from" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" required>
+          </div>
+          <div>
+            <label class="text-xs font-medium text-gray-600 mb-1 block">Bis</label>
+            <input type="time" id="ee_to" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" required>
+          </div>
+        </div>
+        <div class="flex gap-3">
+          <button type="button" onclick="closeModal('editEntryModal')" class="flex-1 border border-gray-200 hover:bg-gray-50 text-gray-700 py-3 rounded-xl text-sm font-medium transition">Abbrechen</button>
+          <button type="submit" class="flex-1 btn-primary py-3 rounded-xl text-sm font-semibold transition">Speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Admin Add Entry Modal -->
+  <div id="adminAddEntryModal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm slide-up">
+      <div class="flex items-center justify-between p-5 border-b border-gray-100">
+        <h3 class="font-bold text-gray-900">Eintrag hinzufügen</h3>
+        <button onclick="closeModal('adminAddEntryModal')" class="p-2 rounded-xl hover:bg-gray-100 transition"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <form id="adminAddEntryForm" class="p-5 space-y-4">
+        <input type="hidden" id="ae_trainerId">
+        <input type="hidden" id="ae_ym">
+        <div>
+          <label class="text-xs font-medium text-gray-600 mb-1 block">Datum</label>
+          <input type="date" id="ae_date" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" required>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-medium text-gray-600 mb-1 block">Von</label>
+            <input type="time" id="ae_from" value="09:00" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" required>
+          </div>
+          <div>
+            <label class="text-xs font-medium text-gray-600 mb-1 block">Bis</label>
+            <input type="time" id="ae_to" value="11:00" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" required>
+          </div>
+        </div>
+        <div class="flex gap-3">
+          <button type="button" onclick="closeModal('adminAddEntryModal')" class="flex-1 border border-gray-200 hover:bg-gray-50 text-gray-700 py-3 rounded-xl text-sm font-medium transition">Abbrechen</button>
+          <button type="submit" class="flex-1 btn-primary py-3 rounded-xl text-sm font-semibold transition">Hinzufügen</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Confirm Modal -->
+  <div id="confirmModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xs slide-up p-6 text-center">
+      <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+        <i data-lucide="alert-triangle" class="w-6 h-6 text-red-500"></i>
+      </div>
+      <h3 class="font-bold text-gray-900 mb-2" id="confirmTitle">Bestätigen</h3>
+      <p class="text-sm text-gray-500 mb-5" id="confirmMsg">Möchten Sie das wirklich?</p>
+      <div class="flex gap-3">
+        <button onclick="closeModal('confirmModal')" class="flex-1 border border-gray-200 hover:bg-gray-50 text-gray-700 py-2.5 rounded-xl text-sm font-medium transition">Abbrechen</button>
+        <button id="confirmOkBtn" class="flex-1 bg-red-500 hover:bg-red-600 text-white py-2.5 rounded-xl text-sm font-semibold transition">Löschen</button>
+      </div>
+    </div>
+  </div>
+  `;
+}
+
+// ============================================================
+// EVENT LISTENERS
+// ============================================================
+function attachEventListeners() {
+  // Setup Form
+  const setupForm = document.getElementById('setupForm');
+  if (setupForm) {
+    setupForm.addEventListener('submit', e => {
+      e.preventDefault();
+      const pin = document.getElementById('s_pin').value;
+      const pin2 = document.getElementById('s_pin2').value;
+      if (pin.length !== 6 || !/^\d{6}$/.test(pin)) { notify('PIN muss 6 Ziffern sein.', 'error'); return; }
+      if (pin !== pin2) { notify('PINs stimmen nicht überein.', 'error'); return; }
+      const config = {
+        monthlyHours: parseFloat(document.getElementById('s_hours').value),
+        adminPin: pin,
+        fiscalStartMonth: parseInt(document.getElementById('s_startMonth').value),
+        fiscalStartYear: parseInt(document.getElementById('s_startYear').value),
+      };
+      DB.setConfig(config);
+      notify('Einrichtung abgeschlossen!');
+      setState({ view: 'login' });
+    });
+  }
+
+  // Trainer Login
+  const trainerLoginForm = document.getElementById('trainerLoginForm');
+  if (trainerLoginForm) {
+    trainerLoginForm.addEventListener('submit', e => {
+      e.preventDefault();
+      const name = document.getElementById('tl_name').value.trim();
+      const pin = document.getElementById('tl_pin').value.trim();
+      const trainers = DB.getTrainers();
+      const trainer = trainers.find(t =>
+        `${t.firstName} ${t.lastName}`.toLowerCase() === name.toLowerCase() && t.pin === pin
+      );
+      if (!trainer) { notify('Name oder PIN falsch.', 'error'); return; }
+      if (trainer.status === 'paused') { notify('Ihr Konto ist pausiert. Wenden Sie sich an den Admin.', 'error'); return; }
+      setState({ view: 'trainerDash', currentTrainer: trainer });
+    });
+  }
+
+  // Admin Login
+  const adminLoginForm = document.getElementById('adminLoginForm');
+  if (adminLoginForm) {
+    adminLoginForm.addEventListener('submit', e => {
+      e.preventDefault();
+      const pin = document.getElementById('al_pin').value.trim();
+      const config = DB.getConfig();
+      if (pin !== config.adminPin) { notify('Falscher Admin-PIN.', 'error'); return; }
+      setState({ view: 'adminDash', adminLoggedIn: true });
+    });
+  }
+
+  // Logout
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      setState({ view: 'login', loginStep: 'select', currentTrainer: null, adminLoggedIn: false });
+    });
+  }
+
+  // Add Entry Form (Trainer)
+  const addEntryForm = document.getElementById('addEntryForm');
+  if (addEntryForm) {
+    const fromInput = document.getElementById('e_from');
+    const toInput = document.getElementById('e_to');
+    const preview = document.getElementById('hoursPreview');
+    function updatePreview() {
+      if (fromInput && toInput && preview) {
+        const h = calcHours(fromInput.value, toInput.value);
+        preview.textContent = h > 0 ? `= ${fmtHours(h)} Stunden` : 'Ungültige Zeiten';
+        preview.className = `text-sm font-medium text-center py-1 ${h > 0 ? 'accent-text' : 'text-red-400'}`;
+      }
+    }
+    fromInput?.addEventListener('change', updatePreview);
+    toInput?.addEventListener('change', updatePreview);
+    updatePreview();
+
+    addEntryForm.addEventListener('submit', e => {
+      e.preventDefault();
+      const date = document.getElementById('e_date').value;
+      const from = document.getElementById('e_from').value;
+      const to = document.getElementById('e_to').value;
+      const hours = calcHours(from, to);
+      if (hours <= 0) { notify('Endzeit muss nach Startzeit liegen.', 'error'); return; }
+      DB.addEntry({ id: uid(), trainerId: state.currentTrainer.id, date, from, to, hours });
+      notify('Eintrag gespeichert!');
+      setState({ view: 'trainerDash' });
+    });
+  }
+
+  // Close Month
+  const closeMonthBtn = document.getElementById('closeMonthBtn');
+  if (closeMonthBtn) {
+    closeMonthBtn.addEventListener('click', () => {
+      const openYM = getCurrentOpenMonth(state.currentTrainer.id);
+      showConfirm(
+        'Monat abschließen',
+        `${ymLabel(openYM)} wirklich endgültig abschließen? Dieser Vorgang kann nicht rückgängig gemacht werden.`,
+        () => {
+          DB.closeMonth(state.currentTrainer.id, openYM);
+          notify(`${ymLabel(openYM)} wurde abgeschlossen.`);
+          setState({ view: 'trainerDash' });
+        },
+        'Abschließen',
+        'bg-teal-600 hover:bg-teal-700'
+      );
+    });
+  }
+
+  // Trainer Form (Admin)
+  const trainerForm = document.getElementById('trainerForm');
+  if (trainerForm) {
+    trainerForm.addEventListener('submit', e => {
+      e.preventDefault();
+      const id = document.getElementById('tm_id').value;
+      const pin = document.getElementById('tm_pin').value;
+      if (!/^\d{4}$/.test(pin)) { notify('PIN muss genau 4 Ziffern sein.', 'error'); return; }
+      const data = {
+        firstName: document.getElementById('tm_firstName').value.trim(),
+        lastName: document.getElementById('tm_lastName').value.trim(),
+        facility: document.getElementById('tm_facility').value.trim(),
+        pin,
+        status: document.getElementById('tm_status').value,
+        phone: document.getElementById('tm_phone').value.trim(),
+        email: document.getElementById('tm_email').value.trim(),
+        address: document.getElementById('tm_address').value.trim(),
+        notes: document.getElementById('tm_notes').value.trim(),
+      };
+      if (id) {
+        DB.updateTrainer(id, data);
+        notify('Trainer aktualisiert.');
+      } else {
+        DB.addTrainer({ id: uid(), ...data });
+        notify('Trainer angelegt.');
+      }
+      closeModal('trainerModal');
+      setState({ view: 'adminDash' });
+    });
+  }
+
+  // Edit Entry Form
+  const editEntryForm = document.getElementById('editEntryForm');
+  if (editEntryForm) {
+    editEntryForm.addEventListener('submit', e => {
+      e.preventDefault();
+      const id = document.getElementById('ee_id').value;
+      const date = document.getElementById('ee_date').value;
+      const from = document.getElementById('ee_from').value;
+      const to = document.getElementById('ee_to').value;
+      const hours = calcHours(from, to);
+      if (hours <= 0) { notify('Endzeit muss nach Startzeit liegen.', 'error'); return; }
+      DB.updateEntry(id, { date, from, to, hours });
+      notify('Eintrag aktualisiert.');
+      closeModal('editEntryModal');
+      setState({ view: 'adminDash' });
+    });
+  }
+
+  // Admin Add Entry Form
+  const adminAddEntryForm = document.getElementById('adminAddEntryForm');
+  if (adminAddEntryForm) {
+    adminAddEntryForm.addEventListener('submit', e => {
+      e.preventDefault();
+      const trainerId = document.getElementById('ae_trainerId').value;
+      const date = document.getElementById('ae_date').value;
+      const from = document.getElementById('ae_from').value;
+      const to = document.getElementById('ae_to').value;
+      const hours = calcHours(from, to);
+      if (hours <= 0) { notify('Endzeit muss nach Startzeit liegen.', 'error'); return; }
+      DB.addEntry({ id: uid(), trainerId, date, from, to, hours });
+      notify('Eintrag hinzugefügt.');
+      closeModal('adminAddEntryModal');
+      setState({ view: 'adminDash' });
+    });
+  }
+}
+
+// ============================================================
+// GLOBAL ACTION FUNCTIONS
+// ============================================================
+function switchAdminTab(tab) {
+  state.adminTab = tab;
+  render();
+}
+function selectMonth(ym) { state.adminMonth = ym; render(); }
+function prevMonth() {
+  const config = DB.getConfig();
+  const fiscalMonths = getFiscalYearMonths(config.fiscalStartMonth, config.fiscalStartYear);
+  const now = new Date();
+  const currentYM = formatYM(now.getFullYear(), now.getMonth()+1);
+  const avail = fiscalMonths.filter(ym => ym <= currentYM);
+  const idx = avail.indexOf(state.adminMonth);
+  if (idx > 0) { state.adminMonth = avail[idx-1]; render(); }
+}
+function nextMonth() {
+  const config = DB.getConfig();
+  const fiscalMonths = getFiscalYearMonths(config.fiscalStartMonth, config.fiscalStartYear);
+  const now = new Date();
+  const currentYM = formatYM(now.getFullYear(), now.getMonth()+1);
+  const avail = fiscalMonths.filter(ym => ym <= currentYM);
+  const idx = avail.indexOf(state.adminMonth);
+  if (idx < avail.length - 1) { state.adminMonth = avail[idx+1]; render(); }
+}
+
+function toggleAccordion(id) {
+  const el = document.getElementById(id);
+  const chevron = document.getElementById('chevron_' + id);
+  if (el) {
+    el.classList.toggle('open');
+    if (chevron) chevron.style.transform = el.classList.contains('open') ? 'rotate(180deg)' : '';
+  }
+}
+
+function toggleConcession(trainerId, ym, val) {
+  DB.setConcession(trainerId, ym, val);
+  notify(val ? 'Kulanz gewährt.' : 'Kulanz entfernt.');
+}
+
+function deleteEntry(id) {
+  DB.deleteEntry(id);
+  notify('Eintrag gelöscht.');
+  setState({ view: 'trainerDash' });
+}
+
+function adminDeleteEntry(id) {
+  showConfirm('Eintrag löschen', 'Diesen Zeiteintrag wirklich löschen?', () => {
+    DB.deleteEntry(id);
+    notify('Eintrag gelöscht.');
+    setState({ view: 'adminDash' });
+  });
+}
+
+function deleteTrainer(id) {
+  const t = DB.getTrainer(id);
+  showConfirm('Trainer löschen', `${t?.firstName} ${t?.lastName} wirklich löschen? Alle Einträge bleiben erhalten.`, () => {
+    DB.deleteTrainer(id);
+    notify('Trainer gelöscht.');
+    setState({ view: 'adminDash' });
+  });
+}
+
+function openTrainerModal(id) {
+  const modal = document.getElementById('trainerModal');
+  const title = document.getElementById('trainerModalTitle');
+  if (!modal) return;
+  if (id) {
+    const t = DB.getTrainer(id);
+    document.getElementById('tm_id').value = t.id;
+    document.getElementById('tm_firstName').value = t.firstName;
+    document.getElementById('tm_lastName').value = t.lastName;
+    document.getElementById('tm_facility').value = t.facility;
+    document.getElementById('tm_pin').value = t.pin;
+    document.getElementById('tm_status').value = t.status;
+    document.getElementById('tm_phone').value = t.phone || '';
+    document.getElementById('tm_email').value = t.email || '';
+    document.getElementById('tm_address').value = t.address || '';
+    document.getElementById('tm_notes').value = t.notes || '';
+    title.textContent = 'Trainer bearbeiten';
+  } else {
+    document.getElementById('trainerForm').reset();
+    document.getElementById('tm_id').value = '';
+    title.textContent = 'Trainer anlegen';
+  }
+  modal.classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function openEditEntry(id) {
+  const modal = document.getElementById('editEntryModal');
+  if (!modal) return;
+  const entry = DB.getEntries().find(e => e.id === id);
+  if (!entry) return;
+  document.getElementById('ee_id').value = entry.id;
+  document.getElementById('ee_date').value = entry.date;
+  document.getElementById('ee_from').value = entry.from;
+  document.getElementById('ee_to').value = entry.to;
+  modal.classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function openAdminAddEntry(trainerId, ym) {
+  const modal = document.getElementById('adminAddEntryModal');
+  if (!modal) return;
+  document.getElementById('ae_trainerId').value = trainerId;
+  document.getElementById('ae_ym').value = ym;
+  const { year, month } = parseYM(ym);
+  const minDate = `${ym}-01`;
+  const maxDate = `${ym}-${String(getDaysInMonth(year, month)).padStart(2,'0')}`;
+  document.getElementById('ae_date').value = minDate;
+  document.getElementById('ae_date').min = minDate;
+  document.getElementById('ae_date').max = maxDate;
+  modal.classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function closeModal(id) {
+  const modal = document.getElementById(id);
+  if (modal) modal.classList.add('hidden');
+}
+
+let confirmCallback = null;
+function showConfirm(title, msg, cb, okLabel = 'Löschen', okClass = 'bg-red-500 hover:bg-red-600') {
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmMsg').textContent = msg;
+  const okBtn = document.getElementById('confirmOkBtn');
+  okBtn.textContent = okLabel;
+  okBtn.className = `flex-1 text-white py-2.5 rounded-xl text-sm font-semibold transition ${okClass}`;
+  confirmCallback = cb;
+  document.getElementById('confirmModal').classList.remove('hidden');
+  lucide.createIcons();
+  okBtn.onclick = () => {
+    closeModal('confirmModal');
+    if (confirmCallback) confirmCallback();
+  };
+}
+
+// ============================================================
+// CSV EXPORTS
+// ============================================================
+function downloadCSV(content, filename) {
+  const bom = '﻿'; // BOM for Excel UTF-8
+  const blob = new Blob([bom + content], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportPayroll(ym) {
+  const config = DB.getConfig();
+  const trainers = DB.getTrainers();
+  const rows = trainers
+    .map(t => ({ ...t, total: getTotalHoursForTrainerMonth(t.id, ym), concession: DB.getConcession(t.id, ym) }))
+    .filter(r => r.total >= config.monthlyHours || r.concession);
+  let csv = 'Vorname;Name;Klinik;Gesamtstunden;Auszahlung\n';
+  rows.forEach(r => {
+    csv += `${r.firstName};${r.lastName};${r.facility};${fmtHours(r.total)};Ja\n`;
+  });
+  downloadCSV(csv, `Lohnbuero_${ym}.csv`);
+  notify('CSV Lohnbüro exportiert.');
+}
+
+function exportAll(ym) {
+  const config = DB.getConfig();
+  const trainers = DB.getTrainers();
+  let csv = 'Einrichtung;Vorname;Name;Status;Gesamtstunden\n';
+  trainers.forEach(t => {
+    const total = getTotalHoursForTrainerMonth(t.id, ym);
+    const reached = total >= config.monthlyHours;
+    const concession = DB.getConcession(t.id, ym);
+    const statusLabel = t.status === 'paused' ? 'Pausiert' : reached ? 'Ziel erreicht' : concession ? 'Kulanz' : 'Nicht erreicht';
+    csv += `${t.facility};${t.firstName};${t.lastName};${statusLabel};${fmtHours(total)}\n`;
+  });
+  downloadCSV(csv, `Alle_Trainer_${ym}.csv`);
+  notify('CSV Alle exportiert.');
+}
+
+function exportAnnual() {
+  const config = DB.getConfig();
+  const fiscalMonths = getFiscalYearMonths(config.fiscalStartMonth, config.fiscalStartYear);
+  const now = new Date();
+  const currentYM = formatYM(now.getFullYear(), now.getMonth()+1);
+  const trainers = DB.getTrainers();
+  const target = config.monthlyHours;
+  const yearTarget = target * 12;
+
+  const monthHeaders = fiscalMonths.map(ym => `${MONTHS_DE_SHORT[parseYM(ym).month-1]} ${parseYM(ym).year}`).join(';');
+  let csv = `Name;${monthHeaders};Ist Gesamt;Soll Gesamt;Differenz\n`;
+
+  trainers.forEach(trainer => {
+    let yearTotal = 0;
+    const cells = fiscalMonths.map(ym => {
+      if (ym > currentYM) return '–';
+      const h = getTotalHoursForTrainerMonth(trainer.id, ym);
+      yearTotal += h;
+      return fmtHours(h);
+    }).join(';');
+    const diff = yearTotal - yearTarget;
+    csv += `${trainer.firstName} ${trainer.lastName};${cells};${fmtHours(yearTotal)};${fmtHours(yearTarget)};${diff >= 0 ? '+' : ''}${fmtHours(diff)}\n`;
+  });
+
+  downloadCSV(csv, `Jahresuebersicht_${config.fiscalStartYear}.csv`);
+  notify('Jahresübersicht exportiert.');
+}
+
+// ============================================================
+// BOOTSTRAP
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  init();
+});
+</script>
+</body>
+</html>
