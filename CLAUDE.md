@@ -53,6 +53,11 @@ Serienaufträge (Routinen) · Brevo-E-Mails · Stale-Erinnerungen · **Interner 
   zugewiesenen Tickets**, Admin alle (Rollen-Filter in `messageActivityTickets`, `App.tsx`). (2) **Glocken-
   Knopf rot** (`#DC2626`, `BELL_COLOR` in `MessageInbox.tsx`) statt blau — Nutzer-Wunsch „rot ist besser"
   (teilt sich den Farbton mit Überfällig, ist als Glocke aber eindeutig). **Listen-Icons** bleiben blau=Chat / orange=Melder.
+- **Zwei Folge-Fixes (Nutzer-Test):** (1) Glocke listet Chat & Melder als **getrennte Einträge** und zählt
+  die **echte Anzahl** (Ticket mit Chat **und** Melder = „2 neu", vorher „1 neu" + nur Chat-Icon). (2)
+  Admin-Banner „… wartet auf Bearbeiter-Zuweisung" zählte über `is_reopened` auch wiedereröffnete, aber
+  **bereits zugewiesene** Tickets (Phantom „wo?"). `newMeldungenCount` (`App.tsx`) zählt jetzt nur noch
+  **unzugewiesene** (`unassigned && (Offen || is_reopened)`). Verifiziert: Banner als Admin verschwunden.
 - **Verifikation:** `tsc` + Build grün; Vorschau (als Admin) rendert sauber, Badge = reine Anzahl,
   Glocke korrekt ausgeblendet (kein Ungelesenes für Admin). Live-Demo der Glocke heute nicht möglich
   (Firestore-Tageslimit erneut erschöpft + Admin ohne Ungelesenes); zeigt sich als Torsten.

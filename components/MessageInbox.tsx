@@ -62,7 +62,16 @@ const MessageInbox: React.FC<MessageInboxProps> = ({ items, onOpenTicket }) => {
     };
   }, [open, reposition]);
 
-  if (items.length === 0) return null;
+  // Eine Zeile pro Benachrichtigung: Chat und Melder eines Tickets sind getrennte Einträge,
+  // damit BEIDE sichtbar sind und der Zähler die echte Anzahl neuer Nachrichten zeigt
+  // (ein Ticket mit Chat + Melder = 2 Einträge, nicht 1).
+  const notifications: { ticket: Ticket; type: 'chat' | 'reporter' }[] = [];
+  items.forEach(({ ticket, reporter, chat }) => {
+    if (chat) notifications.push({ ticket, type: 'chat' });
+    if (reporter) notifications.push({ ticket, type: 'reporter' });
+  });
+
+  if (notifications.length === 0) return null;
 
   const handleRow = (t: Ticket) => {
     setOpen(false);
@@ -75,7 +84,7 @@ const MessageInbox: React.FC<MessageInboxProps> = ({ items, onOpenTicket }) => {
         ref={btnRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
-        title={`${items.length} Ticket${items.length > 1 ? 's' : ''} mit neuen Nachrichten`}
+        title={`${notifications.length} neue Nachricht${notifications.length > 1 ? 'en' : ''}`}
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,
           height: 36, padding: '0 14px', boxSizing: 'border-box',
@@ -85,7 +94,7 @@ const MessageInbox: React.FC<MessageInboxProps> = ({ items, onOpenTicket }) => {
         }}
       >
         <i className="ti ti-bell" style={{ fontSize: 16 }} aria-hidden="true" />
-        {items.length} neu
+        {notifications.length} neu
         <i
           className="ti ti-chevron-down"
           style={{ fontSize: 14, opacity: 0.85, transition: 'transform .15s', transform: open ? 'rotate(180deg)' : 'none' }}
@@ -109,15 +118,13 @@ const MessageInbox: React.FC<MessageInboxProps> = ({ items, onOpenTicket }) => {
           <div style={{ padding: '10px 14px', fontSize: 12, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>
             Neue Nachrichten
           </div>
-          {items.map(({ ticket, reporter, chat }) => {
+          {notifications.map(({ ticket, type }) => {
             const parked = ticket.status === Status.Zurueckgestellt;
-            const isChat = chat;
-            const desc = chat && reporter
-              ? 'Neuer Chat · neue Melder-Nachricht'
-              : chat ? 'Neuer Team-Chat' : 'Neue Melder-Nachricht';
+            const isChat = type === 'chat';
+            const desc = isChat ? 'Neuer Team-Chat' : 'Neue Melder-Nachricht';
             return (
               <button
-                key={ticket.id}
+                key={`${ticket.id}-${type}`}
                 type="button"
                 role="menuitem"
                 onClick={() => handleRow(ticket)}

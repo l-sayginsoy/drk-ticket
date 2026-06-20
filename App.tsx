@@ -3037,9 +3037,13 @@ const deleteTicketFromFirebase = (ticketId: string) => {
   }, [tickets, routineTickets, currentUser]);
 
   const newMeldungenCount = useMemo(() => {
-    return tickets.filter(t =>
-      (t.status === Status.Offen && (t.technician === 'N/A' || !t.technician)) || t.is_reopened
-    ).length;
+    // „Wartet auf Bearbeiter-Zuweisung" = nur Tickets OHNE Bearbeiter. Auch ein wiedereröffnetes
+    // (is_reopened) Ticket zählt NUR, wenn es niemandem zugewiesen ist — ist es bereits zugewiesen
+    // (z. B. an Torsten), wartet es nicht auf Zuweisung und darf den Banner nicht auslösen.
+    return tickets.filter(t => {
+      const unassigned = t.technician === 'N/A' || !t.technician;
+      return unassigned && (t.status === Status.Offen || t.is_reopened);
+    }).length;
   }, [tickets]);
 
   // Speist die Benachrichtigungs-Glocke (MessageInbox): Tickets mit neuer Melder-Nachricht bzw.
