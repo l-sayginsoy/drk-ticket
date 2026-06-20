@@ -35,6 +35,15 @@ Serienaufträge (Routinen) · Brevo-E-Mails · Stale-Erinnerungen · **Interner 
 
 ## Zuletzt abgeschlossen
 
+### Session 19.06.2026 (2) – E-Mail-Flut gestoppt + Zurückgestellt-Signal ins Badge (committed & deployed)
+- **E-Mail-Politik an den Melder bewusst minimal** (`App.tsx` `commitTicketUpdate`): **ENTFERNT** wurden
+  `ticket_in_progress` (Mail bei Statuswechsel „In Arbeit") und `due_date_changed` (Mail bei
+  Terminänderung) — das waren die Floods beim Umverteilen/Hin-und-Herschieben. Siehe Hard-Rule unten.
+- **Sidebar „Zurückgestellt"**: Das separate Aktivitäts-Badge sprengte die Breite (langes Wort +
+  Anzahl-Badge + extra Badge). Jetzt sitzt ein kleines `ti-message-circle`-Icon **direkt im vorhandenen
+  Anzahl-Badge**, wenn dort neue Nachrichten/Chat liegen (`parkedChatActive`/`parkedReporterActive` aus
+  `App.tsx` → Sidebar). Kein zusätzlicher Platzbedarf. Top-Filter-Badges sind reine Zähler (kein Klick).
+
 ### Session 19.06.2026 – Zuweisung an Abwesende → „Wartet auf Rückkehr" (committed & deployed)
 **Konzept (bewusst einfach, KEIN Schalter):** Ein erster Versuch mit einem dauerhaften
 `assigneeLocked`-Schalter („Nur <Name> – bei Abwesenheit parken") wurde komplett zurückgenommen
@@ -164,6 +173,19 @@ wie ‚Überfällig' im oberen Menü, mit **Warnhinweis** (‚wurde vergessen / 
 - Datengrundlage unverändert (`missedRoutinesSinceStart`). Block `max-width: 2400` zentriert,
   bündig zum Board. Wird auf allen Ansichten gezeigt (nicht nur Dashboard), damit er nicht untergeht.
 - Verworfen wurden: eigene 4. Kanban-Spalte und „mit in Überfällig-Spalte" (Nutzer wollte Warnblock).
+
+## ⚠️ Harte Regel: E-Mail-Versand (Flut vermeiden)
+Der Nutzer will **keine E-Mail-Flut**. An den **Melder** gehen NUR diese drei automatischen Mails:
+1. **`ticket_created`** – Eingangsbestätigung bei Ticket-Erstellung (`handleAddNewTicket`).
+2. **`staff_note`** – wenn ein **Mitarbeiter** eine Notiz in der Melder-Konversation schreibt
+   (`commitTicketUpdate`; nur wenn die Notiz NICHT vom Melder stammt).
+3. **`ticket_closed`** – wenn das Ticket auf `Abgeschlossen` gesetzt wird (`commitTicketUpdate`).
+> **NICHT wieder einbauen:** `ticket_in_progress` (Mail bei „In Arbeit") und `due_date_changed`
+> (Mail bei Terminänderung) wurden bewusst **entfernt** — sie fluteten beim Umverteilen/Statuswechsel.
+> **Umverteilen/Verschieben/Statuswechsel löst KEINE Melder-Mail aus.** Der **interne Chat** verschickt
+> NIE eine Mail. Willst du, dass der Melder etwas erfährt → als Mitarbeiter eine **Notiz** schreiben.
+> Opt-in-Mails (nur wenn Adresse hinterlegt) bleiben: `admin_new_ticket` (Admin-Mail bei neuem Ticket,
+> `adminNotificationEmail`), Stale-Erinnerung an Techniker, Serienauftrag-Erledigt-Mail (`notifyEmail`).
 
 ## ⚠️ Harte Regel: Automatische Umverteilung (Abwesenheit/Rückkehr)
 Bei Abwesend-/Rückkehr-/Aktiv-Schalten eines Mitarbeiters werden Tickets automatisch umverteilt.
