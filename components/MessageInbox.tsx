@@ -17,8 +17,11 @@ interface MessageInboxProps {
   onOpenTicket?: (ticket: Ticket) => void;
 }
 
-const CHAT_BLUE = '#6366f1';      // Team-Chat – durchgängig blau
-const MELDER_ORANGE = '#F97316';  // Melder-Nachricht – orange
+const CHAT_BLUE = '#6366f1';      // Team-Chat – durchgängig blau (Listen-Icon)
+const MELDER_ORANGE = '#F97316';  // Melder-Nachricht – orange (Listen-Icon)
+// Eigene Signalfarbe für den Glocken-Knopf (orangerot): bewusst getrennt von Chat-Blau,
+// Melder-Orange und dem Überfällig-Rot, damit die Glocke eine eigene Bedeutung hat.
+const BELL_COLOR = '#F4511E';
 
 /**
  * Glocke mit aufklappbarer Liste aller Tickets mit neuen Nachrichten (Chat und/oder
@@ -77,7 +80,7 @@ const MessageInbox: React.FC<MessageInboxProps> = ({ items, onOpenTicket }) => {
           display: 'inline-flex', alignItems: 'center', gap: 6,
           height: 36, padding: '0 14px', boxSizing: 'border-box',
           fontSize: '0.85rem', fontWeight: 800, border: 'none', cursor: 'pointer',
-          borderRadius: 20, background: CHAT_BLUE, color: '#fff',
+          borderRadius: 20, background: BELL_COLOR, color: '#fff',
           whiteSpace: 'nowrap', userSelect: 'none', flexShrink: 0,
         }}
       >

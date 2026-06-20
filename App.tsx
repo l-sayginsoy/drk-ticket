@@ -3042,10 +3042,16 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     ).length;
   }, [tickets]);
 
-  // Info-Leiste „neue Nachrichten": Tickets mit neuer Melder-Nachricht bzw. neuem internen
-  // Chat (ungelesen für die angemeldete Person). Über ALLE aktiven Tickets (kein Routine-Ticket).
+  // Speist die Benachrichtigungs-Glocke (MessageInbox): Tickets mit neuer Melder-Nachricht bzw.
+  // neuem internen Chat (ungelesen für die angemeldete Person). Admin sieht ALLE aktiven Tickets;
+  // Techniker/Hauswirtschaft sehen NUR ihre eigenen (an sie zugewiesenen) Tickets.
   const messageActivityTickets = useMemo(() => {
-    const active = [...tickets, ...routineTickets].filter(t => t.status !== Status.Abgeschlossen && t.origin !== 'routine');
+    const me = currentUser?.name ?? null;
+    const isAdmin = currentUser?.role === Role.Admin;
+    const active = [...tickets, ...routineTickets].filter(t =>
+      t.status !== Status.Abgeschlossen && t.origin !== 'routine' &&
+      (isAdmin || t.technician === me)
+    );
     const map = new Map<string, { ticket: Ticket; reporter: boolean; chat: boolean }>();
     active.forEach(t => {
       const reporter = hasUnreadReporterNote(t, currentUser?.name ?? null);

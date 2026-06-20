@@ -49,6 +49,10 @@ Serienaufträge (Routinen) · Brevo-E-Mails · Stale-Erinnerungen · **Interner 
   Datengrundlage unverändert (`messageActivityTickets` in `App.tsx`).
 - **Sidebar „Zurückgestellt" zeigt wieder NUR die orange Anzahl** (Nutzer-Wunsch: gewohnte Farbe).
   `parkedChatActive`/`parkedReporterActive` (+ die zwei „neu"-Pillen in `FilterBar`) **entfernt**.
+- **Nachgeschärft (Nutzer-Wunsch):** (1) **Techniker/Hauswirtschaft sehen in der Glocke nur ihre eigenen
+  zugewiesenen Tickets**, Admin alle (Rollen-Filter in `messageActivityTickets`, `App.tsx`). (2) **Glocken-
+  Knopf orangerot** (`#F4511E`, `BELL_COLOR` in `MessageInbox.tsx`) statt blau — eigene Signalfarbe,
+  getrennt von Chat-Blau/Melder-Orange/Überfällig-Rot. Die **Listen-Icons** bleiben blau=Chat / orange=Melder.
 - **Verifikation:** `tsc` + Build grün; Vorschau (als Admin) rendert sauber, Badge = reine Anzahl,
   Glocke korrekt ausgeblendet (kein Ungelesenes für Admin). Live-Demo der Glocke heute nicht möglich
   (Firestore-Tageslimit erneut erschöpft + Admin ohne Ungelesenes); zeigt sich als Torsten.
