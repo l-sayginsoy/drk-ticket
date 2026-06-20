@@ -79,7 +79,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     }, [tickets]);
     
     /** Drei Blöcke wie in der Nav-Skizze: Übersicht → Verwaltung → Aktionen (Menü-Labels unverändert). */
-    type NavSection = 'uebersicht' | 'verwaltung' | 'aktionen';
+    type NavSection = 'uebersicht' | 'serien' | 'verwaltung' | 'aktionen';
 
     type NavItemDef =
         | { type: 'view'; viewName: string; icon: React.ReactNode; label: string; requiredRoles: Role[]; section: NavSection }
@@ -91,8 +91,9 @@ const Sidebar: React.FC<SidebarProps> = ({
         { type: 'view', viewName: 'tickets', icon: <i className="ti ti-menu-2" aria-hidden />, label: 'Listenansicht', requiredRoles: [Role.Admin], section: 'uebersicht' },
         { type: 'view', viewName: 'zurueckgestellt', icon: <i className="ti ti-parking" aria-hidden />, label: 'Zurückgestellt', requiredRoles: [Role.Admin], section: 'uebersicht' },
         { type: 'view', viewName: 'erledigt', icon: <i className="ti ti-circle-check" aria-hidden />, label: 'Abgeschlossen', requiredRoles: [Role.Admin], section: 'uebersicht' },
-        { type: 'view', viewName: 'routines', icon: <i className="ti ti-repeat" aria-hidden />, label: 'Serienaufträge', requiredRoles: [Role.Admin], section: 'uebersicht' },
-        { type: 'view', viewName: 'routine-nachweis', icon: <CalendarIcon />, label: 'Serien‑Nachweis', requiredRoles: [Role.Admin], section: 'uebersicht' },
+        // Admin — Serien
+        { type: 'view', viewName: 'routines', icon: <i className="ti ti-repeat" aria-hidden />, label: 'Serienaufträge', requiredRoles: [Role.Admin], section: 'serien' },
+        { type: 'view', viewName: 'routine-nachweis', icon: <CalendarIcon />, label: 'Serien‑Nachweis', requiredRoles: [Role.Admin], section: 'serien' },
         // Admin — Verwaltung
         { type: 'view', viewName: 'techniker', icon: <i className="ti ti-users" aria-hidden />, label: 'Team', requiredRoles: [Role.Admin], section: 'verwaltung' },
         { type: 'view', viewName: 'reports', icon: <BarChartIcon />, label: 'Reports', requiredRoles: [Role.Admin], section: 'verwaltung' },
@@ -103,8 +104,9 @@ const Sidebar: React.FC<SidebarProps> = ({
         { type: 'view', viewName: 'tickets', icon: <i className="ti ti-menu-2" aria-hidden />, label: 'Listenansicht', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
         { type: 'view', viewName: 'zurueckgestellt', icon: <i className="ti ti-parking" aria-hidden />, label: 'Zurückgestellt', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
         { type: 'view', viewName: 'erledigt', icon: <i className="ti ti-circle-check" aria-hidden />, label: 'Abgeschlossen', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
-        { type: 'view', viewName: 'routines', icon: <i className="ti ti-repeat" aria-hidden />, label: 'Serienaufträge', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
-        { type: 'view', viewName: 'routine-nachweis', icon: <CalendarIcon />, label: 'Serien‑Nachweis', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'uebersicht' },
+        // Bearbeiter — Serien
+        { type: 'view', viewName: 'routines', icon: <i className="ti ti-repeat" aria-hidden />, label: 'Serienaufträge', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'serien' },
+        { type: 'view', viewName: 'routine-nachweis', icon: <CalendarIcon />, label: 'Serien‑Nachweis', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'serien' },
 
         // Aktionen (alle Rollen)
         { type: 'action', action: 'newTicket', icon: <i className="ti ti-clipboard-plus" aria-hidden />, label: 'Neues Ticket', requiredRoles: [Role.Admin, Role.Technician, Role.Housekeeping], section: 'aktionen', onClick: onNewTicketClick },
@@ -112,6 +114,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
     const SECTION_HEADING: Record<NavSection, string> = {
         uebersicht: 'Übersicht',
+        serien: 'Serien',
         verwaltung: 'Verwaltung',
         aktionen: 'Aktionen',
     };
