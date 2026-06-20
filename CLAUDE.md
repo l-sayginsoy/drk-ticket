@@ -35,6 +35,30 @@ Serienaufträge (Routinen) · Brevo-E-Mails · Stale-Erinnerungen · **Interner 
 
 ## Zuletzt abgeschlossen
 
+### Session 20.06.2026 – Firestore-Quota-Fix: Lesekosten drastisch gesenkt (committed & deployed)
+- **Problem:** „Free daily read units per project exceeded" — die App lief ins harte Tageslimit. Wichtig:
+  Das Projekt ist **schon auf Blaze**, aber die App-Datenbank ist die **AI-Studio-DB**
+  `ai-studio-e01f0d33-…` (Konsolen-Label **„GEMEINSAMES KI-KONTINGENT"**) mit eigenem **harten
+  Free-Tageslimit**, das Blaze **nicht** abdeckt → daher der Block trotz Blaze. (DB-ID steht in
+  `firebase-applet-config.json` → `firestoreDatabaseId`.) Die anderen `ai-studio-…`-DBs sind leere
+  Überbleibsel — **nicht** die Ursache, Löschen bringt nichts. **`ai-studio-e01f0d33-…` NIE löschen.**
+- **Ursache im Code:** Bei **jedem Laden** + **jedem Monatswechsel** wurde die unbegrenzt wachsende
+  `completed_tickets`-Sammlung **mehrfach voll gelesen** (Dashboard: ~44k–62k Reads/Tag, nur ~29k davon
+  „Echtzeit"). Zwei alte Einmal-Migrationen scannten dafür die ganze Historie: (1) `fetchData`
+  `Promise.all([getDocs(tickets/completed_tickets/routine_tickets)])` + Verschiebe-/Ghost-Cleanup,
+  (2) `loadCompletedTicketsForMonth` Schritt 1 (`closedAt`-Backfill).
+- **Fix (`App.tsx`):** beide hinter einen **Einmal-Schalter** gelegt — app_data-Dokument
+  `data-migrations-v1` (`APP_DATA_KEY_MIGRATIONS_DONE`) + Ref `migrationsDoneRef`. Solange nicht gesetzt,
+  laufen die Migrationen **einmal** und setzen danach das Flag; danach werden die Voll-Scans bei jedem
+  Laden **übersprungen**. Initialer Monats-Load in den `finally`-Block von `fetchData` verschoben, damit
+  der Schalter vorher feststeht. Offene/aktive Tickets kommen weiter live über `onSnapshot` (klein).
+- **Verifikation:** bewusst **kein** Live-Preview-Test (Vorschau = echte Firestore → würde Reads
+  verbrennen + Schalter vorzeitig setzen). `tsc --noEmit` ist sauber; echter Nachweis = Reads-Kurve im
+  Firebase-Dashboard fällt über den Folgetag deutlich.
+  > **Recovery:** app_data-Dokument `data-migrations-v1` in Firestore löschen → Migrationen laufen
+  > einmalig erneut. Die alten Voll-Scans (jeden Lauf die ganze `completed_tickets` lesen) **nicht**
+  > wieder einbauen.
+
 ### Session 19.06.2026 (2) – E-Mail-Flut gestoppt + Zurückgestellt-Signal ins Badge (committed & deployed)
 - **E-Mail-Politik an den Melder bewusst minimal** (`App.tsx` `commitTicketUpdate`): **ENTFERNT** wurden
   `ticket_in_progress` (Mail bei Statuswechsel „In Arbeit") und `due_date_changed` (Mail bei

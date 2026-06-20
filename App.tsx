@@ -77,6 +77,13 @@ const LOCAL_STORAGE_KEY_SETTINGS = 'facility-management-settings';
 const LOCAL_STORAGE_KEY_DELETED_IDS = 'facility-management-deleted-ticket-ids';
 const LOCAL_STORAGE_KEY_COMPLETED_TICKETS = 'facility-management-completed-tickets';
 const LOCAL_STORAGE_KEY_ROUTINE_TICKETS = 'facility-management-routine-tickets';
+// Einmal-Schalter für die einmaligen Daten-Migrationen (Alt-Format → Sammlungen,
+// completed/routine aus tickets/ verschieben, closedAt-Backfill, Ghost-Cleanup).
+// Liegt als app_data-Dokument vor. Solange NICHT gesetzt, laufen die Migrationen beim
+// Laden – inkl. teurer Voll-Scans der completed_tickets-Sammlung. Sobald gesetzt, werden
+// diese Voll-Scans bei jedem Laden ÜBERSPRUNGEN (Firestore-Lesekosten sparen).
+// Recovery: dieses app_data-Dokument in Firestore löschen → Migrationen laufen einmalig erneut.
+const APP_DATA_KEY_MIGRATIONS_DONE = 'data-migrations-v1';
 
 const DRK_TICKET_PORTAL_URL = 'https://drk-facility-dashboard.web.app';
 /** An Portal-Farben angelehnt (Haustechnik Service) */
@@ -917,6 +924,9 @@ const App: React.FC = () => {
   const [brevoMailLastChecked, setBrevoMailLastChecked] = useState<Date | null>(null);
   const isRemoteUpdate = useRef(false);
   const appDataReadyRef = useRef(false);
+  // true, sobald die einmaligen Daten-Migrationen erledigt sind (aus app_data gelesen oder
+  // gerade abgeschlossen). Steuert das Überspringen der teuren completed_tickets-Voll-Scans.
+  const migrationsDoneRef = useRef(false);
   const ticketsSnapshotReadyRef = useRef(false);
   const completedSnapshotReadyRef = useRef(false);
   const routineSnapshotReadyRef = useRef(false);
@@ -942,19 +952,25 @@ const App: React.FC = () => {
   const loadCompletedTicketsForMonth = useCallback(async (month: number, year: number) => {
     setIsLoadingCompleted(true);
     try {
-      // Schritt 1: Alle Tickets ohne closedAt laden und migrieren
-      const allSnap = await getDocs(collection(db, 'completed_tickets'));
-      const toMigrate = allSnap.docs.filter(d => {
-        const data = d.data() as Ticket;
-        return !data.closedAt && (data.completionDate || data.entryDate);
-      });
-      if (toMigrate.length > 0) {
-        await Promise.all(toMigrate.map(d => {
+      // Schritt 1: Einmaliger closedAt-Backfill für Alt-Tickets.
+      // ACHTUNG Firestore-Lesekosten: dieser Voll-Scan der GESAMTEN completed_tickets-Sammlung
+      // lief früher bei JEDEM Monatswechsel + jedem Laden. Da neu abgeschlossene Tickets ihr
+      // closedAt beim Schließen setzen (commitTicketUpdate), ist der Backfill reine Alt-Daten-
+      // Migration und nur nötig, solange der Einmal-Schalter (migrationsDoneRef) nicht gesetzt ist.
+      if (!migrationsDoneRef.current) {
+        const allSnap = await getDocs(collection(db, 'completed_tickets'));
+        const toMigrate = allSnap.docs.filter(d => {
           const data = d.data() as Ticket;
-          const iso = germanDateToIso(data.completionDate) ?? germanDateToIso(data.entryDate);
-          if (!iso) return Promise.resolve();
-          return setDoc(doc(db, 'completed_tickets', d.id), { ...data, closedAt: iso });
-        }));
+          return !data.closedAt && (data.completionDate || data.entryDate);
+        });
+        if (toMigrate.length > 0) {
+          await Promise.all(toMigrate.map(d => {
+            const data = d.data() as Ticket;
+            const iso = germanDateToIso(data.completionDate) ?? germanDateToIso(data.entryDate);
+            if (!iso) return Promise.resolve();
+            return setDoc(doc(db, 'completed_tickets', d.id), { ...data, closedAt: iso });
+          }));
+        }
       }
 
       // Schritt 2: Monatsabfrage per closedAt
@@ -1203,6 +1219,10 @@ const App: React.FC = () => {
       try {
         // Load non-ticket app data
         const querySnapshot = await getDocs(collection(db, 'app_data'));
+        // Einmal-Schalter prüfen: sind die teuren Daten-Migrationen bereits erledigt?
+        // (Flag liegt selbst im app_data-Snapshot — kein zusätzlicher Lesezugriff nötig.)
+        const migFlagDoc = querySnapshot.docs.find((d) => d.id === APP_DATA_KEY_MIGRATIONS_DONE);
+        migrationsDoneRef.current = migFlagDoc?.data()?.value?.done === true;
         if (!querySnapshot.empty) {
           isRemoteUpdate.current = true;
           querySnapshot.forEach((d) => {
@@ -1243,94 +1263,110 @@ const App: React.FC = () => {
           }
         }
 
-        // Load current state of all ticket collections
-        const [ticketsCollSnap, completedCollSnap, routineCollSnap] = await Promise.all([
-          getDocs(collection(db, 'tickets')),
-          getDocs(collection(db, 'completed_tickets')),
-          getDocs(collection(db, 'routine_tickets')),
-        ]);
-
-        // Migration from old app_data array format:
-        // Write any ticket from the old doc that doesn't yet exist in either collection
-        const oldDoc = querySnapshot.docs.find((d) => d.id === LOCAL_STORAGE_KEY_TICKETS);
-        if (oldDoc) {
-          const oldTickets = asTicketArray(oldDoc.data().value);
-          const existingIds = new Set([
-            ...ticketsCollSnap.docs.map((d) => d.id),
-            ...completedCollSnap.docs.map((d) => d.id),
-            ...routineCollSnap.docs.map((d) => d.id),
+        // Einmalige Daten-Migrationen — NUR ausführen, solange der Einmal-Schalter nicht gesetzt ist.
+        // Diese lasen früher bei JEDEM Laden die kompletten Sammlungen tickets/completed_tickets/
+        // routine_tickets ein (Hauptquelle der hohen Firestore-Lesekosten, da completed_tickets
+        // unbegrenzt wächst). Nach einmaligem Lauf wird der Schalter in app_data gesetzt und der
+        // gesamte Block bei künftigen Ladevorgängen übersprungen.
+        if (!migrationsDoneRef.current) {
+          // Load current state of all ticket collections
+          const [ticketsCollSnap, completedCollSnap, routineCollSnap] = await Promise.all([
+            getDocs(collection(db, 'tickets')),
+            getDocs(collection(db, 'completed_tickets')),
+            getDocs(collection(db, 'routine_tickets')),
           ]);
-          const missing = oldTickets.filter(
-            (t) => !existingIds.has(t.id) && !deletedTicketIdsRef.current.has(t.id)
-          );
-          if (missing.length > 0) {
-            console.log(`Migrating ${missing.length} missing tickets from old format…`);
-            await Promise.all(
-              missing.map((t) => {
-                let target: string;
-                if (t.status === Status.Abgeschlossen) {
-                  target = 'completed_tickets';
-                } else if (t.origin === 'routine') {
-                  target = 'routine_tickets';
-                } else {
-                  target = 'tickets';
-                }
-                return setDoc(doc(db, target, t.id), JSON.parse(JSON.stringify(t)));
-              })
+
+          // Migration from old app_data array format:
+          // Write any ticket from the old doc that doesn't yet exist in either collection
+          const oldDoc = querySnapshot.docs.find((d) => d.id === LOCAL_STORAGE_KEY_TICKETS);
+          if (oldDoc) {
+            const oldTickets = asTicketArray(oldDoc.data().value);
+            const existingIds = new Set([
+              ...ticketsCollSnap.docs.map((d) => d.id),
+              ...completedCollSnap.docs.map((d) => d.id),
+              ...routineCollSnap.docs.map((d) => d.id),
+            ]);
+            const missing = oldTickets.filter(
+              (t) => !existingIds.has(t.id) && !deletedTicketIdsRef.current.has(t.id)
             );
-          }
-        }
-
-        // Migration: move any completed tickets still in tickets/ to completed_tickets/
-        const toMigrate = ticketsCollSnap.docs.filter((d) => {
-          const t = d.data() as Ticket;
-          return t.status === Status.Abgeschlossen && !deletedTicketIdsRef.current.has(d.id);
-        });
-        if (toMigrate.length > 0) {
-          console.log(`Moving ${toMigrate.length} completed tickets to completed_tickets/…`);
-          await Promise.all(
-            toMigrate.map(async (d) => {
-              await setDoc(doc(db, 'completed_tickets', d.id), d.data());
-              await deleteDoc(doc(db, 'tickets', d.id));
-            })
-          );
-        }
-
-        // Migration: move any routine tickets still in tickets/ to routine_tickets/
-        const routineToMigrate = ticketsCollSnap.docs.filter((d) => {
-          const t = d.data() as Ticket;
-          return t.origin === 'routine' && t.status !== Status.Abgeschlossen && !deletedTicketIdsRef.current.has(d.id);
-        });
-        if (routineToMigrate.length > 0) {
-          console.log(`Moving ${routineToMigrate.length} routine tickets to routine_tickets/…`);
-          await Promise.all(
-            routineToMigrate.map(async (d) => {
-              await setDoc(doc(db, 'routine_tickets', d.id), d.data());
-              await deleteDoc(doc(db, 'tickets', d.id));
-            })
-          );
-        }
-
-        // Migration: move any routine tickets still in completed_tickets/ to routine_tickets/ ...
-        // Actually completed routine tickets stay in completed_tickets/ per spec — no migration needed here.
-
-        // Cleanup: remove any documents that are in the deleted-ticket-ids blocklist but still
-        // physically exist in Firestore (e.g. previous delete failed due to network issues).
-        if (deletedTicketIdsRef.current.size > 0) {
-          const allCollSnaps: Array<{ snap: typeof ticketsCollSnap; coll: string }> = [
-            { snap: ticketsCollSnap, coll: 'tickets' },
-            { snap: completedCollSnap, coll: 'completed_tickets' },
-            { snap: routineCollSnap, coll: 'routine_tickets' },
-          ];
-          for (const { snap, coll } of allCollSnaps) {
-            const ghostDocs = snap.docs.filter((d) => deletedTicketIdsRef.current.has(d.id));
-            if (ghostDocs.length > 0) {
-              console.log(`Cleaning up ${ghostDocs.length} ghost document(s) from ${coll}/…`);
+            if (missing.length > 0) {
+              console.log(`Migrating ${missing.length} missing tickets from old format…`);
               await Promise.all(
-                ghostDocs.map((d) => deleteDoc(doc(db, coll, d.id)).catch(() => {}))
+                missing.map((t) => {
+                  let target: string;
+                  if (t.status === Status.Abgeschlossen) {
+                    target = 'completed_tickets';
+                  } else if (t.origin === 'routine') {
+                    target = 'routine_tickets';
+                  } else {
+                    target = 'tickets';
+                  }
+                  return setDoc(doc(db, target, t.id), JSON.parse(JSON.stringify(t)));
+                })
               );
             }
           }
+
+          // Migration: move any completed tickets still in tickets/ to completed_tickets/
+          const toMigrate = ticketsCollSnap.docs.filter((d) => {
+            const t = d.data() as Ticket;
+            return t.status === Status.Abgeschlossen && !deletedTicketIdsRef.current.has(d.id);
+          });
+          if (toMigrate.length > 0) {
+            console.log(`Moving ${toMigrate.length} completed tickets to completed_tickets/…`);
+            await Promise.all(
+              toMigrate.map(async (d) => {
+                await setDoc(doc(db, 'completed_tickets', d.id), d.data());
+                await deleteDoc(doc(db, 'tickets', d.id));
+              })
+            );
+          }
+
+          // Migration: move any routine tickets still in tickets/ to routine_tickets/
+          const routineToMigrate = ticketsCollSnap.docs.filter((d) => {
+            const t = d.data() as Ticket;
+            return t.origin === 'routine' && t.status !== Status.Abgeschlossen && !deletedTicketIdsRef.current.has(d.id);
+          });
+          if (routineToMigrate.length > 0) {
+            console.log(`Moving ${routineToMigrate.length} routine tickets to routine_tickets/…`);
+            await Promise.all(
+              routineToMigrate.map(async (d) => {
+                await setDoc(doc(db, 'routine_tickets', d.id), d.data());
+                await deleteDoc(doc(db, 'tickets', d.id));
+              })
+            );
+          }
+
+          // Migration: move any routine tickets still in completed_tickets/ to routine_tickets/ ...
+          // Actually completed routine tickets stay in completed_tickets/ per spec — no migration needed here.
+
+          // Cleanup: remove any documents that are in the deleted-ticket-ids blocklist but still
+          // physically exist in Firestore (e.g. previous delete failed due to network issues).
+          if (deletedTicketIdsRef.current.size > 0) {
+            const allCollSnaps: Array<{ snap: typeof ticketsCollSnap; coll: string }> = [
+              { snap: ticketsCollSnap, coll: 'tickets' },
+              { snap: completedCollSnap, coll: 'completed_tickets' },
+              { snap: routineCollSnap, coll: 'routine_tickets' },
+            ];
+            for (const { snap, coll } of allCollSnaps) {
+              const ghostDocs = snap.docs.filter((d) => deletedTicketIdsRef.current.has(d.id));
+              if (ghostDocs.length > 0) {
+                console.log(`Cleaning up ${ghostDocs.length} ghost document(s) from ${coll}/…`);
+                await Promise.all(
+                  ghostDocs.map((d) => deleteDoc(doc(db, coll, d.id)).catch(() => {}))
+                );
+              }
+            }
+          }
+
+          // Migrationen erfolgreich durchgelaufen → Einmal-Schalter in app_data setzen, damit die
+          // teuren Voll-Scans bei künftigen Ladevorgängen komplett entfallen. Bei einem Fehler oben
+          // greift der catch-Zweig und der Schalter bleibt ungesetzt → nächster Start versucht es erneut.
+          await setDoc(doc(db, 'app_data', APP_DATA_KEY_MIGRATIONS_DONE), {
+            value: { done: true },
+            updated_at: new Date().toISOString(),
+          });
+          migrationsDoneRef.current = true;
         }
 
         appDataReadyRef.current = true;
@@ -1341,6 +1377,12 @@ const App: React.FC = () => {
         tryMarkInitialized();
       } finally {
         setIsSyncing(false);
+        // Aktuellen Monat der abgeschlossenen Tickets laden — bewusst HIER (nach dem Migrations-/
+        // Einmal-Schalter-Check), damit der einmalige closedAt-Backfill-Voll-Scan in
+        // loadCompletedTicketsForMonth nicht bei jedem Laden erneut anläuft. migrationsDoneRef
+        // ist an dieser Stelle bereits aus app_data gesetzt (bzw. die Migration ist durchgelaufen).
+        const now = new Date();
+        void loadCompletedTicketsForMonth(now.getMonth() + 1, now.getFullYear());
       }
     };
 
@@ -1479,9 +1521,8 @@ const App: React.FC = () => {
       }
     });
 
-    // Aktuellen Monat der abgeschlossenen Tickets laden
-    const now = new Date();
-    void loadCompletedTicketsForMonth(now.getMonth() + 1, now.getFullYear());
+    // (Der initiale Monats-Load der abgeschlossenen Tickets passiert jetzt am Ende von
+    // fetchData — siehe finally-Block oben — damit der Einmal-Schalter vorher feststeht.)
 
     return () => {
       unsubscribeAppData();
