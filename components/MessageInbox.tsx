@@ -19,8 +19,9 @@ interface MessageInboxProps {
 
 const CHAT_BLUE = '#6366f1';      // Team-Chat – durchgängig blau (Listen-Icon)
 const MELDER_ORANGE = '#F97316';  // Melder-Nachricht – orange (Listen-Icon)
-// Signalfarbe für den Glocken-Knopf: Rot (Nutzer-Wunsch „rot ist besser"). Teilt sich den
-// Farbton mit Überfällig – bewusst so gewählt; die Glocke ist durch Form/Position eindeutig.
+// Roter Akzent für die Glocke + Zähler (Nutzer-Wunsch „rot"). Der Knopf selbst ist hell und in
+// derselben Formensprache wie die übrigen Filter-Bedienelemente (var(--bg-tertiary), feiner Rand,
+// radius 9px); Rot dient NUR als Signal-Akzent (Glocken-Icon + Zahl), nicht als Vollfläche.
 const BELL_COLOR = '#DC2626';
 
 /**
@@ -85,19 +86,23 @@ const MessageInbox: React.FC<MessageInboxProps> = ({ items, onOpenTicket }) => {
         type="button"
         onClick={() => setOpen((o) => !o)}
         title={`${notifications.length} neue Nachricht${notifications.length > 1 ? 'en' : ''}`}
+        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-active)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; }}
         style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          height: 36, padding: '0 14px', boxSizing: 'border-box',
-          fontSize: '0.85rem', fontWeight: 800, border: 'none', cursor: 'pointer',
-          borderRadius: 20, background: BELL_COLOR, color: '#fff',
+          display: 'inline-flex', alignItems: 'center', gap: 7,
+          height: 36, padding: '0 12px', boxSizing: 'border-box',
+          fontSize: '0.85rem', fontWeight: 500, cursor: 'pointer',
+          borderRadius: 9, border: '1px solid var(--border)',
+          background: 'var(--bg-tertiary)', color: 'var(--text-secondary)',
           whiteSpace: 'nowrap', userSelect: 'none', flexShrink: 0,
+          transition: 'border-color .15s ease, background-color .15s ease',
         }}
       >
-        <i className="ti ti-bell" style={{ fontSize: 16 }} aria-hidden="true" />
-        {notifications.length} neu
+        <i className="ti ti-bell" style={{ fontSize: 16, color: BELL_COLOR }} aria-hidden="true" />
+        <span><span style={{ color: BELL_COLOR, fontWeight: 700 }}>{notifications.length}</span> neu</span>
         <i
           className="ti ti-chevron-down"
-          style={{ fontSize: 14, opacity: 0.85, transition: 'transform .15s', transform: open ? 'rotate(180deg)' : 'none' }}
+          style={{ fontSize: 14, color: 'var(--text-muted)', transition: 'transform .15s', transform: open ? 'rotate(180deg)' : 'none' }}
           aria-hidden="true"
         />
       </button>

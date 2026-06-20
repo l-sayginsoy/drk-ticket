@@ -58,6 +58,10 @@ Serienaufträge (Routinen) · Brevo-E-Mails · Stale-Erinnerungen · **Interner 
   Admin-Banner „… wartet auf Bearbeiter-Zuweisung" zählte über `is_reopened` auch wiedereröffnete, aber
   **bereits zugewiesene** Tickets (Phantom „wo?"). `newMeldungenCount` (`App.tsx`) zählt jetzt nur noch
   **unzugewiesene** (`unassigned && (Offen || is_reopened)`). Verifiziert: Banner als Admin verschwunden.
+- **Glocken-Optik (Nutzer-Wunsch):** vollflächig roter Knopf war zu laut neben den dezenten Filtern.
+  Jetzt **heller Knopf in derselben Formensprache** wie `.custom-select` (`var(--bg-tertiary)`, feiner
+  Rand, radius 9px); **Rot (`#DC2626`/`BELL_COLOR`) nur noch als Akzent** (Glocken-Icon + Zahl). NICHT
+  wieder vollflächig rot machen.
 - **Verifikation:** `tsc` + Build grün; Vorschau (als Admin) rendert sauber, Badge = reine Anzahl,
   Glocke korrekt ausgeblendet (kein Ungelesenes für Admin). Live-Demo der Glocke heute nicht möglich
   (Firestore-Tageslimit erneut erschöpft + Admin ohne Ungelesenes); zeigt sich als Torsten.
