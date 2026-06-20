@@ -269,7 +269,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     border: none;
                     outline: none;
                     box-shadow: none;
-                    padding: 4px;
+                    padding: 0.4rem;
                     cursor: pointer;
                     color: var(--text-muted);
                     opacity: 0.6;
@@ -709,7 +709,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         }}
                     />
                     {!isCollapsed && <span>{brevoMailOk ? 'E-Mail aktiv' : '⚠ E-Mail inaktiv'}</span>}
-                    {!isCollapsed && <i className="ti ti-external-link" aria-hidden="true" style={{ marginLeft: 'auto', fontSize: 13, opacity: 0.55 }} />}
+                    {!isCollapsed && <i className="ti ti-external-link" aria-hidden="true" style={{ marginLeft: 'auto', fontSize: 15, opacity: 0.55, paddingRight: '0.4rem' }} />}
                 </div>
             ) : null}
             <div className="sidebar-footer">
