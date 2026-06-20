@@ -1,6 +1,9 @@
 # Täglich um 07:00 Uhr: Test-E-Mail über Brevo senden
 # Verhindert, dass der Brevo-Account durch Inaktivität pausiert wird.
-# Secrets benötigt: VITE_BREVO_API_KEY, VITE_BREVO_SENDER_EMAIL, BREVO_ADMIN_EMAIL
+# Secrets benötigt: VITE_BREVO_API_KEY (Pflicht), BREVO_ADMIN_EMAIL (optional, sonst geht die
+# Mail an den Absender selbst). Der Absender ist fest auf die in Brevo VERIFIZIERTE Adresse
+# gesetzt (gleiche wie functions/sendEmails.js) — eine nicht-verifizierte Adresse lehnt Brevo
+# mit "Invalid Request" ab.
 
 name: Brevo Keep-Alive
 
@@ -18,11 +21,12 @@ jobs:
       - name: Brevo Keep-Alive Test-Mail senden
         env:
           BREVO_API_KEY: ${{ secrets.VITE_BREVO_API_KEY }}
-          SENDER_EMAIL: ${{ secrets.VITE_BREVO_SENDER_EMAIL }}
           ADMIN_EMAIL: ${{ secrets.BREVO_ADMIN_EMAIL }}
         run: |
-          SENDER="${SENDER_EMAIL:-noreply@drk-ticket.de}"
-          RECIPIENT="${ADMIN_EMAIL:-$SENDER_EMAIL}"
+          # Fester, in Brevo verifizierter Absender (identisch zu functions/sendEmails.js).
+          SENDER="drk.vorderpfalz.serviceportal@gmail.com"
+          # Empfänger: Admin-Adresse falls hinterlegt, sonst an den Absender selbst (nie leer).
+          RECIPIENT="${ADMIN_EMAIL:-$SENDER}"
 
           RESPONSE=$(curl -s -o /tmp/brevo_response.txt -w "%{http_code}" \
             --request POST \
