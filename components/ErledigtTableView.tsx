@@ -181,6 +181,28 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({
                   border-radius: 8px;
                   margin-top: 0;
                   overflow-x: auto;
+                  /* Dünner, auto-ausblendender Scrollbalken (überschreibt globales display:none) */
+                  scrollbar-width: thin;
+                  scrollbar-color: transparent transparent;
+                  transition: scrollbar-color 0.3s;
+                }
+                .table-view-container:hover {
+                  scrollbar-color: rgba(0,0,0,0.18) transparent;
+                }
+                .table-view-container::-webkit-scrollbar {
+                  display: block;
+                  height: 5px;
+                }
+                .table-view-container::-webkit-scrollbar-track {
+                  background: transparent;
+                }
+                .table-view-container::-webkit-scrollbar-thumb {
+                  background: transparent;
+                  border-radius: 10px;
+                  transition: background 0.3s;
+                }
+                .table-view-container:hover::-webkit-scrollbar-thumb {
+                  background: rgba(0,0,0,0.18);
                 }
                 .ticket-table { width: 100%; border-collapse: collapse; text-align: left; }
                 .ticket-table th, .ticket-table td { padding: 1rem 1rem; border-bottom: 1px solid var(--border); vertical-align: middle; white-space: nowrap; }
