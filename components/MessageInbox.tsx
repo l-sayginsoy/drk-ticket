@@ -19,9 +19,9 @@ interface MessageInboxProps {
 
 const CHAT_BLUE = '#6366f1';      // Team-Chat – durchgängig blau (Listen-Icon)
 const MELDER_ORANGE = '#F97316';  // Melder-Nachricht – orange (Listen-Icon)
-// Eigene Signalfarbe für den Glocken-Knopf (orangerot): bewusst getrennt von Chat-Blau,
-// Melder-Orange und dem Überfällig-Rot, damit die Glocke eine eigene Bedeutung hat.
-const BELL_COLOR = '#F4511E';
+// Signalfarbe für den Glocken-Knopf: Rot (Nutzer-Wunsch „rot ist besser"). Teilt sich den
+// Farbton mit Überfällig – bewusst so gewählt; die Glocke ist durch Form/Position eindeutig.
+const BELL_COLOR = '#DC2626';
 
 /**
  * Glocke mit aufklappbarer Liste aller Tickets mit neuen Nachrichten (Chat und/oder
