@@ -1,6 +1,6 @@
 # DRK Haustechnik Service — Systemdokumentation
 
-> Letzte Aktualisierung: Juni 2026  
+> Letzte Aktualisierung: 21. Juni 2026  
 > Diese Datei wird bei jeder Änderung am System gepflegt und erweitert.
 
 ---
@@ -786,6 +786,8 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 
 | Datum | Änderung |
 |---|---|
+| 21.06.2026 | **Scroll-Haken in der Abgeschlossen-Ansicht behoben** (`components/ErledigtTableView.tsx`, `index.css`, `App.tsx`): Ein vorangegangener Versuch, der Tabelle einen eigenen vertikalen Scrollbereich zu geben (`overflow:auto` + `max-height: calc(100vh - 13rem)` + `position:sticky` auf `th`), erzeugte zwei verschachtelte Scroller (Tabellen-Container innerhalb des scrollenden `main`). Das führte zu typischem *scroll chaining*: beim Erreichen der Containerkante stockte der Scroll kurz, bevor der äußere Bereich übernahm — das spürte sich wie „hängt" an. Gelöst durch Zurücknahme: die Tabelle hat **keinen eigenen vertikalen Scroll** mehr (`overflow-x: auto` für schmale Fenster bleibt als Notfall-Schutz), der `sticky`-Kopf ist entfernt. **Vertikal scrollt ausschließlich `main`** (ein Scrollbereich, flüssig). Gleichzeitig verbessert: der Auto-Hide-Balken auf `main` ist jetzt **9px**, kräftiger (`rgba(0,0,0,0.4)`), abgerundet (`border-radius:10px`, `border:2px solid transparent` für optische Schmalheit), Dark-Mode-unterstützt, und bleibt nach dem Scrollen **1,2 s** statt 0,9 s sichtbar. Firefox-Unterstützung via `scrollbar-color`. |
+| 21.06.2026 | **Abgeschlossen-Tabelle: Auto-Hide-Scrollbalken** (`components/ErledigtTableView.tsx`): Vorangegangener Versuch scheiterte an der globalen `display:none`-Regel (alle Balken ausgeblendet) und der falsch gewählten Achse (nur `overflow-x`, nie sichtbar auf breitem Monitor). Endgültige Lösung: kein eigener Container-Scroll — der verbesserte `main`-Balken erscheint beim Scrollen und bleibt kurz sichtbar, danach verschwindet er. Gilt für alle Ansichten gleichzeitig. |
 | 20.06.2026 | **Eigene Menü-Sektion „SERIEN"** (`components/Sidebar.tsx`): Serienaufträge + Serien-Nachweis aus „Übersicht" herausgelöst in einen eigenen Abschnitt „SERIEN". Trennt geplante/wiederkehrende Arbeit von den reaktiven Ad-hoc-Ticket-Ansichten (Dashboard/Liste/Zurückgestellt/Abgeschlossen). Nur Gruppierung (`NavSection` um `'serien'` erweitert, `SECTION_HEADING.serien='Serien'`, die zwei Items auf `section:'serien'`); keine Funktions-/Routing-Änderung. |
 | 20.06.2026 | **Menü-Icons korrigiert** (`components/Sidebar.tsx`): „Neues Ticket" → `ti-clipboard-plus` (Klemmbrett + Plus = neuer **Auftrag**; ein „Ticket" ist hier ein Wartungsauftrag, kein Eintritts-/Bon-Ticket — das zwischenzeitliche `ti-ticket` als Eintrittskarte war falsch). „Abgeschlossen" → `ti-circle-check` (Haken im Kreis statt Uhr, die eher „Verlauf/wartend" suggerierte). Ungenutztes `TicketPlusIcon` entfernt. |
 | 20.06.2026 | **Sidebar-Fußzeile: drei Icons bündig & gleich groß** (`components/Sidebar.tsx`): Die drei Icons unten (Aktualisieren 🔄, E-Mail-Link ↗, Theme-Mond 🌙) standen unterschiedlich (E-Mail-Link 13px statt 15px und ~6px weiter rechts). Jetzt alle **15px** (Mond-Größe) und an derselben rechten Kante ausgerichtet: Refresh-Button-Padding `4px→0.4rem` (wie `.theme-toggle`), E-Mail-Link-Icon `fontSize 13→15` + `paddingRight:0.4rem`. Per DOM-Messung bündig (~205px) und gleich hoch. |
