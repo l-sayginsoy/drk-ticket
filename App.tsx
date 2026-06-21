@@ -2903,12 +2903,23 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       const iso = `${parts[2].length === 2 ? '20' + parts[2] : parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
       if (iso < ROUTINE_WARN_START) return false;
       // Im Serienaufträge-Board abgehakt? Dann NICHT „vergessen". Der Haken im Board
-      // schreibt einen routineDayCompletion-Eintrag (App.tsx ~Z.2082), ändert aber den
-      // Ticket-Status nicht. Hier den abgehakten Auftrag aus dem Warnblock ausblenden:
-      // ein Erledigt-Eintrag für denselben Zeitplan am Fälligkeitstag (oder später,
-      // = verspätet abgehakt) zählt als erledigt.
+      // schreibt einen routineDayCompletion-Eintrag am Tag des Abhakens (App.tsx
+      // ~Z.2217: localISODate(new Date())), ändert aber den Ticket-Status nicht.
+      //
+      // WICHTIG: Verglichen wird gegen den PLANTAG des Tickets (entryDate = der Tag, für
+      // den die Routine erzeugt wurde), NICHT gegen das `dueDate`. Grund: Routine-Tickets
+      // bekommen ihr `dueDate` per SLA-Regel ab Erstelltag (App.tsx ~Z.2700) — meist 1 Tag
+      // SPÄTER als der Plantag. Würde man gegen `dueDate` prüfen, wäre ein am Plantag
+      // (z. B. Fr 19.06) gesetzter Haken `19.06 >= dueDate(20.06)` = false → der erledigte
+      // Auftrag würde fälschlich als „vergessen" gezählt (Tageswechsel-Bug). Der Abgleich
+      // gegen entryDate (oder später = verspätet abgehakt) deckt den Haken korrekt ab und
+      // blendet zugleich keine fremde Vorwochen-Erledigung ein (date < entryDate zählt nicht).
+      const ep = (t.entryDate || '').split('.');
+      const entryIso = ep.length === 3
+        ? `${ep[2].length === 2 ? '20' + ep[2] : ep[2]}-${ep[1].padStart(2,'0')}-${ep[0].padStart(2,'0')}`
+        : iso; // Fallback: kein/kaputtes entryDate → wie bisher gegen dueDate
       if (t.routineScheduleId && completions.some(
-        c => c.scheduleId === t.routineScheduleId && c.date >= iso
+        c => c.scheduleId === t.routineScheduleId && c.date >= entryIso
       )) return false;
       return true;
     });
