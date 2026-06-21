@@ -35,6 +35,34 @@ Serienaufträge (Routinen) · Brevo-E-Mails · Stale-Erinnerungen · **Interner 
 
 ## Zuletzt abgeschlossen
 
+### Session 21.06.2026 – „19 vergessene Serienaufträge" (Fehlalarm) + Scroll-Haken (committed & deployed)
+- **KRITISCH / Nutzer-Panik – falsche „19 Serienaufträge wurden vergessen"-Meldung:** Nach dem Tageswechsel
+  auf den 21.06 zeigte der rote Warnblock 19 **abgehakte, also erledigte** Serienaufträge als „vergessen".
+  Der Nutzer vermutete, die SERIEN-Menü-Umgruppierung vom 20.06 habe es kaputtgemacht, und wollte einen
+  Tages-Revert. **Vor dem Anfassen geprüft (`git show --stat`): die Menü-/Icon-Commits fassten NUR
+  `Sidebar.tsx` an — die Routine-Logik (`App.tsx`) war unberührt.** Ein Revert hätte nichts gefixt, nur
+  die Scroll-/Menü-Arbeit weggerissen. **Echte Ursache (Stichtags-Effekt):** Routine-Tickets bekommen ihr
+  `dueDate` per **SLA-Regel ab Erstelltag** (`handleAddNewTicket` ~Z.2700) — meist **1 Tag nach dem
+  Plantag**. Der Board-Haken speichert das Erledigt-Datum auf den **Tag des Abhakens** (Plantag,
+  `handleRoutineDayComplete` ~Z.2217 `localISODate(new Date())`). `missedRoutinesSinceStart` verglich aber
+  `completion.date >= dueDate` → ein am Plantag (Fr 19.06) gesetzter Haken fiel gegen `dueDate` 20.06 als
+  `19.06 >= 20.06 = false` durch. Auffällig erst, als am 21.06 ein Schwung 20.06-Tickets gleichzeitig
+  überfällig kippte. **Fix (`App.tsx` `missedRoutinesSinceStart`):** Abgleich jetzt gegen den **Plantag
+  `entryDate`** des Tickets (`c.date >= entryIso`) statt gegen `dueDate`. **Verifiziert via HMR auf den
+  geladenen Live-Daten (keine neuen Reads): Warnblock 19 → 0**, kein Sidebar-Badge mehr.
+  > **NICHT wieder gegen `dueDate` prüfen** — das SLA-`dueDate` weicht systematisch vom Plantag ab.
+  > Echt vergessene Aufträge (ohne Board-Haken) erscheinen weiterhin korrekt.
+- **Scroll-Haken in „Abgeschlossen" behoben** (`ErledigtTableView.tsx`, `index.css`, `App.tsx`): Ein erster
+  Versuch gab der Tabelle einen **eigenen** vertikalen Scrollbereich (`max-height`+`overflow:auto`+`sticky`-
+  Kopf) → **zwei verschachtelte Scroller** im scrollenden `main` → „stockt, hängt, dann weiter"
+  (*scroll chaining*). Zurückgenommen: nur **ein** Scrollbereich (die Seite/`main`). Der Auto-Hide-Balken
+  auf `main` ist jetzt deutlicher (9px, `rgba(0,0,0,0.4)`, abgerundet, Dark-Mode) und bleibt 1,2 s statt
+  0,9 s sichtbar, dann blendet er aus. Gilt für alle Ansichten.
+  > **NICHT wieder einbauen:** eigener vertikaler Scroll-Container in der Tabelle (`max-height`+`overflow`)
+  > samt `sticky`-Kopf — das war die Haken-Ursache.
+- **Versehentlich mitcommittet & korrigiert:** `git add -A` zog `.DS_Store` + das ganze `.claude/`-Verzeichnis
+  (inkl. eingebettetem Worktree-Repo) ins Repo. Wieder entfernt (`git rm --cached`) + in `.gitignore`.
+
 ### Session 20.06.2026 (2) – Neue-Nachrichten-Glocke statt verstreuter Signale (committed & deployed)
 - **Problem (Nutzer-Feedback):** Das Chat-/Melder-Signal war verstreut und verwirrend: zwei „X neu"-Pillen
   oben (Chat blau / Melder orange) **plus** ein Chat-Sprechblasen-Icon im orangen „Zurückgestellt"-Badge
