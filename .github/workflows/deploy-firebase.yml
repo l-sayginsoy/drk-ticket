@@ -23,11 +23,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v3
-        with:
-          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DRK_FACILITY }}
-
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
@@ -53,4 +48,18 @@ jobs:
           VITE_BREVO_SENDER_NAME: ${{ secrets.VITE_BREVO_SENDER_NAME }}
 
       - name: Deploy to Firebase Hosting
-        run: npx firebase-tools@13.35.1 deploy --only hosting --project drk-facility-dashboard --non-interactive
+        run: |
+          # Service-Account-Key direkt aus dem Secret in eine Datei schreiben und
+          # firebase-tools per Standard-Credentials (ADC) übergeben. Bewusst OHNE
+          # google-github-actions/auth (dessen frei laufende v3 hatte das Credential-
+          # Format geändert → firebase-tools "Failed to authenticate"). Dieses Muster
+          # ist stabil: ein echter SA-Key, den firebase-tools/google-auth-library versteht.
+          if [ -z "${FIREBASE_SA:-}" ]; then
+            echo "::error::GitHub Secret FIREBASE_SERVICE_ACCOUNT_DRK_FACILITY fehlt oder ist leer."
+            exit 1
+          fi
+          printf '%s' "$FIREBASE_SA" > "$RUNNER_TEMP/firebase-sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/firebase-sa.json"
+          npx firebase-tools@13.35.1 deploy --only hosting --project drk-facility-dashboard --non-interactive
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DRK_FACILITY }}
