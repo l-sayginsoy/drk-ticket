@@ -1796,83 +1796,16 @@ const App: React.FC = () => {
           });
       }
 
-      // 2. Handle Return (Availability OR Activation OR New User)
-      const returningTechnicians = users.filter(user => {
-          const prevUser = prevUsers.find(u => u.id === user.id);
-          const isAvailable =
-            (user.role === Role.Technician || user.role === Role.Housekeeping) &&
-            user.isActive &&
-            user.availability.status === AvailabilityStatus.Available;
-          
-          if (!prevUser) return isAvailable; // New available technician
-
-          const wasAvailable =
-            (prevUser.role === Role.Technician || prevUser.role === Role.Housekeeping) &&
-            prevUser.isActive &&
-            prevUser.availability.status === AvailabilityStatus.Available;
-          return !wasAvailable && isAvailable;
-      });
-
-      if (returningTechnicians.length > 0) {
-          console.log("RÜCKKEHR LOGIK: Gefundene Rückkehrer:", returningTechnicians.map(u => u.name));
-          setTickets(currentTickets => {
-              // Rückkehr-Logik zieht bewusst NUR offene Tickets (Teilmenge der erlaubten Status).
-              // canRedistribute zusätzlich als harte Absicherung gegen Abgeschlossen/Zurückgestellt.
-              const openTickets = currentTickets.filter(t => t.status === Status.Offen && canRedistribute(t));
-              let ticketsUpdated = false;
-              let updatedTickets = [...currentTickets];
-              let reassignedCount = 0;
-
-              // Helfer zur Lastberechnung
-              const getLoad = (techName: string, ticketList: Ticket[]) => 
-                  ticketList.filter(t => t.technician === techName && t.status !== Status.Abgeschlossen).length;
-
-              // Durchschnittliche Last berechnen
-              const activeTechs = users.filter(
-                u =>
-                  (u.role === Role.Technician || u.role === Role.Housekeeping) &&
-                  u.isActive &&
-                  u.availability.status === AvailabilityStatus.Available
-              );
-              const totalActiveTickets = updatedTickets.filter(t => t.status !== Status.Abgeschlossen && t.technician !== 'N/A').length;
-              const avgLoad = activeTechs.length > 0 ? totalActiveTickets / activeTechs.length : 0;
-
-              openTickets.forEach(ticket => {
-                  // Unzugewiesene Tickets werden NIE automatisch vergeben — nur manuelle Zuweisung erlaubt.
-                  if (!ticket.technician || ticket.technician === 'N/A') return;
-
-                  // Nur Tickets eines abwesenden Technikers können an den Rückkehrer übergehen.
-                  const isAssignedToAbsentee = !returningTechnicians.some(rt => rt.name === ticket.technician) &&
-                      users.find(u => u.name === ticket.technician)?.availability?.status !== AvailabilityStatus.Available;
-                  if (!isAssignedToAbsentee) return;
-
-                  // Rückkehrer mit geringster Last als Ziel wählen, aber nur wenn er unter dem Durchschnitt liegt.
-                  const eligibleReturnees = [...returningTechnicians].sort((a, b) => getLoad(a.name, updatedTickets) - getLoad(b.name, updatedTickets));
-                  if (eligibleReturnees.length === 0) return;
-                  const candidate = eligibleReturnees[0];
-                  if (getLoad(candidate.name, updatedTickets) >= avgLoad) return;
-
-                  const ticketIndex = updatedTickets.findIndex(t => t.id === ticket.id);
-                  if (ticketIndex !== -1) {
-                      updatedTickets[ticketIndex] = {
-                          ...updatedTickets[ticketIndex],
-                          technician: candidate.name,
-                          notes: [...(updatedTickets[ticketIndex].notes || []), `AUTO-UMVERTEILUNG: Von ${ticket.technician} an ${candidate.name} (Rückkehr-Lastverteilung).`]
-                      };
-                      ticketsUpdated = true;
-                      reassignedCount++;
-                  }
-              });
-
-              if (ticketsUpdated) {
-                  console.log(`RÜCKKEHR LOGIK: ${reassignedCount} Tickets neu zugewiesen.`);
-                  alert(`Willkommen zurück! ${returningTechnicians.map((u) => displayNameShort(u.name)).join(', ')} ist wieder verfügbar. ${reassignedCount} offene Tickets wurden zur Lastverteilung automatisch zugewiesen.`);
-                  updatedTickets.forEach((t, i) => { if (t !== currentTickets[i]) saveTicketToFirebase(t); });
-                  return updatedTickets;
-              }
-              return currentTickets;
-          });
-      }
+      // 2. Rückkehr (Verfügbarkeit/Aktivierung): BEWUSST KEINE automatische Umverteilung mehr.
+      // Nutzer-Entscheidung (21.06.2026): Wenn ein abwesender Mitarbeiter zurückkommt, werden ihm
+      // die Aufträge MANUELL zugewiesen — das System zieht NICHT mehr automatisch offene Tickets
+      // abwesender Kollegen zur Lastverteilung an den Rückkehrer. Die frühere „Rückkehr-Lastverteilung"
+      // wurde hier entfernt. NICHT wieder einbauen.
+      //
+      // Weiterhin aktiv (separat, gewollt):
+      //  • Abwesenheits-Umverteilung oben (Schritt 1) — aktive Tickets gehen bei Abwesenheit an Kollegen.
+      //  • „Wartet auf Rückkehr" (parkedForReturnOf) — bewusst einem Abwesenden zugewiesene Tickets
+      //    kommen bei seiner Rückkehr automatisch zurück (eigener Effekt unten).
 
       prevUsersRef.current = users;
   }, [users, appSettings.routingRules]);
