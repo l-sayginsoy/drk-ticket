@@ -35,6 +35,23 @@ Serienaufträge (Routinen) · Brevo-E-Mails · Stale-Erinnerungen · **Interner 
 
 ## Zuletzt abgeschlossen
 
+### Session 21.06.2026 (2) – Rückkehr verteilt nicht mehr automatisch um (committed & deployed)
+- **Nutzer-Wunsch:** Kommt ein abwesender Mitarbeiter zurück, sollen ihm Aufträge **manuell** zugewiesen
+  werden — **keine** automatische Rückkehr-Lastverteilung mehr. Vorher zog das System bei Rückkehr offene
+  Tickets noch abwesender Kollegen automatisch an den Rückkehrer (Lastausgleich).
+- **Geändert (`App.tsx` ~Z.1799):** Den Rückkehr-Umverteilungs-Block (`returningTechnicians` + Lastausgleich)
+  **entfernt**. Nur noch ein erklärender Kommentar + `prevUsersRef.current = users`. Vor der Änderung mit
+  dem Nutzer per Rückfrage abgeklärt (2 Punkte bestätigt, siehe unten). **NICHT wieder einbauen.**
+- **Bewusst UNVERÄNDERT geblieben (vom Nutzer bestätigt):**
+  - **Abwesenheits-Umverteilung** (Schritt 1, ~Z.1715): aktive Tickets (Hoch/Überfällig/fällig vor
+    Rückkehr) gehen bei Abwesenheit weiter automatisch an verfügbare Kollegen.
+  - **Schutz zurückgestellter/abgeschlossener Tickets** (`canRedistribute`): selbst zurückgestellte
+    Aufträge bleiben beim Mitarbeiter — werden bei Abwesenheit nie verteilt, bleiben bei Rückkehr geparkt.
+  - **„Wartet auf Rückkehr"** (`parkedForReturnOf`, eigener Effekt ~Z.1880): bewusst einem Abwesenden
+    zugewiesene Tickets kommen bei seiner Rückkehr automatisch zurück (gewollt, bleibt).
+- **Verifikation:** `tsc --noEmit` grün. Bewusst **kein** Live-Test (Umverteilung würde echte Tickets
+  mutieren — harte Projektregel).
+
 ### Session 21.06.2026 – „19 vergessene Serienaufträge" (Fehlalarm) + Scroll-Haken (committed & deployed)
 - **KRITISCH / Nutzer-Panik – falsche „19 Serienaufträge wurden vergessen"-Meldung:** Nach dem Tageswechsel
   auf den 21.06 zeigte der rote Warnblock 19 **abgehakte, also erledigte** Serienaufträge als „vergessen".
@@ -277,16 +294,24 @@ Der Nutzer will **keine E-Mail-Flut**. An den **Melder** gehen NUR diese drei au
 > `adminNotificationEmail`), Stale-Erinnerung an Techniker, Serienauftrag-Erledigt-Mail (`notifyEmail`).
 
 ## ⚠️ Harte Regel: Automatische Umverteilung (Abwesenheit/Rückkehr)
-Bei Abwesend-/Rückkehr-/Aktiv-Schalten eines Mitarbeiters werden Tickets automatisch umverteilt.
 **Nur `Offen`, `In Arbeit`, `Überfällig` dürfen jemals automatisch umverteilt werden.**
 **`Abgeschlossen` und `Zurückgestellt` werden NIEMALS automatisch angefasst** – die wurden bewusst
 manuell verteilt bzw. abgeschlossen und bleiben exakt so, bis ein Mensch sie wieder aufmacht (oder der
 Melder sie aufschließt). Durchgesetzt über die **einzige** zentrale Funktion `canRedistribute(ticket)`
-(`App.tsx` ~Z. 547). Sie wird in allen 4 Umverteilungs-Wegen benutzt (Abwesenheits-Effekt,
-Rückkehr-Effekt, `handleUserUpdated`, `handleManualRedistribution`).
+(`App.tsx` ~Z. 547). Sie wird in allen Umverteilungs-Wegen benutzt.
 > **Diese Regel nie aufweichen.** Keine neue Umverteilungs-Logik ohne `canRedistribute()`-Filter.
-> Offen: Die *Regeln innerhalb* der erlaubten Status (z.B. „nur kritische", Rückkehr zieht offene
-> Tickets anderer Abwesender) sollen laut Nutzer noch geprüft/feinjustiert werden.
+
+**Was wann automatisch passiert (Stand 21.06.2026):**
+- **Abwesend-Schalten** (`App.tsx` ~Z.1715): aktive Tickets (Hoch/Überfällig/fällig vor Rückkehr) des
+  Abwesenden gehen automatisch an verfügbare Kollegen. **Bleibt so.**
+- **Rückkehr/Verfügbar-Schalten:** **KEINE automatische Umverteilung mehr** (Nutzer-Entscheidung
+  21.06.2026). Der Rückkehrer bekommt Aufträge **manuell** zugewiesen. Die frühere „Rückkehr-
+  Lastverteilung" wurde aus dem Effekt (~Z.1799) entfernt. **NICHT wieder einbauen.**
+- **„Wartet auf Rückkehr"** (`parkedForReturnOf`, eigener Effekt ~Z.1880): bewusst einem Abwesenden
+  zugewiesene Tickets kommen bei seiner Rückkehr automatisch zurück. Gewollt, **bleibt** — fasst NUR
+  Tickets mit `parkedForReturnOf`-Marker an, nie manuell zurückgestellte.
+- **Selbst zurückgestellte Aufträge** bleiben beim Mitarbeiter (durch `canRedistribute` geschützt),
+  werden bei Abwesenheit nie verteilt und bleiben bei Rückkehr geparkt.
 
 ## ⚠️ Harte Regel: Login & Passwörter (fest angelegte Konten)
 Login prüft **Klartext-Passwörter** im `users`-Doc (`facility-management-users`); Name case-insensitive,
