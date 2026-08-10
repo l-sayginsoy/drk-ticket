@@ -43,7 +43,8 @@ export default function RoutineEditorModal({ schedule, isNew, users, onSave, onD
 
   const toggleWeekday = (d: WeekdayKey) => {
     const cur: WeekdayKey[] = Array.isArray(rec.weekdays) ? rec.weekdays : [];
-    patch({ recurrence: { ...rec, type: 'weekdays', weekdays: cur.includes(d) ? cur.filter(x => x !== d) : [...cur, d] } });
+    const next = cur.includes(d) ? cur.filter(x => x !== d) : [...cur, d];
+    patch({ recurrence: { ...rec, type: 'weekdays', weekdays: WEEKDAYS.map(w => w.key).filter(k => next.includes(k)) } });
   };
 
   const setRecType = (type: string) => {

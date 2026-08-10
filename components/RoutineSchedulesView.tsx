@@ -175,7 +175,8 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
     }
     if (rec.type === 'weekdays') {
       const n = Math.max(1, Number(rec.intervalWeeks || 1));
-      const days: WeekdayKey[] = Array.isArray(rec.weekdays) ? rec.weekdays : [];
+      const WEEKDAY_ORDER: WeekdayKey[] = ['mo', 'di', 'mi', 'do', 'fr', 'sa', 'so'];
+      const days: WeekdayKey[] = (Array.isArray(rec.weekdays) ? rec.weekdays : []).slice().sort((a, b) => WEEKDAY_ORDER.indexOf(a) - WEEKDAY_ORDER.indexOf(b));
       return (
         <>
           <div className="routine-interval-label">
