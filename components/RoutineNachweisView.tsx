@@ -503,7 +503,7 @@ export default function RoutineNachweisView({
               const subtasks = sch.subtasks || [];
               const st = currentYmd ? routineDayStatus(sch, currentYmd, completions) : null;
               const assignee = currentYmd ? getRoutineAssigneeDisplayName(sch, pool, currentYmd) : '—';
-              const canComplete = userRole === Role.Admin || assignee === userName;
+              const canComplete = userRole === Role.Admin || userRole === sch.targetRole;
               const expanded = !!openRows[sch.id];
               const wholeRec = currentYmd ? (completions || []).find((c) => c.scheduleId === sch.id && c.date === currentYmd && !c.subtaskId) : undefined;
 
@@ -591,7 +591,14 @@ export default function RoutineNachweisView({
                                       else if (s2.anyDone) { bg = ROUTINE_AMBER.accent; fg = '#fff'; }
                                       else if (past && counts) { bg = '#E24B4A'; fg = '#fff'; }
                                       const dn = Number(d.split('-')[2]);
-                                      return <span key={d} title={fmtYmd(d) + ': ' + (s2.complete ? 'erledigt' : s2.anyDone ? (s2.done + '/' + s2.total) : (past && counts ? 'verpasst' : 'geplant'))} style={{ width: 21, height: 21, borderRadius: 4, background: bg, color: fg, fontSize: 10, fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: bg === 'var(--bg-tertiary)' ? '1px solid var(--border)' : 'none' }}>{dn}</span>;
+                                      const dayRec = s2.complete
+                                        ? ((completions || []).find((c) => c.scheduleId === sch.id && c.date === d && !c.subtaskId) || (completions || []).find((c) => c.scheduleId === sch.id && c.date === d))
+                                        : undefined;
+                                      const statusLabel = s2.complete
+                                        ? ('erledigt' + (dayRec?.completedBy ? ' · ' + dayRec.completedBy : ''))
+                                        : s2.anyDone ? (s2.done + '/' + s2.total + ' erledigt')
+                                        : (past && counts ? 'verpasst' : 'geplant');
+                                      return <span key={d} title={fmtYmd(d) + ': ' + statusLabel} style={{ width: 21, height: 21, borderRadius: 4, background: bg, color: fg, fontSize: 10, fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: bg === 'var(--bg-tertiary)' ? '1px solid var(--border)' : 'none' }}>{dn}</span>;
                                     })}
                                   </div>
                                 )}

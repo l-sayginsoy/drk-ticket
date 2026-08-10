@@ -555,11 +555,11 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                         );
                         const canComplete =
                           !completed &&
-                          (userRole === Role.Admin || assignee === userName);
+                          (userRole === Role.Admin || userRole === s.targetRole);
                         const canUncomplete =
                           completed &&
                           (userRole === Role.Admin ||
-                            assignee === userName ||
+                            userRole === s.targetRole ||
                             completion?.completedBy === userName);
 
                         const nameUnder =
@@ -629,7 +629,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
         if (!sched) return null;
         const subs = sched.subtasks || [];
         const assignee = getRoutineAssigneeDisplayName(sched, getRoutinePool(sched, users), todayYmd);
-        const canAct = userRole === Role.Admin || assignee === userName;
+        const canAct = userRole === Role.Admin || userRole === sched.targetRole;
         const status = routineDayStatus(sched, todayYmd, completions);
         return (
           <div onClick={() => setSubPop(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 9999, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '60px 16px', overflow: 'auto' }}>
