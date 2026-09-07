@@ -257,7 +257,7 @@ export function getRoutinePool(schedule: RoutineSchedule, users: User[]): string
 export function getRoutineAssigneeDisplayName(
   schedule: RoutineSchedule,
   pool: string[],
-  todayYmd: string
+  _todayYmd: string
 ): string {
   if (schedule.assignment?.type === 'fixed') {
     const name = schedule.assignment.userName;
@@ -265,10 +265,6 @@ export function getRoutineAssigneeDisplayName(
   }
   if (pool.length === 0) return '—';
   const c = Math.max(0, Number(schedule.rotationCursor || 0));
-  if (schedule.assignment?.type === 'rotate' && schedule.lastGenerated === todayYmd) {
-    const prev = (c - 1 + pool.length) % pool.length;
-    return pool[prev];
-  }
   return pool[c % pool.length];
 }
 
