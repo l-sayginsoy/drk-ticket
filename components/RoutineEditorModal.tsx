@@ -168,8 +168,11 @@ export default function RoutineEditorModal({ schedule, isNew, users, onSave, onD
                   type="button"
                   onClick={() => {
                     if (t === 'fixed') {
-                      const first = eligible[0] || '';
-                      patch({ assignment: { type: 'fixed', userName: first }, assignees: first ? [first] : [] });
+                      // Vorauswahl: zuletzt in der Rotation genutzter Name (Cursor), sonst erster
+                      const pool = draft.assignees || [];
+                      const cursor = draft.rotationCursor ?? 0;
+                      const preselect = pool[cursor] || eligible[0] || '';
+                      patch({ assignment: { type: 'fixed', userName: preselect }, assignees: preselect ? [preselect] : [] });
                     } else {
                       patch({ assignment: { type: 'rotate' }, rotationCursor: 0 });
                     }
