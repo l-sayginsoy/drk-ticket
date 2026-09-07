@@ -25,6 +25,7 @@ const CalendarIcon = ({ size = 24 }: { size?: number }) => (
 
 const LOCAL_STORAGE_KEY = 'facility-management-tickets';
 const DRAFT_STORAGE_KEY = 'facility-management-ticket-draft';
+const REPORTER_PROFILE_KEY = 'facility-management-reporter-profile';
 
 type PortalView = 'menu' | 'erfassen' | 'pruefen' | 'status-result' | 'success' | 'techniker-login' | 'admin-login' | 'login-selection';
 
@@ -110,15 +111,32 @@ const NewTicketForm: React.FC<{
                 return draft;
             }
         } catch (e) { console.error("Could not load draft", e); }
-        
+
+        // Kein Draft vorhanden — gespeichertes Profil (Name + E-Mail) vorauffüllen
+        let reporter = '';
+        let reporter_email = '';
+        try {
+            const profile = localStorage.getItem(REPORTER_PROFILE_KEY);
+            if (profile) {
+                const p = JSON.parse(profile);
+                reporter = p.reporter || '';
+                reporter_email = p.reporter_email || '';
+            }
+        } catch (e) { /* ignorieren */ }
+
         return {
-            reporter: '', reporter_email: '', area: '', location: '', title: '',
+            reporter, reporter_email, area: '', location: '', title: '',
             description: '', wunschTermin: '', categoryId: '',
             photos: [] as string[]
         };
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [profilePrefilled] = useState(() => {
+        try {
+            return !!localStorage.getItem(REPORTER_PROFILE_KEY);
+        } catch (e) { return false; }
+    });
     const fileInputRef = useRef<HTMLInputElement>(null);
     const cameraInputRef = useRef<HTMLInputElement>(null);
     const dateInputRef = useRef<HTMLInputElement>(null);
@@ -191,6 +209,13 @@ const NewTicketForm: React.FC<{
 
         setNewlyCreatedTicketId(newTicketId);
         localStorage.removeItem(DRAFT_STORAGE_KEY);
+        // Profil für nächstes Mal merken
+        try {
+            localStorage.setItem(REPORTER_PROFILE_KEY, JSON.stringify({
+                reporter: formState.reporter.trim(),
+                reporter_email: formState.reporter_email.trim(),
+            }));
+        } catch (e) { /* ignorieren */ }
         setView('success');
     };
     
@@ -265,7 +290,17 @@ const NewTicketForm: React.FC<{
                      {errors.photos && <span className="error-text">{errors.photos}</span>}
                 </div>
                 <div className="form-group">
-                    <label>Gemeldet von*</label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.4rem' }}>
+                        <label style={{ margin: 0 }}>Gemeldet von*</label>
+                        {profilePrefilled && (
+                            <button type="button" onClick={() => {
+                                try { localStorage.removeItem(REPORTER_PROFILE_KEY); } catch (e) {}
+                                setFormState(p => ({ ...p, reporter: '', reporter_email: '' }));
+                            }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.8rem', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
+                                Nicht Sie?
+                            </button>
+                        )}
+                    </div>
                     <input type="text" placeholder="Vor- und Nachname" value={formState.reporter} onChange={e => setFormState(p => ({...p, reporter: e.target.value}))} />
                     {errors.reporter && <span className="error-text">{errors.reporter}</span>}
                 </div>
