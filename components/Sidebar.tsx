@@ -94,6 +94,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         // Admin — Serien
         { type: 'view', viewName: 'routines', icon: <i className="ti ti-repeat" aria-hidden />, label: 'Serienaufträge', requiredRoles: [Role.Admin], section: 'serien' },
         { type: 'view', viewName: 'routine-nachweis', icon: <CalendarIcon />, label: 'Serien‑Nachweis', requiredRoles: [Role.Admin], section: 'serien' },
+        { type: 'view', viewName: 'veranstaltungen', icon: <i className="ti ti-calendar-event" aria-hidden />, label: 'Veranstaltungen', requiredRoles: [Role.Admin], section: 'serien' },
         // Admin — Verwaltung
         { type: 'view', viewName: 'techniker', icon: <i className="ti ti-users" aria-hidden />, label: 'Team', requiredRoles: [Role.Admin], section: 'verwaltung' },
         { type: 'view', viewName: 'reports', icon: <BarChartIcon />, label: 'Reports', requiredRoles: [Role.Admin], section: 'verwaltung' },

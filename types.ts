@@ -188,8 +188,10 @@ export interface StaffMessage {
 export interface Ticket {
   id: string;
   ticketType: TicketType;
-  origin?: 'manual' | 'maintenance' | 'routine';
+  origin?: 'manual' | 'maintenance' | 'routine' | 'event';
   routineScheduleId?: string;
+  eventId?: string;         // Veranstaltung, der dieses Ticket gehört
+  eventTaskId?: string;     // Aufgaben-ID innerhalb der Veranstaltung
   title: string;
   area: string; // Corresponds to Location name
   location: string;
@@ -227,4 +229,26 @@ export interface Ticket {
   parkReminderNextDate?: string; // YYYY-MM-DD of next reminder
   parkedAt?: string; // YYYY-MM-DD when it was parked
   isNew?: boolean; // true until first viewed by staff
+}
+
+/** Eine einzelne Aufgabe innerhalb einer Veranstaltung. */
+export interface EventTask {
+  id: string;
+  label: string;        // z. B. "Boden wischen", "Getränke vorbereiten"
+  assignee: string;     // Personenname oder 'N/A'
+  description?: string;
+  dueDate?: string;     // YYYY-MM-DD; falls leer → Veranstaltungsdatum
+  ticketId?: string;    // gesetzt sobald das Ticket erzeugt wurde (Duplikat-Schutz)
+}
+
+/** Veranstaltung / Termin (einmalig, nicht periodisch). */
+export interface DrkEvent {
+  id: string;
+  title: string;        // z. B. "Gottesdienst", "Saalvermietung Müller"
+  date: string;         // YYYY-MM-DD
+  time?: string;        // "HH:MM"
+  location?: string;    // z. B. "Kleiner Saal"
+  description?: string;
+  tasks: EventTask[];
+  createdAt: string;    // ISO-Timestamp
 }

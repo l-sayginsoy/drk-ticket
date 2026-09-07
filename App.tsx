@@ -2,8 +2,8 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { 
-  Ticket, Status, Priority, Role, GroupableKey, User, Location, AppSettings, Asset, MaintenancePlan, AvailabilityStatus, RoutingRule, RoutineSchedule, RoutineDayCompletion, SLARule
+import {
+  Ticket, Status, Priority, Role, GroupableKey, User, Location, AppSettings, Asset, MaintenancePlan, AvailabilityStatus, RoutingRule, RoutineSchedule, RoutineDayCompletion, SLARule, DrkEvent, EventTask
 } from './types';
 import { MOCK_TICKETS, MOCK_USERS, MOCK_LOCATIONS, STATUSES, DEFAULT_APP_SETTINGS, MOCK_ASSETS, MOCK_MAINTENANCE_PLANS } from './constants';
 import { db, functions } from './firebase';
@@ -25,6 +25,7 @@ import TechnicianView from './components/TechnicianView';
 import SettingsView from './components/SettingsView';
 import RoutineSchedulesView from './components/RoutineSchedulesView';
 import RoutineNachweisView from './components/RoutineNachweisView';
+import EventsView from './components/EventsView';
 import CompleteOrderDialog from './components/CompleteOrderDialog';
 import ToastContainer, { type Toast } from './components/ToastContainer';
 import DashboardRoutineLinkBar from './components/DashboardRoutineLinkBar';
@@ -931,6 +932,7 @@ const App: React.FC = () => {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const dismissToast = (id: string) => setToasts(prev => prev.filter(t => t.id !== id));
   const addToast = (toast: Omit<Toast, 'id'>) => setToasts(prev => [...prev, { ...toast, id: `${Date.now()}-${Math.random()}` }]);
+  const [drkEvents, setDrkEvents] = useState<DrkEvent[]>([]);
   /** Sidebar-Status wie „Synchronisiert“ */
   const [brevoMailOk, setBrevoMailOk] = useState<boolean | null>(null);
   const [brevoMailLastChecked, setBrevoMailLastChecked] = useState<Date | null>(null);
@@ -1536,11 +1538,18 @@ const App: React.FC = () => {
     // (Der initiale Monats-Load der abgeschlossenen Tickets passiert jetzt am Ende von
     // fetchData — siehe finally-Block oben — damit der Einmal-Schalter vorher feststeht.)
 
+    // Veranstaltungen live laden
+    const unsubscribeEvents = onSnapshot(collection(db, 'events'), (snapshot) => {
+      const evs: DrkEvent[] = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as DrkEvent));
+      setDrkEvents(evs.sort((a, b) => a.date.localeCompare(b.date)));
+    });
+
     return () => {
       unsubscribeAppData();
       unsubscribeTickets();
       unsubscribeCompleted();
       unsubscribeRoutine();
+      unsubscribeEvents();
     };
   }, []);
 
@@ -2751,6 +2760,45 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     return newTicket.id;
   };
   
+  // ── Veranstaltungen ──────────────────────────────────────────────────────────
+
+  const handleSaveEvent = (event: DrkEvent) => {
+    const updatedTasks: EventTask[] = event.tasks.map(task => {
+      if (task.ticketId) return task; // Ticket bereits vorhanden → nicht nochmal erzeugen
+
+      if (!task.label.trim() || task.assignee === 'N/A') return task;
+
+      const dueDateDE = task.dueDate
+        ? task.dueDate.split('-').reverse().join('.')
+        : event.date.split('-').reverse().join('.');
+
+      const ticketId = handleAddNewTicket({
+        ticketType: 'preventive',
+        origin: 'event',
+        eventId: event.id,
+        eventTaskId: task.id,
+        title: `[${event.title}] ${task.label}`,
+        area: event.location || 'Veranstaltung',
+        location: event.location || '',
+        reporter: 'System',
+        reporter_email: '',
+        dueDate: dueDateDE,
+        technician: task.assignee,
+        description: task.description || '',
+        notes: [],
+      }, true);
+
+      return { ...task, ticketId };
+    });
+
+    const savedEvent: DrkEvent = { ...event, tasks: updatedTasks };
+    void setDoc(doc(db, 'events', savedEvent.id), JSON.parse(JSON.stringify(savedEvent)));
+  };
+
+  const handleDeleteEvent = (id: string) => {
+    void deleteDoc(doc(db, 'events', id));
+  };
+
   // FIX: Implement bulk action handlers to replace placeholder functions and resolve prop type errors.
   const handleBulkUpdate = (property: keyof Ticket, value: any) => {
     if (property === 'status' && value === Status.Abgeschlossen) {
@@ -3536,6 +3584,18 @@ const deleteTicketFromFirebase = (ticketId: string) => {
         }
         case 'techniker': return <TechnicianView tickets={listenBenchTickets} technicians={users.filter(u => (u.role === Role.Technician || u.role === Role.Housekeeping) && u.isActive)} onTechnicianSelect={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} onFilter={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} />;
         case 'settings': return <SettingsView users={users} setUsers={setUsers} locations={locations} setLocations={setLocations} assets={assets} setAssets={setAssets} maintenancePlans={maintenancePlans} setMaintenancePlans={setMaintenancePlans} appSettings={appSettings} setAppSettings={handleAppSettingsChange} onResendConfirmationMailsForEntryDate={handleResendConfirmationMailsForEntryDate} onSendTestEmail={handleSendTestEmail} />;
+        case 'veranstaltungen': return (
+          <EventsView
+            events={drkEvents}
+            tickets={tickets}
+            completedTickets={completedTickets}
+            userRole={currentUser.role}
+            users={users}
+            onSaveEvent={handleSaveEvent}
+            onDeleteEvent={handleDeleteEvent}
+            onSelectTicket={setSelectedTicket}
+          />
+        );
         case 'zurueckgestellt': return (
           <ZurückgestelltView
             tickets={[...tickets, ...routineTickets]}
