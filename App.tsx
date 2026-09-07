@@ -1568,7 +1568,7 @@ const App: React.FC = () => {
   const [filters, setFilters] = useState({ area: 'Alle', technician: 'Alle', priority: 'Alle', status: 'Alle', reporter: 'Alle', search: '' });
   const [groupBy, setGroupBy] = useState<GroupableKey | 'none'>('none');
   const [currentView, setCurrentView] = useState('dashboard');
-  const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setSidebarCollapsed] = useState(() => window.innerWidth < 768);
   const [theme, setTheme] = useState('light');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -3243,6 +3243,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     setGroupBy('none');
     setSelectedTicketIds([]);
     setCurrentView(view);
+    if (window.innerWidth < 768) setSidebarCollapsed(true);
   };
   
   const handleUserUpdated = (user: User) => {
@@ -3673,6 +3674,16 @@ const deleteTicketFromFirebase = (ticketId: string) => {
         missedRoutinesCount={missedRoutinesSinceStart.length}
       />
       <main>
+        {/* Hamburger-Menü auf Handy */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <button
+            className="mobile-menu-btn"
+            onClick={() => setSidebarCollapsed(false)}
+            aria-label="Menü öffnen"
+          >
+            <i className="ti ti-menu-2" aria-hidden />
+          </button>
+        </div>
         <Header filters={filters} setFilters={setFilters} currentView={currentView} />
         {currentUser?.role === Role.Admin && brevoAdminAlert && !brevoAlertSuppressed && (
           <div

@@ -168,6 +168,15 @@ const Sidebar: React.FC<SidebarProps> = ({
     );
 
     return (
+        <>
+        {/* Mobile: Backdrop zum Schließen der Sidebar */}
+        {!isCollapsed && (
+            <div
+                className="sidebar-mobile-overlay"
+                onClick={() => setCollapsed(true)}
+                style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 9997 }}
+            />
+        )}
         <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
             <style>{`
                 .sidebar {
@@ -186,6 +195,22 @@ const Sidebar: React.FC<SidebarProps> = ({
                     width: 70px;
                     padding: 0.75rem 0.5rem;
                 }
+                @media (max-width: 767px) {
+                    .sidebar {
+                        position: fixed; top: 0; left: 0; height: 100%; z-index: 9998;
+                        width: 260px; box-shadow: 4px 0 20px rgba(0,0,0,0.25);
+                        transform: translateX(0); transition: transform 0.25s ease;
+                    }
+                    .sidebar.collapsed {
+                        transform: translateX(-100%);
+                        width: 260px;
+                        pointer-events: none;
+                    }
+                    .sidebar-mobile-overlay {
+                        display: block !important;
+                    }
+                }
+                .sidebar-mobile-overlay { display: none; }
                 .sidebar-header {
                     display: flex;
                     justify-content: center;
@@ -728,6 +753,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </button>
             </div>
         </aside>
+        </>
     );
 };
 

@@ -290,6 +290,10 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 background: var(--bg-secondary); box-shadow: -5px 0 15px rgba(0,0,0,0.1);
                 z-index: 101; display: flex; flex-direction: column; animation: slideInRight 0.3s ease;
             }
+            @media (max-width: 767px) {
+                .detail-sidebar { width: 100% !important; left: 0; }
+                .detail-sidebar-overlay { display: none; }
+            }
             @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
             @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
             
