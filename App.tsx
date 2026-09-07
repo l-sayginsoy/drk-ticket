@@ -2453,7 +2453,14 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     const originalTicket = tickets.find((t) => t.id === updatedTicket.id)
       ?? routineTickets.find((t) => t.id === updatedTicket.id)
       ?? completedTickets.find((t) => t.id === updatedTicket.id);
-    if (!originalTicket) return;
+    if (!originalTicket) {
+      // Ticket nicht im Speicher (z. B. aus Vormonat, nur per resolveTicketById geladen).
+      // Wenn der Melder es wiedereröffnet hat, trotzdem korrekt umbuchen.
+      if (updatedTicket.is_reopened && updatedTicket.status !== Status.Abgeschlossen) {
+        commitTicketUpdate(updatedTicket, { ...updatedTicket, status: Status.Abgeschlossen });
+      }
+      return;
+    }
 
     const statusChanged = originalTicket.status !== updatedTicket.status;
     if (
