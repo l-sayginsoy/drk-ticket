@@ -1956,9 +1956,11 @@ const App: React.FC = () => {
         .map(u => u.name)
         .sort((a, b) => a.localeCompare(b, 'de'));
 
+      const scheduleAssignees: string[] = Array.isArray((schedule as any).assignees) ? (schedule as any).assignees : [];
       const pool =
-        Array.isArray((schedule as any).assignees) && (schedule as any).assignees.length > 0
-          ? eligibleUsers.filter(n => (schedule as any).assignees.includes(n))
+        scheduleAssignees.length > 0
+          // Reihenfolge aus schedule.assignees beibehalten (nicht alphabetisch umsortieren)
+          ? scheduleAssignees.filter(n => eligibleUsers.includes(n))
           : eligibleUsers;
 
       let assigned = 'N/A';

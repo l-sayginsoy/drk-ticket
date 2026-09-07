@@ -238,12 +238,16 @@ export function isRoutineDueOnCalendarDay(
 }
 
 export function getRoutinePool(schedule: RoutineSchedule, users: User[]): string[] {
-  const eligibleUsers = users
-    .filter((u) => u.isActive && u.role === schedule.targetRole)
-    .map((u) => u.name)
-    .sort((a, b) => a.localeCompare(b, 'de'));
+  const eligibleNames = new Set(
+    users.filter((u) => u.isActive && u.role === schedule.targetRole).map((u) => u.name)
+  );
   const assignees = Array.isArray(schedule.assignees) && schedule.assignees.length > 0 ? schedule.assignees : [];
-  return assignees.length > 0 ? eligibleUsers.filter((n) => assignees.includes(n)) : eligibleUsers;
+  if (assignees.length > 0) {
+    // Reihenfolge aus schedule.assignees beibehalten (vom Editor gesetzt), nur aktive filtern
+    return assignees.filter((n) => eligibleNames.has(n));
+  }
+  // Kein expliziter Pool → alle aktiven in der Rolle, alphabetisch
+  return [...eligibleNames].sort((a, b) => a.localeCompare(b, 'de'));
 }
 
 /**
