@@ -102,7 +102,7 @@ const escapeHtml = (s: string) =>
 type DrkBrevoMailPayload =
   | { kind: 'ticket_created'; ticketId: string }
   | { kind: 'staff_note'; ticketId: string; noteText: string }
-  | { kind: 'ticket_closed'; ticketId: string }
+  | { kind: 'ticket_closed'; ticketId: string; title: string }
   | {
       kind: 'ticket_in_progress';
       ticketId: string;
@@ -257,10 +257,14 @@ const buildDrkBrevoPlainText = (p: DrkBrevoMailPayload) => {
   if (p.kind === 'custom') {
     return p.bodyText;
   }
+  // ticket_closed
   return [
     'DRK Serviceportal',
     '',
-    `Ihre Meldung mit der Ticketnummer: ${p.ticketId} wurde erfolgreich abgeschlossen.`,
+    'Ihre Meldung wurde erfolgreich abgeschlossen.',
+    '',
+    `  Ticket-Nr.: ${p.ticketId}`,
+    `  Betreff:    ${(p as { kind: 'ticket_closed'; ticketId: string; title: string }).title}`,
     '',
     'Direktlink zu Ihrem Ticket:',
     `${DRK_TICKET_PORTAL_URL}/?ticket=${encodeURIComponent(p.ticketId)}`,
@@ -426,10 +430,18 @@ ${portalOpenButtonWrappedHtml(p.ticketId, '0')}`;
   if (p.kind === 'custom') {
     return drkEmailShellHtml(title, p.bodyHtml, '', '');
   }
+  // ticket_closed
+  const closedRows = [
+    ['Ticket-Nr.', p.ticketId],
+    ['Betreff', (p as { kind: 'ticket_closed'; ticketId: string; title: string }).title],
+  ].map(([label, value]) =>
+    `<tr><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#555;white-space:nowrap;padding-right:16px;">${escapeHtml(label)}</td><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:14px;color:#222;font-weight:600;">${escapeHtml(value)}</td></tr>`
+  ).join('');
   const inner = `
-<p style="margin:0;font-size:15px;line-height:1.55;color:#333;">Ihre Meldung mit der <strong>Ticketnummer: ${escapeHtml(p.ticketId)}</strong> wurde erfolgreich abgeschlossen.</p>
-<p style="margin:14px 0 0;font-size:14px;line-height:1.55;color:#444;">Zum Nachlesen oder bei Rückfragen nutzen Sie den Button – Ihr Ticket wird im Portal direkt geöffnet.</p>
-${portalOpenButtonWrappedHtml(p.ticketId, '18px 0 0')}`;
+<p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:#333;">Ihre Meldung wurde erfolgreich abgeschlossen.</p>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:20px;">${closedRows}</table>
+<p style="margin:0 0 20px;font-size:14px;line-height:1.55;color:#444;">Zum Nachlesen oder bei Rückfragen nutzen Sie den Button – Ihr Ticket wird im Portal direkt geöffnet.</p>
+${portalOpenButtonWrappedHtml(p.ticketId, '0')}`;
   return drkEmailShellHtml(title, inner, p.ticketId, '');
 };
 
@@ -2368,6 +2380,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
         sendDrkBrevoMail(reporterMailTo, `Ihre Meldung wurde abgeschlossen – Ticket ${ut.id}`, {
           kind: 'ticket_closed',
           ticketId: ut.id,
+          title: ut.title,
         });
       } else if ((ut.notes?.length || 0) > (originalTicket.notes?.length || 0)) {
         const latestNote = ut.notes![ut.notes!.length - 1];
