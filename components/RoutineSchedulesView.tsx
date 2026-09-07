@@ -235,9 +235,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
             margin-top: 1.5rem;
             overflow: hidden;
           }
-          .routine-table-wrap {
-            overflow-x: auto;
-          }
+          .routine-table-wrap { overflow-x: auto; }
           .routine-table {
             width: 100%;
             border-collapse: collapse;
@@ -245,110 +243,115 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
             table-layout: fixed;
           }
           .routine-th {
-            padding: 0.7rem 1rem;
+            padding: 0.6rem 0.85rem;
             border-bottom: 1px solid var(--border);
             color: var(--text-muted);
-            font-size: 0.875rem;
+            font-size: 0.8rem;
             font-weight: 500;
             background-color: var(--bg-primary);
           }
           .routine-td {
-            padding: 0.55rem 1rem;
+            padding: 0.45rem 0.85rem;
             border-bottom: 1px solid var(--border);
             vertical-align: middle;
             color: var(--text-secondary);
             font-size: 0.9rem;
           }
-          .routine-table tbody tr {
-            transition: background-color 0.2s ease;
-          }
-          .routine-table tbody tr:hover {
-            background-color: var(--bg-tertiary);
-          }
-          .routine-table tbody tr:last-child td {
-            border-bottom: none;
-          }
+          .routine-table tbody tr { transition: background-color 0.15s ease; }
+          .routine-table tbody tr:hover { background-color: var(--bg-tertiary); }
+          .routine-table tbody tr:last-child td { border-bottom: none; }
           .routine-table thead .routine-th:last-child,
-          .routine-table tbody td.routine-td:last-child {
-            text-align: center;
-          }
-          .routine-title, .routine-area {
-            font-size: 14px;
+          .routine-table tbody td.routine-td:last-child { text-align: center; }
+          .routine-title {
+            font-size: 13.5px;
             font-weight: 600;
             color: var(--text-primary);
-            line-height: 1.25;
+            line-height: 1.3;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
           }
-          .routine-sub {
-            color: var(--text-muted);
-            font-size: 12px;
-            margin-top: 6px;
-            line-height: 1.35;
-          }
-          .routine-interval {
+          .routine-meta-row {
             display: flex;
-            flex-direction: column;
-            gap: 8px;
+            align-items: center;
+            gap: 6px;
+            margin-top: 3px;
+            flex-wrap: nowrap;
+            overflow: hidden;
           }
-          .routine-interval-label {
-            font-size: 12px;
-            font-weight: 800;
-            color: var(--text-secondary);
-            line-height: 1.2;
+          .routine-area-small {
+            font-size: 11.5px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex-shrink: 1;
           }
+          .routine-sep { color: var(--border-active); font-size: 11px; flex-shrink: 0; }
           .routine-chips {
             display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
+            flex-wrap: nowrap;
+            gap: 3px;
+            align-items: center;
+            overflow: hidden;
           }
           .routine-chip {
             display: inline-flex;
             align-items: center;
-            padding: 4px 10px;
-            border-radius: 999px;
+            justify-content: center;
+            width: 26px;
+            height: 22px;
+            border-radius: 5px;
             border: 1px solid var(--border);
             background: var(--bg-tertiary);
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
             color: var(--text-secondary);
-            line-height: 1.2;
+            flex-shrink: 0;
           }
           .routine-chip-past {
             color: ${ROUTINE_TEAL.dark} !important;
             border-color: ${ROUTINE_TEAL.border} !important;
             background: ${ROUTINE_TEAL.bg} !important;
-            font-weight: 700;
           }
-          .routine-current {
-            display: inline;
-            padding: 0;
-            border-radius: 0;
-            font-size: 14px;
-            font-weight: 600;
-            border: none;
-            background: transparent;
-            color: var(--text-primary);
-            max-width: 100%;
-          }
-          .routine-rotation {
-            color: var(--text-muted);
+          .routine-schedule-badge {
+            display: inline-flex;
+            align-items: center;
             font-size: 11px;
-            line-height: 1.3;
-            margin-top: 5px;
-            opacity: 0.85;
-            word-break: break-word;
+            font-weight: 600;
+            color: var(--text-muted);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            padding: 2px 7px;
+            white-space: nowrap;
           }
-          .routine-rotation strong { font-weight: 600; }
+          .routine-assignee-name {
+            font-size: 13.5px;
+            font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+          .routine-pool-hint {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
           .routine-today-stack {
             display: inline-flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 3px;
             align-items: center;
             text-align: center;
-            max-width: 100%;
           }
           .routine-today-circle {
-            width: 28px;
-            height: 28px;
+            width: 30px;
+            height: 30px;
             border-radius: 50%;
             display: inline-flex;
             align-items: center;
@@ -376,24 +379,18 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
             background: ${ROUTINE_TEAL.bg};
             color: ${ROUTINE_TEAL.dark};
           }
-          button.routine-today-circle--on:hover {
-            filter: brightness(0.96);
-          }
-          span.routine-today-circle--on {
-            cursor: default;
-          }
+          button.routine-today-circle--on:hover { filter: brightness(0.96); }
+          span.routine-today-circle--on { cursor: default; }
           .routine-today-by-under {
             font-size: 10px;
             font-weight: 600;
             color: var(--text-muted);
             line-height: 1.15;
-            width: auto;
-            max-width: 100%;
             text-align: center;
           }
           .routine-group-row td {
             background: var(--bg-tertiary);
-            padding: 0.5rem 1rem;
+            padding: 0.4rem 0.85rem;
             border-top: 1px solid var(--border);
             border-bottom: 1px solid var(--border);
             border-left: 3px solid var(--border-active);
@@ -403,8 +400,8 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
           .routine-group-cell {
             display: inline-flex;
             align-items: center;
-            gap: 9px;
-            font-size: 0.74rem;
+            gap: 8px;
+            font-size: 0.72rem;
             font-weight: 800;
             letter-spacing: 0.08em;
             text-transform: uppercase;
@@ -412,12 +409,12 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
           }
           .routine-group-count {
             font-weight: 700;
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             color: var(--text-secondary);
             background: var(--bg-secondary);
             border: 1px solid var(--border);
             border-radius: 999px;
-            padding: 1px 8px;
+            padding: 1px 7px;
             line-height: 1.5;
           }
         `}</style>
@@ -425,17 +422,16 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
           <table className="routine-table">
             <thead>
               <tr>
-                <th className="routine-th" style={{ width: '30%' }}>Aufgabe</th>
-                <th className="routine-th" style={{ width: '18%' }}>Bereich</th>
-                <th className="routine-th" style={{ width: '17%' }}>Intervall</th>
-                <th className="routine-th" style={{ width: '21%' }}>Zuständig</th>
+                <th className="routine-th" style={{ width: '38%' }}>Aufgabe</th>
+                <th className="routine-th" style={{ width: '22%' }}>Fällig</th>
+                <th className="routine-th" style={{ width: '26%' }}>Zuständig</th>
                 <th className="routine-th" style={{ width: '14%' }}>Heute</th>
               </tr>
             </thead>
             <tbody>
               {visible.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="routine-td" style={{ color: 'var(--text-muted)' }}>
+                  <td colSpan={4} className="routine-td" style={{ color: 'var(--text-muted)' }}>
                     Keine Serienaufträge vorhanden.
                   </td>
                 </tr>
@@ -443,54 +439,73 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                 groups.map(group => (
                   <React.Fragment key={group.label}>
                     <tr className="routine-group-row">
-                      <td colSpan={5}>
+                      <td colSpan={4}>
                         <span className="routine-group-cell">
                           {group.label}
                           <span className="routine-group-count">{group.items.length}</span>
                         </span>
                       </td>
                     </tr>
-                    {group.items.map(s => (
+                    {group.items.map(s => {
+                      const pool = getRoutinePool(s, users);
+                      const poolLabel = pool.length > 1 ? pool.map(n => displayNameShort(n)).join(' · ') : null;
+                      return (
                   <tr
                     key={s.id}
                     onClick={canEdit ? () => setEditing({ schedule: s, isNew: false }) : undefined}
                     style={canEdit ? { cursor: 'pointer' } : undefined}
                     title={canEdit ? 'Zum Bearbeiten klicken' : undefined}
                   >
+                    {/* Aufgabe + Bereich kompakt */}
                     <td className="routine-td">
                       <div className="routine-title">
                         {s.title || '—'}
                         {s.description && String(s.description).trim() ? (
-                          <i
-                            className="ti ti-notes"
-                            title="Beschreibung vorhanden – zum Lesen/Bearbeiten anklicken"
-                            aria-hidden
-                            style={{ marginLeft: 6, fontSize: 13, color: 'var(--text-muted)', verticalAlign: 'middle' }}
-                          />
+                          <i className="ti ti-notes" title="Beschreibung vorhanden" aria-hidden
+                            style={{ marginLeft: 5, fontSize: 12, color: 'var(--text-muted)', verticalAlign: 'middle' }} />
                         ) : null}
                       </div>
+                      <div className="routine-meta-row">
+                        <span className="routine-area-small">{String(s.area || '').trim() || '—'}</span>
+                      </div>
                     </td>
-                    <td className="routine-td">
-                      <div className="routine-area">{String(s.area || '').trim() || '—'}</div>
-                    </td>
-                    <td className="routine-td">
-                      <div className="routine-interval">{renderInterval(s)}</div>
-                    </td>
+                    {/* Fällig: Wochentag-Chips (eine Zeile) oder Datum-Badge */}
                     <td className="routine-td">
                       {(() => {
-                        const pool = getRoutinePool(s, users);
-                        const current = getRoutineAssigneeDisplayName(s, pool, todayYmd);
-                        const hasPool = pool.length > 0;
-                        return (
-                          <>
-                            <span className="routine-current" style={{ fontWeight: 600 }} title={current}>
-                              {displayNameShort(current)}
-                            </span>
-                            <div className="routine-rotation">
-                              <strong>Rotation:</strong>{' '}
-                              {hasPool ? pool.map((n) => displayNameShort(n)).join(', ') : '—'}
+                        const rec = (s as any).recurrence;
+                        if (!rec || rec.type === 'daily') {
+                          return <span className="routine-schedule-badge">Täglich</span>;
+                        }
+                        if (rec.type === 'weekdays') {
+                          const WEEKDAY_ORDER: WeekdayKey[] = ['mo', 'di', 'mi', 'do', 'fr', 'sa', 'so'];
+                          const days: WeekdayKey[] = (Array.isArray(rec.weekdays) ? rec.weekdays : [])
+                            .slice().sort((a: WeekdayKey, b: WeekdayKey) => WEEKDAY_ORDER.indexOf(a) - WEEKDAY_ORDER.indexOf(b));
+                          return (
+                            <div className="routine-chips">
+                              {days.map((d: WeekdayKey) => {
+                                const chipYmd = ymdForWeekdayInWeekContaining(d, workWeekRefDate(new Date()));
+                                const done = (completions || []).some(c => c.scheduleId === s.id && c.date === chipYmd);
+                                return (
+                                  <span key={d} className={`routine-chip${done ? ' routine-chip-past' : ''}`}>
+                                    {weekdayLabel[d]}
+                                  </span>
+                                );
+                              })}
                             </div>
-                          </>
+                          );
+                        }
+                        return <span className="routine-schedule-badge">{formatInterval(s)}</span>;
+                      })()}
+                    </td>
+                    {/* Zuständig: nur aktueller Name + Pool als Hinweis */}
+                    <td className="routine-td">
+                      {(() => {
+                        const current = getRoutineAssigneeDisplayName(s, pool, todayYmd);
+                        return (
+                          <div title={poolLabel ? `Rotation: ${pool.join(', ')}` : undefined}>
+                            <div className="routine-assignee-name">{displayNameShort(current)}</div>
+                            {poolLabel && <div className="routine-pool-hint">{poolLabel}</div>}
+                          </div>
                         );
                       })()}
                     </td>
@@ -617,7 +632,8 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                       })()}
                     </td>
                   </tr>
-                    ))}
+                      );
+                    })}
                   </React.Fragment>
                 ))
               )}
