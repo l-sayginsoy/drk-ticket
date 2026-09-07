@@ -117,12 +117,12 @@ export function shiftNominalToNextRpBusinessDay(nominalYmd: string, rpHolidays: 
 }
 
 function effectiveYmdAfterHolidays(
-  schedule: RoutineSchedule & { recurrence?: any },
+  _schedule: RoutineSchedule & { recurrence?: any },
   nominalYmd: string,
   rpHolidays: Set<string>
 ): string {
-  const rec = (schedule as any).recurrence;
-  if (!rec || rec.type === 'daily') return nominalYmd;
+  // Immer auf nächsten Werktag (Mo–Fr) verschieben – auch bei daily/kein Recurrence-Typ,
+  // da die Einrichtung ausschließlich Mo–Fr arbeitet.
   return shiftNominalToNextRpBusinessDay(nominalYmd, rpHolidays);
 }
 

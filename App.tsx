@@ -1917,6 +1917,11 @@ const App: React.FC = () => {
     today.setHours(0, 0, 0, 0);
     const todayStr = localISODate(today);
 
+    // Serienaufträge werden nur an Werktagen (Mo–Fr) erzeugt.
+    // Sa/So: kein Ticket – die Verschiebung auf Montag übernimmt isRoutineDueOnCalendarDay.
+    const todayDow = today.getDay();
+    if (todayDow === 0 || todayDow === 6) return;
+
     const schedules = (appSettings.routineSchedules || []) as Array<RoutineSchedule & { recurrence?: any }>;
     if (schedules.length === 0) return;
 
