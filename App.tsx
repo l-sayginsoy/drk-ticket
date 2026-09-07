@@ -2414,6 +2414,11 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       }
       setCompletedTickets((prev) => [ut, ...prev]);
       saveCompletedTicketToFirebase(ut);
+      // Schreibe Status=Abgeschlossen in die aktive Sammlung BEVOR gelöscht wird.
+      // Andere Clients sehen so sofort den Abgeschlossen-Status im onSnapshot und
+      // der SLA-Effekt überspringt das Ticket (Zeile ~1989), auch wenn deleteDoc noch nicht
+      // angekommen ist. Verhindert das Race-Condition-Rücksetzen auf Überfällig.
+      saveTicketToFirebase(ut);
       deleteFromActiveFirebase(ut.id);
     } else if (wasCompleted && !isNowCompleted) {
       // Reopened: Completed → Active
