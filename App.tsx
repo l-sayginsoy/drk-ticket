@@ -2183,8 +2183,32 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
       { scheduleId, date: ymd, completedBy: currentUser.name, completedAt: new Date().toISOString() },
     ];
     const notifySent = maybeBuildRoutineDoneNotify(appSettings, scheduleId, ymd, completions, currentUser.name);
+
+    // Cursor weiterrücken, damit die Zuständig-Spalte nach dem Abhaken die nächste Person zeigt.
+    // Nur wenn heute noch kein Ticket generiert wurde (lastGenerated !== heute) — sonst wurde
+    // der Cursor beim Ticket-Erzeugen bereits vorgerückt und wir würden doppelt zählen.
+    const scheduleIdx = (appSettings.routineSchedules as any[])?.findIndex((s: any) => s.id === scheduleId) ?? -1;
+    let updatedSchedules = appSettings.routineSchedules as any[];
+    if (scheduleIdx >= 0) {
+      const sched = updatedSchedules[scheduleIdx] as any;
+      if (sched.assignment?.type === 'rotate' && sched.lastGenerated !== ymd) {
+        const eligibleNames = new Set(
+          users.filter(u => u.isActive && u.role === sched.targetRole).map(u => u.name)
+        );
+        const pool: string[] = Array.isArray(sched.assignees) && sched.assignees.length > 0
+          ? sched.assignees.filter((n: string) => eligibleNames.has(n))
+          : [...eligibleNames].sort((a, b) => a.localeCompare(b, 'de'));
+        if (pool.length > 1) {
+          const cursor = Math.max(0, Number(sched.rotationCursor || 0));
+          updatedSchedules = [...updatedSchedules];
+          updatedSchedules[scheduleIdx] = { ...sched, rotationCursor: (cursor + 1) % pool.length };
+        }
+      }
+    }
+
     persistRoutineSettings({
       ...appSettings,
+      routineSchedules: updatedSchedules as any,
       routineDayCompletions: completions,
       ...(notifySent ? { routineNotifySent: notifySent } : {}),
     });
