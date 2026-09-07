@@ -106,37 +106,43 @@ const NewTicketForm: React.FC<{
     const [formState, setFormState] = useState(() => {
         try {
             const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
-            if (savedDraft) {
-                const draft = JSON.parse(savedDraft);
-                return draft;
-            }
+            if (savedDraft) return JSON.parse(savedDraft);
         } catch (e) { console.error("Could not load draft", e); }
-
-        // Kein Draft vorhanden — gespeichertes Profil (Name + E-Mail) vorauffüllen
-        let reporter = '';
-        let reporter_email = '';
-        try {
-            const profile = localStorage.getItem(REPORTER_PROFILE_KEY);
-            if (profile) {
-                const p = JSON.parse(profile);
-                reporter = p.reporter || '';
-                reporter_email = p.reporter_email || '';
-            }
-        } catch (e) { /* ignorieren */ }
-
         return {
-            reporter, reporter_email, area: '', location: '', title: '',
+            reporter: '', reporter_email: '', area: '', location: '', title: '',
             description: '', wunschTermin: '', categoryId: '',
             photos: [] as string[]
         };
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
-    const [profilePrefilled] = useState(() => {
+
+    // Autocomplete für "Gemeldet von"
+    const [reporterSuggestions, setReporterSuggestions] = useState<{reporter: string; reporter_email: string}[]>([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const reporterInputRef = useRef<HTMLInputElement>(null);
+
+    const getKnownReporters = (): {reporter: string; reporter_email: string}[] => {
         try {
-            return !!localStorage.getItem(REPORTER_PROFILE_KEY);
-        } catch (e) { return false; }
-    });
+            const raw = localStorage.getItem(REPORTER_PROFILE_KEY);
+            return raw ? JSON.parse(raw) : [];
+        } catch (e) { return []; }
+    };
+
+    const handleReporterInput = (value: string) => {
+        setFormState(p => ({ ...p, reporter: value }));
+        if (value.trim().length < 2) { setShowSuggestions(false); return; }
+        const q = value.toLowerCase();
+        const matches = getKnownReporters().filter(r => r.reporter.toLowerCase().includes(q));
+        setReporterSuggestions(matches);
+        setShowSuggestions(matches.length > 0);
+    };
+
+    const selectReporterSuggestion = (r: {reporter: string; reporter_email: string}) => {
+        setFormState(p => ({ ...p, reporter: r.reporter, reporter_email: r.reporter_email }));
+        setShowSuggestions(false);
+    };
+
     const fileInputRef = useRef<HTMLInputElement>(null);
     const cameraInputRef = useRef<HTMLInputElement>(null);
     const dateInputRef = useRef<HTMLInputElement>(null);
@@ -209,12 +215,11 @@ const NewTicketForm: React.FC<{
 
         setNewlyCreatedTicketId(newTicketId);
         localStorage.removeItem(DRAFT_STORAGE_KEY);
-        // Profil für nächstes Mal merken
+        // Reporter zur lokalen Autocomplete-Liste hinzufügen (kein Duplikat)
         try {
-            localStorage.setItem(REPORTER_PROFILE_KEY, JSON.stringify({
-                reporter: formState.reporter.trim(),
-                reporter_email: formState.reporter_email.trim(),
-            }));
+            const entry = { reporter: formState.reporter.trim(), reporter_email: formState.reporter_email.trim() };
+            const list = getKnownReporters().filter(r => r.reporter.toLowerCase() !== entry.reporter.toLowerCase());
+            localStorage.setItem(REPORTER_PROFILE_KEY, JSON.stringify([entry, ...list].slice(0, 100)));
         } catch (e) { /* ignorieren */ }
         setView('success');
     };
@@ -289,19 +294,37 @@ const NewTicketForm: React.FC<{
                      {photoRules.text && <span className={`info-text ${photoRules.mode}`}>{photoRules.text}</span>}
                      {errors.photos && <span className="error-text">{errors.photos}</span>}
                 </div>
-                <div className="form-group">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.4rem' }}>
-                        <label style={{ margin: 0 }}>Gemeldet von*</label>
-                        {profilePrefilled && (
-                            <button type="button" onClick={() => {
-                                try { localStorage.removeItem(REPORTER_PROFILE_KEY); } catch (e) {}
-                                setFormState(p => ({ ...p, reporter: '', reporter_email: '' }));
-                            }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.8rem', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
-                                Nicht Sie?
-                            </button>
-                        )}
-                    </div>
-                    <input type="text" placeholder="Vor- und Nachname" value={formState.reporter} onChange={e => setFormState(p => ({...p, reporter: e.target.value}))} />
+                <div className="form-group" style={{ position: 'relative' }}>
+                    <label>Gemeldet von*</label>
+                    <input
+                        ref={reporterInputRef}
+                        type="text"
+                        placeholder="Vor- und Nachname"
+                        value={formState.reporter}
+                        onChange={e => handleReporterInput(e.target.value)}
+                        onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                        autoComplete="off"
+                    />
+                    {showSuggestions && (
+                        <ul style={{
+                            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+                            background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px',
+                            boxShadow: '0 8px 24px rgba(0,0,0,0.12)', margin: '4px 0 0', padding: '6px',
+                            listStyle: 'none', maxHeight: '200px', overflowY: 'auto'
+                        }}>
+                            {reporterSuggestions.map((r, i) => (
+                                <li key={i} onMouseDown={() => selectReporterSuggestion(r)} style={{
+                                    padding: '10px 14px', borderRadius: '8px', cursor: 'pointer',
+                                    fontSize: '0.95rem'
+                                }}
+                                onMouseEnter={e => (e.currentTarget.style.background = '#f3f4f6')}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                                    <div style={{ fontWeight: 600, color: '#1f2937' }}>{r.reporter}</div>
+                                    <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>{r.reporter_email}</div>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
                     {errors.reporter && <span className="error-text">{errors.reporter}</span>}
                 </div>
                 <div className="form-group">
