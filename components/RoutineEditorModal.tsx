@@ -41,6 +41,19 @@ export default function RoutineEditorModal({ schedule, isNew, users, onSave, onD
     patch({ assignees: cur.includes(name) ? cur.filter(n => n !== name) : [...cur, name], rotationCursor: 0 });
   };
 
+  // Rotation-Pool: Person nach oben/unten schieben
+  const moveAssignee = (idx: number, dir: -1 | 1) => {
+    const list = [...(draft.assignees || [])];
+    const target = idx + dir;
+    if (target < 0 || target >= list.length) return;
+    [list[idx], list[target]] = [list[target], list[idx]];
+    // Cursor mitführen, damit "Nächster" gleich bleibt
+    let cursor = draft.rotationCursor ?? 0;
+    if (cursor === idx) cursor = target;
+    else if (cursor === target) cursor = idx;
+    patch({ assignees: list, rotationCursor: cursor });
+  };
+
   const toggleWeekday = (d: WeekdayKey) => {
     const cur: WeekdayKey[] = Array.isArray(rec.weekdays) ? rec.weekdays : [];
     const next = cur.includes(d) ? cur.filter(x => x !== d) : [...cur, d];
@@ -144,31 +157,110 @@ export default function RoutineEditorModal({ schedule, isNew, users, onSave, onD
           <label style={label}>Startdatum {(recType === 'monthly' || recType === 'yearly') ? '(erforderlich)' : '(optional)'}</label>
           <input type="date" style={input} value={draft.startDate || ''} onChange={e => patch({ startDate: e.target.value || null })} />
 
+          {/* ── Zuweisung ─────────────────────────────────────────────────────── */}
           <label style={label}>Zuweisung</label>
-          <select style={input} value={draft.assignment?.type || 'rotate'} onChange={e => patch({ assignment: e.target.value === 'fixed' ? { type: 'fixed', userName: eligible[0] || '' } : { type: 'rotate' }, rotationCursor: 0 })}>
-            <option value="rotate">Rotation (abwechselnd)</option>
-            <option value="fixed">Fest (eine Person)</option>
-          </select>
-          {draft.assignment?.type === 'fixed' && (
-            <>
-              <label style={label}>Feste Person</label>
-              <select style={input} value={(draft.assignment as any).userName || ''} onChange={e => patch({ assignment: { type: 'fixed', userName: e.target.value } })}>
-                {eligible.length === 0 ? <option value="">— keine aktiven Mitarbeiter —</option> : eligible.map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
-            </>
-          )}
+          <div style={{ display: 'flex', gap: 0, borderRadius: 9, overflow: 'hidden', border: '1px solid var(--border)' }}>
+            {(['fixed', 'rotate'] as const).map(t => {
+              const active = (draft.assignment?.type || 'rotate') === t;
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => {
+                    if (t === 'fixed') {
+                      const first = eligible[0] || '';
+                      patch({ assignment: { type: 'fixed', userName: first }, assignees: first ? [first] : [] });
+                    } else {
+                      patch({ assignment: { type: 'rotate' }, rotationCursor: 0 });
+                    }
+                  }}
+                  style={{ flex: 1, padding: '8px 0', border: 'none', background: active ? 'var(--accent-primary)' : 'var(--bg-primary)', color: active ? '#fff' : 'var(--text-secondary)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+                >
+                  {t === 'fixed' ? 'Immer dieselbe Person' : 'Rotation (abwechselnd)'}
+                </button>
+              );
+            })}
+          </div>
 
-          <label style={label}>Zuständige Mitarbeiter{draft.assignment?.type === 'rotate' ? ' (Rotations-Pool)' : ''}</label>
-          {eligible.length === 0 ? (
-            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Keine aktiven Mitarbeiter in dieser Rolle.</div>
-          ) : (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {eligible.map(n => {
-                const on = (draft.assignees || []).includes(n);
-                return <button key={n} type="button" onClick={() => toggleAssignee(n)} style={{ padding: '6px 11px', borderRadius: 8, border: `1px solid ${on ? 'var(--accent-primary)' : 'var(--border)'}`, background: on ? 'rgba(179,0,12,0.08)' : 'var(--bg-primary)', color: on ? 'var(--accent-primary)' : 'var(--text-secondary)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>{on ? '✓ ' : ''}{n}</button>;
-              })}
+          {/* FEST ─────────────────────────── */}
+          {draft.assignment?.type === 'fixed' && (
+            <div style={{ marginTop: 8 }}>
+              <label style={{ ...label, marginTop: 0 }}>Wer macht das immer?</label>
+              <select
+                style={input}
+                value={(draft.assignment as any).userName || ''}
+                onChange={e => patch({ assignment: { type: 'fixed', userName: e.target.value }, assignees: [e.target.value] })}
+              >
+                {eligible.length === 0
+                  ? <option value="">— keine aktiven Mitarbeiter —</option>
+                  : eligible.map(n => <option key={n} value={n}>{n}</option>)
+                }
+              </select>
             </div>
           )}
+
+          {/* ROTATION ───────────────────── */}
+          {(draft.assignment?.type === 'rotate' || !draft.assignment) && (() => {
+            const pool = draft.assignees || [];
+            const cursor = Math.min(draft.rotationCursor ?? 0, Math.max(0, pool.length - 1));
+            const nextName = pool[cursor] || '—';
+            const notInPool = eligible.filter(n => !pool.includes(n));
+            return (
+              <div style={{ marginTop: 8 }}>
+                {/* "Nächster"-Anzeige */}
+                {pool.length > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, padding: '7px 10px', borderRadius: 8, background: 'rgba(179,0,12,0.07)', border: '1px solid rgba(179,0,12,0.2)' }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-primary)' }}>Nächster Einsatz:</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{nextName}</span>
+                    {pool.length > 1 && (
+                      <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+                        {pool.map((n, i) => (
+                          <button
+                            key={n}
+                            type="button"
+                            title={`Als Nächstes: ${n}`}
+                            onClick={() => patch({ rotationCursor: i })}
+                            style={{ padding: '3px 8px', borderRadius: 6, border: `1px solid ${i === cursor ? 'var(--accent-primary)' : 'var(--border)'}`, background: i === cursor ? 'var(--accent-primary)' : 'var(--bg-primary)', color: i === cursor ? '#fff' : 'var(--text-secondary)', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Reihenfolge-Liste */}
+                <label style={{ ...label, marginTop: 0 }}>Reihenfolge der Rotation</label>
+                {pool.length === 0 && (
+                  <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Noch niemand im Pool — Person hinzufügen.</div>
+                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
+                  {pool.map((name, idx) => (
+                    <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', borderRadius: 8, background: idx === cursor ? 'rgba(179,0,12,0.06)' : 'var(--bg-primary)', border: `1px solid ${idx === cursor ? 'rgba(179,0,12,0.25)' : 'var(--border)'}` }}>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, minWidth: 18, textAlign: 'right' }}>{idx + 1}.</span>
+                      <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{name}</span>
+                      {idx === cursor && <span style={{ fontSize: 11, color: 'var(--accent-primary)', fontWeight: 700 }}>Nächster</span>}
+                      <button type="button" title="Nach oben" disabled={idx === 0} onClick={() => moveAssignee(idx, -1)} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 5, padding: '2px 6px', cursor: idx === 0 ? 'not-allowed' : 'pointer', color: 'var(--text-muted)', opacity: idx === 0 ? 0.3 : 1, fontSize: 13 }}>↑</button>
+                      <button type="button" title="Nach unten" disabled={idx === pool.length - 1} onClick={() => moveAssignee(idx, 1)} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 5, padding: '2px 6px', cursor: idx === pool.length - 1 ? 'not-allowed' : 'pointer', color: 'var(--text-muted)', opacity: idx === pool.length - 1 ? 0.3 : 1, fontSize: 13 }}>↓</button>
+                      <button type="button" title="Entfernen" onClick={() => { const next = pool.filter(n => n !== name); patch({ assignees: next, rotationCursor: Math.min(cursor, Math.max(0, next.length - 1)) }); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: 16, lineHeight: 1, padding: '0 2px' }}>×</button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Person hinzufügen */}
+                {notInPool.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {notInPool.map(n => (
+                      <button key={n} type="button" onClick={() => toggleAssignee(n)} style={{ padding: '5px 10px', borderRadius: 8, border: '1px dashed var(--border-active)', background: 'var(--bg-primary)', color: 'var(--text-secondary)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                        + {n}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           <label style={label}>Unter-Aufgaben (Checkliste, optional)</label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
