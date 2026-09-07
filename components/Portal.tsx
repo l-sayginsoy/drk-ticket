@@ -130,7 +130,8 @@ const NewTicketForm: React.FC<{
     };
 
     const handleReporterInput = (value: string) => {
-        setFormState(p => ({ ...p, reporter: value }));
+        // E-Mail nur über Vorschlag-Auswahl setzen – beim manuellen Tippen immer leeren
+        setFormState(p => ({ ...p, reporter: value, reporter_email: '' }));
         if (value.trim().length < 2) { setShowSuggestions(false); return; }
         const q = value.toLowerCase();
         const matches = getKnownReporters().filter(r => r.reporter.toLowerCase().includes(q));
