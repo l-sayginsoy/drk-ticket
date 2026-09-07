@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Role, RoutineDayCompletion, RoutineSchedule, User, WeekdayKey } from '../types';
 import {
   getRoutineAssigneeDisplayName,
@@ -111,7 +111,12 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
   const [editing, setEditing] = useState<{ schedule: RoutineSchedule & { recurrence?: any }; isNew: boolean } | null>(null);
   const [subPop, setSubPop] = useState<{ schedId: string } | null>(null);
   const canEdit = userRole === Role.Admin;
-  const todayYmd = useMemo(() => localISODate(new Date()), []);
+  const [todayYmd, setTodayYmd] = useState(() => localISODate(new Date()));
+  useEffect(() => {
+    const tick = () => setTodayYmd(localISODate(new Date()));
+    const id = setInterval(tick, 60_000); // jede Minute prüfen ob Tag gewechselt
+    return () => clearInterval(id);
+  }, []);
   const rpHolidaySet = useMemo(() => new Set(rpHolidayYmdList), [rpHolidayYmdList]);
 
   const activeUsersByRole = useMemo(() => {
