@@ -516,6 +516,26 @@ Die Funktion `getLastActivity(ticket)` bestimmt das Datum der letzten Aktion:
 | Ticket wieder öffnen | Abgeschlossenes Ticket kann vom Melder wiedereröffnet werden |
 | Nachrichten schreiben | Melder kann Notizen/Nachrichten zu eigenem Ticket hinzufügen |
 
+### Autocomplete für Name + E-Mail (Stand 08.09.2026)
+
+An gemeinsam genutzten PCs an den Stützpunkten tippen viele verschiedene Mitarbeiter Tickets.
+Um die Eingabe zu erleichtern, merkt sich der Browser auf jedem Gerät die bisher eingetragenen Melder.
+
+**Verhalten:**
+- Felder „Gemeldet von" und „E-Mail" starten **leer** (kein automatisches Vorausfüllen).
+- Sobald mindestens 2 Zeichen im Name-Feld stehen, erscheint ein **Dropdown** mit passenden Vorschlägen
+  (Name + E-Mail-Adresse darunter).
+- Klick auf einen Vorschlag → **beide Felder** werden ausgefüllt.
+- Tippt man danach weiter im Name-Feld, wird die E-Mail **sofort wieder geleert** — Garantie: die
+  E-Mail-Adresse kann nur über einen vollständig ausgewählten Vorschlag ins Formular kommen.
+- Die E-Mail kann nach der Auswahl manuell überschrieben werden.
+
+**Liste:**
+- Speicherort: `localStorage` (`REPORTER_PROFILE_KEY`), nur im Browser des jeweiligen Geräts.
+- Nach jedem erfolgreichen Einreichen wird der Melder in die Liste aufgenommen (max. 100 Einträge,
+  neueste zuerst, Duplikate werden aktualisiert).
+- Die Liste wächst automatisch — nach ein paar Wochen kennt jeder PC die häufigsten Melder.
+
 ### Ticket-Statusanzeige im Portal
 - **3-Pillen-Zeile**: Bearbeiter | Fällig bis | Status
 - Jede Pille zeigt farbigen Zustand (Überfällig = Rot, In Arbeit = Blau, etc.)
@@ -821,6 +841,11 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 | Juni 2026 | **Board-Redesign**: `TicketCard.tsx` — linker Balken = Priorität (rot/orange/grün), keine Pill-Zeile, Footer: Avatar-Chip · Datum-Chip · Icons (`ti-messages` + `ti-mail`), ⋯-Statusmenü. `KanbanColumn.tsx` — farbige Spaltenköpfe (grau/blau/rosa), Spalten-Hintergrund `#E9EBEF` |
 | Juni 2026 | **Sidebar-Redesign**: `Sidebar.tsx` — dunkles Design `#353B48`, DRK-Logo auf weißem Container |
 | Juni 2026 | **CI auf Node 24**: GitHub-Actions in `deploy-firebase.yml` auf Node-24-Runtime gehoben (`actions/checkout@v6`, `actions/setup-node@v6`, `google-github-actions/auth@v3`) wegen Node-20-Abkündigung (GitHub erzwingt Node 24 ab Juni 2026). Nur Workflow-YAML, kein App-Code. `brevo-keepalive.yml` nutzt keine JS-Actions → unverändert |
+| September 2026 | **Veranstaltungen-Modul**: neue `events/`-Collection, `EventsView` + `EventEditorModal`, je Aufgabe ein Ticket mit Dedup-Schutz (`ticketId`), Sidebar-Menüpunkt |
+| September 2026 | **Serienaufträge – Rotations-Bugs**: Pool-Reihenfolge aus `schedule.assignees` (nicht mehr alphabetisch), Cursor-Advance beim Board-Abhaken, `getRoutineAssigneeDisplayName`-Sonderfall entfernt |
+| September 2026 | **Heute-Spalte**: `todayYmd` per `setInterval(60s)` live aktualisiert; 200-Tage-Lookback für nicht-fällige Tage entfernt (zeigt `—`) |
+| September 2026 | **Mobile-Optimierung**: Sidebar als `position:fixed` Overlay auf < 768px, Hamburger-Button, Ticket-Detail vollflächig auf Handy |
+| September 2026 | **Portal Autocomplete**: Melder-Name/-E-Mail per `localStorage` auf dem Gerät gemerkt; Dropdown ab 2 Zeichen; E-Mail nur über Vorschlag-Auswahl — beim Tippen immer geleert |
 | Juni 2026 | **Chat: feste Höhe + Auto-Scroll** (WhatsApp-Stil): Chat & Melder-Verlauf scrollen intern, neueste Nachricht unten, ältere durch Hochscrollen sichtbar |
 | Juni 2026 | **Chat-Redesign**: interner Chat & Melder-Verlauf als zwei farblich getrennte Kanäle; jede Nachricht in der Farbe ihres Absenders (eigene gefüllt rechts), Avatar + Name |
 | Juni 2026 | **Interner Staff-Chat**: ticketbezogene Mitarbeiter-Nachrichten, Lesestatus pro Person (`readBy`), bewusst keine E-Mails — siehe Kapitel 23 |

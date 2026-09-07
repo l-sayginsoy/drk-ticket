@@ -35,6 +35,66 @@ Serienaufträge (Routinen) · Brevo-E-Mails · Stale-Erinnerungen · **Interner 
 
 ## Zuletzt abgeschlossen
 
+### Session 08.09.2026 – Melder-Autocomplete im Portal (committed & deployed)
+- **Problem:** Auf gemeinsam genutzten PCs an den Stützpunkten müssen bis zu 100 verschiedene Mitarbeiter
+  bei jedem Ticket ihren Namen und ihre E-Mail-Adresse neu eintippen.
+- **Lösung – Autocomplete** (`components/Portal.tsx`): Neue Konstante `REPORTER_PROFILE_KEY` im
+  `localStorage`. Beim Tippen im „Gemeldet von"-Feld (ab 2 Zeichen) erscheint ein Dropdown mit passenden
+  Vorschlägen (Name fett + E-Mail grau darunter). Klick auf einen Vorschlag → Name **und** E-Mail werden
+  gesetzt. Beim manuellen Tippen wird die E-Mail **immer sofort geleert** (Sicherheitsgarantie: E-Mail
+  ausschließlich über vollständigen Vorschlag wählbar). Das E-Mail-Feld selbst bleibt frei editierbar.
+- **Liste baut sich auf:** Nach jedem erfolgreichen Einreichen wird der Reporter in die lokale Liste
+  aufgenommen (neuster Eintrag zuerst, max. 100, Duplikate werden aktualisiert). Die Liste bleibt auf
+  dem jeweiligen PC — an geteilten Geräten lernt das System alle Melder die dort je ein Ticket geschrieben.
+- **Kein Auto-Prefill:** Felder starten leer, keine falsche Vorausfüllung für andere Nutzer.
+  > Dropdown-Vorschlag via `onMouseDown` (nicht `onClick`) damit der `onBlur`-Handler die Liste nicht
+  > zu früh schließt. `setTimeout(150ms)` auf `onBlur` gibt dem Klick Zeit zu landen.
+
+### Session 07.09.2026 – Veranstaltungen-Modul, Rotations-Fix, Heute-Spalte, Mobile (committed & deployed)
+
+#### Veranstaltungen-Modul (neu)
+- **`types.ts`**: `EventTask` + `DrkEvent` Interface, `origin: 'event'` + `eventId?`/`eventTaskId?` in `Ticket`.
+- **`components/EventsView.tsx`** (neu): Karten-Liste mit Aufgaben-Fortschrittsbalken und Status-Dots
+  (grün = erledigt/Ticket abgeschlossen, blau = offen, grau = kein Ticket).
+- **`components/EventEditorModal.tsx`** (neu): Formular (Bezeichnung, Datum, Uhrzeit, Raum, Notizen) + Aufgabenliste
+  mit Bearbeiter-Dropdown und Fälligkeitsdatum je Aufgabe.
+- **`App.tsx`**: Firestore-Listener für `events/`-Collection (`onSnapshot`); `handleSaveEvent` generiert je Aufgabe
+  ein Ticket (ohne `ticketId`), speichert die `ticketId` zurück in die Aufgabe (Dedup-Schutz); `handleDeleteEvent`;
+  `'veranstaltungen'`-Case in `renderCurrentView()`.
+- **`components/Sidebar.tsx`**: Menüpunkt „Veranstaltungen" (Kalender-Icon).
+
+#### Serienaufträge – Rotations-Bugs behoben
+- **Reihenfolge in Pool korrigiert** (`utils/routineHelpers.ts` `getRoutinePool`): Pool-Reihenfolge war früher
+  alphabetisch (Firestore-Nutzer-Order), jetzt **`schedule.assignees`-Reihenfolge** beibehalten (wie vom Admin
+  im Editor festgelegt). Cursor 0 = erste Person der konfigurierten Liste.
+- **`getRoutineAssigneeDisplayName`**: Sonderfall `lastGenerated === todayYmd` entfernt — zeigte fälschlicherweise
+  die Vorgänger-Person wenn Cursor manuell zurückgesetzt wurde. Jetzt immer `pool[cursor % pool.length]`.
+- **Cursor-Advance im Board-Haken** (`App.tsx` `handleRoutineDayComplete`): Wurde früher nur die Completion
+  gespeichert; jetzt wird bei Rotation-Schedules der `rotationCursor` beim Abhaken weitergestellt
+  (Guard: `lastGenerated !== ymd`, damit kein Doppel-Advance).
+- **Ticket-Generierung** (`App.tsx`): Pool-Reihenfolge nutzt ebenfalls `schedule.assignees`-Order statt
+  alphabetische `eligibleUsers`-Order.
+- **Editor** (`components/RoutineEditorModal.tsx`): Toggle „Immer dieselbe Person" / „Rotation (abwechselnd)";
+  Rotation-Modus: nummerierte geordnete Liste + ↑/↓/× Pfeile + Cursor-Pill-Klick + „Nächster Einsatz: [Name]";
+  `moveAssignee(idx, dir)` tauscht Einträge und zieht Cursor mit.
+  > **NICHT wieder alphabetisch sortieren.** Die `schedule.assignees`-Reihenfolge muss in `getRoutinePool`,
+  > `getRoutineAssigneeDisplayName`, `handleRoutineDayComplete` und der Ticket-Generierung erhalten bleiben.
+
+#### Heute-Spalte – zwei Bugs behoben (`components/RoutineSchedulesView.tsx`)
+- **Tageswechsel-Problem**: `todayYmd` war `useMemo([], [])` → einmalig berechnet, nie aktualisiert.
+  Jetzt `useState` + `setInterval(60_000)` → wird jede Minute aktualisiert, Tageswechsel wird live erkannt.
+- **Historische Completions für nicht-fällige Tage**: Zeigte z. B. Montags-Haken noch am Dienstag (200-Tage-
+  Lookback). Nutzer-Wunsch: nicht-fällige Tage zeigen `—`. Lookback **entfernt** — nicht-fällige Tage = `—`.
+  > **NICHT wieder einbauen:** eigenen Scroll-Container in der Tabelle oder 200-Tage-Lookback für nicht-fällige Tage.
+
+#### Mobile-Optimierung – iPhone/Handy (committed & deployed, Nutzer: „100% Lösung")
+- **`components/Sidebar.tsx`**: `position: fixed; transform: translateX(-100%)` wenn eingeklappt auf Mobile
+  (< 767px) → Sidebar ist Overlay, kein Layout-Flow; Backdrop-Element schließt Sidebar bei Tap.
+- **`components/TicketDetailSidebar.tsx`**: `width: 100%` auf Mobile → vollflächige Detailansicht.
+- **`App.tsx`**: Sidebar startet eingeklappt wenn `window.innerWidth < 768`; klappt automatisch ein bei
+  Navigation (`changeView`); Hamburger-Button (`mobile-menu-btn`) oben links.
+- **`index.css`**: `.mobile-menu-btn { display: none; }` (Standard), `display: flex` auf Mobile-Media-Query.
+
 ### Session 21.06.2026 (2) – Rückkehr verteilt nicht mehr automatisch um (committed & deployed)
 - **Nutzer-Wunsch:** Kommt ein abwesender Mitarbeiter zurück, sollen ihm Aufträge **manuell** zugewiesen
   werden — **keine** automatische Rückkehr-Lastverteilung mehr. Vorher zog das System bei Rückkehr offene
