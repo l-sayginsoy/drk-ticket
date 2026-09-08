@@ -103,16 +103,10 @@ const NewTicketForm: React.FC<{
     setNewlyCreatedTicketId: (id: string) => void;
     appSettings: AppSettings;
 }> = ({ locations, onAddTicket, setView, setNewlyCreatedTicketId, appSettings }) => {
-    const [formState, setFormState] = useState(() => {
-        try {
-            const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
-            if (savedDraft) return JSON.parse(savedDraft);
-        } catch (e) { console.error("Could not load draft", e); }
-        return {
-            reporter: '', reporter_email: '', area: '', location: '', title: '',
-            description: '', wunschTermin: '', categoryId: '',
-            photos: [] as string[]
-        };
+    const [formState, setFormState] = useState({
+        reporter: '', reporter_email: '', area: '', location: '', title: '',
+        description: '', wunschTermin: '', categoryId: '',
+        photos: [] as string[]
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -148,9 +142,6 @@ const NewTicketForm: React.FC<{
     const cameraInputRef = useRef<HTMLInputElement>(null);
     const dateInputRef = useRef<HTMLInputElement>(null);
 
-    useEffect(() => {
-        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(formState));
-    }, [formState]);
 
     const photoRules = useMemo(() => {
         const recommended = ['Wäscherei', 'Küche', 'Haustechnik', 'Brandschutz', 'Sicherheit'];
