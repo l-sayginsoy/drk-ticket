@@ -215,13 +215,16 @@ const NewTicketForm: React.FC<{
         });
 
         setNewlyCreatedTicketId(newTicketId);
-        localStorage.removeItem(DRAFT_STORAGE_KEY);
         // Reporter zur lokalen Autocomplete-Liste hinzufügen (kein Duplikat)
         try {
             const entry = { reporter: formState.reporter.trim(), reporter_email: formState.reporter_email.trim() };
             const list = getKnownReporters().filter(r => r.reporter.toLowerCase() !== entry.reporter.toLowerCase());
             localStorage.setItem(REPORTER_PROFILE_KEY, JSON.stringify([entry, ...list].slice(0, 100)));
         } catch (e) { /* ignorieren */ }
+        // Formular sofort leeren und Draft entfernen (verhindert dass useEffect den alten Stand nochmal speichert)
+        const emptyForm = { reporter: '', reporter_email: '', area: '', location: '', title: '', description: '', wunschTermin: '', categoryId: '', photos: [] as string[] };
+        setFormState(emptyForm);
+        localStorage.removeItem(DRAFT_STORAGE_KEY);
         setView('success');
     };
     
@@ -303,8 +306,10 @@ const NewTicketForm: React.FC<{
                         placeholder="Vor- und Nachname"
                         value={formState.reporter}
                         onChange={e => handleReporterInput(e.target.value)}
-                        onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                         autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="off"
                     />
                     {showSuggestions && (
                         <ul style={{
