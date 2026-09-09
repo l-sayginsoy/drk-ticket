@@ -101,7 +101,7 @@ const escapeHtml = (s: string) =>
     .replace(/"/g, '&quot;');
 
 type DrkBrevoMailPayload =
-  | { kind: 'ticket_created'; ticketId: string }
+  | { kind: 'ticket_created'; ticketId: string; title: string }
   | { kind: 'staff_note'; ticketId: string; noteText: string }
   | { kind: 'ticket_closed'; ticketId: string; title: string }
   | {
@@ -359,6 +359,8 @@ const buildDrkBrevoHtml = (p: DrkBrevoMailPayload) => {
   if (p.kind === 'ticket_created') {
     const inner = `
 <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#333;"><strong>Ticketnummer: ${escapeHtml(p.ticketId)}</strong></p>
+<p style="margin:0 0 4px;font-size:14px;color:#555;">Betreff</p>
+<p style="margin:0 0 16px;font-size:15px;font-weight:600;color:#222;">${escapeHtml(p.title)}</p>
 <p style="margin:0 0 16px;font-size:15px;line-height:1.55;color:#333;">Ihre Meldung ist bei uns eingegangen und befindet sich nun in der Bearbeitung.</p>
 ${portalOpenButtonWrappedHtml(p.ticketId, '0 0 4px')}
 <p style="margin:18px 0 0;font-size:14px;line-height:1.55;color:#444;font-family:Arial,Helvetica,sans-serif;">Mit diesem Button öffnen Sie das Meldeportal. Ihre Ticketnummer ist im Link bereits enthalten – Sie müssen sie <strong>nicht erneut eingeben</strong>.</p>`;
@@ -2593,7 +2595,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       const success = await sendDrkBrevoMailAsync(
         to,
         `Ihre Meldung wurde erfasst – Ticket ${t.id}`,
-        { kind: 'ticket_created', ticketId: t.id },
+        { kind: 'ticket_created', ticketId: t.id, title: t.title },
         { silent: true }
       );
       if (success) ok += 1;
@@ -2746,6 +2748,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       sendDrkBrevoMail(reporterEmail, `Ihre Meldung wurde erfasst – Ticket ${newTicket.id}`, {
         kind: 'ticket_created',
         ticketId: newTicket.id,
+        title: newTicket.title,
       });
     }
 
