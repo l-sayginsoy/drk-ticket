@@ -200,24 +200,33 @@ const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTicke
       .map(([label, value]) => ({ label, value, color: '#6f42c1' }));
   }, [filteredCompleted, appSettings.ticketCategories]);
 
-  // ── Häufigste Störungen: Kategorie × Standort ─────────────────────────────
+  // ── Häufigste Störungen: Ticket-Titel-Ranking ─────────────────────────────
   const recurringIssues = useMemo(() => {
     const all = [...activeTickets, ...completedTickets].filter(t => t.origin !== 'routine');
     const counts: Record<string, number> = {};
     all.forEach(t => {
-      const cat = appSettings.ticketCategories?.find(c => c.id === t.categoryId)?.name ?? 'Keine Kategorie';
-      const key = `${cat} · ${t.area || '—'}`;
-      counts[key] = (counts[key] || 0) + 1;
+      const key = (t.title || '').trim();
+      if (!key) return;
+      const norm = key.toLowerCase();
+      // Ersten echten Titel als Anzeigename behalten
+      if (!counts[norm]) counts[norm] = 0;
+      counts[norm]++;
+    });
+    // Original-Schreibweise (erste Nennung) wiederherstellen
+    const titleMap: Record<string, string> = {};
+    [...activeTickets, ...completedTickets].forEach(t => {
+      const norm = (t.title || '').trim().toLowerCase();
+      if (norm && !titleMap[norm]) titleMap[norm] = (t.title || '').trim();
     });
     return Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 12)
-      .map(([label, value]) => ({
-        label,
+      .slice(0, 15)
+      .map(([norm, value]) => ({
+        label: titleMap[norm] || norm,
         value,
         color: value >= 5 ? '#DC2626' : value >= 3 ? '#F59E0B' : '#6366F1',
       }));
-  }, [activeTickets, completedTickets, appSettings.ticketCategories]);
+  }, [activeTickets, completedTickets]);
 
   // ── Serienaufträge: wer hat wie viel erledigt (completedBy, laufendes Jahr) ─
   const routinePersonStats = useMemo(() => {
@@ -460,7 +469,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTicke
       {/* ── Häufigste Störungen ─────────────────────────────────────────────── */}
       <Section
         title="Häufigste Störungen"
-        sub={`Kategorie × Standort · ${activeTickets.length + completedTickets.length} geladene Tickets · für mehr Daten weitere Monate laden`}
+        sub={`Konkrete Meldungen nach Häufigkeit · ${activeTickets.length + completedTickets.length} Tickets geladen · für mehr ältere Monate laden`}
       >
         {recurringIssues.length > 0 ? (
           <>
