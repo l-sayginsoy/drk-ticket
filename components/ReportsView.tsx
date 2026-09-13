@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { Ticket, Status, Priority, User, Role, AppSettings } from '../types';
+import { Ticket, Status, Priority, User, Role, AppSettings, RoutineSchedule, RoutineDayCompletion } from '../types';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
 import { displayNameShort, normalizePersonName } from '../utils/displayNames';
+import { getDueDatesInYear, getRoutinePool, getRoutineAssigneeDisplayName, localISODate, routineDayStatus } from '../utils/routineHelpers';
 
 interface ReportsViewProps {
   activeTickets: Ticket[];
@@ -11,6 +12,9 @@ interface ReportsViewProps {
   onLoadMonth: (month: number, year: number) => void;
   users: User[];
   appSettings: AppSettings;
+  routineSchedules?: Array<RoutineSchedule & { recurrence?: any }>;
+  routineCompletions?: RoutineDayCompletion[];
+  rpHolidayYmdList?: string[];
 }
 
 const MONTHS_DE = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
@@ -58,7 +62,7 @@ const Section: React.FC<{ title: string; sub?: string; children: React.ReactNode
 );
 
 // ── MAIN ──────────────────────────────────────────────────────────────────────
-const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTickets, completedMonth, completedYear, onLoadMonth, users, appSettings }) => {
+const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTickets, completedMonth, completedYear, onLoadMonth, users, appSettings, routineSchedules = [], routineCompletions = [], rpHolidayYmdList = [] }) => {
   const now = new Date();
   const [filterArea, setFilterArea] = useState('Alle');
   const [filterTech, setFilterTech] = useState('Alle');
@@ -195,6 +199,64 @@ const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTicke
     return Object.entries(counts).sort((a, b) => b[1] - a[1])
       .map(([label, value]) => ({ label, value, color: '#6f42c1' }));
   }, [filteredCompleted, appSettings.ticketCategories]);
+
+  // ── Häufigste Störungen (Titel-Gruppierung über alle geladenen Tickets) ───────
+  const recurringIssues = useMemo(() => {
+    const all = [...activeTickets, ...completedTickets].filter(t => t.origin !== 'routine');
+    const counts: Record<string, { count: number; area: string; category: string }> = {};
+    all.forEach(t => {
+      const key = (t.title || '').trim().toLowerCase();
+      if (!key) return;
+      const cat = appSettings.ticketCategories?.find(c => c.id === t.categoryId)?.name ?? '';
+      if (!counts[key]) counts[key] = { count: 0, area: t.area || '', category: cat };
+      counts[key].count++;
+    });
+    return Object.entries(counts)
+      .filter(([, v]) => v.count > 1)
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 15)
+      .map(([title, v]) => ({
+        label: title.charAt(0).toUpperCase() + title.slice(1),
+        value: v.count,
+        caption: v.category ? `${v.category}` : v.area,
+        color: v.count >= 5 ? '#DC2626' : v.count >= 3 ? '#F59E0B' : '#6366F1',
+      }));
+  }, [activeTickets, completedTickets, appSettings.ticketCategories]);
+
+  // ── Serienaufträge: Erledigungsquote pro Person (laufendes Jahr) ────────────
+  const routinePersonStats = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const todayYmd = localISODate(new Date());
+    const rpHolidaySet = new Set(rpHolidayYmdList);
+    const personStats: Record<string, { done: number; total: number }> = {};
+
+    routineSchedules.filter(s => s.enabled).forEach(s => {
+      const pool = getRoutinePool(s, users);
+      const dueDates = getDueDatesInYear(s, currentYear, rpHolidaySet).filter(d => d <= todayYmd);
+
+      dueDates.forEach(d => {
+        const assignee = getRoutineAssigneeDisplayName(s, pool, d);
+        if (!assignee || assignee === '—') return;
+        if (!personStats[assignee]) personStats[assignee] = { done: 0, total: 0 };
+        personStats[assignee].total++;
+        const st = routineDayStatus(s, d, routineCompletions);
+        if (st.complete) personStats[assignee].done++;
+      });
+    });
+
+    return Object.entries(personStats)
+      .sort((a, b) => b[1].total - a[1].total)
+      .map(([name, { done, total }]) => {
+        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+        return {
+          label: name,
+          caption: displayNameShort(name),
+          value: pct,
+          suffix: `% (${done}/${total})`,
+          color: pct >= 90 ? '#10B981' : pct >= 70 ? '#F59E0B' : '#DC2626',
+        };
+      });
+  }, [routineSchedules, routineCompletions, users, rpHolidayYmdList]);
 
   const empty = <div className="rp-empty">Keine Daten</div>;
 
@@ -396,6 +458,35 @@ const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTicke
             </Section>
           </div>
         </>
+      )}
+
+      {/* ── Häufigste Störungen ─────────────────────────────────────────────── */}
+      <Section
+        title="Häufigste Störungen"
+        sub={`Wiederkehrende Tickets (${activeTickets.length + completedTickets.length} geladen) – nur Mehrfachnennungen`}
+      >
+        {recurringIssues.length > 0 ? (
+          <>
+            <div style={{ marginBottom: '0.75rem', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: '#DC2626', marginRight: 5 }} />5+ Nennungen &nbsp;
+              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: '#F59E0B', marginRight: 5 }} />3–4 &nbsp;
+              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: '#6366F1', marginRight: 5 }} />2
+            </div>
+            <HBar items={recurringIssues} />
+          </>
+        ) : (
+          <div className="rp-empty">Keine Mehrfach-Störungen im geladenen Zeitraum — lade weitere Monate um mehr zu sehen</div>
+        )}
+      </Section>
+
+      {/* ── Serienaufträge Erledigungsquote pro Person ──────────────────────── */}
+      {routinePersonStats.length > 0 && (
+        <Section
+          title="Serienaufträge – Erledigungsquote pro Person"
+          sub={`Laufendes Jahr ${new Date().getFullYear()} · grün ≥ 90 % · gelb ≥ 70 % · rot < 70 %`}
+        >
+          <HBar items={routinePersonStats} maxOverride={100} />
+        </Section>
       )}
     </div>
   );
