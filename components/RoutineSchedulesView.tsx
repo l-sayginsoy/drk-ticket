@@ -105,6 +105,25 @@ function newRoutineDraft(): RoutineSchedule & { recurrence?: any } {
   };
 }
 
+function nameToColor(name: string): string {
+  const palette = ['#DC2626','#2563EB','#059669','#D97706','#7C3AED','#0891B2','#DB2777','#65A30D'];
+  let h = 5381;
+  for (let i = 0; i < name.length; i++) h = ((h << 5) + h + name.charCodeAt(i)) | 0;
+  return palette[Math.abs(h) % palette.length];
+}
+
+function getCadenceAccent(schedule: RoutineSchedule & { recurrence?: any }): string {
+  const rec = (schedule as any).recurrence;
+  if (!rec || rec.type === 'daily') return '#0EA5E9';
+  if (rec.type === 'weekdays' || rec.type === 'weekly') {
+    const n = Math.max(1, Number(rec.intervalWeeks || 1));
+    return n === 1 ? '#8B5CF6' : '#EC4899';
+  }
+  if (rec.type === 'monthly') return '#F59E0B';
+  if (rec.type === 'yearly') return '#10B981';
+  return '#6B7280';
+}
+
 export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
   const { userRole, userName, schedules, users, rpHolidayYmdList = [], onReorder, completions, onComplete, onUncomplete, onSaveSchedule, onDeleteSchedule, onToggleSubtask } = props;
   const [dragId, setDragId] = useState<string | null>(null);
@@ -220,391 +239,277 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
           </button>
         </div>
       )}
-      <div className="routine-view-container">
-        <style>{`
-          .routine-view-container {
-            background-color: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            margin-top: 1.5rem;
-            overflow: hidden;
-          }
-          .routine-table-wrap { overflow-x: auto; }
-          .routine-table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: left;
-            table-layout: fixed;
-          }
-          .routine-th {
-            padding: 0.6rem 0.85rem;
-            border-bottom: 1px solid var(--border);
-            color: var(--text-muted);
-            font-size: 0.8rem;
-            font-weight: 500;
-            background-color: var(--bg-primary);
-          }
-          .routine-td {
-            padding: 0.45rem 0.85rem;
-            border-bottom: 1px solid var(--border);
-            vertical-align: middle;
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-          }
-          .routine-table tbody tr { transition: background-color 0.15s ease; }
-          .routine-table tbody tr:hover { background-color: var(--bg-tertiary); }
-          .routine-table tbody tr:last-child td { border-bottom: none; }
-          .routine-table thead .routine-th:last-child,
-          .routine-table tbody td.routine-td:last-child { text-align: center; }
-          .routine-title {
-            font-size: 13.5px;
-            font-weight: 600;
-            color: var(--text-primary);
-            line-height: 1.3;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-          }
-          .routine-meta-row {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            margin-top: 3px;
-            flex-wrap: nowrap;
-            overflow: hidden;
-          }
-          .routine-area-small {
-            font-size: 11.5px;
-            color: var(--text-muted);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            flex-shrink: 1;
-          }
-          .routine-sep { color: var(--border-active); font-size: 11px; flex-shrink: 0; }
-          .routine-chips {
-            display: flex;
-            flex-wrap: nowrap;
-            gap: 3px;
-            align-items: center;
-            overflow: hidden;
-          }
-          .routine-chip {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 26px;
-            height: 22px;
-            border-radius: 5px;
-            border: 1px solid var(--border);
-            background: var(--bg-tertiary);
-            font-size: 11px;
-            font-weight: 700;
-            color: var(--text-secondary);
-            flex-shrink: 0;
-          }
-          .routine-chip-past {
-            color: ${ROUTINE_TEAL.dark} !important;
-            border-color: ${ROUTINE_TEAL.border} !important;
-            background: ${ROUTINE_TEAL.bg} !important;
-          }
-          .routine-schedule-badge {
-            display: inline-flex;
-            align-items: center;
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--text-muted);
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border);
-            border-radius: 5px;
-            padding: 2px 7px;
-            white-space: nowrap;
-          }
-          .routine-assignee-name {
-            font-size: 13.5px;
-            font-weight: 600;
-            color: var(--text-primary);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-          }
-          .routine-pool-hint {
-            font-size: 11px;
-            color: var(--text-muted);
-            margin-top: 2px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-          }
-          .routine-today-stack {
-            display: inline-flex;
-            flex-direction: column;
-            gap: 3px;
-            align-items: center;
-            text-align: center;
-          }
-          .routine-today-circle {
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0;
-            flex-shrink: 0;
-            cursor: pointer;
-            border: 2px solid transparent;
-            background: var(--bg-secondary);
-            color: var(--text-muted);
-            font-family: inherit;
-            line-height: 0;
-            box-sizing: border-box;
-          }
-          .routine-today-circle--off {
-            border-color: var(--border);
-            background: var(--bg-tertiary);
-          }
-          .routine-today-circle--off:hover {
-            border-color: var(--border-active);
-            background: var(--bg-secondary);
-          }
-          .routine-today-circle--on {
-            border-color: ${ROUTINE_TEAL.border};
-            background: ${ROUTINE_TEAL.bg};
-            color: ${ROUTINE_TEAL.dark};
-          }
-          button.routine-today-circle--on:hover { filter: brightness(0.96); }
-          span.routine-today-circle--on { cursor: default; }
-          .routine-today-by-under {
-            font-size: 10px;
-            font-weight: 600;
-            color: var(--text-muted);
-            line-height: 1.15;
-            text-align: center;
-          }
-          .routine-group-row td {
-            background: var(--bg-tertiary);
-            padding: 0.4rem 0.85rem;
-            border-top: 1px solid var(--border);
-            border-bottom: 1px solid var(--border);
-            border-left: 3px solid #DC2626;
-            text-align: left;
-          }
-          .routine-group-row:hover td { background: var(--bg-tertiary); }
-          .routine-group-cell {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.72rem;
-            font-weight: 800;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: var(--text-secondary);
-          }
-          .routine-group-count {
-            font-weight: 700;
-            font-size: 0.68rem;
-            color: var(--text-secondary);
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 999px;
-            padding: 1px 7px;
-            line-height: 1.5;
-          }
-        `}</style>
-        <div className="routine-table-wrap">
-          <table className="routine-table">
-            <thead>
-              <tr>
-                <th className="routine-th" style={{ width: '38%' }}>Aufgabe</th>
-                <th className="routine-th" style={{ width: '22%' }}>Fällig</th>
-                <th className="routine-th" style={{ width: '26%' }}>Zuständig</th>
-                <th className="routine-th" style={{ width: '14%' }}>Heute</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visible.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="routine-td" style={{ color: 'var(--text-muted)' }}>
-                    Keine Serienaufträge vorhanden.
-                  </td>
-                </tr>
-              ) : (
-                groups.map(group => (
-                  <React.Fragment key={group.label}>
-                    <tr className="routine-group-row">
-                      <td colSpan={4}>
-                        <span className="routine-group-cell">
-                          {group.label}
-                          <span className="routine-group-count">{group.items.length}</span>
-                        </span>
-                      </td>
-                    </tr>
-                    {group.items.map(s => {
-                      const pool = getRoutinePool(s, users);
-                      const poolLabel = pool.length > 1 ? pool.map(n => displayNameShort(n)).join(' · ') : null;
-                      return (
-                  <tr
-                    key={s.id}
-                    onClick={canEdit ? () => setEditing({ schedule: s, isNew: false }) : undefined}
-                    style={canEdit ? { cursor: 'pointer' } : undefined}
-                    title={canEdit ? 'Zum Bearbeiten klicken' : undefined}
-                  >
-                    {/* Aufgabe + Bereich kompakt */}
-                    <td className="routine-td">
-                      <div className="routine-title">
-                        {s.title || '—'}
-                        {s.description && String(s.description).trim() ? (
-                          <i className="ti ti-notes" title="Beschreibung vorhanden" aria-hidden
-                            style={{ marginLeft: 5, fontSize: 12, color: 'var(--text-muted)', verticalAlign: 'middle' }} />
-                        ) : null}
-                      </div>
-                      <div className="routine-meta-row">
-                        <span className="routine-area-small">{String(s.area || '').trim() || '—'}</span>
-                      </div>
-                    </td>
-                    {/* Fällig: Wochentag-Chips (eine Zeile) oder Datum-Badge */}
-                    <td className="routine-td">
-                      {(() => {
-                        const rec = (s as any).recurrence;
-                        if (!rec || rec.type === 'daily') {
-                          return <span className="routine-schedule-badge">Täglich</span>;
-                        }
-                        if (rec.type === 'weekdays') {
-                          const WEEKDAY_ORDER: WeekdayKey[] = ['mo', 'di', 'mi', 'do', 'fr', 'sa', 'so'];
-                          const days: WeekdayKey[] = (Array.isArray(rec.weekdays) ? rec.weekdays : [])
-                            .slice().sort((a: WeekdayKey, b: WeekdayKey) => WEEKDAY_ORDER.indexOf(a) - WEEKDAY_ORDER.indexOf(b));
-                          return (
-                            <div className="routine-chips">
-                              {days.map((d: WeekdayKey) => {
-                                const chipYmd = ymdForWeekdayInWeekContaining(d, workWeekRefDate(new Date()));
-                                const done = (completions || []).some(c => c.scheduleId === s.id && c.date === chipYmd);
-                                return (
-                                  <span key={d} className={`routine-chip${done ? ' routine-chip-past' : ''}`}>
-                                    {weekdayLabel[d]}
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          );
-                        }
-                        return <span className="routine-schedule-badge">{formatInterval(s)}</span>;
-                      })()}
-                    </td>
-                    {/* Zuständig: nur aktueller Name + Pool als Hinweis */}
-                    <td className="routine-td">
-                      {(() => {
-                        const current = getRoutineAssigneeDisplayName(s, pool, todayYmd);
-                        return (
-                          <div title={poolLabel ? `Rotation: ${pool.join(', ')}` : undefined}>
-                            <div className="routine-assignee-name">{displayNameShort(current)}</div>
-                            {poolLabel && <div className="routine-pool-hint">{poolLabel}</div>}
+      <style>{`
+        .rs-col-hd {
+          display: grid;
+          grid-template-columns: 1fr 200px 220px 90px;
+          padding: 0 0 6px;
+          margin-top: 1.25rem;
+        }
+        .rs-col-hd > span {
+          padding: 0 20px;
+          font-size: 10.5px; font-weight: 700;
+          color: var(--text-muted);
+          text-transform: uppercase; letter-spacing: 0.07em;
+        }
+        .rs-col-hd > span:last-child { text-align: center; }
+        .rs-group { display: flex; flex-direction: column; }
+        .rs-group-hd {
+          display: flex; align-items: center; gap: 10px;
+          padding: 18px 0 8px;
+        }
+        .rs-group-label {
+          font-size: 11px; font-weight: 800; letter-spacing: 0.1em;
+          text-transform: uppercase; color: var(--text-secondary); white-space: nowrap;
+        }
+        .rs-group-pill {
+          font-size: 10.5px; font-weight: 700; color: #fff;
+          background: #DC2626; border-radius: 20px; padding: 1px 8px; white-space: nowrap;
+        }
+        .rs-group-rule { flex: 1; height: 1px; background: var(--border); }
+        .rs-card-list {
+          border: 1px solid var(--border); border-radius: 12px;
+          overflow: hidden; background: var(--bg-secondary);
+          box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+        }
+        .rs-card {
+          display: grid;
+          grid-template-columns: 1fr 200px 220px 90px;
+          align-items: center;
+          min-height: 64px;
+          border-bottom: 1px solid var(--border);
+          border-left: 4px solid transparent;
+          transition: background 0.12s;
+        }
+        .rs-card:last-child { border-bottom: none; }
+        .rs-card:hover { background: var(--bg-tertiary); }
+        .rs-card--clickable { cursor: pointer; }
+        .rs-cell { padding: 13px 20px; min-width: 0; }
+        .rs-title {
+          font-size: 14px; font-weight: 700; color: var(--text-primary);
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.35;
+        }
+        .rs-area {
+          display: inline-flex; align-items: center; gap: 4px;
+          margin-top: 4px; font-size: 11.5px; color: var(--text-muted);
+        }
+        .rs-chip {
+          display: inline-flex; align-items: center; justify-content: center;
+          min-width: 28px; height: 24px; border-radius: 6px;
+          border: 1.5px solid var(--border); background: var(--bg-tertiary);
+          font-size: 11px; font-weight: 700; color: var(--text-secondary); padding: 0 5px;
+        }
+        .rs-chip--done {
+          background: ${ROUTINE_TEAL.bg}; color: ${ROUTINE_TEAL.dark}; border-color: ${ROUTINE_TEAL.border};
+        }
+        .rs-badge {
+          display: inline-flex; align-items: center;
+          font-size: 12px; font-weight: 600; color: var(--text-secondary);
+          background: var(--bg-tertiary); border: 1px solid var(--border);
+          border-radius: 20px; padding: 4px 12px; white-space: nowrap;
+        }
+        .rs-avatar {
+          width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+          display: inline-flex; align-items: center; justify-content: center;
+          font-size: 12px; font-weight: 800; color: #fff;
+        }
+        .rs-person-name {
+          font-size: 13.5px; font-weight: 600; color: var(--text-primary);
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .rs-pool-hint {
+          font-size: 11px; color: var(--text-muted); margin-top: 2px;
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .rs-today-cell {
+          padding: 13px 20px; display: flex; align-items: center; justify-content: center;
+        }
+        .rs-circle {
+          width: 34px; height: 34px; border-radius: 50%;
+          display: inline-flex; align-items: center; justify-content: center;
+          padding: 0; flex-shrink: 0; border: 2px solid var(--border);
+          background: var(--bg-tertiary); font-family: inherit; line-height: 0;
+          cursor: pointer; box-sizing: border-box; transition: all 0.15s;
+        }
+        .rs-circle--off:hover { border-color: ${ROUTINE_TEAL.accent}; background: ${ROUTINE_TEAL.bg}; }
+        .rs-circle--on { background: ${ROUTINE_TEAL.accent}; border-color: ${ROUTINE_TEAL.accent}; color: #fff; }
+        button.rs-circle--on:hover { filter: brightness(0.88); }
+        .rs-by { font-size: 10px; font-weight: 600; color: var(--text-muted); margin-top: 3px; }
+        .rs-sub-btn {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 6px 13px; border-radius: 20px; cursor: pointer;
+          font-size: 12.5px; font-weight: 700; font-family: inherit;
+          border: 1.5px solid var(--border); background: var(--bg-tertiary); transition: all 0.12s;
+        }
+        .rs-sub-btn:hover { background: var(--bg-secondary); }
+        /* SubTask popup circles */
+        .routine-today-circle { width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0; cursor: pointer; border: 2px solid transparent; background: var(--bg-secondary); color: var(--text-muted); font-family: inherit; line-height: 0; box-sizing: border-box; }
+        .routine-today-circle--off { border-color: var(--border); background: var(--bg-tertiary); }
+        .routine-today-circle--off:hover { border-color: var(--border-active); }
+        .routine-today-circle--on { border-color: ${ROUTINE_TEAL.accent}; background: ${ROUTINE_TEAL.accent}; color: #fff; }
+        button.routine-today-circle--on:hover { filter: brightness(0.9); }
+        span.routine-today-circle--on { cursor: default; }
+        @media (max-width: 960px) {
+          .rs-card, .rs-col-hd { grid-template-columns: 1fr 160px 180px 72px; }
+        }
+        @media (max-width: 660px) {
+          .rs-card { grid-template-columns: 1fr 72px; }
+          .rs-col-hd { display: none; }
+          .rs-card .rs-cell:nth-child(2), .rs-card .rs-cell:nth-child(3) { display: none; }
+        }
+      `}</style>
+
+      {visible.length === 0 ? (
+        <div style={{ marginTop: '1.5rem', padding: '3rem', textAlign: 'center', color: 'var(--text-muted)', background: 'var(--bg-secondary)', borderRadius: 12, border: '1px solid var(--border)' }}>
+          Keine Serienaufträge vorhanden.
+        </div>
+      ) : (
+        <>
+          <div className="rs-col-hd">
+            <span>Aufgabe</span>
+            <span>Fällig</span>
+            <span>Zuständig</span>
+            <span>Heute</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {groups.map(group => (
+              <div key={group.label} className="rs-group">
+                <div className="rs-group-hd">
+                  <span className="rs-group-label">{group.label}</span>
+                  <span className="rs-group-pill">{group.items.length}</span>
+                  <span className="rs-group-rule" />
+                </div>
+                <div className="rs-card-list">
+                  {group.items.map(s => {
+                    const pool = getRoutinePool(s, users);
+                    const poolLabel = pool.length > 1 ? pool.map(n => displayNameShort(n)).join(' · ') : null;
+                    const current = getRoutineAssigneeDisplayName(s, pool, todayYmd);
+                    const avatarColor = nameToColor(current);
+                    const accentColor = getCadenceAccent(s);
+                    const due = isRoutineDueOnCalendarDay(s, new Date(), rpHolidaySet);
+                    const subtasks = s.subtasks || [];
+                    const completed = (completions || []).some(c => c.scheduleId === s.id && c.date === todayYmd && !c.subtaskId);
+                    const completion = (completions || []).find(c => c.scheduleId === s.id && c.date === todayYmd);
+                    const canComplete = !completed && (userRole === Role.Admin || userRole === s.targetRole);
+                    const canUncomplete = completed && (userRole === Role.Admin || userRole === s.targetRole || completion?.completedBy === userName);
+                    const subtaskStatus = subtasks.length > 0 ? routineDayStatus(s, todayYmd, completions) : null;
+                    const rec = (s as any).recurrence;
+                    const WEEKDAY_ORDER: WeekdayKey[] = ['mo', 'di', 'mi', 'do', 'fr', 'sa', 'so'];
+                    return (
+                      <div
+                        key={s.id}
+                        className={`rs-card${canEdit ? ' rs-card--clickable' : ''}`}
+                        style={{ borderLeftColor: accentColor }}
+                        onClick={canEdit ? () => setEditing({ schedule: s, isNew: false }) : undefined}
+                        title={canEdit ? 'Zum Bearbeiten klicken' : undefined}
+                      >
+                        {/* Aufgabe */}
+                        <div className="rs-cell">
+                          <div className="rs-title">
+                            {s.title || '—'}
+                            {s.description && String(s.description).trim() ? (
+                              <i className="ti ti-notes" title="Beschreibung vorhanden" aria-hidden
+                                style={{ marginLeft: 6, fontSize: 12, color: 'var(--text-muted)', verticalAlign: 'middle' }} />
+                            ) : null}
+                            {subtasks.length > 0 ? (
+                              <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', verticalAlign: 'middle' }}>· {subtasks.length} Punkte</span>
+                            ) : null}
                           </div>
-                        );
-                      })()}
-                    </td>
-                    <td className="routine-td">
-                      {(() => {
-                        const due = isRoutineDueOnCalendarDay(s, new Date(), rpHolidaySet);
-                        if (!due) {
-                          return <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>;
-                        }
-                        const pool = getRoutinePool(s, users);
-                        const assignee = getRoutineAssigneeDisplayName(s, pool, todayYmd);
-                        const subtasks = s.subtasks || [];
-                        if (subtasks.length > 0) {
-                          const status = routineDayStatus(s, todayYmd, completions);
-                          const col = status.complete ? ROUTINE_TEAL.dark : status.anyDone ? '#854F0B' : 'var(--text-muted)';
-                          return (
+                          {s.area && String(s.area).trim() ? (
+                            <div className="rs-area">
+                              <i className="ti ti-map-pin" style={{ fontSize: 10 }} />
+                              {String(s.area).trim()}
+                            </div>
+                          ) : null}
+                        </div>
+                        {/* Fällig */}
+                        <div className="rs-cell">
+                          {(() => {
+                            if (!rec || rec.type === 'daily') return <span className="rs-badge">Täglich</span>;
+                            if (rec.type === 'weekdays') {
+                              const days: WeekdayKey[] = (Array.isArray(rec.weekdays) ? rec.weekdays : [])
+                                .slice().sort((a: WeekdayKey, b: WeekdayKey) => WEEKDAY_ORDER.indexOf(a) - WEEKDAY_ORDER.indexOf(b));
+                              return (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                  {days.map((d: WeekdayKey) => {
+                                    const chipYmd = ymdForWeekdayInWeekContaining(d, workWeekRefDate(new Date()));
+                                    const done = (completions || []).some(c => c.scheduleId === s.id && c.date === chipYmd);
+                                    return <span key={d} className={`rs-chip${done ? ' rs-chip--done' : ''}`}>{weekdayLabel[d]}</span>;
+                                  })}
+                                </div>
+                              );
+                            }
+                            return <span className="rs-badge">{formatInterval(s)}</span>;
+                          })()}
+                        </div>
+                        {/* Zuständig */}
+                        <div className="rs-cell" title={poolLabel ? `Rotation: ${pool.join(', ')}` : undefined}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                            <span className="rs-avatar" style={{ background: avatarColor }}>
+                              {current.trim().charAt(0).toUpperCase()}
+                            </span>
+                            <div style={{ minWidth: 0 }}>
+                              <div className="rs-person-name">{displayNameShort(current)}</div>
+                              {poolLabel && <div className="rs-pool-hint">{poolLabel}</div>}
+                            </div>
+                          </div>
+                        </div>
+                        {/* Heute */}
+                        <div className="rs-today-cell">
+                          {!due ? (
+                            <span style={{ color: 'var(--text-muted)', fontSize: 22, fontWeight: 200, lineHeight: 1 }}>—</span>
+                          ) : subtasks.length > 0 ? (
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); setSubPop({ schedId: s.id }); }}
                               title="Unter-Aufgaben abhaken"
-                              style={{ background: 'var(--bg-secondary)', border: `1px solid ${status.complete ? ROUTINE_TEAL.border : 'var(--border)'}`, borderRadius: 8, padding: '5px 11px', cursor: 'pointer', fontSize: 12.5, fontWeight: 700, color: col, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                              className="rs-sub-btn"
+                              style={{
+                                color: subtaskStatus!.complete ? ROUTINE_TEAL.dark : subtaskStatus!.anyDone ? '#854F0B' : 'var(--text-muted)',
+                                borderColor: subtaskStatus!.complete ? ROUTINE_TEAL.border : 'var(--border)',
+                                background: subtaskStatus!.complete ? ROUTINE_TEAL.bg : 'var(--bg-tertiary)',
+                              }}
                             >
-                              {status.complete ? <CheckIcon width={13} height={13} strokeWidth={2.5} aria-hidden /> : null}
-                              {status.done}/{status.total}
+                              {subtaskStatus!.complete ? <CheckIcon width={13} height={13} strokeWidth={2.5} aria-hidden /> : null}
+                              {subtaskStatus!.done}/{subtaskStatus!.total}
                             </button>
-                          );
-                        }
-                        const completed = (completions || []).some(
-                          (c) => c.scheduleId === s.id && c.date === todayYmd
-                        );
-                        const completion = (completions || []).find(
-                          (c) => c.scheduleId === s.id && c.date === todayYmd
-                        );
-                        const canComplete =
-                          !completed &&
-                          (userRole === Role.Admin || userRole === s.targetRole);
-                        const canUncomplete =
-                          completed &&
-                          (userRole === Role.Admin ||
-                            userRole === s.targetRole ||
-                            completion?.completedBy === userName);
-
-                        const nameUnder =
-                          completed && completion?.completedBy ? (
-                            <div className="routine-today-by-under" title={completion.completedBy}>
-                              {displayNameShort(completion.completedBy)}
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                              {!completed && canComplete ? (
+                                <button type="button" className="rs-circle rs-circle--off"
+                                  title="Heute als erledigt markieren" aria-label="Heute als erledigt markieren"
+                                  onClick={(e) => { e.stopPropagation(); onComplete(s.id); }} />
+                              ) : !completed ? (
+                                <span style={{ color: 'var(--text-muted)', fontSize: 22, fontWeight: 200, lineHeight: 1 }}>—</span>
+                              ) : canUncomplete ? (
+                                <>
+                                  <button type="button" className="rs-circle rs-circle--on"
+                                    title="Erledigt – Klick zum Zurücknehmen" aria-label="Erledigt"
+                                    onClick={(e) => { e.stopPropagation(); onUncomplete(s.id); }}>
+                                    <CheckIcon width={15} height={15} strokeWidth={2.5} aria-hidden />
+                                  </button>
+                                  {completion?.completedBy && <div className="rs-by">{displayNameShort(completion.completedBy)}</div>}
+                                </>
+                              ) : (
+                                <>
+                                  <span className="rs-circle rs-circle--on" style={{ cursor: 'default' }} title="Erledigt" aria-label="Erledigt">
+                                    <CheckIcon width={15} height={15} strokeWidth={2.5} aria-hidden />
+                                  </span>
+                                  {completion?.completedBy && <div className="rs-by">{displayNameShort(completion.completedBy)}</div>}
+                                </>
+                              )}
                             </div>
-                          ) : null;
-
-                        const checkMark = <CheckIcon width={14} height={14} strokeWidth={2.5} aria-hidden />;
-
-                        return (
-                          <div className="routine-today-stack">
-                            {!completed && canComplete ? (
-                              <button
-                                type="button"
-                                className="routine-today-circle routine-today-circle--off"
-                                title="Heute als erledigt markieren"
-                                aria-label="Heute als erledigt markieren"
-                                onClick={(e) => { e.stopPropagation(); onComplete(s.id); }}
-                              />
-                            ) : null}
-                            {!completed && !canComplete ? (
-                              <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
-                            ) : null}
-                            {completed && canUncomplete ? (
-                              <>
-                                <button
-                                  type="button"
-                                  className="routine-today-circle routine-today-circle--on"
-                                  title="Erledigt – Klick zum Zurücknehmen"
-                                  aria-label="Erledigt, Klick zum Zurücknehmen"
-                                  onClick={(e) => { e.stopPropagation(); onUncomplete(s.id); }}
-                                >
-                                  {checkMark}
-                                </button>
-                                {nameUnder}
-                              </>
-                            ) : null}
-                            {completed && !canUncomplete ? (
-                              <>
-                                <span
-                                  className="routine-today-circle routine-today-circle--on"
-                                  title="Erledigt (Zurücknehmen nicht möglich)"
-                                  aria-label="Erledigt"
-                                >
-                                  {checkMark}
-                                </span>
-                                {nameUnder}
-                              </>
-                            ) : null}
-                          </div>
-                        );
-                      })()}
-                    </td>
-                  </tr>
-                      );
-                    })}
-                  </React.Fragment>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
       {subPop && (() => {
         const sched = visible.find((x) => x.id === subPop.schedId);
         if (!sched) return null;
