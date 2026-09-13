@@ -468,7 +468,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                             </button>
                             <span>{s.title || '—'}</span>
                             {subtasks.length > 0 ? (
-                              <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>· {subtasks.length} Punkte</span>
+                              <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>· {subtasks.length} Pkt.</span>
                             ) : null}
                           </div>
                           {s.area && String(s.area).trim() ? (
