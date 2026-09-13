@@ -33,12 +33,12 @@ const KpiCard: React.FC<{ label: string; value: string | number; sub?: string; a
 // ── Horizontal Bar ────────────────────────────────────────────────────────────
 interface BarItem { label: string; value: number; color?: string; suffix?: string; caption?: string }
 
-const HBar: React.FC<{ items: BarItem[]; maxOverride?: number }> = ({ items, maxOverride }) => {
+const HBar: React.FC<{ items: BarItem[]; maxOverride?: number; labelWidth?: number }> = ({ items, maxOverride, labelWidth = 90 }) => {
   const max = maxOverride ?? Math.max(...items.map(i => i.value), 1);
   return (
     <div className="rp-hbar-list">
       {items.map((item, idx) => (
-        <div className="rp-hbar-row" key={item.label} style={{ animationDelay: `${idx * 40}ms` }}>
+        <div className="rp-hbar-row" key={item.label} style={{ animationDelay: `${idx * 40}ms`, gridTemplateColumns: `${labelWidth}px 1fr auto` }}>
           <span className="rp-hbar-label" title={item.label}>{item.caption ?? item.label}</span>
           <div className="rp-hbar-track">
             <div className="rp-hbar-fill" style={{ width: `${(item.value / max) * 100}%`, background: item.color ?? 'var(--accent-primary)' }} />
@@ -469,7 +469,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTicke
               <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: '#F59E0B', marginRight: 5 }} />3–4×&nbsp;&nbsp;
               <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: '#6366F1', marginRight: 5 }} />1–2×
             </div>
-            <HBar items={recurringIssues} />
+            <HBar items={recurringIssues} labelWidth={220} />
           </>
         ) : (
           <div className="rp-empty">Keine Daten — lade weitere Monate oben</div>
