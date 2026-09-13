@@ -153,10 +153,16 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
     return map;
   }, [users]);
 
+  const isTechRole = userRole === Role.Technician || userRole === Role.Housekeeping;
+  const [myTasksOnly, setMyTasksOnly] = useState(isTechRole);
+
   const visible = useMemo(() => {
-    // Alle Rollen sehen alle aktiven Serienaufträge (Techniker/Hauswirtschaft nur lesend).
-    return schedules.filter(s => s.enabled);
-  }, [schedules]);
+    const all = schedules.filter(s => s.enabled);
+    if (myTasksOnly && isTechRole) {
+      return all.filter(s => Array.isArray(s.assignees) && s.assignees.includes(userName));
+    }
+    return all;
+  }, [schedules, myTasksOnly, isTechRole, userName]);
 
   // Nach Rhythmus gruppieren: Täglich → Wöchentlich → Alle 2 Wochen → … → Monatlich → Jährlich.
   const groups = useMemo(() => {
@@ -228,8 +234,17 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
 
   return (
     <div style={{ maxWidth: 1800 }}>
-      {canEdit && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, marginTop: '1.5rem' }}>
+        {isTechRole && (
+          <button
+            type="button"
+            onClick={() => setMyTasksOnly(v => !v)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 8, border: '1.5px solid var(--border)', background: myTasksOnly ? 'var(--accent-primary)' : 'var(--bg-secondary)', color: myTasksOnly ? '#fff' : 'var(--text-primary)', fontWeight: 700, fontSize: '0.83rem', cursor: 'pointer', transition: 'all 0.15s' }}
+          >
+            <i className="ti ti-user" aria-hidden /> {myTasksOnly ? 'Meine Aufgaben' : 'Alle anzeigen'}
+          </button>
+        )}
+        {canEdit && (
           <button
             type="button"
             onClick={() => setEditing({ schedule: newRoutineDraft(), isNew: true })}
@@ -237,8 +252,8 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
           >
             <span style={{ fontSize: 17, lineHeight: 1, marginTop: -1 }}>+</span> Neuer Serienauftrag
           </button>
-        </div>
-      )}
+        )}
+      </div>
       <style>{`
         .rs-col-hd {
           display: grid;
