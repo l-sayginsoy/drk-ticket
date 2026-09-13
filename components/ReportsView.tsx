@@ -312,21 +312,6 @@ const ReportsView: React.FC<ReportsViewProps> = ({
         .rp-chip svg { position: absolute; right: 0.6rem; top: 50%; transform: translateY(-50%); width: 14px; color: var(--text-muted); pointer-events: none; }
         .rp-divider { width: 1px; height: 24px; background: var(--border); }
         .rp-chip-badge { font-size: 0.75rem; font-weight: 700; background: var(--border); padding: 1px 6px; border-radius: 10px; color: var(--text-primary); }
-        .rp-year-btn {
-          display: flex; align-items: center; gap: 5px;
-          border: 1px solid var(--border); border-radius: 20px; padding: 0 14px;
-          height: 34px; font-size: 0.8rem; font-weight: 600;
-          background: var(--bg-primary); color: var(--text-secondary);
-          cursor: pointer; white-space: nowrap;
-        }
-        .rp-year-btn:hover:not(:disabled) { border-color: #0d6efd; color: #0d6efd; }
-        .rp-year-btn:disabled { opacity: 0.6; cursor: default; }
-        .rp-year-loaded {
-          display: flex; align-items: center; gap: 5px;
-          border: 1px solid #0d6efd; border-radius: 20px; padding: 0 14px;
-          height: 34px; font-size: 0.8rem; font-weight: 600; color: #0d6efd;
-          background: #eff6ff;
-        }
         .rp-reset { background: transparent; border: none; color: var(--text-muted); font-size: 0.875rem; padding: 0.4rem 0.75rem; border-radius: 20px; cursor: pointer; margin-left: auto; display: flex; align-items: center; gap: 0.4rem; }
         .rp-reset:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 
@@ -376,13 +361,26 @@ const ReportsView: React.FC<ReportsViewProps> = ({
       {/* ── Toolbar ── */}
       <div className="rp-toolbar">
         <div className="rp-month-select">
-          <label>Monat</label>
-          <div className={`rp-chip${isCurrentMonth && !isYearMode ? ' rp-chip--current' : ''}`} style={{ minWidth: 150 }}>
-            <span>{monthLabel}{isCurrentMonth ? ' (aktuell)' : ''}</span>
-            <select value={`${completedYear}-${completedMonth}`} onChange={e => {
-              const [y, m] = e.target.value.split('-').map(Number);
-              onLoadMonth(m, y);
-            }}>
+          <label>Zeitraum</label>
+          <div className={`rp-chip${isYearMode ? ' rp-chip--year' : isCurrentMonth ? ' rp-chip--current' : ''}`} style={{ minWidth: 170 }}>
+            {isLoadingReportYear
+              ? <span><i className="ti ti-loader-2" style={{ animation: 'spin 1s linear infinite' }} /> Lade Jahr…</span>
+              : <span>{isYearMode ? `Ganzes Jahr ${currentYear}` : `${monthLabel}${isCurrentMonth ? ' (aktuell)' : ''}`}</span>}
+            <select
+              value={isYearMode ? `year-${currentYear}` : `${completedYear}-${completedMonth}`}
+              onChange={e => {
+                const val = e.target.value;
+                if (val.startsWith('year-')) {
+                  const y = parseInt(val.split('-')[1]);
+                  onLoadYearForStats?.(y);
+                } else {
+                  const [y, m] = val.split('-').map(Number);
+                  onLoadMonth(m, y);
+                }
+              }}
+            >
+              <option value={`year-${currentYear}`}>Ganzes Jahr {currentYear}</option>
+              <option disabled>──────────────</option>
               {monthOptions.map(o => (
                 <option key={`${o.year}-${o.month}`} value={`${o.year}-${o.month}`}>{o.label}</option>
               ))}
@@ -390,25 +388,6 @@ const ReportsView: React.FC<ReportsViewProps> = ({
             <ChevronDownIcon />
           </div>
         </div>
-
-        <div className="rp-divider" />
-
-        {/* Jahres-Button */}
-        {isYearMode ? (
-          <div className="rp-year-loaded">
-            <i className="ti ti-calendar-stats" /> {yearLabel} aktiv
-          </div>
-        ) : (
-          <button
-            className="rp-year-btn"
-            onClick={() => onLoadYearForStats?.(currentYear)}
-            disabled={isLoadingReportYear || !onLoadYearForStats}
-          >
-            {isLoadingReportYear
-              ? <><i className="ti ti-loader-2" style={{ animation: 'spin 1s linear infinite' }} /> Lade…</>
-              : <><i className="ti ti-calendar-stats" /> {yearLabel} laden</>}
-          </button>
-        )}
 
         <div className="rp-divider" />
 
@@ -534,7 +513,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({
           </div>
           {!isYearMode && (
             <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              → {yearLabel} laden (oben) für vollständige Jahresauswertung
+              → "Ganzes Jahr" oben wählen für vollständige Auswertung
             </span>
           )}
         </div>
