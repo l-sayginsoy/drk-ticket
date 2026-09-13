@@ -365,7 +365,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({
           <div className={`rp-chip${isYearMode ? ' rp-chip--year' : isCurrentMonth ? ' rp-chip--current' : ''}`} style={{ minWidth: 170 }}>
             {isLoadingReportYear
               ? <span><i className="ti ti-loader-2" style={{ animation: 'spin 1s linear infinite' }} /> Lade Jahr…</span>
-              : <span>{isYearMode ? `Ganzes Jahr ${currentYear}` : `${monthLabel}${isCurrentMonth ? ' (aktuell)' : ''}`}</span>}
+              : <span>{isYearMode ? `Jahr ${currentYear}` : `${monthLabel}${isCurrentMonth ? ' (aktuell)' : ''}`}</span>}
             <select
               value={isYearMode ? `year-${currentYear}` : `${completedYear}-${completedMonth}`}
               onChange={e => {
@@ -379,7 +379,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({
                 }
               }}
             >
-              <option value={`year-${currentYear}`}>Ganzes Jahr {currentYear}</option>
+              <option value={`year-${currentYear}`}>Jahr {currentYear}</option>
               <option disabled>──────────────</option>
               {monthOptions.map(o => (
                 <option key={`${o.year}-${o.month}`} value={`${o.year}-${o.month}`}>{o.label}</option>
