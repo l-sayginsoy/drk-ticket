@@ -200,63 +200,60 @@ const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTicke
       .map(([label, value]) => ({ label, value, color: '#6f42c1' }));
   }, [filteredCompleted, appSettings.ticketCategories]);
 
-  // ── Häufigste Störungen (Titel-Gruppierung über alle geladenen Tickets) ───────
+  // ── Häufigste Störungen: Kategorie × Standort ─────────────────────────────
   const recurringIssues = useMemo(() => {
     const all = [...activeTickets, ...completedTickets].filter(t => t.origin !== 'routine');
-    const counts: Record<string, { count: number; area: string; category: string }> = {};
+    const counts: Record<string, number> = {};
     all.forEach(t => {
-      const key = (t.title || '').trim().toLowerCase();
-      if (!key) return;
-      const cat = appSettings.ticketCategories?.find(c => c.id === t.categoryId)?.name ?? '';
-      if (!counts[key]) counts[key] = { count: 0, area: t.area || '', category: cat };
-      counts[key].count++;
+      const cat = appSettings.ticketCategories?.find(c => c.id === t.categoryId)?.name ?? 'Keine Kategorie';
+      const key = `${cat} · ${t.area || '—'}`;
+      counts[key] = (counts[key] || 0) + 1;
     });
     return Object.entries(counts)
-      .filter(([, v]) => v.count > 1)
-      .sort((a, b) => b[1].count - a[1].count)
-      .slice(0, 15)
-      .map(([title, v]) => ({
-        label: title.charAt(0).toUpperCase() + title.slice(1),
-        value: v.count,
-        caption: v.category ? `${v.category}` : v.area,
-        color: v.count >= 5 ? '#DC2626' : v.count >= 3 ? '#F59E0B' : '#6366F1',
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 12)
+      .map(([label, value]) => ({
+        label,
+        value,
+        color: value >= 5 ? '#DC2626' : value >= 3 ? '#F59E0B' : '#6366F1',
       }));
   }, [activeTickets, completedTickets, appSettings.ticketCategories]);
 
-  // ── Serienaufträge: Erledigungsquote pro Person (laufendes Jahr) ────────────
+  // ── Serienaufträge: wer hat wie viel erledigt (completedBy, laufendes Jahr) ─
   const routinePersonStats = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    const todayYmd = localISODate(new Date());
-    const rpHolidaySet = new Set(rpHolidayYmdList);
-    const personStats: Record<string, { done: number; total: number }> = {};
-
-    routineSchedules.filter(s => s.enabled).forEach(s => {
-      const pool = getRoutinePool(s, users);
-      const dueDates = getDueDatesInYear(s, currentYear, rpHolidaySet).filter(d => d <= todayYmd);
-
-      dueDates.forEach(d => {
-        const assignee = getRoutineAssigneeDisplayName(s, pool, d);
-        if (!assignee || assignee === '—') return;
-        if (!personStats[assignee]) personStats[assignee] = { done: 0, total: 0 };
-        personStats[assignee].total++;
-        const st = routineDayStatus(s, d, routineCompletions);
-        if (st.complete) personStats[assignee].done++;
+    const currentYear = new Date().getFullYear().toString();
+    const counts: Record<string, number> = {};
+    routineCompletions
+      .filter(c => c.date.startsWith(currentYear) && !c.subtaskId)
+      .forEach(c => {
+        if (!c.completedBy) return;
+        counts[c.completedBy] = (counts[c.completedBy] || 0) + 1;
       });
+    // auch Unteraufgaben-Erledigungen zählen (pro Auftrag nur einmal wenn komplett)
+    const schedIds = new Set(routineSchedules.map(s => s.id));
+    const subtaskCounts: Record<string, Set<string>> = {};
+    routineCompletions
+      .filter(c => c.date.startsWith(currentYear) && !!c.subtaskId && schedIds.has(c.scheduleId))
+      .forEach(c => {
+        const key = `${c.scheduleId}|${c.date}`;
+        if (!subtaskCounts[c.completedBy]) subtaskCounts[c.completedBy] = new Set();
+        subtaskCounts[c.completedBy].add(key);
+      });
+    // Subtask-Einzel-Erledigungen addieren
+    Object.entries(subtaskCounts).forEach(([name, keys]) => {
+      counts[name] = (counts[name] || 0) + keys.size;
     });
-
-    return Object.entries(personStats)
-      .sort((a, b) => b[1].total - a[1].total)
-      .map(([name, { done, total }]) => {
-        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-        return {
-          label: name,
-          caption: displayNameShort(name),
-          value: pct,
-          suffix: `% (${done}/${total})`,
-          color: pct >= 90 ? '#10B981' : pct >= 70 ? '#F59E0B' : '#DC2626',
-        };
-      });
-  }, [routineSchedules, routineCompletions, users, rpHolidayYmdList]);
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count], i) => ({
+        label: name,
+        caption: displayNameShort(name),
+        value: total > 0 ? Math.round((count / total) * 100) : 0,
+        suffix: `% · ${count}×`,
+        color: TECH_COLORS[i % TECH_COLORS.length],
+      }));
+  }, [routineCompletions, routineSchedules]);
 
   const empty = <div className="rp-empty">Keine Daten</div>;
 
@@ -463,27 +460,26 @@ const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTicke
       {/* ── Häufigste Störungen ─────────────────────────────────────────────── */}
       <Section
         title="Häufigste Störungen"
-        sub={`Wiederkehrende Tickets (${activeTickets.length + completedTickets.length} geladen) – nur Mehrfachnennungen`}
+        sub={`Kategorie × Standort · ${activeTickets.length + completedTickets.length} geladene Tickets · für mehr Daten weitere Monate laden`}
       >
         {recurringIssues.length > 0 ? (
           <>
             <div style={{ marginBottom: '0.75rem', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: '#DC2626', marginRight: 5 }} />5+ Nennungen &nbsp;
-              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: '#F59E0B', marginRight: 5 }} />3–4 &nbsp;
-              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: '#6366F1', marginRight: 5 }} />2
+              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: '#DC2626', marginRight: 5 }} />≥ 5×&nbsp;&nbsp;
+              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: '#F59E0B', marginRight: 5 }} />3–4×&nbsp;&nbsp;
+              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: '#6366F1', marginRight: 5 }} />1–2×
             </div>
             <HBar items={recurringIssues} />
           </>
         ) : (
-          <div className="rp-empty">Keine Mehrfach-Störungen im geladenen Zeitraum — lade weitere Monate um mehr zu sehen</div>
+          <div className="rp-empty">Keine Daten — lade weitere Monate oben</div>
         )}
       </Section>
 
-      {/* ── Serienaufträge Erledigungsquote pro Person ──────────────────────── */}
       {routinePersonStats.length > 0 && (
         <Section
-          title="Serienaufträge – Erledigungsquote pro Person"
-          sub={`Laufendes Jahr ${new Date().getFullYear()} · grün ≥ 90 % · gelb ≥ 70 % · rot < 70 %`}
+          title="Serienaufträge – wer hat wie viel erledigt"
+          sub={`Laufendes Jahr ${new Date().getFullYear()} · Anteil an allen Erledigungen`}
         >
           <HBar items={routinePersonStats} maxOverride={100} />
         </Section>
