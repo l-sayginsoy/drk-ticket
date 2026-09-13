@@ -7,8 +7,8 @@ export const ROUTINE_AMBER = {
 } as const;
 
 export const ROUTINE_TEAL = {
-  bg: '#E1F5EE',
-  border: '#5DCAA5',
-  accent: '#0F6E56',
-  dark: '#085041',
+  bg: '#EFF6FF',
+  border: '#93C5FD',
+  accent: '#2563EB',
+  dark: '#1D4ED8',
 } as const;

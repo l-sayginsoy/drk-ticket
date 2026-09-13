@@ -135,20 +135,9 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
   }, [users]);
 
   const visible = useMemo(() => {
-    const enabled = schedules.filter(s => s.enabled);
-
-    // Admin: alles sehen
-    if (userRole === Role.Admin) return enabled;
-
-    // Mitarbeiter: nur ihren Bereich + nur wenn sie in der Zuständigkeitsliste sind (oder Liste leer => alle im Bereich)
-    return enabled.filter(s => {
-      if (s.targetRole !== userRole) return false;
-      const poolAll = activeUsersByRole.get(s.targetRole) || [];
-      const assignees = (s as any).assignees as string[] | undefined;
-      if (!assignees || assignees.length === 0) return true;
-      return assignees.includes(userName) && poolAll.includes(userName);
-    });
-  }, [schedules, userRole, userName, activeUsersByRole]);
+    // Alle Rollen sehen alle aktiven Serienaufträge (Techniker/Hauswirtschaft nur lesend).
+    return schedules.filter(s => s.enabled);
+  }, [schedules]);
 
   // Nach Rhythmus gruppieren: Täglich → Wöchentlich → Alle 2 Wochen → … → Monatlich → Jährlich.
   const groups = useMemo(() => {
@@ -398,7 +387,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
             padding: 0.4rem 0.85rem;
             border-top: 1px solid var(--border);
             border-bottom: 1px solid var(--border);
-            border-left: 3px solid var(--border-active);
+            border-left: 3px solid #DC2626;
             text-align: left;
           }
           .routine-group-row:hover td { background: var(--bg-tertiary); }

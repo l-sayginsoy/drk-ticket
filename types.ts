@@ -134,6 +134,8 @@ export interface AppSettings {
   adminNotificationEmail?: string;
   /** Selbst-gelerntes Routing: normalisiertes Schlagwort → { Mitarbeitername → Anzahl manueller Zuweisungen } */
   learnedRouting?: { [keyword: string]: { [technicianName: string]: number } };
+  /** Quittierte vergessene Serienaufträge: Keys `${scheduleId}|${entryDateISO}` */
+  acknowledgedMissedRoutines?: string[];
 }
 
 export interface MaintenancePlan {

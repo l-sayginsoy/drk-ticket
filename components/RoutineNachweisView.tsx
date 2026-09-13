@@ -87,14 +87,14 @@ export default function RoutineNachweisView({
   const rpHolidaySet = useMemo(() => new Set(rpHolidayYmdList), [rpHolidayYmdList]);
 
   const visibleSchedules = useMemo(() => {
-    const list = (schedules || []).filter((s) => isScheduleVisibleForUser(s, userRole, userName, users));
+    const list = (schedules || []).filter((s) => s.enabled);
     if (scheduleFilter === 'alle') return list;
     return list.filter((s) => s.id === scheduleFilter);
-  }, [schedules, userRole, userName, users, scheduleFilter]);
+  }, [schedules, scheduleFilter]);
 
   const scheduleSelectOptions = useMemo(() => {
-    return (schedules || []).filter((s) => isScheduleVisibleForUser(s, userRole, userName, users));
-  }, [schedules, userRole, userName, users]);
+    return (schedules || []).filter((s) => s.enabled);
+  }, [schedules]);
 
   const personOptions = useMemo(() => {
     const names = new Set<string>();

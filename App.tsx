@@ -2933,9 +2933,21 @@ const deleteTicketFromFirebase = (ticketId: string) => {
 
   // Banner für vergessene Serienaufträge — nur ab Montag 16.06.2026
   const ROUTINE_WARN_START = '2026-06-16';
+  const handleAcknowledgeMissedRoutine = (scheduleId: string, entryIso: string) => {
+    const key = `${scheduleId}|${entryIso}`;
+    setAppSettings(prev => {
+      const existing = prev.acknowledgedMissedRoutines || [];
+      if (existing.includes(key)) return prev;
+      const next = { ...prev, acknowledgedMissedRoutines: [...existing, key] };
+      void setDoc(doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS), { value: JSON.parse(JSON.stringify(next)), updated_at: new Date().toISOString() });
+      return next;
+    });
+  };
+
   const missedRoutinesSinceStart = useMemo(() => {
     const completions = appSettings.routineDayCompletions || [];
-    return routineTickets.filter(t => {
+    const acknowledged = appSettings.acknowledgedMissedRoutines || [];
+    const filtered = routineTickets.filter(t => {
       if (t.status !== Status.Ueberfaellig) return false;
       if (!t.dueDate) return false;
       const parts = t.dueDate.split('.');
@@ -2961,9 +2973,23 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       if (t.routineScheduleId && completions.some(
         c => c.scheduleId === t.routineScheduleId && c.date >= entryIso
       )) return false;
+      // Manuell quittiert?
+      if (t.routineScheduleId && acknowledged.includes(`${t.routineScheduleId}|${entryIso}`)) return false;
       return true;
     });
-  }, [routineTickets, appSettings.routineDayCompletions]);
+    // Pro Schedule nur den neuesten Eintrag zeigen (verhindert Mehrfach-Einträge
+    // wenn ältere Termine noch auf Überfällig stehen)
+    const seen = new Map<string, typeof filtered[0]>();
+    for (const t of filtered) {
+      const key = t.routineScheduleId || t.id;
+      const existing = seen.get(key);
+      if (!existing) { seen.set(key, t); continue; }
+      const entryA = existing.entryDate || existing.dueDate || '';
+      const entryB = t.entryDate || t.dueDate || '';
+      if (entryB > entryA) seen.set(key, t);
+    }
+    return [...seen.values()];
+  }, [routineTickets, appSettings.routineDayCompletions, appSettings.acknowledgedMissedRoutines]);
 
   const filteredTickets = useMemo(() => {
     const source = currentView === 'erledigt' ? completedTickets : [...tickets, ...routineTickets];
@@ -3820,29 +3846,40 @@ const deleteTicketFromFirebase = (ticketId: string) => {
             </div>
             {/* Liste der vergessenen Aufträge */}
             <div>
-              {missedRoutinesSinceStart.slice(0, 6).map((t, i) => (
+              {missedRoutinesSinceStart.slice(0, 6).map((t, i) => {
+                const ep = (t.entryDate || '').split('.');
+                const entryIso = ep.length === 3
+                  ? `${ep[2].length === 2 ? '20' + ep[2] : ep[2]}-${ep[1].padStart(2,'0')}-${ep[0].padStart(2,'0')}`
+                  : '';
+                return (
                 <div
                   key={t.id}
                   className="missed-routine-row"
-                  onClick={() => setSelectedTicket(t)}
-                  title="Öffnen"
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', cursor: 'pointer', borderTop: i === 0 ? 'none' : '1px solid rgba(220,38,38,0.10)' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderTop: i === 0 ? 'none' : '1px solid rgba(220,38,38,0.10)' }}
                 >
                   <i className="ti ti-repeat" style={{ fontSize: 16, color: '#B91C1C', flexShrink: 0 }} aria-hidden="true" />
-                  <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, minWidth: 0 }}>
+                  <span onClick={() => setSelectedTicket(t)} style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, minWidth: 0, cursor: 'pointer' }}>
                     {t.title}
                   </span>
                   {t.area ? <span style={{ fontSize: 12.5, color: 'var(--text-muted)', flexShrink: 0, whiteSpace: 'nowrap' }}>{t.area}</span> : null}
                   <span style={{ fontSize: 12.5, fontWeight: 700, color: '#B91C1C', flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
                     <i className="ti ti-calendar" style={{ fontSize: 14 }} aria-hidden="true" />
-                    fällig war {t.dueDate}
+                    fällig war {t.entryDate || t.dueDate}
                   </span>
                   {t.technician && t.technician !== 'N/A' ? (
                     <span style={{ fontSize: 12.5, color: 'var(--text-secondary)', flexShrink: 0, whiteSpace: 'nowrap' }}>· {displayNameShort(t.technician)}</span>
                   ) : null}
-                  <i className="ti ti-chevron-right" style={{ fontSize: 15, color: 'var(--text-muted)', flexShrink: 0 }} aria-hidden="true" />
+                  <button
+                    title="Zur Kenntnis genommen – aus Liste entfernen"
+                    onClick={() => t.routineScheduleId && entryIso && handleAcknowledgeMissedRoutine(t.routineScheduleId, entryIso)}
+                    style={{ flexShrink: 0, background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.25)', borderRadius: 6, padding: '3px 8px', fontSize: 12, color: '#B91C1C', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}
+                  >
+                    <i className="ti ti-check" style={{ fontSize: 13 }} aria-hidden="true" />
+                    Quittieren
+                  </button>
                 </div>
-              ))}
+                );
+              })}
               {missedRoutinesSinceStart.length > 6 && (
                 <div
                   className="missed-routine-row"
