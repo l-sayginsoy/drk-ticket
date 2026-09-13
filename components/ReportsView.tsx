@@ -22,7 +22,6 @@ interface ReportsViewProps {
 }
 
 const MONTHS_DE = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
-
 const TECH_COLORS = ['#0d6efd','#6f42c1','#198754','#fd7e14','#20c997','#e83e8c','#6c757d','#17a2b8'];
 
 // ── KPI Card ──────────────────────────────────────────────────────────────────
@@ -66,13 +65,20 @@ const Section: React.FC<{ title: string; sub?: string; children: React.ReactNode
 );
 
 // ── MAIN ──────────────────────────────────────────────────────────────────────
-const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTickets, completedMonth, completedYear, onLoadMonth, users, appSettings, routineSchedules = [], routineCompletions = [], rpHolidayYmdList = [], reportYearTickets = [], reportLoadedYear = null, isLoadingReportYear = false, onLoadYearForStats }) => {
+const ReportsView: React.FC<ReportsViewProps> = ({
+  activeTickets, completedTickets, completedMonth, completedYear, onLoadMonth,
+  users, appSettings, routineSchedules = [], routineCompletions = [], rpHolidayYmdList = [],
+  reportYearTickets = [], reportLoadedYear = null, isLoadingReportYear = false, onLoadYearForStats,
+}) => {
   const now = new Date();
+  const currentYear = now.getFullYear();
   const [filterArea, setFilterArea] = useState('Alle');
   const [filterTech, setFilterTech] = useState('Alle');
 
   const isCurrentMonth = completedMonth === (now.getMonth() + 1) && completedYear === now.getFullYear();
   const monthLabel = `${MONTHS_DE[completedMonth - 1]} ${completedYear}`;
+  const isYearMode = reportLoadedYear === currentYear && reportYearTickets.length > 0;
+  const yearLabel = `Jahr ${currentYear}`;
 
   // ── Monatsoptionen ab Mai 2026 ──────────────────────────────────────────────
   const monthOptions = useMemo(() => {
@@ -95,53 +101,44 @@ const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTicke
   }, [users]);
 
   const areaOptions = useMemo(() => {
-    const src = isCurrentMonth ? activeTickets : completedTickets;
+    const src = isYearMode ? reportYearTickets : isCurrentMonth ? activeTickets : completedTickets;
     const areas = new Set(src.map(t => t.area).filter(Boolean));
     return ['Alle', ...Array.from(areas).sort((a, b) => a.localeCompare(b, 'de'))];
-  }, [activeTickets, completedTickets, isCurrentMonth]);
+  }, [activeTickets, completedTickets, reportYearTickets, isCurrentMonth, isYearMode]);
 
-  // ── Gefilterte AKTIVE Tickets (nur für aktuellen Monat) ─────────────────────
+  // ── Gefilterte AKTIVE Tickets ───────────────────────────────────────────────
   const filtered = useMemo(() => {
-    if (!isCurrentMonth) return [];
+    if (!isCurrentMonth && !isYearMode) return [];
     return activeTickets.filter(t => {
       if (filterArea !== 'Alle' && t.area !== filterArea) return false;
       if (filterTech !== 'Alle' && normalizePersonName(t.technician) !== normalizePersonName(filterTech)) return false;
       return true;
     });
-  }, [activeTickets, filterArea, filterTech, isCurrentMonth]);
+  }, [activeTickets, filterArea, filterTech, isCurrentMonth, isYearMode]);
 
-  // ── Gefilterte ABGESCHLOSSENE Tickets ──────────────────────────────────────
+  // ── Gefilterte abgeschlossene Tickets (Monat oder Jahr) ────────────────────
   const filteredCompleted = useMemo(() => {
-    return completedTickets.filter(t => {
+    const src = isYearMode ? reportYearTickets : completedTickets;
+    return src.filter(t => {
       if (filterArea !== 'Alle' && t.area !== filterArea) return false;
       if (filterTech !== 'Alle' && normalizePersonName(t.technician) !== normalizePersonName(filterTech)) return false;
       return true;
     });
-  }, [completedTickets, filterArea, filterTech]);
+  }, [completedTickets, reportYearTickets, isYearMode, filterArea, filterTech]);
 
   // ── KPIs aktueller Monat ────────────────────────────────────────────────────
   const activeKpi = useMemo(() => ({
     total: filtered.length,
     ueberfaellig: filtered.filter(t => t.status === Status.Ueberfaellig).length,
     unassigned: filtered.filter(t => !t.technician || t.technician === 'N/A').length,
-    completedCount: completedTickets.length,
-  }), [filtered, completedTickets]);
+  }), [filtered]);
 
-  // ── Charts aktueller Monat ──────────────────────────────────────────────────
+  // ── Charts aktive Tickets ───────────────────────────────────────────────────
   const workload = useMemo(() => {
     const counts: Record<string, number> = {};
     filtered.forEach(t => { if (t.technician && t.technician !== 'N/A') counts[t.technician] = (counts[t.technician] || 0) + 1; });
     return Object.entries(counts).sort((a, b) => b[1] - a[1])
       .map(([name, value], i) => ({ label: name, caption: displayNameShort(name), value, color: TECH_COLORS[i % TECH_COLORS.length] }));
-  }, [filtered]);
-
-  const workloadPct = useMemo(() => {
-    const total = filtered.filter(t => t.technician && t.technician !== 'N/A').length;
-    if (total === 0) return [];
-    const counts: Record<string, number> = {};
-    filtered.forEach(t => { if (t.technician && t.technician !== 'N/A') counts[t.technician] = (counts[t.technician] || 0) + 1; });
-    return Object.entries(counts).sort((a, b) => b[1] - a[1])
-      .map(([name, value], i) => ({ label: name, caption: displayNameShort(name), value: Math.round((value / total) * 1000) / 10, suffix: '%', color: TECH_COLORS[i % TECH_COLORS.length] }));
   }, [filtered]);
 
   const byArea = useMemo(() => {
@@ -170,7 +167,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTicke
       .map(([label, value]) => ({ label, value, color: colors[label] ?? '#6c757d' }));
   }, [filtered]);
 
-  // ── Charts vergangener Monat (aus completedTickets) ─────────────────────────
+  // ── Charts abgeschlossene Tickets (Monat oder Jahr) ─────────────────────────
   const completedByTech = useMemo(() => {
     const counts: Record<string, number> = {};
     filteredCompleted.forEach(t => { if (t.technician && t.technician !== 'N/A') counts[t.technician] = (counts[t.technician] || 0) + 1; });
@@ -204,9 +201,17 @@ const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTicke
       .map(([label, value]) => ({ label, value, color: '#6f42c1' }));
   }, [filteredCompleted, appSettings.ticketCategories]);
 
+  const completedByPriority = useMemo(() => {
+    const colors: Record<string, string> = { [Priority.Hoch]: '#dc3545', [Priority.Mittel]: '#fd7e14', [Priority.Niedrig]: '#198754' };
+    const counts: Record<string, number> = {};
+    filteredCompleted.forEach(t => { counts[t.priority] = (counts[t.priority] || 0) + 1; });
+    return Object.entries(counts)
+      .sort((a, b) => { const o: Record<string,number> = {[Priority.Hoch]:0,[Priority.Mittel]:1,[Priority.Niedrig]:2}; return (o[a[0]]??9)-(o[b[0]]??9); })
+      .map(([label, value]) => ({ label, value, color: colors[label] ?? '#6c757d' }));
+  }, [filteredCompleted]);
+
   // ── Häufigste Störungen: Ticket-Titel-Ranking ─────────────────────────────
   const recurringIssues = useMemo(() => {
-    // Jahresdaten haben Vorrang; sonst aktuelle + geladener Monat
     const yearSet = reportYearTickets.length > 0 ? new Set(reportYearTickets.map(t => t.id)) : null;
     const base = yearSet
       ? [...activeTickets.filter(t => !yearSet.has(t.id)), ...reportYearTickets]
@@ -224,7 +229,6 @@ const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTicke
       if (!counts[norm]) counts[norm] = 0;
       counts[norm]++;
       if (!titleMap[norm]) titleMap[norm] = key;
-      // Standort-Häufigkeit tracken
       const area = (t.area || '').trim();
       if (area) {
         if (!areaCounts[norm]) areaCounts[norm] = {};
@@ -237,39 +241,35 @@ const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTicke
       .slice(0, 15)
       .map(([norm, value]) => {
         const title = titleMap[norm] || norm;
-        // Häufigsten Standort ermitteln
         const areaFreq = areaCounts[norm] ?? {};
         const topArea = Object.entries(areaFreq).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
-        const label = topArea ? `${title} · ${topArea}` : title;
         return {
-          label,
+          label: topArea ? `${title} · ${topArea}` : title,
           value,
           color: value >= 5 ? '#DC2626' : value >= 3 ? '#F59E0B' : '#6366F1',
         };
       });
   }, [activeTickets, completedTickets, reportYearTickets]);
 
-  // ── Serienaufträge: wer hat wie viel erledigt (completedBy, laufendes Jahr) ─
+  // ── Serienaufträge: wer hat wie viel erledigt ─────────────────────────────
   const routinePersonStats = useMemo(() => {
-    const currentYear = new Date().getFullYear().toString();
+    const yearStr = currentYear.toString();
     const counts: Record<string, number> = {};
     routineCompletions
-      .filter(c => c.date.startsWith(currentYear) && !c.subtaskId)
+      .filter(c => c.date.startsWith(yearStr) && !c.subtaskId)
       .forEach(c => {
         if (!c.completedBy) return;
         counts[c.completedBy] = (counts[c.completedBy] || 0) + 1;
       });
-    // auch Unteraufgaben-Erledigungen zählen (pro Auftrag nur einmal wenn komplett)
     const schedIds = new Set(routineSchedules.map(s => s.id));
     const subtaskCounts: Record<string, Set<string>> = {};
     routineCompletions
-      .filter(c => c.date.startsWith(currentYear) && !!c.subtaskId && schedIds.has(c.scheduleId))
+      .filter(c => c.date.startsWith(yearStr) && !!c.subtaskId && schedIds.has(c.scheduleId))
       .forEach(c => {
         const key = `${c.scheduleId}|${c.date}`;
         if (!subtaskCounts[c.completedBy]) subtaskCounts[c.completedBy] = new Set();
         subtaskCounts[c.completedBy].add(key);
       });
-    // Subtask-Einzel-Erledigungen addieren
     Object.entries(subtaskCounts).forEach(([name, keys]) => {
       counts[name] = (counts[name] || 0) + keys.size;
     });
@@ -277,15 +277,15 @@ const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTicke
     return Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
       .map(([name, count], i) => ({
-        label: name,
-        caption: displayNameShort(name),
+        label: name, caption: displayNameShort(name),
         value: total > 0 ? Math.round((count / total) * 100) : 0,
         suffix: `% · ${count}×`,
         color: TECH_COLORS[i % TECH_COLORS.length],
       }));
-  }, [routineCompletions, routineSchedules]);
+  }, [routineCompletions, routineSchedules, currentYear]);
 
   const empty = <div className="rp-empty">Keine Daten</div>;
+  const periodLabel = isYearMode ? yearLabel : monthLabel;
 
   return (
     <div className="rp-root">
@@ -298,9 +298,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTicke
           background: var(--bg-secondary); border: 1px solid var(--border);
           border-radius: 8px; padding: 10px 16px;
         }
-        .rp-month-select {
-          display: flex; align-items: center; gap: 0.5rem;
-        }
+        .rp-month-select { display: flex; align-items: center; gap: 0.5rem; }
         .rp-month-select label { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
         .rp-chip {
           position: relative; display: flex; align-items: center; gap: 0.4rem;
@@ -309,10 +307,26 @@ const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTicke
           background: var(--bg-primary); cursor: pointer; min-width: 110px;
         }
         .rp-chip--current { border-color: #198754; color: #198754; font-weight: 600; }
+        .rp-chip--year { border-color: #0d6efd; color: #0d6efd; font-weight: 600; }
         .rp-chip select { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
         .rp-chip svg { position: absolute; right: 0.6rem; top: 50%; transform: translateY(-50%); width: 14px; color: var(--text-muted); pointer-events: none; }
         .rp-divider { width: 1px; height: 24px; background: var(--border); }
         .rp-chip-badge { font-size: 0.75rem; font-weight: 700; background: var(--border); padding: 1px 6px; border-radius: 10px; color: var(--text-primary); }
+        .rp-year-btn {
+          display: flex; align-items: center; gap: 5px;
+          border: 1px solid var(--border); border-radius: 20px; padding: 0 14px;
+          height: 34px; font-size: 0.8rem; font-weight: 600;
+          background: var(--bg-primary); color: var(--text-secondary);
+          cursor: pointer; white-space: nowrap;
+        }
+        .rp-year-btn:hover:not(:disabled) { border-color: #0d6efd; color: #0d6efd; }
+        .rp-year-btn:disabled { opacity: 0.6; cursor: default; }
+        .rp-year-loaded {
+          display: flex; align-items: center; gap: 5px;
+          border: 1px solid #0d6efd; border-radius: 20px; padding: 0 14px;
+          height: 34px; font-size: 0.8rem; font-weight: 600; color: #0d6efd;
+          background: #eff6ff;
+        }
         .rp-reset { background: transparent; border: none; color: var(--text-muted); font-size: 0.875rem; padding: 0.4rem 0.75rem; border-radius: 20px; cursor: pointer; margin-left: auto; display: flex; align-items: center; gap: 0.4rem; }
         .rp-reset:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 
@@ -324,6 +338,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTicke
         }
         .rp-mode-badge--live { background: #e1f5ee; color: #085041; border: 1px solid #5dcaa5; }
         .rp-mode-badge--past { background: #e6f1fb; color: #185fa5; border: 1px solid #b5d4f4; }
+        .rp-mode-badge--year { background: #eff6ff; color: #1d4ed8; border: 1px solid #93c5fd; }
 
         /* ── KPI row ── */
         .rp-kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
@@ -356,15 +371,13 @@ const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTicke
         .rp-hbar-val { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); text-align: right; }
         .rp-empty { color: var(--text-muted); font-size: 0.875rem; padding: 1rem 0; text-align: center; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
       `}</style>
 
       {/* ── Toolbar ── */}
       <div className="rp-toolbar">
-        {/* Monatsauswahl */}
         <div className="rp-month-select">
           <label>Monat</label>
-          <div className={`rp-chip${isCurrentMonth ? ' rp-chip--current' : ''}`} style={{ minWidth: 150 }}>
+          <div className={`rp-chip${isCurrentMonth && !isYearMode ? ' rp-chip--current' : ''}`} style={{ minWidth: 150 }}>
             <span>{monthLabel}{isCurrentMonth ? ' (aktuell)' : ''}</span>
             <select value={`${completedYear}-${completedMonth}`} onChange={e => {
               const [y, m] = e.target.value.split('-').map(Number);
@@ -377,6 +390,25 @@ const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTicke
             <ChevronDownIcon />
           </div>
         </div>
+
+        <div className="rp-divider" />
+
+        {/* Jahres-Button */}
+        {isYearMode ? (
+          <div className="rp-year-loaded">
+            <i className="ti ti-calendar-stats" /> {yearLabel} aktiv
+          </div>
+        ) : (
+          <button
+            className="rp-year-btn"
+            onClick={() => onLoadYearForStats?.(currentYear)}
+            disabled={isLoadingReportYear || !onLoadYearForStats}
+          >
+            {isLoadingReportYear
+              ? <><i className="ti ti-loader-2" style={{ animation: 'spin 1s linear infinite' }} /> Lade…</>
+              : <><i className="ti ti-calendar-stats" /> {yearLabel} laden</>}
+          </button>
+        )}
 
         <div className="rp-divider" />
 
@@ -403,17 +435,58 @@ const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTicke
         <button className="rp-reset" onClick={() => { setFilterArea('Alle'); setFilterTech('Alle'); }}>
           <i className="ti ti-refresh" /> Zurücksetzen
         </button>
-
       </div>
 
-      {isCurrentMonth ? (
-        /* ══ AKTUELLER MONAT: live aktive Tickets ══════════════════════════════ */
+      {/* ══ Abgeschlossene Statistiken (Monat oder Jahr) ══════════════════════ */}
+      {(isYearMode || !isCurrentMonth) && (
         <>
-          <div className="rp-mode-badge rp-mode-badge--live">
-            ● Live – aktuelle Tickets ({monthLabel})
+          <div className={`rp-mode-badge ${isYearMode ? 'rp-mode-badge--year' : 'rp-mode-badge--past'}`}>
+            {isYearMode
+              ? <><i className="ti ti-calendar-stats" /> Jahresstatistik {currentYear} – alle abgeschlossenen Tickets</>
+              : <>Abgeschlossene Tickets – {monthLabel}</>}
           </div>
 
-          <div className={`rp-kpi-row rp-kpi-row--3`}>
+          <div className="rp-kpi-row rp-kpi-row--3">
+            <KpiCard
+              label={`Abgeschlossen ${periodLabel}`}
+              value={filteredCompleted.length}
+              accent="#198754"
+            />
+            <KpiCard label="Bearbeiter aktiv" value={completedByTech.length} />
+            <KpiCard label="Standorte" value={completedByArea.length} />
+          </div>
+
+          <div className="rp-grid-2">
+            <Section title={`Abgeschlossen pro Bearbeiter – ${periodLabel}`} sub="Anzahl">
+              {completedByTech.length > 0 ? <HBar items={completedByTech} /> : empty}
+            </Section>
+            <Section title="Prozentualer Anteil" sub="Wer hat wie viel erledigt">
+              {completedByTechPct.length > 0 ? <HBar items={completedByTechPct} maxOverride={100} /> : empty}
+            </Section>
+          </div>
+
+          <div className="rp-grid-3">
+            <Section title={`Nach Standort – ${periodLabel}`}>
+              {completedByArea.length > 0 ? <HBar items={completedByArea} /> : empty}
+            </Section>
+            <Section title={`Nach Kategorie – ${periodLabel}`}>
+              {completedByCategory.length > 0 ? <HBar items={completedByCategory} /> : empty}
+            </Section>
+            <Section title={`Nach Priorität – ${periodLabel}`}>
+              {completedByPriority.length > 0 ? <HBar items={completedByPriority} /> : empty}
+            </Section>
+          </div>
+        </>
+      )}
+
+      {/* ══ LIVE: aktive Tickets (aktueller Monat oder Jahr-Modus) ══════════════ */}
+      {(isCurrentMonth || isYearMode) && (
+        <>
+          <div className="rp-mode-badge rp-mode-badge--live">
+            ● Live – aktuelle offene Tickets
+          </div>
+
+          <div className="rp-kpi-row rp-kpi-row--3">
             <KpiCard label="Aktive Tickets" value={activeKpi.total} />
             <KpiCard label="Überfällig" value={activeKpi.ueberfaellig}
               sub={activeKpi.total > 0 ? `${Math.round((activeKpi.ueberfaellig / activeKpi.total) * 100)} % aller aktiven` : undefined}
@@ -427,7 +500,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTicke
             <Section title="Offene Aufträge pro Bearbeiter" sub="Aktuelle aktive Tickets">
               {workload.length > 0 ? <HBar items={workload} /> : empty}
             </Section>
-            <Section title={`Abgeschlossen pro Bearbeiter – ${monthLabel}`} sub="Erledigte Tickets diesen Monat">
+            <Section title={`Abgeschlossen pro Bearbeiter – ${isYearMode ? yearLabel : monthLabel}`} sub="Erledigte Tickets">
               {completedByTech.length > 0 ? <HBar items={completedByTech} /> : <div className="rp-empty">Noch keine abgeschlossenen Tickets</div>}
             </Section>
           </div>
@@ -444,103 +517,39 @@ const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTicke
             </Section>
           </div>
         </>
-      ) : (
-        /* ══ VERGANGENER MONAT: kumulierte abgeschlossene Daten ════════════════ */
-        <>
-          <div className="rp-mode-badge rp-mode-badge--past">
-            Abgeschlossene Tickets – {monthLabel}
-          </div>
-
-          <div className="rp-kpi-row rp-kpi-row--3">
-            <KpiCard label={`Abgeschlossen ${monthLabel}`} value={filteredCompleted.length} accent="#198754" />
-            <KpiCard label="Bearbeiter aktiv" value={completedByTech.length} />
-            <KpiCard label="Standorte" value={completedByArea.length} />
-          </div>
-
-          <div className="rp-grid-2">
-            <Section title={`Abgeschlossen pro Bearbeiter – ${monthLabel}`} sub="Anzahl">
-              {completedByTech.length > 0 ? <HBar items={completedByTech} /> : empty}
-            </Section>
-            <Section title="Prozentualer Anteil" sub="Wer hat wie viel erledigt">
-              {completedByTechPct.length > 0 ? <HBar items={completedByTechPct} maxOverride={100} /> : empty}
-            </Section>
-          </div>
-
-          <div className="rp-grid-3">
-            <Section title={`Nach Standort – ${monthLabel}`}>
-              {completedByArea.length > 0 ? <HBar items={completedByArea} /> : empty}
-            </Section>
-            <Section title={`Nach Kategorie – ${monthLabel}`}>
-              {completedByCategory.length > 0 ? <HBar items={completedByCategory} /> : empty}
-            </Section>
-            <Section title={`Nach Priorität – ${monthLabel}`}>
-              {(() => {
-                const colors: Record<string, string> = { [Priority.Hoch]: '#dc3545', [Priority.Mittel]: '#fd7e14', [Priority.Niedrig]: '#198754' };
-                const counts: Record<string, number> = {};
-                filteredCompleted.forEach(t => { counts[t.priority] = (counts[t.priority] || 0) + 1; });
-                const items = Object.entries(counts)
-                  .sort((a, b) => { const o: Record<string,number> = {[Priority.Hoch]:0,[Priority.Mittel]:1,[Priority.Niedrig]:2}; return (o[a[0]]??9)-(o[b[0]]??9); })
-                  .map(([label, value]) => ({ label, value, color: colors[label] ?? '#6c757d' }));
-                return items.length > 0 ? <HBar items={items} /> : empty;
-              })()}
-            </Section>
-          </div>
-        </>
       )}
 
       {/* ── Häufigste Störungen ─────────────────────────────────────────────── */}
-      {(() => {
-        const currentYear = now.getFullYear();
-        const yearLoaded = reportLoadedYear === currentYear;
-        const totalCount = reportYearTickets.length > 0
-          ? activeTickets.length + reportYearTickets.length
-          : activeTickets.length + completedTickets.length;
-        const sub = yearLoaded
-          ? `Ganzes Jahr ${currentYear} · ${totalCount} Tickets · Standort = häufigster Meldeort`
-          : `${totalCount} Tickets geladen · Standort = häufigster Meldeort`;
-        return (
-          <Section title="Häufigste Störungen" sub={sub}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: '#DC2626', marginRight: 4 }} />≥ 5×</span>
-                <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: '#F59E0B', marginRight: 4 }} />3–4×</span>
-                <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: '#6366F1', marginRight: 4 }} />1–2×</span>
-              </div>
-              {!yearLoaded && onLoadYearForStats && (
-                <button
-                  onClick={() => onLoadYearForStats(currentYear)}
-                  disabled={isLoadingReportYear}
-                  style={{
-                    marginLeft: 'auto', border: '1px solid var(--border)', borderRadius: 20,
-                    padding: '4px 14px', fontSize: '0.8rem', fontWeight: 600,
-                    background: 'var(--bg-primary)', color: 'var(--text-secondary)',
-                    cursor: isLoadingReportYear ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 6,
-                  }}
-                >
-                  {isLoadingReportYear
-                    ? <><i className="ti ti-loader-2" style={{ animation: 'spin 1s linear infinite' }} /> Lade…</>
-                    : <><i className="ti ti-calendar-stats" /> Ganzes Jahr {currentYear} laden</>}
-                </button>
-              )}
-              {yearLoaded && (
-                <span style={{ marginLeft: 'auto', fontSize: '0.78rem', color: '#198754', fontWeight: 600 }}>
-                  <i className="ti ti-check" /> Jahr {currentYear} geladen
-                </span>
-              )}
-            </div>
-            {recurringIssues.length > 0 ? (
-              <HBar items={recurringIssues} labelWidth={260} />
-            ) : (
-              <div className="rp-empty">Keine Daten</div>
-            )}
-          </Section>
-        );
-      })()}
+      <Section
+        title="Häufigste Störungen"
+        sub={isYearMode
+          ? `${yearLabel} · ${activeTickets.length + reportYearTickets.length} Tickets · Standort = häufigster Meldeort`
+          : `${activeTickets.length + completedTickets.length} Tickets geladen · Standort = häufigster Meldeort`}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: '#DC2626', marginRight: 4 }} />≥ 5×</span>
+            <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: '#F59E0B', marginRight: 4 }} />3–4×</span>
+            <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: '#6366F1', marginRight: 4 }} />1–2×</span>
+          </div>
+          {!isYearMode && (
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              → {yearLabel} laden (oben) für vollständige Jahresauswertung
+            </span>
+          )}
+        </div>
+        {recurringIssues.length > 0 ? (
+          <HBar items={recurringIssues} labelWidth={180} />
+        ) : (
+          <div className="rp-empty">Keine Daten</div>
+        )}
+      </Section>
 
+      {/* ── Serienaufträge: wer hat wie viel erledigt ─────────────────────────── */}
       {routinePersonStats.length > 0 && (
         <Section
           title="Serienaufträge – wer hat wie viel erledigt"
-          sub={`Laufendes Jahr ${new Date().getFullYear()} · Anteil an allen Erledigungen`}
+          sub={`Laufendes Jahr ${currentYear} · Anteil an allen Erledigungen`}
         >
           <HBar items={routinePersonStats} maxOverride={100} />
         </Section>
