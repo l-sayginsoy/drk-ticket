@@ -32,7 +32,8 @@ function cadenceLabel(sch: RoutineSchedule & { recurrence?: any }): string {
   if (rec.type === 'weekdays') {
     const n = Math.max(1, Number(rec.intervalWeeks || 1));
     const map: Record<string, string> = { mo: 'Mo', di: 'Di', mi: 'Mi', do: 'Do', fr: 'Fr', sa: 'Sa', so: 'So' };
-    const days = (Array.isArray(rec.weekdays) ? rec.weekdays : []).map((d: string) => map[d] || d).join(' · ');
+    const ORDER = ['mo', 'di', 'mi', 'do', 'fr', 'sa', 'so'];
+    const days = (Array.isArray(rec.weekdays) ? rec.weekdays : []).slice().sort((a: string, b: string) => ORDER.indexOf(a) - ORDER.indexOf(b)).map((d: string) => map[d] || d).join(' · ');
     return (n === 1 ? '' : `Alle ${n} Wo · `) + (days || '—');
   }
   if (rec.type === 'monthly') { const n = Math.max(1, Number(rec.intervalMonths || 1)); return n === 1 ? 'Monatlich' : n === 3 ? 'Vierteljährl.' : `Alle ${n} Monate`; }
