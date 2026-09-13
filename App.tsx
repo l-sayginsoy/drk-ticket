@@ -955,6 +955,9 @@ const App: React.FC = () => {
   const [completedMonth, setCompletedMonth] = useState<number>(_today.getMonth() + 1); // 1–12
   const [completedYear, setCompletedYear] = useState<number>(_today.getFullYear());
   const [isLoadingCompleted, setIsLoadingCompleted] = useState<boolean>(false);
+  const [reportYearTickets, setReportYearTickets] = useState<Ticket[]>([]);
+  const [reportLoadedYear, setReportLoadedYear] = useState<number | null>(null);
+  const [isLoadingReportYear, setIsLoadingReportYear] = useState(false);
 
   // Hilfsfunktion: DD.MM.YYYY → YYYY-MM-DD (für closedAt-Migration)
   const germanDateToIso = (d: string | undefined): string | null => {
@@ -1009,6 +1012,29 @@ const App: React.FC = () => {
       setCompletedTickets([]);
     } finally {
       setIsLoadingCompleted(false);
+    }
+  }, []);
+
+  const loadYearForReports = useCallback(async (year: number) => {
+    setIsLoadingReportYear(true);
+    try {
+      const start = `${year}-01-01`;
+      const end = `${year + 1}-01-01`;
+      const q = query(
+        collection(db, 'completed_tickets'),
+        where('closedAt', '>=', start),
+        where('closedAt', '<', end)
+      );
+      const snapshot = await getDocs(q);
+      const loaded = snapshot.docs
+        .filter(d => !deletedTicketIdsRef.current.has(d.id))
+        .map(d => normalizeTicket(d.data() as Ticket));
+      setReportYearTickets(loaded);
+      setReportLoadedYear(year);
+    } catch (e) {
+      console.error('loadYearForReports error:', e);
+    } finally {
+      setIsLoadingReportYear(false);
     }
   }, []);
 
@@ -3636,7 +3662,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
           isLoading={isLoadingCompleted}
         />;
         case 'reports': {
-          return <ReportsView activeTickets={tickets} completedTickets={completedTickets} completedMonth={completedMonth} completedYear={completedYear} onLoadMonth={(m, y) => { setCompletedMonth(m); setCompletedYear(y); void loadCompletedTicketsForMonth(m, y); }} users={users} appSettings={appSettings} routineSchedules={appSettings.routineSchedules as any} routineCompletions={appSettings.routineDayCompletions || []} rpHolidayYmdList={rpHolidayYmdList} />;
+          return <ReportsView activeTickets={tickets} completedTickets={completedTickets} completedMonth={completedMonth} completedYear={completedYear} onLoadMonth={(m, y) => { setCompletedMonth(m); setCompletedYear(y); void loadCompletedTicketsForMonth(m, y); }} users={users} appSettings={appSettings} routineSchedules={appSettings.routineSchedules as any} routineCompletions={appSettings.routineDayCompletions || []} rpHolidayYmdList={rpHolidayYmdList} reportYearTickets={reportYearTickets} reportLoadedYear={reportLoadedYear} isLoadingReportYear={isLoadingReportYear} onLoadYearForStats={loadYearForReports} />;
         }
         case 'techniker': return <TechnicianView tickets={listenBenchTickets} technicians={users.filter(u => (u.role === Role.Technician || u.role === Role.Housekeeping) && u.isActive)} onTechnicianSelect={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} onFilter={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} />;
         case 'settings': return <SettingsView users={users} setUsers={setUsers} locations={locations} setLocations={setLocations} assets={assets} setAssets={setAssets} maintenancePlans={maintenancePlans} setMaintenancePlans={setMaintenancePlans} appSettings={appSettings} setAppSettings={handleAppSettingsChange} onResendConfirmationMailsForEntryDate={handleResendConfirmationMailsForEntryDate} onSendTestEmail={handleSendTestEmail} />;

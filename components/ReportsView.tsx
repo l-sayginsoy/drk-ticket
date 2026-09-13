@@ -15,6 +15,10 @@ interface ReportsViewProps {
   routineSchedules?: Array<RoutineSchedule & { recurrence?: any }>;
   routineCompletions?: RoutineDayCompletion[];
   rpHolidayYmdList?: string[];
+  reportYearTickets?: Ticket[];
+  reportLoadedYear?: number | null;
+  isLoadingReportYear?: boolean;
+  onLoadYearForStats?: (year: number) => void;
 }
 
 const MONTHS_DE = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
@@ -62,7 +66,7 @@ const Section: React.FC<{ title: string; sub?: string; children: React.ReactNode
 );
 
 // ── MAIN ──────────────────────────────────────────────────────────────────────
-const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTickets, completedMonth, completedYear, onLoadMonth, users, appSettings, routineSchedules = [], routineCompletions = [], rpHolidayYmdList = [] }) => {
+const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTickets, completedMonth, completedYear, onLoadMonth, users, appSettings, routineSchedules = [], routineCompletions = [], rpHolidayYmdList = [], reportYearTickets = [], reportLoadedYear = null, isLoadingReportYear = false, onLoadYearForStats }) => {
   const now = new Date();
   const [filterArea, setFilterArea] = useState('Alle');
   const [filterTech, setFilterTech] = useState('Alle');
@@ -202,31 +206,48 @@ const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTicke
 
   // ── Häufigste Störungen: Ticket-Titel-Ranking ─────────────────────────────
   const recurringIssues = useMemo(() => {
-    const all = [...activeTickets, ...completedTickets].filter(t => t.origin !== 'routine');
+    // Jahresdaten haben Vorrang; sonst aktuelle + geladener Monat
+    const yearSet = reportYearTickets.length > 0 ? new Set(reportYearTickets.map(t => t.id)) : null;
+    const base = yearSet
+      ? [...activeTickets.filter(t => !yearSet.has(t.id)), ...reportYearTickets]
+      : [...activeTickets, ...completedTickets];
+    const all = base.filter(t => t.origin !== 'routine');
+
     const counts: Record<string, number> = {};
+    const titleMap: Record<string, string> = {};
+    const areaCounts: Record<string, Record<string, number>> = {};
+
     all.forEach(t => {
       const key = (t.title || '').trim();
       if (!key) return;
       const norm = key.toLowerCase();
-      // Ersten echten Titel als Anzeigename behalten
       if (!counts[norm]) counts[norm] = 0;
       counts[norm]++;
+      if (!titleMap[norm]) titleMap[norm] = key;
+      // Standort-Häufigkeit tracken
+      const area = (t.area || '').trim();
+      if (area) {
+        if (!areaCounts[norm]) areaCounts[norm] = {};
+        areaCounts[norm][area] = (areaCounts[norm][area] || 0) + 1;
+      }
     });
-    // Original-Schreibweise (erste Nennung) wiederherstellen
-    const titleMap: Record<string, string> = {};
-    [...activeTickets, ...completedTickets].forEach(t => {
-      const norm = (t.title || '').trim().toLowerCase();
-      if (norm && !titleMap[norm]) titleMap[norm] = (t.title || '').trim();
-    });
+
     return Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 15)
-      .map(([norm, value]) => ({
-        label: titleMap[norm] || norm,
-        value,
-        color: value >= 5 ? '#DC2626' : value >= 3 ? '#F59E0B' : '#6366F1',
-      }));
-  }, [activeTickets, completedTickets]);
+      .map(([norm, value]) => {
+        const title = titleMap[norm] || norm;
+        // Häufigsten Standort ermitteln
+        const areaFreq = areaCounts[norm] ?? {};
+        const topArea = Object.entries(areaFreq).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
+        const label = topArea ? `${title} · ${topArea}` : title;
+        return {
+          label,
+          value,
+          color: value >= 5 ? '#DC2626' : value >= 3 ? '#F59E0B' : '#6366F1',
+        };
+      });
+  }, [activeTickets, completedTickets, reportYearTickets]);
 
   // ── Serienaufträge: wer hat wie viel erledigt (completedBy, laufendes Jahr) ─
   const routinePersonStats = useMemo(() => {
@@ -334,6 +355,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTicke
         .rp-hbar-fill { height: 100%; border-radius: 99px; transition: width 0.5s ease-out; opacity: 0.85; }
         .rp-hbar-val { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); text-align: right; }
         .rp-empty { color: var(--text-muted); font-size: 0.875rem; padding: 1rem 0; text-align: center; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
       `}</style>
 
@@ -467,23 +489,53 @@ const ReportsView: React.FC<ReportsViewProps> = ({ activeTickets, completedTicke
       )}
 
       {/* ── Häufigste Störungen ─────────────────────────────────────────────── */}
-      <Section
-        title="Häufigste Störungen"
-        sub={`Konkrete Meldungen nach Häufigkeit · ${activeTickets.length + completedTickets.length} Tickets geladen · für mehr ältere Monate laden`}
-      >
-        {recurringIssues.length > 0 ? (
-          <>
-            <div style={{ marginBottom: '0.75rem', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: '#DC2626', marginRight: 5 }} />≥ 5×&nbsp;&nbsp;
-              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: '#F59E0B', marginRight: 5 }} />3–4×&nbsp;&nbsp;
-              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: '#6366F1', marginRight: 5 }} />1–2×
+      {(() => {
+        const currentYear = now.getFullYear();
+        const yearLoaded = reportLoadedYear === currentYear;
+        const totalCount = reportYearTickets.length > 0
+          ? activeTickets.length + reportYearTickets.length
+          : activeTickets.length + completedTickets.length;
+        const sub = yearLoaded
+          ? `Ganzes Jahr ${currentYear} · ${totalCount} Tickets · Standort = häufigster Meldeort`
+          : `${totalCount} Tickets geladen · Standort = häufigster Meldeort`;
+        return (
+          <Section title="Häufigste Störungen" sub={sub}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: '#DC2626', marginRight: 4 }} />≥ 5×</span>
+                <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: '#F59E0B', marginRight: 4 }} />3–4×</span>
+                <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: '#6366F1', marginRight: 4 }} />1–2×</span>
+              </div>
+              {!yearLoaded && onLoadYearForStats && (
+                <button
+                  onClick={() => onLoadYearForStats(currentYear)}
+                  disabled={isLoadingReportYear}
+                  style={{
+                    marginLeft: 'auto', border: '1px solid var(--border)', borderRadius: 20,
+                    padding: '4px 14px', fontSize: '0.8rem', fontWeight: 600,
+                    background: 'var(--bg-primary)', color: 'var(--text-secondary)',
+                    cursor: isLoadingReportYear ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+                  }}
+                >
+                  {isLoadingReportYear
+                    ? <><i className="ti ti-loader-2" style={{ animation: 'spin 1s linear infinite' }} /> Lade…</>
+                    : <><i className="ti ti-calendar-stats" /> Ganzes Jahr {currentYear} laden</>}
+                </button>
+              )}
+              {yearLoaded && (
+                <span style={{ marginLeft: 'auto', fontSize: '0.78rem', color: '#198754', fontWeight: 600 }}>
+                  <i className="ti ti-check" /> Jahr {currentYear} geladen
+                </span>
+              )}
             </div>
-            <HBar items={recurringIssues} labelWidth={220} />
-          </>
-        ) : (
-          <div className="rp-empty">Keine Daten — lade weitere Monate oben</div>
-        )}
-      </Section>
+            {recurringIssues.length > 0 ? (
+              <HBar items={recurringIssues} labelWidth={260} />
+            ) : (
+              <div className="rp-empty">Keine Daten</div>
+            )}
+          </Section>
+        );
+      })()}
 
       {routinePersonStats.length > 0 && (
         <Section
