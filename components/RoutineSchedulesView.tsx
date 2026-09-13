@@ -159,8 +159,12 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
     return schedules.filter(s => s.enabled);
   }, [schedules]);
 
-  const isMyTask = (s: RoutineSchedule) =>
-    !isTechRole || (Array.isArray(s.assignees) && s.assignees.includes(userName));
+  const isMyTask = (s: RoutineSchedule) => {
+    if (!isTechRole) return true;
+    const pool = getRoutinePool(s, users);
+    const current = getRoutineAssigneeDisplayName(s, pool, todayYmd);
+    return current === userName;
+  };
 
   // Nach Rhythmus gruppieren: Täglich → Wöchentlich → Alle 2 Wochen → … → Monatlich → Jährlich.
   const groups = useMemo(() => {
