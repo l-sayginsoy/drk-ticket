@@ -1,31 +1,28 @@
 import React, { useMemo, useState } from 'react';
 import { Role, RoutineDayCompletion, RoutineSchedule, User } from '../types';
-import { getDueDatesInYear, getRoutineAssigneeDisplayName, getRoutinePool, isScheduleVisibleForUser, localISODate, routineDayStatus } from '../utils/routineHelpers';
+import { getDueDatesInYear, getRoutineAssigneeDisplayName, getRoutinePool, localISODate, routineDayStatus } from '../utils/routineHelpers';
 import { ROUTINE_AMBER, ROUTINE_TEAL } from '../utils/routineUiPalette';
 import { displayNameShort } from '../utils/displayNames';
 import { CheckIcon } from './icons/CheckIcon';
 
+const MONTHS_FULL = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 
-const MONTHS_DE = [
-  'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
-  'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
-];
-
-function dayOfMonthFromYmd(ymd: string): number {
-  const p = ymd.split('-');
-  return p.length === 3 ? Number(p[2]) : 0;
+function nvNameColor(name: string): string {
+  const p = ['#DC2626','#2563EB','#059669','#D97706','#7C3AED','#0891B2','#DB2777','#65A30D'];
+  let h = 5381;
+  for (let i = 0; i < name.length; i++) h = ((h << 5) + h + name.charCodeAt(i)) | 0;
+  return p[Math.abs(h) % p.length];
 }
 
-function groupYmdsByMonth(ymds: string[]): Map<number, string[]> {
-  const m = new Map<number, string[]>();
-  ymds.forEach((ymd) => {
-    const mo = Number(ymd.split('-')[1]) - 1;
-    if (mo < 0 || mo > 11) return;
-    if (!m.has(mo)) m.set(mo, []);
-    m.get(mo)!.push(ymd);
-  });
-  m.forEach((arr) => arr.sort());
-  return m;
+function nvAccent(sch: RoutineSchedule & { recurrence?: any }): string {
+  const rec = (sch as any).recurrence;
+  if (!rec || rec.type === 'daily') return '#0EA5E9';
+  if (rec.type === 'weekdays' || rec.type === 'weekly') {
+    return Math.max(1, Number(rec.intervalWeeks || 1)) === 1 ? '#8B5CF6' : '#EC4899';
+  }
+  if (rec.type === 'monthly') return '#F59E0B';
+  if (rec.type === 'yearly') return '#10B981';
+  return '#6B7280';
 }
 
 function cadenceLabel(sch: RoutineSchedule & { recurrence?: any }): string {
@@ -38,7 +35,7 @@ function cadenceLabel(sch: RoutineSchedule & { recurrence?: any }): string {
     const days = (Array.isArray(rec.weekdays) ? rec.weekdays : []).map((d: string) => map[d] || d).join(' · ');
     return (n === 1 ? '' : `Alle ${n} Wo · `) + (days || '—');
   }
-  if (rec.type === 'monthly') { const n = Math.max(1, Number(rec.intervalMonths || 1)); return n === 1 ? 'Monatlich' : n === 3 ? 'Vierteljährlich' : `Alle ${n} Monate`; }
+  if (rec.type === 'monthly') { const n = Math.max(1, Number(rec.intervalMonths || 1)); return n === 1 ? 'Monatlich' : n === 3 ? 'Vierteljährl.' : `Alle ${n} Monate`; }
   if (rec.type === 'yearly') return 'Jährlich';
   return '—';
 }
@@ -50,11 +47,8 @@ interface RoutineNachweisViewProps {
   userRole: Role;
   userName: string;
   rpHolidayYmdList?: string[];
-  /** Tage VOR diesem Datum (YYYY-MM-DD) zählen/zeigen NICHT als „verpasst" (vor Einführung). Leer = alles zählt. */
   missedSinceYmd?: string;
-  /** Trägt eine Erledigung für einen beliebigen Tag ein (completedBy=null → entfernen). */
   onSetCompletion?: (scheduleId: string, ymd: string, completedBy: string | null) => void;
-  /** Hakt eine einzelne Unter-Aufgabe ab/zurück (completedBy=null → entfernen). */
   onToggleSubtask?: (scheduleId: string, ymd: string, subtaskId: string, completedBy: string | null) => void;
 }
 
@@ -73,17 +67,8 @@ export default function RoutineNachweisView({
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
   const [scheduleFilter, setScheduleFilter] = useState<string>('alle');
-  const [personFilter, setPersonFilter] = useState<string>('alle');
 
-  const todayYmd = useMemo(() => {
-    const t = new Date();
-    t.setHours(0, 0, 0, 0);
-    return localISODate(t);
-  }, []);
-
-  const currentMonthIndex = useMemo(() => new Date().getMonth(), []);
-  const currentYearNum = useMemo(() => new Date().getFullYear(), []);
-
+  const todayYmd = useMemo(() => localISODate(new Date()), []);
   const rpHolidaySet = useMemo(() => new Set(rpHolidayYmdList), [rpHolidayYmdList]);
 
   const visibleSchedules = useMemo(() => {
@@ -92,530 +77,340 @@ export default function RoutineNachweisView({
     return list.filter((s) => s.id === scheduleFilter);
   }, [schedules, scheduleFilter]);
 
-  const scheduleSelectOptions = useMemo(() => {
-    return (schedules || []).filter((s) => s.enabled);
-  }, [schedules]);
-
-  const personOptions = useMemo(() => {
-    const names = new Set<string>();
-    (completions || []).forEach((c) => names.add(c.completedBy));
-    users
-      .filter((u) => u.isActive && (u.role === Role.Technician || u.role === Role.Housekeeping || u.role === Role.Admin))
-      .forEach((u) => names.add(u.name));
-    return ['alle', ...Array.from(names).sort((a, b) => a.localeCompare(b, 'de'))];
-  }, [completions, users]);
+  const scheduleSelectOptions = useMemo(() => (schedules || []).filter((s) => s.enabled), [schedules]);
 
   const yearOptions = useMemo(() => {
     const ys = new Set<number>();
-    ys.add(currentYear);
-    ys.add(currentYear - 1);
-    ys.add(currentYear + 1);
-    (completions || []).forEach((c) => {
-      const y = Number(c.date.slice(0, 4));
-      if (!Number.isNaN(y)) ys.add(y);
-    });
+    ys.add(currentYear); ys.add(currentYear - 1); ys.add(currentYear + 1);
+    (completions || []).forEach((c) => { const y = Number(c.date.slice(0, 4)); if (!Number.isNaN(y)) ys.add(y); });
     return Array.from(ys).sort((a, b) => b - a);
   }, [completions, currentYear]);
 
-  const fmtYmd = (ymd: string) => {
-    const [y, m, d] = ymd.split('-');
-    return `${d}.${m}.${y}`;
-  };
-
   const dueByScheduleId = useMemo(() => {
     const map = new Map<string, string[]>();
-    visibleSchedules.forEach((sch) => {
-      map.set(sch.id, getDueDatesInYear(sch, year, rpHolidaySet));
-    });
+    visibleSchedules.forEach((sch) => { map.set(sch.id, getDueDatesInYear(sch, year, rpHolidaySet)); });
     return map;
   }, [visibleSchedules, year, rpHolidaySet]);
 
+  const fmtYmd = (ymd: string) => { const [y, m, d] = ymd.split('-'); return `${d}.${m}.${y}`; };
+
   return (
     <div style={{ maxWidth: 1800 }}>
-      <div className="nachweis-view-shell">
       <style>{`
-        .nachweis-view-shell {
-          background-color: var(--bg-secondary);
-          border: 1px solid var(--border);
-          border-radius: 8px;
-          margin-top: 1.5rem;
-          overflow: hidden;
+        .nv-toolbar {
+          display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
+          background: var(--bg-secondary); border: 1px solid var(--border);
+          border-radius: 10px; padding: 14px 18px; margin-top: 1.25rem;
         }
-        .nachweis-toolbar {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 12px;
-          align-items: flex-end;
-          padding: 14px 16px;
+        .nv-field label {
+          display: block; font-size: 10.5px; font-weight: 700;
+          color: var(--text-muted); margin-bottom: 4px;
+          text-transform: uppercase; letter-spacing: 0.05em;
+        }
+        .nv-field select {
+          min-width: 150px; padding: 8px 12px; border-radius: 8px;
+          border: 1px solid var(--border); background: var(--bg-tertiary);
+          color: var(--text-primary); font-size: 14px;
+        }
+        .nv-list { display: flex; flex-direction: column; gap: 8px; margin-top: 1.25rem; }
+        .nv-card {
+          border: 1px solid var(--border); border-radius: 12px;
+          overflow: hidden; background: var(--bg-secondary);
+          box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .nv-head {
+          display: grid;
+          grid-template-columns: 34px 1fr 170px 200px 140px;
+          align-items: center;
+          width: 100%; text-align: left; background: none; border: none;
+          border-left: 4px solid transparent;
+          cursor: pointer; padding: 0; font: inherit; color: inherit;
+          min-height: 68px; transition: background 0.12s; box-sizing: border-box;
+        }
+        .nv-head:hover { background: var(--bg-tertiary); }
+        .nv-head-chevron { display: flex; align-items: center; justify-content: center; }
+        .nv-head-title { padding: 14px 16px 14px 4px; min-width: 0; }
+        .nv-title {
+          font-size: 14px; font-weight: 700; color: var(--text-primary);
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.35;
+        }
+        .nv-sub-count { font-size: 11px; font-weight: 600; color: var(--text-muted); margin-left: 6px; }
+        .nv-area-tag { font-size: 11.5px; color: var(--text-muted); margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+        .nv-head-cad { padding: 14px 16px; }
+        .nv-cad-badge {
+          display: inline-flex; align-items: center;
+          font-size: 12px; font-weight: 600; color: var(--text-secondary);
+          background: var(--bg-tertiary); border: 1px solid var(--border);
+          border-radius: 20px; padding: 4px 12px; white-space: nowrap;
+        }
+        .nv-head-prog { padding: 14px 16px; display: flex; flex-direction: column; gap: 5px; }
+        .nv-prog-bar { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+        .nv-prog-fill { height: 100%; border-radius: 3px; background: ${ROUTINE_TEAL.accent}; transition: width 0.4s; }
+        .nv-prog-nums { font-size: 11.5px; font-weight: 600; color: var(--text-muted); }
+        .nv-head-status { padding: 14px 18px 14px 0; display: flex; align-items: center; justify-content: flex-end; }
+        .nv-pill {
+          display: inline-flex; align-items: center; gap: 5px;
+          font-size: 12px; font-weight: 700; border-radius: 20px;
+          padding: 4px 12px; white-space: nowrap;
+        }
+        .nv-pill--done { background: ${ROUTINE_TEAL.bg}; color: ${ROUTINE_TEAL.dark}; border: 1px solid ${ROUTINE_TEAL.border}; }
+        .nv-pill--open { background: ${ROUTINE_AMBER.bg}; color: ${ROUTINE_AMBER.dark}; border: 1px solid ${ROUTINE_AMBER.border}; }
+        .nv-pill--none { background: var(--bg-tertiary); color: var(--text-muted); border: 1px solid var(--border); }
+        /* Expanded */
+        .nv-body {
+          border-top: 1px solid var(--border);
+          padding: 20px 22px 22px;
           background: var(--bg-primary);
-          border-bottom: 1px solid var(--border);
         }
-        .nachweis-field label {
-          display: block;
-          font-size: 11px;
-          font-weight: 700;
-          color: var(--text-muted);
-          margin-bottom: 4px;
-          text-transform: uppercase;
-          letter-spacing: 0.03em;
+        .nv-current-info { font-size: 13px; color: var(--text-muted); margin-bottom: 14px; }
+        .nv-current-info strong { color: var(--text-primary); font-weight: 700; }
+        .nv-circle {
+          width: 28px; height: 28px; border-radius: 50%;
+          display: inline-flex; align-items: center; justify-content: center;
+          padding: 0; flex-shrink: 0; cursor: pointer;
+          border: 2px solid var(--border); background: var(--bg-tertiary);
+          font-family: inherit; line-height: 0; box-sizing: border-box; transition: all 0.15s;
         }
-        .nachweis-field select {
-          min-width: 160px;
-          padding: 8px 10px;
-          border-radius: 8px;
-          border: 1px solid var(--border);
-          background: var(--bg-tertiary);
-          color: var(--text-primary);
-          font-size: 14px;
+        .nv-circle--on { background: ${ROUTINE_TEAL.accent}; border-color: ${ROUTINE_TEAL.accent}; color: #fff; }
+        .nv-circle:disabled { cursor: default; opacity: 0.5; }
+        .nv-sub-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+        .nv-sub-row:last-child { border-bottom: none; }
+        .nv-sub-block { margin-bottom: 16px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 10px; padding: 4px 14px 4px; }
+        .nv-legend {
+          display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+          margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--border);
         }
-        .nachweis-view-body {
-          padding: 1rem 1.25rem 1.5rem;
-          background: var(--bg-secondary);
+        .nv-legend-year {
+          font-size: 11px; font-weight: 800; color: var(--text-secondary);
+          text-transform: uppercase; letter-spacing: 0.08em; margin-right: 4px;
         }
-        .nachweis-legend {
-          display: flex;
-          gap: 16px;
-          align-items: center;
-          margin-bottom: 16px;
-          font-size: 12px;
-          color: var(--text-muted);
-        }
-        .nachweis-legend-item {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-        .nachweis-legend-dot {
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-          flex-shrink: 0;
-        }
-
-        /* ── Schedule Section ── */
-        .nachweis-section {
-          margin-bottom: 20px;
-          border: 1px solid var(--border);
-          border-radius: 10px;
-          overflow: hidden;
-          background: var(--bg-secondary);
-        }
-        .nachweis-section-header {
-          padding: 12px 16px;
-          background: var(--bg-primary);
-          border-bottom: 1px solid var(--border);
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          flex-wrap: wrap;
-        }
-        .nachweis-section-title {
-          font-size: 1rem;
-          font-weight: 700;
-          color: var(--text-primary);
-          margin: 0;
-        }
-        .nachweis-section-meta {
-          font-size: 12px;
-          color: var(--text-muted);
-          margin-top: 2px;
-        }
-        .nachweis-stats {
-          display: flex;
-          gap: 10px;
-          align-items: center;
-          flex-shrink: 0;
-        }
-        .nachweis-stat-pill {
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          font-size: 12px;
-          font-weight: 600;
-          padding: 3px 10px;
-          border-radius: 20px;
-          white-space: nowrap;
-        }
-        .nachweis-stat-pill--done {
-          background: ${ROUTINE_TEAL.bg};
-          color: ${ROUTINE_TEAL.dark};
-          border: 1px solid ${ROUTINE_TEAL.border};
-        }
-        .nachweis-stat-pill--missed {
-          background: ${ROUTINE_AMBER.bg};
-          color: ${ROUTINE_AMBER.dark};
-          border: 1px solid ${ROUTINE_AMBER.border};
-        }
-        .nachweis-stat-pill--total {
-          background: var(--bg-tertiary);
-          color: var(--text-secondary);
-          border: 1px solid var(--border);
-        }
-
-        /* ── Month Grid ── */
-        .nachweis-month-grid {
+        .nv-legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
+        .nv-legend-dot { width: 12px; height: 12px; border-radius: 4px; flex-shrink: 0; }
+        .nv-month-grid {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
-          gap: 0;
+          gap: 10px;
         }
-        @media (max-width: 900px) {
-          .nachweis-month-grid { grid-template-columns: repeat(3, 1fr); }
+        @media (max-width: 900px) { .nv-month-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 580px) { .nv-month-grid { grid-template-columns: repeat(2, 1fr); } }
+        .nv-month-card {
+          background: var(--bg-secondary); border: 1px solid var(--border);
+          border-radius: 9px; padding: 11px 13px;
         }
-        @media (max-width: 600px) {
-          .nachweis-month-grid { grid-template-columns: repeat(2, 1fr); }
+        .nv-month-name {
+          font-size: 12px; font-weight: 700; color: var(--text-secondary); margin-bottom: 9px;
         }
-
-        .nachweis-month-card {
-          padding: 12px 14px;
-          border-right: 1px solid var(--border);
-          border-bottom: 1px solid var(--border);
+        .nv-days { display: flex; flex-wrap: wrap; gap: 4px; }
+        .nv-day {
+          width: 28px; height: 28px; border-radius: 7px;
+          display: inline-flex; align-items: center; justify-content: center;
+          font-size: 11px; font-weight: 700; cursor: default;
         }
-        .nachweis-month-card:nth-child(4n) { border-right: none; }
-        .nachweis-month-card.future { opacity: 0.55; }
-
-        .nachweis-month-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 8px;
+        .nv-day--done { background: ${ROUTINE_TEAL.accent}; color: #fff; }
+        .nv-day--partial { background: ${ROUTINE_AMBER.accent}; color: #fff; }
+        .nv-day--missed { background: #DC2626; color: #fff; }
+        .nv-day--planned { background: var(--bg-tertiary); color: var(--text-muted); border: 1px solid var(--border); }
+        .nv-day--future { background: var(--bg-tertiary); color: var(--border-active); border: 1px solid var(--border); opacity: 0.4; }
+        @media (max-width: 860px) {
+          .nv-head { grid-template-columns: 34px 1fr 140px; }
+          .nv-head-cad, .nv-head-status { display: none; }
         }
-        .nachweis-month-name {
-          font-size: 13px;
-          font-weight: 600;
-          color: var(--text-primary);
-        }
-        .nachweis-month-summary {
-          font-size: 11px;
-          color: var(--text-muted);
-          display: flex;
-          gap: 6px;
-        }
-        .nachweis-month-summary span { font-weight: 600; }
-
-        /* Progress bar */
-        .nachweis-progress {
-          height: 3px;
-          border-radius: 2px;
-          background: var(--border);
-          margin-bottom: 10px;
-          overflow: hidden;
-          display: flex;
-          gap: 1px;
-        }
-        .nachweis-progress-done {
-          background: ${ROUTINE_TEAL.accent};
-          height: 100%;
-          transition: width 0.3s ease;
-        }
-        .nachweis-progress-missed {
-          background: ${ROUTINE_AMBER.accent};
-          height: 100%;
-        }
-
-        /* Mini calendar grid */
-        .nachweis-cal {
-          width: 100%;
-          border-collapse: collapse;
-          table-layout: fixed;
-        }
-        .nachweis-cal th {
-          font-size: 10px;
-          font-weight: 600;
-          color: var(--text-muted);
-          text-align: center;
-          padding: 0 0 4px;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-        }
-        .nachweis-cal td {
-          text-align: center;
-          padding: 2px;
-          height: 26px;
-        }
-        .nachweis-day {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 26px;
-          height: 22px;
-          border-radius: 5px;
-          font-size: 11px;
-          font-weight: 600;
-          cursor: default;
-        }
-        .nachweis-day--done {
-          background: ${ROUTINE_TEAL.bg};
-          color: ${ROUTINE_TEAL.dark};
-          border: 1px solid ${ROUTINE_TEAL.border};
-        }
-        .nachweis-day--missed {
-          background: ${ROUTINE_AMBER.bg};
-          color: ${ROUTINE_AMBER.dark};
-          border: 1px solid ${ROUTINE_AMBER.border};
-        }
-        .nachweis-day--future {
-          background: var(--bg-tertiary);
-          color: var(--text-muted);
-          border: 1px solid var(--border);
-        }
-        .nachweis-day--today {
-          background: var(--bg-tertiary);
-          color: var(--text-primary);
-          border: 2px solid var(--accent-primary);
-          font-weight: 700;
-        }
-        .nachweis-empty {
-          font-size: 12px;
-          color: var(--text-muted);
-          font-style: italic;
-        }
-
       `}</style>
 
       {/* Toolbar */}
-      <div className="print-only" style={{ marginBottom: 12 }}>
-        <h1 style={{ margin: 0, fontSize: 18, color: '#111' }}>Serien-Nachweis {year}</h1>
-        <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>
-          {scheduleFilter === 'alle' ? 'Alle Aufgaben' : (scheduleSelectOptions.find((s) => s.id === scheduleFilter)?.title || scheduleFilter)}
-          {' · '}
-          {personFilter === 'alle' ? 'Alle Personen' : displayNameShort(personFilter)}
-          {' · Stand: '}{fmtYmd(todayYmd)}
-        </div>
-      </div>
-      <div className="nachweis-toolbar no-print">
-        <div className="nachweis-field">
-          <label htmlFor="nachweis-jahr">Jahr</label>
-          <select id="nachweis-jahr" value={year} onChange={(e) => setYear(Number(e.target.value))}>
-            {yearOptions.map((y) => (
-              <option key={y} value={y}>{y}</option>
-            ))}
+      <div className="nv-toolbar no-print">
+        <div className="nv-field">
+          <label htmlFor="nv-jahr">Jahr</label>
+          <select id="nv-jahr" value={year} onChange={(e) => setYear(Number(e.target.value))}>
+            {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
-        <div className="nachweis-field">
-          <label htmlFor="nachweis-aufgabe">Aufgabe</label>
-          <select id="nachweis-aufgabe" value={scheduleFilter} onChange={(e) => setScheduleFilter(e.target.value)}>
-            <option value="alle">Alle sichtbaren</option>
-            {scheduleSelectOptions.map((s) => (
-              <option key={s.id} value={s.id}>{s.title || s.id}</option>
-            ))}
-          </select>
-        </div>
-        <div className="nachweis-field">
-          <label htmlFor="nachweis-person">Erledigt von</label>
-          <select id="nachweis-person" value={personFilter} onChange={(e) => setPersonFilter(e.target.value)}>
-            {personOptions.map((p) => (
-              <option key={p} value={p}>{p === 'alle' ? 'Alle' : displayNameShort(p)}</option>
-            ))}
+        <div className="nv-field">
+          <label htmlFor="nv-aufgabe">Aufgabe</label>
+          <select id="nv-aufgabe" value={scheduleFilter} onChange={(e) => setScheduleFilter(e.target.value)}>
+            <option value="alle">Alle anzeigen</option>
+            {scheduleSelectOptions.map((s) => <option key={s.id} value={s.id}>{s.title || s.id}</option>)}
           </select>
         </div>
         <button
           type="button"
           onClick={() => window.print()}
-          title="Diesen Nachweis drucken oder als PDF speichern"
-          style={{ marginLeft: 'auto', alignSelf: 'flex-end', display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', boxShadow: 'var(--shadow-sm)' }}
+          style={{ marginLeft: 'auto', alignSelf: 'flex-end', display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}
         >
-          <i className="ti ti-printer" aria-hidden="true" /> Drucken / als PDF
+          <i className="ti ti-printer" aria-hidden="true" /> Drucken / PDF
         </button>
       </div>
 
-      {/* Body */}
-      <div className="nachweis-view-body">
-        {/* Legend */}
-        <div className="nachweis-legend">
-          <div className="nachweis-legend-item">
-            <div className="nachweis-legend-dot" style={{ background: ROUTINE_TEAL.accent }} />
-            Erledigt
-          </div>
-          <div className="nachweis-legend-item">
-            <div className="nachweis-legend-dot" style={{ background: ROUTINE_AMBER.accent }} />
-            Verpasst
-          </div>
-          <div className="nachweis-legend-item">
-            <div className="nachweis-legend-dot" style={{ background: 'var(--border-active)' }} />
-            Ausstehend
-          </div>
+      {visibleSchedules.length === 0 ? (
+        <div style={{ marginTop: '1.25rem', padding: '3rem', textAlign: 'center', color: 'var(--text-muted)', background: 'var(--bg-secondary)', borderRadius: 12, border: '1px solid var(--border)' }}>
+          Keine Serienaufträge vorhanden.
         </div>
+      ) : (
+        <div className="nv-list">
+          {visibleSchedules.map((sch) => {
+            const dueList = dueByScheduleId.get(sch.id) || [];
+            const pool = getRoutinePool(sch, users);
+            const subtasks = sch.subtasks || [];
+            const pastDue = dueList.filter(d => d <= todayYmd);
+            const currentYmd = pastDue.length ? pastDue[pastDue.length - 1] : null;
+            const st = currentYmd ? routineDayStatus(sch, currentYmd, completions) : null;
+            const assignee = currentYmd ? getRoutineAssigneeDisplayName(sch, pool, currentYmd) : '—';
+            const canComplete = userRole === Role.Admin || userRole === sch.targetRole;
+            const expanded = !!openRows[sch.id];
+            const accentColor = nvAccent(sch);
 
-        {/* Pro-Person-Auswertung: wer hat wie viel erledigt (sichtbare Routinen, dieses Jahr) */}
-        {(() => {
-          const visIds = new Set(visibleSchedules.map((s) => s.id));
-          const counts = new Map<string, number>();
-          (completions || []).forEach((c) => {
-            if (!visIds.has(c.scheduleId)) return;
-            if (!c.date.startsWith(String(year))) return;
-            counts.set(c.completedBy, (counts.get(c.completedBy) || 0) + 1);
-          });
-          const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1]);
-          if (ranked.length === 0) return null;
-          const max = ranked[0][1] || 1;
-          const total = ranked.reduce((s, [, n]) => s + n, 0);
-          return (
-            <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px', marginBottom: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
-                <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>Erledigt nach Person · {year}</h3>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{total} Erledigungen gesamt</span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {ranked.map(([name, n]) => (
-                  <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ width: 130, fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={name}>{displayNameShort(name)}</span>
-                    <div style={{ flex: 1, height: 16, background: 'var(--bg-tertiary)', borderRadius: 5, overflow: 'hidden' }}>
-                      <div style={{ width: `${Math.round((n / max) * 100)}%`, height: '100%', background: ROUTINE_TEAL.accent, borderRadius: 5 }} />
-                    </div>
-                    <span style={{ width: 32, textAlign: 'right', fontSize: '0.82rem', fontWeight: 700, color: ROUTINE_TEAL.dark }}>{n}</span>
+            const completedCount = pastDue.filter(d => routineDayStatus(sch, d, completions).complete).length;
+            const totalPast = pastDue.length;
+            const pct = totalPast > 0 ? Math.round((completedCount / totalPast) * 100) : 0;
+
+            const wholeRec = currentYmd
+              ? (completions || []).find(c => c.scheduleId === sch.id && c.date === currentYmd && !c.subtaskId)
+              : undefined;
+
+            return (
+              <div key={sch.id} className="nv-card">
+                {/* Collapsed header */}
+                <button
+                  className="nv-head"
+                  style={{ borderLeftColor: accentColor }}
+                  onClick={() => setOpenRows(p => ({ ...p, [sch.id]: !p[sch.id] }))}
+                  aria-expanded={expanded}
+                >
+                  <div className="nv-head-chevron">
+                    <i className={`ti ti-chevron-${expanded ? 'down' : 'right'}`} style={{ color: 'var(--text-muted)', fontSize: 14 }} aria-hidden />
                   </div>
-                ))}
-              </div>
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 8 }}>
-                Zählt erledigte Serientermine pro Person (sichtbare Aufgaben, {year}).
-              </div>
-            </div>
-          );
-        })()}
-
-        <style>{`
-          .nz-row { border: 1px solid var(--border); border-radius: 12px; background: var(--bg-secondary); margin-bottom: 8px; overflow: hidden; }
-          .nz-head { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 12px 14px; font: inherit; color: inherit; }
-          .nz-head:hover { background: var(--bg-tertiary); }
-          .nz-title { font-weight: 700; font-size: 14px; color: var(--text-primary); flex: 1; min-width: 0; }
-          .nz-area { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
-          .nz-cad { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
-          .nz-status { font-size: 12.5px; font-weight: 600; min-width: 96px; text-align: right; white-space: nowrap; }
-          .nz-body { padding: 4px 14px 14px 38px; border-top: 1px solid var(--border); }
-          .nz-sub { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
-          .nz-sub:last-child { border-bottom: none; }
-          .nz-circle { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border-active); background: var(--bg-tertiary); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; padding: 0; color: #fff; }
-          .nz-circle:disabled { cursor: default; opacity: 0.6; }
-          .nz-circle--done { border-color: ${ROUTINE_TEAL.border}; background: ${ROUTINE_TEAL.accent}; }
-        `}</style>
-        {visibleSchedules.length === 0 ? (
-          <div style={{ color: 'var(--text-muted)', padding: '1rem 0', textAlign: 'center' }}>
-            Keine Serienaufträge sichtbar.
-          </div>
-        ) : (
-          <div>
-            {visibleSchedules.map((sch) => {
-              const dueList = dueByScheduleId.get(sch.id) || [];
-              const pastOrToday = dueList.filter((d) => d <= todayYmd);
-              const currentYmd = pastOrToday.length ? pastOrToday[pastOrToday.length - 1] : (dueList[0] || null);
-              const pool = getRoutinePool(sch, users);
-              const subtasks = sch.subtasks || [];
-              const st = currentYmd ? routineDayStatus(sch, currentYmd, completions) : null;
-              const assignee = currentYmd ? getRoutineAssigneeDisplayName(sch, pool, currentYmd) : '—';
-              const canComplete = userRole === Role.Admin || userRole === sch.targetRole;
-              const expanded = !!openRows[sch.id];
-              const wholeRec = currentYmd ? (completions || []).find((c) => c.scheduleId === sch.id && c.date === currentYmd && !c.subtaskId) : undefined;
-
-              let statusEl;
-              if (!currentYmd) {
-                statusEl = <span style={{ color: 'var(--text-muted)' }}>—</span>;
-              } else if (subtasks.length > 0) {
-                const col = st!.complete ? ROUTINE_TEAL.dark : st!.anyDone ? ROUTINE_AMBER.dark : 'var(--text-muted)';
-                statusEl = <span style={{ color: col }}>{st!.done}/{st!.total} erledigt</span>;
-              } else if (st!.complete) {
-                statusEl = <span style={{ color: ROUTINE_TEAL.dark, display: 'inline-flex', alignItems: 'center', gap: 5, justifyContent: 'flex-end' }}><CheckIcon width={14} height={14} strokeWidth={2.5} aria-hidden /> erledigt</span>;
-              } else {
-                statusEl = <span style={{ color: ROUTINE_AMBER.dark }}>offen</span>;
-              }
-
-              return (
-                <div key={sch.id} className="nz-row">
-                  <button className="nz-head" onClick={() => setOpenRows((p) => ({ ...p, [sch.id]: !p[sch.id] }))} aria-expanded={expanded}>
-                    <i className={`ti ti-chevron-${expanded ? 'down' : 'right'}`} style={{ color: 'var(--text-muted)', fontSize: 15, flexShrink: 0 }} aria-hidden />
-                    <span className="nz-title">
+                  <div className="nv-head-title">
+                    <div className="nv-title">
                       {sch.title || '—'}
-                      {subtasks.length > 0 ? <span style={{ marginLeft: 7, fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>· {subtasks.length} Punkte</span> : null}
-                    </span>
-                    <span className="nz-area">{String(sch.area || '').trim() || '—'}</span>
-                    <span className="nz-cad">{cadenceLabel(sch)}</span>
-                    <span className="nz-status">{statusEl}</span>
-                  </button>
-                  {expanded ? (
-                    <div className="nz-body">
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)', margin: '8px 0 10px' }}>
-                        {currentYmd ? <>Aktueller Termin: {fmtYmd(currentYmd)} · zuständig: {displayNameShort(assignee)}</> : 'Noch kein fälliger Termin.'}
+                      {subtasks.length > 0 ? <span className="nv-sub-count">· {subtasks.length} Punkte</span> : null}
+                    </div>
+                    {sch.area && String(sch.area).trim() ? (
+                      <div className="nv-area-tag">
+                        <i className="ti ti-map-pin" style={{ fontSize: 10 }} />
+                        {String(sch.area).trim()}
                       </div>
+                    ) : null}
+                  </div>
+                  <div className="nv-head-cad">
+                    <span className="nv-cad-badge">{cadenceLabel(sch)}</span>
+                  </div>
+                  <div className="nv-head-prog">
+                    <div className="nv-prog-bar">
+                      <div className="nv-prog-fill" style={{ width: `${pct}%` }} />
+                    </div>
+                    <div className="nv-prog-nums">{completedCount}/{totalPast} in {year}</div>
+                  </div>
+                  <div className="nv-head-status">
+                    {!currentYmd ? (
+                      <span className="nv-pill nv-pill--none">—</span>
+                    ) : st!.complete ? (
+                      <span className="nv-pill nv-pill--done">
+                        <CheckIcon width={12} height={12} strokeWidth={3} aria-hidden /> erledigt
+                      </span>
+                    ) : (
+                      <span className="nv-pill nv-pill--open">offen</span>
+                    )}
+                  </div>
+                </button>
 
-                      {currentYmd && subtasks.length > 0 ? subtasks.map((sub) => {
-                        const done = st!.doneSubtaskIds.has(sub.id);
-                        const rec = (completions || []).find((c) => c.scheduleId === sch.id && c.date === currentYmd && c.subtaskId === sub.id);
-                        return (
-                          <div key={sub.id} className="nz-sub">
-                            <button className={`nz-circle${done ? ' nz-circle--done' : ''}`} disabled={!canComplete} onClick={() => onToggleSubtask && onToggleSubtask(sch.id, currentYmd, sub.id, done ? null : userName)} title={done ? 'Erledigt – zurücknehmen' : 'Als erledigt markieren'} aria-label={sub.label || 'Unter-Aufgabe'}>
-                              {done ? <CheckIcon width={13} height={13} strokeWidth={3} aria-hidden /> : null}
-                            </button>
-                            <span style={{ flex: 1, fontSize: 14, color: done ? 'var(--text-secondary)' : 'var(--text-primary)' }}>{sub.label || '—'}</span>
-                            <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{done && rec ? displayNameShort(rec.completedBy) : 'offen'}</span>
-                          </div>
-                        );
-                      }) : null}
+                {/* Expanded body */}
+                {expanded ? (
+                  <div className="nv-body">
+                    {currentYmd ? (
+                      <div className="nv-current-info">
+                        Aktueller Termin: <strong>{fmtYmd(currentYmd)}</strong> · zuständig: <strong>{displayNameShort(assignee)}</strong>
+                      </div>
+                    ) : (
+                      <div className="nv-current-info">Noch kein fälliger Termin in {year}.</div>
+                    )}
 
-                      {currentYmd && subtasks.length === 0 ? (
-                        <div className="nz-sub">
-                          <button className={`nz-circle${st!.complete ? ' nz-circle--done' : ''}`} disabled={!canComplete} onClick={() => onSetCompletion && onSetCompletion(sch.id, currentYmd, st!.complete ? null : userName)} title={st!.complete ? 'Erledigt – zurücknehmen' : 'Als erledigt markieren'} aria-label="Auftrag erledigt">
-                            {st!.complete ? <CheckIcon width={13} height={13} strokeWidth={3} aria-hidden /> : null}
+                    {currentYmd && subtasks.length > 0 ? (
+                      <div className="nv-sub-block">
+                        {subtasks.map((sub) => {
+                          const done = st!.doneSubtaskIds.has(sub.id);
+                          const rec = (completions || []).find(c => c.scheduleId === sch.id && c.date === currentYmd && c.subtaskId === sub.id);
+                          return (
+                            <div key={sub.id} className="nv-sub-row">
+                              <button
+                                className={`nv-circle${done ? ' nv-circle--on' : ''}`}
+                                disabled={!canComplete}
+                                onClick={() => onToggleSubtask && onToggleSubtask(sch.id, currentYmd, sub.id, done ? null : userName)}
+                                title={done ? 'Erledigt – zurücknehmen' : 'Als erledigt markieren'}
+                                aria-label={sub.label || 'Unter-Aufgabe'}
+                              >
+                                {done ? <CheckIcon width={12} height={12} strokeWidth={3} aria-hidden /> : null}
+                              </button>
+                              <span style={{ flex: 1, fontSize: 14, color: done ? 'var(--text-secondary)' : 'var(--text-primary)' }}>{sub.label || '—'}</span>
+                              <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{done && rec ? displayNameShort(rec.completedBy) : 'offen'}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : currentYmd && subtasks.length === 0 ? (
+                      <div className="nv-sub-block">
+                        <div className="nv-sub-row">
+                          <button
+                            className={`nv-circle${st!.complete ? ' nv-circle--on' : ''}`}
+                            disabled={!canComplete}
+                            onClick={() => onSetCompletion && onSetCompletion(sch.id, currentYmd, st!.complete ? null : userName)}
+                            title={st!.complete ? 'Erledigt – zurücknehmen' : 'Als erledigt markieren'}
+                            aria-label="Auftrag erledigt"
+                          >
+                            {st!.complete ? <CheckIcon width={12} height={12} strokeWidth={3} aria-hidden /> : null}
                           </button>
                           <span style={{ flex: 1, fontSize: 14 }}>Ganzen Auftrag als erledigt markieren</span>
-                          <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{st!.complete ? (wholeRec ? displayNameShort(wholeRec.completedBy) : 'erledigt') : 'offen'}</span>
-                        </div>
-                      ) : null}
-
-                      <div style={{ marginTop: 16 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px 14px', marginBottom: 8 }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Jahresübersicht {year}</span>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 12, fontSize: 11, color: 'var(--text-muted)' }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 11, height: 11, borderRadius: 3, background: ROUTINE_TEAL.accent }} /> erledigt</span>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 11, height: 11, borderRadius: 3, background: ROUTINE_AMBER.accent }} /> teilweise</span>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 11, height: 11, borderRadius: 3, background: '#E24B4A' }} /> verpasst</span>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 11, height: 11, borderRadius: 3, background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }} /> geplant</span>
+                          <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+                            {st!.complete ? (wholeRec ? displayNameShort(wholeRec.completedBy) : 'erledigt') : 'offen'}
                           </span>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
-                          {MONTHS_DE.map((mname, mi) => {
-                            const mdays = dueList.filter((d) => Number(d.split('-')[1]) - 1 === mi).sort();
-                            return (
-                              <div key={mi} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', background: 'var(--bg-primary)' }}>
-                                <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>{mname}</div>
-                                {mdays.length === 0 ? (
-                                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>—</span>
-                                ) : (
-                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                                    {mdays.map((d) => {
-                                      const s2 = routineDayStatus(sch, d, completions);
-                                      const past = d < todayYmd;
-                                      const counts = d >= missedSinceYmd;
-                                      let bg = 'var(--bg-tertiary)';
-                                      let fg = 'var(--text-muted)';
-                                      if (s2.complete) { bg = ROUTINE_TEAL.accent; fg = '#fff'; }
-                                      else if (s2.anyDone) { bg = ROUTINE_AMBER.accent; fg = '#fff'; }
-                                      else if (past && counts) { bg = '#E24B4A'; fg = '#fff'; }
-                                      const dn = Number(d.split('-')[2]);
-                                      const dayRec = s2.complete
-                                        ? ((completions || []).find((c) => c.scheduleId === sch.id && c.date === d && !c.subtaskId) || (completions || []).find((c) => c.scheduleId === sch.id && c.date === d))
-                                        : undefined;
-                                      const statusLabel = s2.complete
-                                        ? ('erledigt' + (dayRec?.completedBy ? ' · ' + dayRec.completedBy : ''))
-                                        : s2.anyDone ? (s2.done + '/' + s2.total + ' erledigt')
-                                        : (past && counts ? 'verpasst' : 'geplant');
-                                      return <span key={d} title={fmtYmd(d) + ': ' + statusLabel} style={{ width: 21, height: 21, borderRadius: 4, background: bg, color: fg, fontSize: 10, fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: bg === 'var(--bg-tertiary)' ? '1px solid var(--border)' : 'none' }}>{dn}</span>;
-                                    })}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
                       </div>
+                    ) : null}
+
+                    {/* Legend + year grid */}
+                    <div className="nv-legend">
+                      <span className="nv-legend-year">Jahresübersicht {year}</span>
+                      <div className="nv-legend-item"><div className="nv-legend-dot" style={{ background: ROUTINE_TEAL.accent }} />Erledigt</div>
+                      <div className="nv-legend-item"><div className="nv-legend-dot" style={{ background: ROUTINE_AMBER.accent }} />Teilweise</div>
+                      <div className="nv-legend-item"><div className="nv-legend-dot" style={{ background: '#DC2626' }} />Verpasst</div>
+                      <div className="nv-legend-item"><div className="nv-legend-dot" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }} />Geplant</div>
                     </div>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-      </div>
+
+                    <div className="nv-month-grid">
+                      {MONTHS_FULL.map((mname, mi) => {
+                        const mdays = dueList.filter(d => Number(d.split('-')[1]) - 1 === mi).sort();
+                        return (
+                          <div key={mi} className="nv-month-card">
+                            <div className="nv-month-name">{mname}</div>
+                            {mdays.length === 0 ? (
+                              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>—</span>
+                            ) : (
+                              <div className="nv-days">
+                                {mdays.map(d => {
+                                  const s2 = routineDayStatus(sch, d, completions);
+                                  const past = d < todayYmd;
+                                  const counts = d >= missedSinceYmd;
+                                  const dn = Number(d.split('-')[2]);
+                                  let cls = 'nv-day nv-day--future';
+                                  let title = fmtYmd(d) + ': geplant';
+                                  if (s2.complete) { cls = 'nv-day nv-day--done'; title = fmtYmd(d) + ': erledigt'; }
+                                  else if (s2.anyDone) { cls = 'nv-day nv-day--partial'; title = `${fmtYmd(d)}: ${s2.done}/${s2.total} erledigt`; }
+                                  else if (past && counts) { cls = 'nv-day nv-day--missed'; title = fmtYmd(d) + ': verpasst'; }
+                                  else if (past) { cls = 'nv-day nv-day--planned'; title = fmtYmd(d) + ': nicht erfasst'; }
+                                  return <span key={d} className={cls} title={title}>{dn}</span>;
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
