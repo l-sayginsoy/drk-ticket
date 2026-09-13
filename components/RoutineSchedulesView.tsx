@@ -243,7 +243,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
           <button
             type="button"
             onClick={() => setMyTasksOnly(v => !v)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 8, border: `1.5px solid ${myTasksOnly ? 'var(--accent-primary)' : 'var(--border)'}`, background: myTasksOnly ? 'var(--accent-primary)' : 'var(--bg-secondary)', color: myTasksOnly ? '#fff' : 'var(--text-secondary)', fontWeight: 700, fontSize: '0.83rem', cursor: 'pointer', transition: 'all 0.15s' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 8, border: `1.5px solid ${!myTasksOnly ? '#DC2626' : 'var(--border)'}`, background: !myTasksOnly ? '#DC2626' : 'var(--bg-secondary)', color: !myTasksOnly ? '#fff' : 'var(--text-secondary)', fontWeight: 700, fontSize: '0.83rem', cursor: 'pointer', transition: 'all 0.15s' }}
           >
             <i className="ti ti-user" aria-hidden />
             {myTasksOnly ? 'Alle anzeigen' : 'Meine Aufgaben'}
