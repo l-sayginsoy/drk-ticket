@@ -154,17 +154,19 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
   }, [users]);
 
   const isTechRole = userRole === Role.Technician || userRole === Role.Housekeeping;
+  const [myTasksOnly, setMyTasksOnly] = useState(isTechRole);
 
   const visible = useMemo(() => {
-    return schedules.filter(s => s.enabled);
-  }, [schedules]);
-
-  const isMyTask = (s: RoutineSchedule) => {
-    if (!isTechRole) return true;
-    const pool = getRoutinePool(s, users);
-    const current = getRoutineAssigneeDisplayName(s, pool, todayYmd);
-    return current === userName;
-  };
+    const all = schedules.filter(s => s.enabled);
+    if (myTasksOnly && isTechRole) {
+      return all.filter(s => {
+        const pool = getRoutinePool(s, users);
+        const current = getRoutineAssigneeDisplayName(s, pool, todayYmd);
+        return current === userName;
+      });
+    }
+    return all;
+  }, [schedules, myTasksOnly, isTechRole, users, todayYmd, userName]);
 
   // Nach Rhythmus gruppieren: Täglich → Wöchentlich → Alle 2 Wochen → … → Monatlich → Jährlich.
   const groups = useMemo(() => {
@@ -236,8 +238,18 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
 
   return (
     <div style={{ maxWidth: 1800 }}>
-      {canEdit && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, marginTop: '1.5rem', flexWrap: 'wrap' }}>
+        {isTechRole && (
+          <button
+            type="button"
+            onClick={() => setMyTasksOnly(v => !v)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 8, border: `1.5px solid ${myTasksOnly ? 'var(--accent-primary)' : 'var(--border)'}`, background: myTasksOnly ? 'var(--accent-primary)' : 'var(--bg-secondary)', color: myTasksOnly ? '#fff' : 'var(--text-secondary)', fontWeight: 700, fontSize: '0.83rem', cursor: 'pointer', transition: 'all 0.15s' }}
+          >
+            <i className="ti ti-user" aria-hidden />
+            {myTasksOnly ? 'Meine Aufgaben' : 'Alle anzeigen'}
+          </button>
+        )}
+        {canEdit && (
           <button
             type="button"
             onClick={() => setEditing({ schedule: newRoutineDraft(), isNew: true })}
@@ -245,8 +257,8 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
           >
             <span style={{ fontSize: 17, lineHeight: 1, marginTop: -1 }}>+</span> Neuer Serienauftrag
           </button>
-        </div>
-      )}
+        )}
+      </div>
       <style>{`
         .rs-col-hd {
           display: grid;
@@ -408,12 +420,11 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                     const subtaskStatus = subtasks.length > 0 ? routineDayStatus(s, todayYmd, completions) : null;
                     const rec = (s as any).recurrence;
                     const WEEKDAY_ORDER: WeekdayKey[] = ['mo', 'di', 'mi', 'do', 'fr', 'sa', 'so'];
-                    const mine = isMyTask(s);
                     return (
                       <div
                         key={s.id}
                         className={`rs-card${canEdit ? ' rs-card--clickable' : ''}`}
-                        style={{ borderLeftColor: mine ? accentColor : 'var(--border)', opacity: mine ? 1 : 0.38 }}
+                        style={{ borderLeftColor: accentColor }}
                         onClick={canEdit ? () => setEditing({ schedule: s, isNew: false }) : undefined}
                         title={canEdit ? 'Zum Bearbeiten klicken' : undefined}
                       >
