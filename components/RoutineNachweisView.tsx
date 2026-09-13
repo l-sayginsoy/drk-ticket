@@ -213,8 +213,18 @@ export default function RoutineNachweisView({
         .nv-day--planned { background: var(--bg-tertiary); color: var(--text-muted); border: 1px solid var(--border); }
         .nv-day--future { background: var(--bg-tertiary); color: var(--border-active); border: 1px solid var(--border); opacity: 0.4; }
         @media (max-width: 860px) {
-          .nv-head { grid-template-columns: 34px 1fr 140px; }
-          .nv-head-cad, .nv-head-status { display: none; }
+          .nv-head { grid-template-columns: 34px 1fr 170px auto; }
+          .nv-head-cad { display: none; }
+        }
+        @media (max-width: 560px) {
+          .nv-head { grid-template-columns: 34px 1fr auto; min-height: 60px; }
+          .nv-head-cad, .nv-head-prog { display: none; }
+          .nv-head-status { padding: 12px 10px 12px 0; }
+          .nv-title { white-space: normal; line-height: 1.3; font-size: 13.5px; }
+          .nv-pill { font-size: 11px; padding: 3px 9px; }
+          .nv-toolbar { gap: 8px; padding: 10px 12px; }
+          .nv-month-grid { grid-template-columns: repeat(2, 1fr); }
+          .nv-circle { width: 36px; height: 36px; }
         }
       `}</style>
 

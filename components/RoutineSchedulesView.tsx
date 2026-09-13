@@ -361,9 +361,14 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
           .rs-card, .rs-col-hd { grid-template-columns: 1fr 160px 180px 72px; }
         }
         @media (max-width: 660px) {
-          .rs-card { grid-template-columns: 1fr 72px; }
+          .rs-card { grid-template-columns: 1fr 64px; min-height: 60px; }
           .rs-col-hd { display: none; }
           .rs-card .rs-cell:nth-child(2), .rs-card .rs-cell:nth-child(3) { display: none; }
+          .rs-title { white-space: normal; line-height: 1.3; font-size: 13.5px; }
+          .rs-cell { padding: 10px 14px; }
+          .rs-today-cell { padding: 10px 0; min-height: 60px; }
+          .rs-circle { width: 40px; height: 40px; }
+          .rs-group-hd { padding: 14px 0 6px; }
         }
       `}</style>
 
