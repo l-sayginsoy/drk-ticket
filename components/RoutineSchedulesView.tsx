@@ -129,6 +129,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ schedule: RoutineSchedule & { recurrence?: any }; isNew: boolean } | null>(null);
   const [subPop, setSubPop] = useState<{ schedId: string } | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const canEdit = userRole === Role.Admin;
   const [todayYmd, setTodayYmd] = useState(() => localISODate(new Date()));
   useEffect(() => {
@@ -243,7 +244,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
           <button
             type="button"
             onClick={() => setMyTasksOnly(v => !v)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 8, border: `1.5px solid ${!myTasksOnly ? '#DC2626' : 'var(--border)'}`, background: !myTasksOnly ? '#DC2626' : 'var(--bg-secondary)', color: !myTasksOnly ? '#fff' : 'var(--text-secondary)', fontWeight: 700, fontSize: '0.83rem', cursor: 'pointer', transition: 'all 0.15s' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 8, border: `1.5px solid ${myTasksOnly ? '#DC2626' : 'var(--border)'}`, background: myTasksOnly ? '#DC2626' : 'var(--bg-secondary)', color: myTasksOnly ? '#fff' : 'var(--text-secondary)', fontWeight: 700, fontSize: '0.83rem', cursor: 'pointer', transition: 'all 0.15s' }}
           >
             <i className="ti ti-user" aria-hidden />
             {myTasksOnly ? 'Alle anzeigen' : 'Meine Aufgaben'}
@@ -283,8 +284,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
           text-transform: uppercase; color: var(--text-secondary); white-space: nowrap;
         }
         .rs-group-pill {
-          font-size: 10.5px; font-weight: 700; color: #fff;
-          background: #DC2626; border-radius: 20px; padding: 1px 8px; white-space: nowrap;
+          font-size: 11px; font-weight: 700; color: var(--text-secondary); white-space: nowrap;
         }
         .rs-group-rule { flex: 1; height: 1px; background: var(--border); }
         .rs-card-list {
@@ -382,6 +382,27 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
           .rs-circle { width: 40px; height: 40px; }
           .rs-group-hd { padding: 14px 0 6px; }
         }
+        /* Expand-Panel (Nachweis-Stil) */
+        .rs-expand-body {
+          border-top: 1px solid var(--border);
+          padding: 20px 22px 22px;
+          background: var(--bg-primary);
+        }
+        .rs-expand-info { font-size: 13px; color: var(--text-muted); margin-bottom: 14px; }
+        .rs-expand-info strong { color: var(--text-primary); font-weight: 700; }
+        .rs-expand-sub-block { margin-bottom: 0; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 10px; padding: 4px 14px; }
+        .rs-expand-sub-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+        .rs-expand-sub-row:last-child { border-bottom: none; }
+        .rs-expand-circle {
+          width: 28px; height: 28px; border-radius: 50%;
+          display: inline-flex; align-items: center; justify-content: center;
+          padding: 0; flex-shrink: 0; cursor: pointer;
+          border: 2px solid var(--border); background: var(--bg-tertiary);
+          font-family: inherit; line-height: 0; box-sizing: border-box; transition: all 0.15s;
+        }
+        .rs-expand-circle--on { background: ${ROUTINE_TEAL.accent}; border-color: ${ROUTINE_TEAL.accent}; color: #fff; }
+        .rs-expand-circle:disabled { cursor: default; opacity: 0.5; }
+        .rs-expand-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 14px; }
       `}</style>
 
       {visible.length === 0 ? (
@@ -401,8 +422,8 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
               <div key={group.label} className="rs-group">
                 <div className="rs-group-hd">
                   <span className="rs-group-label">{group.label}</span>
-                  <span className="rs-group-rule" />
                   <span className="rs-group-pill">{group.items.length}</span>
+                  <span className="rs-group-rule" />
                 </div>
                 <div className="rs-card-list">
                   {group.items.map(s => {
@@ -420,28 +441,38 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                     const subtaskStatus = subtasks.length > 0 ? routineDayStatus(s, todayYmd, completions) : null;
                     const rec = (s as any).recurrence;
                     const WEEKDAY_ORDER: WeekdayKey[] = ['mo', 'di', 'mi', 'do', 'fr', 'sa', 'so'];
+                    const isExpanded = expandedId === s.id;
+                    const hasDetails = (s.description && String(s.description).trim()) || subtasks.length > 0;
                     return (
+                      <div key={s.id} style={{ borderLeft: `3px solid ${accentColor}` }}>
                       <div
-                        key={s.id}
                         className={`rs-card${canEdit ? ' rs-card--clickable' : ''}`}
-                        style={{ borderLeftColor: accentColor }}
+                        style={{ borderLeft: 'none' }}
                         onClick={canEdit ? () => setEditing({ schedule: s, isNew: false }) : undefined}
                         title={canEdit ? 'Zum Bearbeiten klicken' : undefined}
                       >
                         {/* Aufgabe */}
                         <div className="rs-cell">
-                          <div className="rs-title">
-                            {s.title || '—'}
-                            {s.description && String(s.description).trim() ? (
-                              <i className="ti ti-notes" title="Beschreibung vorhanden" aria-hidden
-                                style={{ marginLeft: 6, fontSize: 12, color: 'var(--text-muted)', verticalAlign: 'middle' }} />
-                            ) : null}
+                          <div className="rs-title" style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setExpandedId(isExpanded ? null : s.id); }}
+                              style={{
+                                background: 'none', border: 'none', padding: '0 6px 0 0', cursor: 'pointer',
+                                color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', flexShrink: 0,
+                              }}
+                              title={isExpanded ? 'Details einklappen' : 'Details anzeigen'}
+                              aria-label={isExpanded ? 'Details einklappen' : 'Details anzeigen'}
+                            >
+                              <i className={`ti ti-chevron-${isExpanded ? 'down' : 'right'}`} style={{ fontSize: 13 }} />
+                            </button>
+                            <span>{s.title || '—'}</span>
                             {subtasks.length > 0 ? (
-                              <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', verticalAlign: 'middle' }}>· {subtasks.length} Punkte</span>
+                              <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>· {subtasks.length} Punkte</span>
                             ) : null}
                           </div>
                           {s.area && String(s.area).trim() ? (
-                            <div className="rs-area">
+                            <div className="rs-area" style={{ paddingLeft: 19 }}>
                               <i className="ti ti-map-pin" style={{ fontSize: 10 }} />
                               {String(s.area).trim()}
                             </div>
@@ -526,6 +557,64 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                             </div>
                           )}
                         </div>
+                      </div>
+                      {isExpanded && (
+                        <div className="rs-expand-body" onClick={e => e.stopPropagation()}>
+                          {/* Info-Zeile */}
+                          <div className="rs-expand-info">
+                            {due
+                              ? <>Aktueller Termin: <strong>Heute</strong> · zuständig: <strong>{displayNameShort(current)}</strong></>
+                              : <>Nicht heute fällig · zuständig: <strong>{displayNameShort(current)}</strong></>
+                            }
+                          </div>
+                          {/* Beschreibung */}
+                          {s.description && String(s.description).trim() ? (
+                            <p className="rs-expand-desc">{String(s.description).trim()}</p>
+                          ) : null}
+                          {/* Unteraufgaben oder ganzer Auftrag */}
+                          {subtasks.length > 0 ? (
+                            <div className="rs-expand-sub-block">
+                              {subtasks.map((sub) => {
+                                const subDone = (completions || []).some(c => c.scheduleId === s.id && c.date === todayYmd && c.subtaskId === sub.id);
+                                const subRec = (completions || []).find(c => c.scheduleId === s.id && c.date === todayYmd && c.subtaskId === sub.id);
+                                const canAct = due && (userRole === Role.Admin || userRole === s.targetRole);
+                                return (
+                                  <div key={sub.id} className="rs-expand-sub-row">
+                                    <button
+                                      className={`rs-expand-circle${subDone ? ' rs-expand-circle--on' : ''}`}
+                                      disabled={!canAct}
+                                      onClick={() => onToggleSubtask?.(s.id, todayYmd, sub.id, subDone ? null : userName)}
+                                      title={subDone ? 'Erledigt – zurücknehmen' : 'Als erledigt markieren'}
+                                    >
+                                      {subDone ? <CheckIcon width={12} height={12} strokeWidth={3} aria-hidden /> : null}
+                                    </button>
+                                    <span style={{ flex: 1, fontSize: 14, color: subDone ? 'var(--text-secondary)' : 'var(--text-primary)' }}>{sub.label || '—'}</span>
+                                    <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{subDone && subRec ? displayNameShort(subRec.completedBy) : 'offen'}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="rs-expand-sub-block">
+                              <div className="rs-expand-sub-row">
+                                <button
+                                  className={`rs-expand-circle${completed ? ' rs-expand-circle--on' : ''}`}
+                                  disabled={!due || !(userRole === Role.Admin || userRole === s.targetRole)}
+                                  onClick={() => completed ? onUncomplete(s.id) : onComplete(s.id)}
+                                  title={completed ? 'Erledigt – zurücknehmen' : 'Als erledigt markieren'}
+                                >
+                                  {completed ? <CheckIcon width={12} height={12} strokeWidth={3} aria-hidden /> : null}
+                                </button>
+                                <span style={{ flex: 1, fontSize: 14 }}>Ganzen Auftrag als erledigt markieren</span>
+                                <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+                                  {completed ? (completion?.completedBy ? displayNameShort(completion.completedBy) : 'erledigt') : 'offen'}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
+                        </div>
+                      )}
                       </div>
                     );
                   })}
