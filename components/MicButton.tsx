@@ -12,6 +12,21 @@ const SpeechRecognition =
     ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     : null;
 
+// Gesprochene Satzzeichen in Symbole umwandeln
+function applyPunctuation(text: string): string {
+  return text
+    .replace(/\s*\bKomma\b\s*/gi, ', ')
+    .replace(/\s*\bPunkt\b\s*/gi, '. ')
+    .replace(/\s*\bAusrufezeichen\b\s*/gi, '! ')
+    .replace(/\s*\bFragezeichen\b\s*/gi, '? ')
+    .replace(/\s*\bDoppelpunkt\b\s*/gi, ': ')
+    .replace(/\s*\bSemikolon\b\s*/gi, '; ')
+    .replace(/\s*\bBindestrich\b\s*/gi, '-')
+    .replace(/\s*\b(?:neue Zeile|Absatz|Zeilenumbruch)\b\s*/gi, '\n')
+    .replace(/  +/g, ' ')
+    .trim();
+}
+
 export default function MicButton({ value, onChange, lang = 'de-DE', title = 'Spracheingabe' }: Props) {
   const [active, setActive] = useState(false);
   const recRef = useRef<any>(null);
@@ -41,9 +56,10 @@ export default function MicButton({ value, onChange, lang = 'de-DE', title = 'Sp
         }
       }
       if (newFinals) {
+        const processed = applyPunctuation(newFinals);
         finalRef.current = finalRef.current
-          ? finalRef.current + ' ' + newFinals
-          : newFinals;
+          ? finalRef.current + ' ' + processed
+          : processed;
       }
       const confirmed = [baseRef.current, finalRef.current].filter(Boolean).join(' ');
       const display = interim ? [confirmed, interim].filter(Boolean).join(' ') : confirmed;
