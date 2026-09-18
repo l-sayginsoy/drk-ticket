@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import MicButton from './MicButton';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Ticket, Priority, Role, User, AppSettings, Status } from '../types';
@@ -249,7 +250,10 @@ const NewTicketForm: React.FC<{
                     {errors.title && <span className="error-text">{errors.title}</span>}
                 </div>
                 <div className="form-group">
-                    <label>Beschreibung*</label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      Beschreibung*
+                      <MicButton onResult={t => setFormState(p => ({ ...p, description: p.description ? p.description + ' ' + t : t }))} title="Per Sprache eingeben" />
+                    </label>
                     <textarea placeholder="Bitte so genau wie möglich beschreiben." rows={5} value={formState.description} onChange={e => setFormState(p => ({...p, description: e.target.value}))}></textarea>
                     {errors.description && <span className="error-text">{errors.description}</span>}
                 </div>
@@ -789,7 +793,10 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                         </div>
                       </div>
                       <div className="note-add-section" style={{ paddingBottom: '1rem' }}>
-                        <label>Neue Notiz hinzufügen</label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          Neue Notiz hinzufügen
+                          <MicButton onResult={t => setNewNote(p => p ? p + ' ' + t : t)} title="Per Sprache eingeben" />
+                        </label>
                         <textarea value={newNote} onChange={e => setNewNote(e.target.value)} placeholder="Schreiben Sie hier eine Nachricht..."></textarea>
                         
                         {foundTicket.status === Status.Abgeschlossen ? (
