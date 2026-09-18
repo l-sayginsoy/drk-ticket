@@ -163,7 +163,7 @@ export default function EventsView({ events, tickets, completedTickets, userRole
         .ev-card {
           display: flex;
           background: var(--bg-secondary);
-          border: 1px solid var(--border);
+          border: 1px solid rgba(179, 0, 12, 0.25);
           border-radius: 12px;
           margin-bottom: 0.5rem;
           overflow: hidden;
