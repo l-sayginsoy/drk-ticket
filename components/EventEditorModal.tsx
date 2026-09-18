@@ -66,15 +66,19 @@ export default function EventEditorModal({ event, isNew, users, onSave, onDelete
             />
           </div>
 
-          {/* Datum + Uhrzeit */}
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
-            <div style={{ flex: 1 }}>
+          {/* Datum + Von/Bis */}
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 160px' }}>
               <label style={labelStyle}>Datum *</label>
               <input type="date" value={draft.date} onChange={e => patch({ date: e.target.value })} style={inputStyle} />
             </div>
-            <div style={{ flex: '0 0 110px' }}>
-              <label style={labelStyle}>Uhrzeit</label>
+            <div style={{ flex: '0 0 100px' }}>
+              <label style={labelStyle}>Von</label>
               <input type="time" value={draft.time || ''} onChange={e => patch({ time: e.target.value })} style={inputStyle} />
+            </div>
+            <div style={{ flex: '0 0 100px' }}>
+              <label style={labelStyle}>Bis</label>
+              <input type="time" value={draft.timeTo || ''} onChange={e => patch({ timeTo: e.target.value })} style={inputStyle} />
             </div>
           </div>
 

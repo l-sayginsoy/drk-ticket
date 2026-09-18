@@ -79,7 +79,11 @@ export default function EventsView({ events, tickets, completedTickets, userRole
           <div className="ev-date-col">
             <div className="ev-weekday">{weekdayDE(ev.date)}</div>
             <div className="ev-date">{formatDateDE(ev.date)}</div>
-            {ev.time && <div className="ev-time">{ev.time} Uhr</div>}
+            {ev.time && (
+              <div className="ev-time">
+                {ev.time}{ev.timeTo ? `–${ev.timeTo}` : ''} Uhr
+              </div>
+            )}
           </div>
           <div className="ev-info-col">
             <div className="ev-title">{ev.title || '—'}</div>

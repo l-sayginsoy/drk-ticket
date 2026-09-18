@@ -248,7 +248,8 @@ export interface DrkEvent {
   id: string;
   title: string;        // z. B. "Gottesdienst", "Saalvermietung Müller"
   date: string;         // YYYY-MM-DD
-  time?: string;        // "HH:MM"
+  time?: string;        // "HH:MM" (Von)
+  timeTo?: string;      // "HH:MM" (Bis)
   location?: string;    // z. B. "Kleiner Saal"
   description?: string;
   tasks: EventTask[];
