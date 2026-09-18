@@ -117,6 +117,18 @@ export default function EventEditorModal({ event, isNew, users, canDelete = fals
             </datalist>
           </div>
 
+          {/* Melder-E-Mail */}
+          <div>
+            <label style={labelStyle}>Benachrichtigungs-E-Mail (Melder / Anfragender)</label>
+            <input
+              type="email"
+              value={draft.reporterEmail || ''}
+              onChange={e => patch({ reporterEmail: e.target.value })}
+              placeholder="name@beispiel.de – erhält Eingangs- und Abschlussbestätigung"
+              style={inputStyle}
+            />
+          </div>
+
           {/* Beschreibung */}
           <div>
             <label style={labelStyle}>Notizen / Besonderheiten</label>

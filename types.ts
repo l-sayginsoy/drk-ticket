@@ -255,7 +255,9 @@ export interface DrkEvent {
   timeTo?: string;      // "HH:MM" (Bis)
   location?: string;    // z. B. "Kleiner Saal"
   description?: string;
+  reporterEmail?: string; // E-Mail des Melders/Anfragenden für Statusbenachrichtigungen
   tasks: EventTask[];
   createdAt: string;    // ISO-Timestamp
   archivedAt?: string;  // gesetzt = archiviert (Soft-Delete), nie wirklich gelöscht
+  completionMailSent?: boolean; // true wenn Abschluss-Mail bereits verschickt
 }

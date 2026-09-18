@@ -2087,6 +2087,36 @@ const App: React.FC = () => {
     });
   }, [isInitialized, tickets, drkEvents]);
 
+  // Abschluss-Mail für Veranstaltungen: wenn alle Aufgaben erledigt sind
+  useEffect(() => {
+    if (!isInitialized || drkEvents.length === 0) return;
+    const completedIds = new Set(completedTickets.map(t => t.id));
+    drkEvents.forEach(ev => {
+      if (!ev.reporterEmail || ev.completionMailSent || ev.archivedAt) return;
+      const taskTickets = ev.tasks.filter(t => t.ticketId);
+      if (taskTickets.length === 0) return;
+      const allDone = taskTickets.every(t => completedIds.has(t.ticketId!));
+      if (!allDone) return;
+      // Alle Aufgaben erledigt → Abschluss-Mail senden + Flag setzen
+      void updateDoc(doc(db, 'events', ev.id), { completionMailSent: true });
+      const dateParts = ev.date.split('-');
+      const dateDE = `${dateParts[2]}.${dateParts[1]}.${dateParts[0]}`;
+      const timeStr = ev.time ? ` · ${ev.time}${ev.timeTo ? `–${ev.timeTo}` : ''} Uhr` : '';
+      const taskLines = ev.tasks.filter(t => t.assignee !== 'N/A').map(t => `• ${t.label !== t.assignee ? t.label + ' (' + t.assignee + ')' : t.assignee}`).join('\n');
+      sendDrkBrevoMail(
+        ev.reporterEmail,
+        `Veranstaltung abgeschlossen: ${ev.title} am ${dateDE}`,
+        {
+          kind: 'custom',
+          subject: `Veranstaltung abgeschlossen: ${ev.title} am ${dateDE}`,
+          bodyText: `Alle Aufgaben für Ihre Veranstaltung wurden erledigt.\n\nVeranstaltung: ${ev.title}\nDatum: ${dateDE}${timeStr}\nOrt: ${ev.location || '–'}\n\nErledigte Aufgaben:\n${taskLines || '–'}`,
+          bodyHtml: `<p>Alle Aufgaben für Ihre Veranstaltung wurden erledigt.</p><table style="border-collapse:collapse;width:100%;margin:12px 0"><tr><td style="padding:4px 8px;font-weight:600;color:#555">Veranstaltung</td><td style="padding:4px 8px">${escapeHtml(ev.title)}</td></tr><tr><td style="padding:4px 8px;font-weight:600;color:#555">Datum</td><td style="padding:4px 8px">${dateDE}${escapeHtml(timeStr)}</td></tr><tr><td style="padding:4px 8px;font-weight:600;color:#555">Ort</td><td style="padding:4px 8px">${escapeHtml(ev.location || '–')}</td></tr></table><p style="font-weight:600;margin-top:16px">Erledigte Aufgaben:</p><ul style="margin:4px 0;padding-left:20px">${ev.tasks.filter(t => t.assignee !== 'N/A').map(t => `<li>${escapeHtml(t.label !== t.assignee ? t.label + ' (' + t.assignee + ')' : t.assignee)}</li>`).join('')}</ul>`,
+        },
+        { silent: true }
+      );
+    });
+  }, [isInitialized, drkEvents, completedTickets]);
+
   // Automatically set routine tickets to overdue and back
   useEffect(() => {
     if (!isInitialized) return;
@@ -2880,6 +2910,29 @@ const deleteTicketFromFirebase = (ticketId: string) => {
 
     const savedEvent: DrkEvent = { ...event, tasks: updatedTasks };
     void setDoc(doc(db, 'events', savedEvent.id), JSON.parse(JSON.stringify(savedEvent)));
+
+    // Eingangsbestätigung an Melder – nur beim erstmaligen Anlegen (keine ticketIds vorher)
+    const isNewEvent = event.tasks.every(t => !t.ticketId);
+    if (isNewEvent && event.reporterEmail) {
+      const dateParts = event.date.split('-');
+      const dateDE = `${dateParts[2]}.${dateParts[1]}.${dateParts[0]}`;
+      const taskLines = updatedTasks
+        .filter(t => t.assignee !== 'N/A')
+        .map(t => `• ${t.label !== t.assignee ? t.label + ' (' + t.assignee + ')' : t.assignee}`)
+        .join('\n');
+      const timeStr = event.time ? ` · ${event.time}${event.timeTo ? `–${event.timeTo}` : ''} Uhr` : '';
+      sendDrkBrevoMail(
+        event.reporterEmail,
+        `Veranstaltung aufgenommen: ${event.title} am ${dateDE}`,
+        {
+          kind: 'custom',
+          subject: `Veranstaltung aufgenommen: ${event.title} am ${dateDE}`,
+          bodyText: `Ihre Veranstaltung wurde aufgenommen.\n\nVeranstaltung: ${event.title}\nDatum: ${dateDE}${timeStr}\nOrt: ${event.location || '–'}\n\nEingeplante Aufgaben:\n${taskLines || '–'}\n\nWir melden uns, sobald alles erledigt ist.`,
+          bodyHtml: `<p>Ihre Veranstaltung wurde aufgenommen.</p><table style="border-collapse:collapse;width:100%;margin:12px 0"><tr><td style="padding:4px 8px;font-weight:600;color:#555">Veranstaltung</td><td style="padding:4px 8px">${escapeHtml(event.title)}</td></tr><tr><td style="padding:4px 8px;font-weight:600;color:#555">Datum</td><td style="padding:4px 8px">${dateDE}${escapeHtml(timeStr)}</td></tr><tr><td style="padding:4px 8px;font-weight:600;color:#555">Ort</td><td style="padding:4px 8px">${escapeHtml(event.location || '–')}</td></tr></table><p style="font-weight:600;margin-top:16px">Eingeplante Aufgaben:</p><ul style="margin:4px 0;padding-left:20px">${updatedTasks.filter(t => t.assignee !== 'N/A').map(t => `<li>${escapeHtml(t.label !== t.assignee ? t.label + ' (' + t.assignee + ')' : t.assignee)}</li>`).join('')}</ul><p style="margin-top:16px;color:#555">Wir melden uns, sobald alles erledigt ist.</p>`,
+        },
+        { silent: true }
+      );
+    }
   };
 
   const handleDeleteEvent = (id: string) => {
