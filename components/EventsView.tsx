@@ -102,8 +102,8 @@ export default function EventsView({ events, tickets, completedTickets, userRole
               </div>
               {(ev.location || ev.time || ev.description) && (
                 <div className="ev-meta">
-                  {ev.time && <span><i className="ti ti-clock" /> {ev.time}{ev.timeTo ? `–${ev.timeTo}` : ''} Uhr</span>}
                   {ev.location && <span><i className="ti ti-map-pin" /> {ev.location}</span>}
+                  {ev.time && <span><i className="ti ti-clock" /> {ev.time}{ev.timeTo ? `–${ev.timeTo}` : ''} Uhr</span>}
                   {ev.description && <span className="ev-meta-desc">{ev.description}</span>}
                 </div>
               )}
