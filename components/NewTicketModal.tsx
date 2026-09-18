@@ -1,4 +1,5 @@
 import React, { useState, useRef, useMemo } from 'react';
+import MicButton from './MicButton';
 import { Ticket, Priority, User, AppSettings, AvailabilityStatus } from '../types';
 import { CameraIcon } from './icons/CameraIcon';
 import { displayNameShort } from '../utils/displayNames';
@@ -274,7 +275,10 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
                 <input id="title" type="text" placeholder="Worum geht es?" value={title} onChange={e => setTitle(e.target.value)} required />
             </div>
              <div className="form-group full-width">
-                <label htmlFor="description">Beschreibung</label>
+                <label htmlFor="description" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  Beschreibung
+                  <MicButton onResult={t => setDescription(p => p ? p + ' ' + t : t)} title="Per Sprache eingeben" />
+                </label>
                 <textarea id="description" rows={3} placeholder="Bitte so genau wie möglich beschreiben." value={description} onChange={e => setDescription(e.target.value)}></textarea>
             </div>
             <div className="form-group full-width">
