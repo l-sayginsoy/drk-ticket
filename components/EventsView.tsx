@@ -206,9 +206,10 @@ export default function EventsView({ events, tickets, completedTickets, userRole
         }
         .ev-meta {
           display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px;
-          font-size: 12px; color: var(--text-muted); align-items: baseline;
+          font-size: 13px; color: var(--text-secondary); align-items: baseline;
+          font-weight: 500;
         }
-        .ev-meta i { font-size: 11px; margin-right: 2px; }
+        .ev-meta i { font-size: 12px; margin-right: 2px; }
         .ev-meta-desc {
           flex-basis: 100%; color: var(--text-secondary); font-size: 12px;
           margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
