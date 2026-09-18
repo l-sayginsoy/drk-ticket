@@ -2068,15 +2068,17 @@ const App: React.FC = () => {
     }
   }, [tickets, isInitialized]);
 
-  // Dauerhafter Abgleich: Event-Ticket-Titel immer mit aktuellem Veranstaltungsnamen synchronisieren
+  // Einmalige Migration beim Laden: Event-Ticket-Titel mit aktuellem Veranstaltungsnamen synchronisieren
+  const eventTitleSyncDoneRef = useRef(false);
   useEffect(() => {
-    if (!isInitialized || tickets.length === 0 || drkEvents.length === 0) return;
+    if (!isInitialized || eventTitleSyncDoneRef.current) return;
+    if (tickets.length === 0 || drkEvents.length === 0) return;
+    eventTitleSyncDoneRef.current = true;
     const eventMap = new Map(drkEvents.map(e => [e.id, e]));
     tickets.forEach(ticket => {
       if (ticket.origin !== 'event' || !ticket.eventId) return;
       const ev = eventMap.get(ticket.eventId);
       if (!ev) return;
-      // Aufgabe aus der Veranstaltung suchen um das richtige Label zu kennen
       const task = ev.tasks.find(t => t.ticketId === ticket.id);
       const expectedTitle = task && task.label && task.label !== task.assignee
         ? `[${ev.title}] ${task.label}`

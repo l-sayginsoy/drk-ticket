@@ -117,7 +117,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         { type: 'view', viewName: 'routines', icon: <i className="ti ti-repeat" aria-hidden />, label: 'Serienaufträge', requiredRoles: [Role.Admin], section: 'serien' },
         { type: 'view', viewName: 'routine-nachweis', icon: <CalendarIcon />, label: 'Serien‑Nachweis', requiredRoles: [Role.Admin], section: 'serien' },
         { type: 'view', viewName: 'veranstaltungen', icon: <i className="ti ti-calendar-event" aria-hidden />, label: 'Veranstaltungen', requiredRoles: [Role.Admin], section: 'serien' },
-        { type: 'view', viewName: 'veranstaltungen', icon: <i className="ti ti-calendar-event" aria-hidden />, label: 'Veranstaltungen', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'serien' },
         // Admin — Verwaltung
         { type: 'view', viewName: 'techniker', icon: <i className="ti ti-users" aria-hidden />, label: 'Team', requiredRoles: [Role.Admin], section: 'verwaltung' },
         { type: 'view', viewName: 'reports', icon: <BarChartIcon />, label: 'Reports', requiredRoles: [Role.Admin], section: 'verwaltung' },
@@ -131,6 +130,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         // Bearbeiter — Serien
         { type: 'view', viewName: 'routines', icon: <i className="ti ti-repeat" aria-hidden />, label: 'Serienaufträge', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'serien' },
         { type: 'view', viewName: 'routine-nachweis', icon: <CalendarIcon />, label: 'Serien‑Nachweis', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'serien' },
+        { type: 'view', viewName: 'veranstaltungen', icon: <i className="ti ti-calendar-event" aria-hidden />, label: 'Veranstaltungen', requiredRoles: [Role.Technician, Role.Housekeeping], section: 'serien' },
 
         // Aktionen (alle Rollen)
         { type: 'action', action: 'newTicket', icon: <i className="ti ti-clipboard-plus" aria-hidden />, label: 'Neues Ticket', requiredRoles: [Role.Admin, Role.Technician, Role.Housekeeping], section: 'aktionen', onClick: onNewTicketClick },
