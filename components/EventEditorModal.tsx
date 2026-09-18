@@ -6,6 +6,7 @@ interface Props {
   event: DrkEvent;
   isNew: boolean;
   users: { name: string }[];
+  canDelete?: boolean;
   onSave: (event: DrkEvent) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
@@ -26,7 +27,7 @@ function newItem(): { id: string; label: string } {
   return { id: `ei-${Date.now()}-${Math.floor(Math.random() * 10000)}`, label: '' };
 }
 
-export default function EventEditorModal({ event, isNew, users, onSave, onDelete, onClose }: Props) {
+export default function EventEditorModal({ event, isNew, users, canDelete = false, onSave, onDelete, onClose }: Props) {
   const [draft, setDraft] = useState<DrkEvent>({ ...event, tasks: event.tasks.map(t => ({ ...t })) });
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -207,7 +208,7 @@ export default function EventEditorModal({ event, isNew, users, onSave, onDelete
         {/* Footer */}
         <div style={{ padding: '0.85rem 1.2rem', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-primary)' }}>
           <div>
-            {!isNew && !confirmDelete && (
+            {!isNew && canDelete && !confirmDelete && (
               <button onClick={() => setConfirmDelete(true)} style={{ background: 'none', border: '1px solid #dc2626', color: '#dc2626', borderRadius: 7, padding: '6px 12px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
                 Löschen
               </button>

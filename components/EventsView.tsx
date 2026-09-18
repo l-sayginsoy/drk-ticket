@@ -58,7 +58,8 @@ export default function EventsView({ events, tickets, completedTickets, userRole
   const [confirmHardDelete, setConfirmHardDelete] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const toggleExpanded = (id: string) => setExpandedIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
-  const canEdit = userRole === Role.Admin;
+  const canEdit = true; // Alle angemeldeten Rollen dürfen Veranstaltungen anlegen und bearbeiten
+  const canDelete = userRole === Role.Admin; // Löschen/Archivieren nur Admin
   const allTickets = [...tickets, ...completedTickets];
 
   const today = new Date();
@@ -303,7 +304,7 @@ export default function EventsView({ events, tickets, completedTickets, userRole
           {showArchive && archived.map(ev => (
             <div key={ev.id} style={{ opacity: 0.6, position: 'relative' }}>
               {renderEvent(ev)}
-              {canEdit && (
+              {canDelete && (
                 <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6 }}>
                   {onUnarchiveEvent && (
                     <button
@@ -348,6 +349,7 @@ export default function EventsView({ events, tickets, completedTickets, userRole
           event={editing.event}
           isNew={editing.isNew}
           users={users}
+          canDelete={canDelete}
           onSave={(ev) => { onSaveEvent(ev); setEditing(null); }}
           onDelete={(id) => { onDeleteEvent(id); setEditing(null); }}
           onClose={() => setEditing(null)}
