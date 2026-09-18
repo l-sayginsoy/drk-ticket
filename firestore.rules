@@ -83,7 +83,13 @@ service cloud.firestore {
     // App Data Collection (for seamless migration from Supabase)
     match /app_data/{docId} {
       allow read: if true;
-      allow write: if true; // In a real app, restrict this, but for now allow all to match previous behavior
+      allow write: if true;
+    }
+
+    // Events Collection (Veranstaltungen)
+    match /events/{eventId} {
+      allow read: if true;
+      allow write: if true;
     }
   }
 }
