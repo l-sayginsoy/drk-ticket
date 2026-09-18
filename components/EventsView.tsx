@@ -77,84 +77,62 @@ export default function EventsView({ events, tickets, completedTickets, userRole
     const allDone = total > 0 && done === total;
     const isPast = ev.date < todayYmd;
 
-    const expanded = expandedIds.has(ev.id);
     return (
       <div key={ev.id} className="ev-card">
-        <div className="ev-card-header">
-          <div className="ev-date-col">
-            <div className="ev-weekday">{weekdayDE(ev.date)}</div>
-            <div className="ev-date">{formatDateDE(ev.date)}</div>
-            {ev.time && (
-              <div className="ev-time">
-                {ev.time}{ev.timeTo ? `–${ev.timeTo}` : ''} Uhr
-              </div>
-            )}
+        {/* Obere Zeile: Datum-Badge + Titel + Edit */}
+        <div className="ev-top">
+          <div className="ev-date-badge" style={{ opacity: isPast ? 0.6 : 1 }}>
+            <span className="ev-badge-day">{weekdayDE(ev.date)}</span>
+            <span className="ev-badge-num">{ev.date.split('-')[2]}</span>
+            <span className="ev-badge-mon">{['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'][Number(ev.date.split('-')[1]) - 1]}</span>
           </div>
-          <div className="ev-info-col">
-            <div className="ev-title">{ev.title || '—'}</div>
-            {ev.location && <div className="ev-location"><i className="ti ti-map-pin" aria-hidden /> {ev.location}</div>}
-            {ev.description && <div className="ev-desc">{ev.description}</div>}
-            <div className="ev-progress">
-              {total === 0 ? (
-                <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Keine Aufgaben</span>
-              ) : (
-                <button
-                  onClick={() => toggleExpanded(ev.id)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                >
-                  <div className="ev-progress-bar-wrap">
-                    <div className="ev-progress-bar" style={{ width: `${Math.round((done / total) * 100)}%`, background: allDone ? '#16a34a' : 'var(--accent-primary)' }} />
-                  </div>
-                  <span className="ev-progress-label" style={{ color: allDone ? '#16a34a' : 'var(--text-secondary)' }}>
-                    {done}/{total} erledigt
-                  </span>
-                  <i className={`ti ti-chevron-${expanded ? 'up' : 'down'}`} style={{ fontSize: 13, color: 'var(--text-muted)' }} />
-                </button>
+          <div className="ev-main">
+            <div className="ev-title-row">
+              <span className="ev-title">{ev.title || '—'}</span>
+              {total > 0 && (
+                <span className="ev-badge-progress" style={{ background: allDone ? '#dcfce7' : '#f1f5f9', color: allDone ? '#16a34a' : 'var(--text-muted)' }}>
+                  {done}/{total}
+                </span>
               )}
             </div>
+            <div className="ev-meta">
+              {ev.time && <span><i className="ti ti-clock" /> {ev.time}{ev.timeTo ? `–${ev.timeTo}` : ''} Uhr</span>}
+              {ev.location && <span><i className="ti ti-map-pin" /> {ev.location}</span>}
+              {ev.description && <span className="ev-meta-desc">{ev.description}</span>}
+            </div>
           </div>
-          <div className="ev-actions-col">
-            {canEdit && (
-              <button className="ev-edit-btn" onClick={() => setEditing({ event: ev, isNew: false })} title="Bearbeiten">
-                <i className="ti ti-pencil" aria-hidden />
-              </button>
-            )}
-          </div>
+          {canEdit && (
+            <button className="ev-edit-btn" onClick={() => setEditing({ event: ev, isNew: false })} title="Bearbeiten">
+              <i className="ti ti-pencil" />
+            </button>
+          )}
         </div>
-        {ev.tasks.length > 0 && expanded && (
-          <div className="ev-tasks">
+
+        {/* Personen-Chips */}
+        {ev.tasks.length > 0 && (
+          <div className="ev-chips">
             {ev.tasks.map(task => {
               const st = taskStatus(task, tickets, completedTickets);
               const ticket = task.ticketId ? allTickets.find(t => t.id === task.ticketId) : undefined;
+              const label = task.label && task.label !== task.assignee ? task.label : task.assignee || '—';
+              const firstName = (task.assignee || '').split(' ')[0];
               return (
-                <div key={task.id} className={`ev-task-row ${st === 'done' ? 'ev-task-done' : ''}`}>
-                  <span className={`ev-task-dot ev-task-dot--${st}`} />
-                  <span className="ev-task-label">
-                    {task.label && task.label !== task.assignee ? task.label : task.assignee || '—'}
-                    {task.items && task.items.length > 0 && (
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400, marginLeft: 6 }}>
-                        ({task.items.length} Punkt{task.items.length !== 1 ? 'e' : ''})
-                      </span>
-                    )}
-                  </span>
-                  {task.assignee && task.assignee !== 'N/A' && task.label !== task.assignee && (
-                    <span className="ev-task-assignee">{task.assignee}</span>
+                <button
+                  key={task.id}
+                  className={`ev-chip ev-chip--${st}`}
+                  onClick={() => ticket && onSelectTicket(ticket)}
+                  title={`${label}${task.assignee && task.assignee !== label ? ' · ' + task.assignee : ''}${ticket ? ' · Ticket #' + ticket.id : ''}`}
+                  style={{ cursor: ticket ? 'pointer' : 'default' }}
+                >
+                  <span className={`ev-chip-dot ev-chip-dot--${st}`} />
+                  <span className="ev-chip-name">{label !== task.assignee ? label : firstName}</span>
+                  {label !== task.assignee && task.assignee !== 'N/A' && (
+                    <span className="ev-chip-who">{firstName}</span>
                   )}
-                  {task.dueDate && task.dueDate !== ev.date && (
-                    <span className="ev-task-due">bis {formatDateDE(task.dueDate)}</span>
+                  {task.items && task.items.length > 0 && (
+                    <span className="ev-chip-count">{task.items.length}</span>
                   )}
-                  {ticket && (
-                    <button className="ev-task-ticket-link" onClick={() => onSelectTicket(ticket)} title={`Ticket #${ticket.id} öffnen`}>
-                      #{ticket.id}
-                      <span className={`ev-task-ticket-status ev-task-ticket-status--${ticket.status === Status.Abgeschlossen ? 'done' : ticket.status === Status.Ueberfaellig ? 'late' : 'open'}`}>
-                        {ticket.status}
-                      </span>
-                    </button>
-                  )}
-                  {!task.ticketId && (
-                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>kein Ticket</span>
-                  )}
-                </div>
+                </button>
               );
             })}
           </div>
@@ -167,185 +145,102 @@ export default function EventsView({ events, tickets, completedTickets, userRole
     <div style={{ maxWidth: 1200 }}>
       <style>{`
         .ev-section-header {
-          font-size: 0.72rem;
-          font-weight: 800;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          color: var(--text-muted);
-          padding: 0.5rem 0 0.4rem;
-          margin-top: 1.5rem;
-          border-bottom: 1px solid var(--border);
-          margin-bottom: 0.75rem;
+          font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em;
+          text-transform: uppercase; color: var(--text-muted);
+          padding: 0.5rem 0 0.4rem; margin-top: 1.5rem;
+          border-bottom: 1px solid var(--border); margin-bottom: 0.75rem;
         }
         .ev-card {
           background: var(--bg-secondary);
           border: 1px solid var(--border);
-          border-radius: 10px;
-          margin-bottom: 0.65rem;
+          border-radius: 12px;
+          margin-bottom: 0.5rem;
           overflow: hidden;
         }
-        .ev-card-header {
-          display: flex;
-          align-items: flex-start;
-          gap: 0;
+        .ev-top {
+          display: flex; align-items: center; gap: 12px;
+          padding: 12px 14px;
         }
-        .ev-date-col {
-          min-width: 80px;
-          padding: 0.85rem 1rem;
-          border-right: 1px solid var(--border);
-          text-align: center;
-          flex-shrink: 0;
-          background: var(--bg-tertiary);
+        .ev-date-badge {
+          display: flex; flex-direction: column; align-items: center;
+          min-width: 42px; flex-shrink: 0;
+          background: var(--bg-tertiary); border: 1px solid var(--border);
+          border-radius: 9px; padding: 5px 6px; line-height: 1;
         }
-        .ev-weekday {
-          font-size: 11px;
-          font-weight: 700;
-          text-transform: uppercase;
-          color: var(--text-muted);
-          letter-spacing: 0.05em;
+        .ev-badge-day {
+          font-size: 9px; font-weight: 800; text-transform: uppercase;
+          color: var(--text-muted); letter-spacing: 0.06em;
         }
-        .ev-date {
-          font-size: 15px;
-          font-weight: 700;
-          color: var(--text-primary);
-          margin-top: 2px;
-          white-space: nowrap;
+        .ev-badge-num {
+          font-size: 20px; font-weight: 800; color: var(--text-primary);
+          line-height: 1.1;
         }
-        .ev-time {
-          font-size: 12px;
-          color: var(--text-muted);
-          margin-top: 3px;
+        .ev-badge-mon {
+          font-size: 9px; font-weight: 700; color: var(--text-muted);
+          text-transform: uppercase; letter-spacing: 0.05em;
         }
-        .ev-info-col {
-          flex: 1;
-          padding: 0.7rem 1rem;
-          min-width: 0;
+        .ev-main { flex: 1; min-width: 0; }
+        .ev-title-row {
+          display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
         }
         .ev-title {
-          font-size: 15px;
-          font-weight: 700;
-          color: var(--text-primary);
-          line-height: 1.3;
+          font-size: 14.5px; font-weight: 700; color: var(--text-primary);
         }
-        .ev-location {
-          font-size: 12px;
-          color: var(--text-muted);
-          margin-top: 3px;
-          display: flex;
+        .ev-badge-progress {
+          font-size: 11px; font-weight: 700; padding: 2px 7px;
+          border-radius: 99px; white-space: nowrap;
+        }
+        .ev-meta {
+          display: flex; flex-wrap: wrap; gap: 10px; margin-top: 3px;
+          font-size: 12px; color: var(--text-muted);
           align-items: center;
-          gap: 4px;
         }
-        .ev-desc {
-          font-size: 12.5px;
-          color: var(--text-secondary);
-          margin-top: 4px;
-          line-height: 1.45;
-        }
-        .ev-progress {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin-top: 8px;
-        }
-        .ev-progress-bar-wrap {
-          flex: 1;
-          max-width: 120px;
-          height: 5px;
-          background: var(--border);
-          border-radius: 999px;
-          overflow: hidden;
-        }
-        .ev-progress-bar {
-          height: 100%;
-          border-radius: 999px;
-          transition: width 0.3s;
-        }
-        .ev-progress-label {
-          font-size: 12px;
-          font-weight: 600;
-          white-space: nowrap;
-        }
-        .ev-actions-col {
-          padding: 0.6rem 0.7rem 0;
-          flex-shrink: 0;
+        .ev-meta i { font-size: 11px; margin-right: 2px; }
+        .ev-meta-desc {
+          flex-basis: 100%; color: var(--text-secondary); font-size: 12px;
+          margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .ev-edit-btn {
-          background: none;
-          border: 1px solid var(--border);
-          border-radius: 7px;
-          padding: 5px 8px;
-          cursor: pointer;
-          color: var(--text-muted);
-          font-size: 14px;
-          display: flex;
-          align-items: center;
+          background: none; border: 1px solid var(--border); border-radius: 7px;
+          padding: 5px 8px; cursor: pointer; color: var(--text-muted);
+          font-size: 14px; display: flex; align-items: center; flex-shrink: 0;
         }
         .ev-edit-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); }
-        .ev-tasks {
-          border-top: 1px solid var(--border);
-          padding: 0.5rem 1rem 0.6rem 1.4rem;
-          display: flex;
-          flex-direction: column;
-          gap: 5px;
+        .ev-chips {
+          display: flex; flex-wrap: wrap; gap: 6px;
+          padding: 0 14px 12px;
         }
-        .ev-task-row {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 13px;
-          color: var(--text-secondary);
+        .ev-chip {
+          display: inline-flex; align-items: center; gap: 5px;
+          padding: 4px 10px 4px 7px; border-radius: 99px;
+          border: 1px solid var(--border); background: var(--bg-primary);
+          font-size: 12.5px; font-weight: 600; color: var(--text-secondary);
+          transition: background 0.12s;
         }
-        .ev-task-done { opacity: 0.55; }
-        .ev-task-dot {
-          width: 7px; height: 7px;
-          border-radius: 50%;
-          flex-shrink: 0;
+        .ev-chip:hover { background: var(--bg-tertiary); }
+        .ev-chip--done { border-color: #bbf7d0; background: #f0fdf4; color: #15803d; }
+        .ev-chip--done:hover { background: #dcfce7; }
+        .ev-chip--open { }
+        .ev-chip--no-ticket { opacity: 0.6; }
+        .ev-chip-dot {
+          width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
         }
-        .ev-task-dot--done { background: #16a34a; }
-        .ev-task-dot--open { background: var(--accent-primary); }
-        .ev-task-dot--no-ticket { background: var(--border-active); }
-        .ev-task-label { flex: 1; font-weight: 500; }
-        .ev-task-assignee {
-          font-size: 11.5px;
-          color: var(--text-muted);
-          background: var(--bg-tertiary);
-          border: 1px solid var(--border);
-          border-radius: 4px;
-          padding: 1px 6px;
-          white-space: nowrap;
+        .ev-chip-dot--done { background: #16a34a; }
+        .ev-chip-dot--open { background: var(--accent-primary); }
+        .ev-chip-dot--no-ticket { background: var(--border-active); }
+        .ev-chip-name { }
+        .ev-chip-who {
+          font-size: 11px; font-weight: 400; color: var(--text-muted);
+          border-left: 1px solid var(--border); padding-left: 5px; margin-left: 2px;
         }
-        .ev-task-due {
-          font-size: 11px;
-          color: var(--text-muted);
-          white-space: nowrap;
-        }
-        .ev-task-ticket-link {
-          background: none;
-          border: none;
-          cursor: pointer;
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          font-size: 11.5px;
-          color: var(--accent-primary);
-          padding: 1px 5px;
-          border-radius: 4px;
-        }
-        .ev-task-ticket-link:hover { background: var(--bg-tertiary); }
-        .ev-task-ticket-status {
-          font-size: 10.5px;
-          font-weight: 600;
-          padding: 1px 5px;
-          border-radius: 3px;
-        }
-        .ev-task-ticket-status--done { background: #dcfce7; color: #16a34a; }
-        .ev-task-ticket-status--late { background: #fee2e2; color: #dc2626; }
-        .ev-task-ticket-status--open { background: var(--bg-tertiary); color: var(--text-muted); }
-        .ev-empty {
-          padding: 2rem;
+        .ev-chip-count {
+          background: var(--bg-tertiary); border: 1px solid var(--border);
+          border-radius: 99px; font-size: 10px; font-weight: 700;
+          padding: 0 5px; color: var(--text-muted); min-width: 16px;
           text-align: center;
-          color: var(--text-muted);
-          font-size: 14px;
+        }
+        .ev-empty {
+          padding: 2rem; text-align: center; color: var(--text-muted); font-size: 14px;
         }
       `}</style>
 
