@@ -56,6 +56,8 @@ export default function EventsView({ events, tickets, completedTickets, userRole
   const [editing, setEditing] = useState<{ event: DrkEvent; isNew: boolean } | null>(null);
   const [showArchive, setShowArchive] = useState(false);
   const [confirmHardDelete, setConfirmHardDelete] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const toggleExpanded = (id: string) => setExpandedIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
   const canEdit = userRole === Role.Admin;
   const allTickets = [...tickets, ...completedTickets];
 
@@ -75,6 +77,7 @@ export default function EventsView({ events, tickets, completedTickets, userRole
     const allDone = total > 0 && done === total;
     const isPast = ev.date < todayYmd;
 
+    const expanded = expandedIds.has(ev.id);
     return (
       <div key={ev.id} className="ev-card">
         <div className="ev-card-header">
@@ -95,14 +98,18 @@ export default function EventsView({ events, tickets, completedTickets, userRole
               {total === 0 ? (
                 <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Keine Aufgaben</span>
               ) : (
-                <>
+                <button
+                  onClick={() => toggleExpanded(ev.id)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                >
                   <div className="ev-progress-bar-wrap">
                     <div className="ev-progress-bar" style={{ width: `${Math.round((done / total) * 100)}%`, background: allDone ? '#16a34a' : 'var(--accent-primary)' }} />
                   </div>
                   <span className="ev-progress-label" style={{ color: allDone ? '#16a34a' : 'var(--text-secondary)' }}>
                     {done}/{total} erledigt
                   </span>
-                </>
+                  <i className={`ti ti-chevron-${expanded ? 'up' : 'down'}`} style={{ fontSize: 13, color: 'var(--text-muted)' }} />
+                </button>
               )}
             </div>
           </div>
@@ -114,7 +121,7 @@ export default function EventsView({ events, tickets, completedTickets, userRole
             )}
           </div>
         </div>
-        {ev.tasks.length > 0 && (
+        {ev.tasks.length > 0 && expanded && (
           <div className="ev-tasks">
             {ev.tasks.map(task => {
               const st = taskStatus(task, tickets, completedTickets);
