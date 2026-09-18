@@ -163,7 +163,7 @@ export default function EventsView({ events, tickets, completedTickets, userRole
         .ev-card {
           display: flex;
           background: var(--bg-secondary);
-          border: 1px solid rgba(179, 0, 12, 0.25);
+          border: 1.5px solid rgba(179, 0, 12, 0.4);
           border-radius: 12px;
           margin-bottom: 0.5rem;
           overflow: hidden;
@@ -178,7 +178,7 @@ export default function EventsView({ events, tickets, completedTickets, userRole
           padding: 14px 8px; text-align: center; gap: 2px;
         }
         .ev-wd {
-          font-size: 10px; font-weight: 800; text-transform: uppercase;
+          font-size: 13px; font-weight: 800; text-transform: uppercase;
           color: var(--text-muted); letter-spacing: 0.07em;
         }
         .ev-dn {
@@ -186,8 +186,8 @@ export default function EventsView({ events, tickets, completedTickets, userRole
           color: var(--text-primary); letter-spacing: -1px;
         }
         .ev-mon {
-          font-size: 12px; font-weight: 700; text-transform: uppercase;
-          color: var(--text-muted); letter-spacing: 0.05em;
+          font-size: 14px; font-weight: 700; text-transform: uppercase;
+          color: var(--text-muted); letter-spacing: 0.04em;
         }
         .ev-tm {
           font-size: 11px; color: var(--text-muted); margin-top: 6px;
