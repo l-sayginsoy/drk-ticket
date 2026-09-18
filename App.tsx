@@ -2068,6 +2068,25 @@ const App: React.FC = () => {
     }
   }, [tickets, isInitialized]);
 
+  // Einmalige Migration: Personenname aus Event-Ticket-Titeln entfernen
+  const eventTitleMigDoneRef = useRef(false);
+  useEffect(() => {
+    if (!isInitialized || eventTitleMigDoneRef.current) return;
+    if (tickets.length === 0 && drkEvents.length === 0) return;
+    eventTitleMigDoneRef.current = true;
+    const eventMap = new Map(drkEvents.map(e => [e.id, e]));
+    tickets.forEach(ticket => {
+      if (ticket.origin !== 'event' || !ticket.eventId) return;
+      const ev = eventMap.get(ticket.eventId);
+      if (!ev) return;
+      const expectedWithName = `[${ev.title}] ${ticket.technician}`;
+      if (ticket.title === expectedWithName) {
+        const newTitle = `[${ev.title}]`;
+        void updateDoc(doc(db, 'tickets', ticket.id), { title: newTitle });
+      }
+    });
+  }, [isInitialized, tickets, drkEvents]);
+
   // Automatically set routine tickets to overdue and back
   useEffect(() => {
     if (!isInitialized) return;
