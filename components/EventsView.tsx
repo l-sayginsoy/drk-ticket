@@ -77,66 +77,75 @@ export default function EventsView({ events, tickets, completedTickets, userRole
     const allDone = total > 0 && done === total;
     const isPast = ev.date < todayYmd;
 
+    const monthName = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'][Number(ev.date.split('-')[1]) - 1];
+
     return (
       <div key={ev.id} className="ev-card">
-        {/* Obere Zeile: Datum-Badge + Titel + Edit */}
-        <div className="ev-top">
-          <div className="ev-date-badge" style={{ opacity: isPast ? 0.6 : 1 }}>
-            <span className="ev-badge-day">{weekdayDE(ev.date)}</span>
-            <span className="ev-badge-num">{ev.date.split('-')[2]}</span>
-            <span className="ev-badge-mon">{['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'][Number(ev.date.split('-')[1]) - 1]}</span>
-          </div>
-          <div className="ev-main">
-            <div className="ev-title-row">
-              <span className="ev-title">{ev.title || '—'}</span>
-              {total > 0 && (
-                <span className="ev-badge-progress" style={{ background: allDone ? '#dcfce7' : '#f1f5f9', color: allDone ? '#16a34a' : 'var(--text-muted)' }}>
-                  {done}/{total}
-                </span>
-              )}
-            </div>
-            <div className="ev-meta">
-              {ev.time && <span><i className="ti ti-clock" /> {ev.time}{ev.timeTo ? `–${ev.timeTo}` : ''} Uhr</span>}
-              {ev.location && <span><i className="ti ti-map-pin" /> {ev.location}</span>}
-              {ev.description && <span className="ev-meta-desc">{ev.description}</span>}
-            </div>
-          </div>
-          {canEdit && (
-            <button className="ev-edit-btn" onClick={() => setEditing({ event: ev, isNew: false })} title="Bearbeiten">
-              <i className="ti ti-pencil" />
-            </button>
+        {/* Graue Datumsspalte — volle Höhe */}
+        <div className="ev-date-col" style={{ opacity: isPast ? 0.7 : 1 }}>
+          <div className="ev-wd">{weekdayDE(ev.date)}</div>
+          <div className="ev-dn">{ev.date.split('-')[2]}</div>
+          <div className="ev-mon">{monthName}</div>
+          {ev.time && (
+            <div className="ev-tm">{ev.time}{ev.timeTo ? `–${ev.timeTo}` : ''}</div>
           )}
         </div>
 
-        {/* Personen-Chips */}
-        {ev.tasks.length > 0 && (
-          <div className="ev-chips">
-            {ev.tasks.map(task => {
-              const st = taskStatus(task, tickets, completedTickets);
-              const ticket = task.ticketId ? allTickets.find(t => t.id === task.ticketId) : undefined;
-              const label = task.label && task.label !== task.assignee ? task.label : task.assignee || '—';
-              const firstName = (task.assignee || '').split(' ')[0];
-              return (
-                <button
-                  key={task.id}
-                  className={`ev-chip ev-chip--${st}`}
-                  onClick={() => ticket && onSelectTicket(ticket)}
-                  title={`${label}${task.assignee && task.assignee !== label ? ' · ' + task.assignee : ''}${ticket ? ' · Ticket #' + ticket.id : ''}`}
-                  style={{ cursor: ticket ? 'pointer' : 'default' }}
-                >
-                  <span className={`ev-chip-dot ev-chip-dot--${st}`} />
-                  <span className="ev-chip-name">{label !== task.assignee ? label : firstName}</span>
-                  {label !== task.assignee && task.assignee !== 'N/A' && (
-                    <span className="ev-chip-who">{firstName}</span>
-                  )}
-                  {task.items && task.items.length > 0 && (
-                    <span className="ev-chip-count">{task.items.length}</span>
-                  )}
-                </button>
-              );
-            })}
+        {/* Rechte Seite: alles andere */}
+        <div className="ev-right">
+          <div className="ev-top">
+            <div className="ev-main">
+              <div className="ev-title-row">
+                <span className="ev-title">{ev.title || '—'}</span>
+                {total > 0 && (
+                  <span className="ev-progress-pill" style={{ background: allDone ? '#dcfce7' : 'var(--bg-tertiary)', color: allDone ? '#16a34a' : 'var(--text-muted)' }}>
+                    {done}/{total} erledigt
+                  </span>
+                )}
+              </div>
+              {(ev.location || ev.description) && (
+                <div className="ev-meta">
+                  {ev.location && <span><i className="ti ti-map-pin" /> {ev.location}</span>}
+                  {ev.description && <span className="ev-meta-desc">{ev.description}</span>}
+                </div>
+              )}
+            </div>
+            {canEdit && (
+              <button className="ev-edit-btn" onClick={() => setEditing({ event: ev, isNew: false })} title="Bearbeiten">
+                <i className="ti ti-pencil" />
+              </button>
+            )}
           </div>
-        )}
+
+          {ev.tasks.length > 0 && (
+            <div className="ev-chips">
+              {ev.tasks.map(task => {
+                const st = taskStatus(task, tickets, completedTickets);
+                const ticket = task.ticketId ? allTickets.find(t => t.id === task.ticketId) : undefined;
+                const label = task.label && task.label !== task.assignee ? task.label : task.assignee || '—';
+                const firstName = (task.assignee || '').split(' ')[0];
+                return (
+                  <button
+                    key={task.id}
+                    className={`ev-chip ev-chip--${st}`}
+                    onClick={() => ticket && onSelectTicket(ticket)}
+                    title={`${label}${task.assignee && task.label !== task.assignee ? ' · ' + task.assignee : ''}${ticket ? ' · #' + ticket.id : ''}`}
+                    style={{ cursor: ticket ? 'pointer' : 'default' }}
+                  >
+                    <span className={`ev-chip-dot ev-chip-dot--${st}`} />
+                    <span>{label !== task.assignee ? label : firstName}</span>
+                    {label !== task.assignee && task.assignee && task.assignee !== 'N/A' && (
+                      <span className="ev-chip-who">{firstName}</span>
+                    )}
+                    {task.items && task.items.length > 0 && (
+                      <span className="ev-chip-count">{task.items.length}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     );
   };
@@ -150,55 +159,65 @@ export default function EventsView({ events, tickets, completedTickets, userRole
           padding: 0.5rem 0 0.4rem; margin-top: 1.5rem;
           border-bottom: 1px solid var(--border); margin-bottom: 0.75rem;
         }
+        /* Karte: flex-row, damit Datumsspalte volle Höhe hat */
         .ev-card {
+          display: flex;
           background: var(--bg-secondary);
           border: 1px solid var(--border);
           border-radius: 12px;
           margin-bottom: 0.5rem;
           overflow: hidden;
         }
+        /* Graue Datumsspalte – volle Kartenhöhe */
+        .ev-date-col {
+          width: 100px; flex-shrink: 0;
+          background: var(--bg-tertiary);
+          border-right: 1px solid var(--border);
+          display: flex; flex-direction: column;
+          align-items: center; justify-content: center;
+          padding: 14px 8px; text-align: center; gap: 2px;
+        }
+        .ev-wd {
+          font-size: 10px; font-weight: 800; text-transform: uppercase;
+          color: var(--text-muted); letter-spacing: 0.07em;
+        }
+        .ev-dn {
+          font-size: 34px; font-weight: 900; line-height: 1;
+          color: var(--text-primary); letter-spacing: -1px;
+        }
+        .ev-mon {
+          font-size: 12px; font-weight: 700; text-transform: uppercase;
+          color: var(--text-muted); letter-spacing: 0.05em;
+        }
+        .ev-tm {
+          font-size: 11px; color: var(--text-muted); margin-top: 6px;
+          line-height: 1.3; white-space: nowrap;
+        }
+        /* Rechte weiße Seite */
+        .ev-right { flex: 1; min-width: 0; display: flex; flex-direction: column; }
         .ev-top {
-          display: flex; align-items: center; gap: 12px;
-          padding: 12px 14px;
-        }
-        .ev-date-badge {
-          display: flex; flex-direction: column; align-items: center;
-          min-width: 42px; flex-shrink: 0;
-          background: var(--bg-tertiary); border: 1px solid var(--border);
-          border-radius: 9px; padding: 5px 6px; line-height: 1;
-        }
-        .ev-badge-day {
-          font-size: 9px; font-weight: 800; text-transform: uppercase;
-          color: var(--text-muted); letter-spacing: 0.06em;
-        }
-        .ev-badge-num {
-          font-size: 20px; font-weight: 800; color: var(--text-primary);
-          line-height: 1.1;
-        }
-        .ev-badge-mon {
-          font-size: 9px; font-weight: 700; color: var(--text-muted);
-          text-transform: uppercase; letter-spacing: 0.05em;
+          display: flex; align-items: flex-start; gap: 8px;
+          padding: 12px 14px 8px;
         }
         .ev-main { flex: 1; min-width: 0; }
         .ev-title-row {
           display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
         }
         .ev-title {
-          font-size: 14.5px; font-weight: 700; color: var(--text-primary);
+          font-size: 15px; font-weight: 700; color: var(--text-primary);
         }
-        .ev-badge-progress {
-          font-size: 11px; font-weight: 700; padding: 2px 7px;
+        .ev-progress-pill {
+          font-size: 11px; font-weight: 700; padding: 2px 8px;
           border-radius: 99px; white-space: nowrap;
         }
         .ev-meta {
-          display: flex; flex-wrap: wrap; gap: 10px; margin-top: 3px;
-          font-size: 12px; color: var(--text-muted);
-          align-items: center;
+          display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px;
+          font-size: 12px; color: var(--text-muted); align-items: baseline;
         }
         .ev-meta i { font-size: 11px; margin-right: 2px; }
         .ev-meta-desc {
           flex-basis: 100%; color: var(--text-secondary); font-size: 12px;
-          margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+          margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
         .ev-edit-btn {
           background: none; border: 1px solid var(--border); border-radius: 7px;
@@ -206,6 +225,7 @@ export default function EventsView({ events, tickets, completedTickets, userRole
           font-size: 14px; display: flex; align-items: center; flex-shrink: 0;
         }
         .ev-edit-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+        /* Chips */
         .ev-chips {
           display: flex; flex-wrap: wrap; gap: 6px;
           padding: 0 14px 12px;
@@ -220,15 +240,11 @@ export default function EventsView({ events, tickets, completedTickets, userRole
         .ev-chip:hover { background: var(--bg-tertiary); }
         .ev-chip--done { border-color: #bbf7d0; background: #f0fdf4; color: #15803d; }
         .ev-chip--done:hover { background: #dcfce7; }
-        .ev-chip--open { }
         .ev-chip--no-ticket { opacity: 0.6; }
-        .ev-chip-dot {
-          width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
-        }
+        .ev-chip-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
         .ev-chip-dot--done { background: #16a34a; }
         .ev-chip-dot--open { background: var(--accent-primary); }
         .ev-chip-dot--no-ticket { background: var(--border-active); }
-        .ev-chip-name { }
         .ev-chip-who {
           font-size: 11px; font-weight: 400; color: var(--text-muted);
           border-left: 1px solid var(--border); padding-left: 5px; margin-left: 2px;
@@ -236,12 +252,9 @@ export default function EventsView({ events, tickets, completedTickets, userRole
         .ev-chip-count {
           background: var(--bg-tertiary); border: 1px solid var(--border);
           border-radius: 99px; font-size: 10px; font-weight: 700;
-          padding: 0 5px; color: var(--text-muted); min-width: 16px;
-          text-align: center;
+          padding: 0 5px; color: var(--text-muted); min-width: 16px; text-align: center;
         }
-        .ev-empty {
-          padding: 2rem; text-align: center; color: var(--text-muted); font-size: 14px;
-        }
+        .ev-empty { padding: 2rem; text-align: center; color: var(--text-muted); font-size: 14px; }
       `}</style>
 
       {canEdit && (
