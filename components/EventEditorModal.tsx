@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { DrkEvent, EventTask } from '../types';
+import MicButton from './MicButton';
 
 interface Props {
   event: DrkEvent;
@@ -118,7 +119,12 @@ export default function EventEditorModal({ event, isNew, users, onSave, onDelete
           {/* Beschreibung */}
           <div>
             <label style={labelStyle}>Notizen / Besonderheiten</label>
-            <textarea value={draft.description || ''} onChange={e => patch({ description: e.target.value })} placeholder="Besondere Wünsche, Hinweise …" rows={2} style={{ ...inputStyle, resize: 'vertical' }} />
+            <div style={{ position: 'relative' }}>
+              <textarea value={draft.description || ''} onChange={e => patch({ description: e.target.value })} placeholder="Besondere Wünsche, Hinweise …" rows={2} style={{ ...inputStyle, resize: 'vertical', paddingRight: 30 }} />
+              <div style={{ position: 'absolute', bottom: 6, right: 4 }}>
+                <MicButton onResult={t => patch({ description: (draft.description ? draft.description + ' ' : '') + t })} title="Per Sprache eingeben" />
+              </div>
+            </div>
           </div>
 
           {/* Aufgaben */}

@@ -7,6 +7,7 @@ import { ChevronDownIcon } from './icons/ChevronDownIcon';
 import { statusColorMap, statusBgColorMap } from '../constants';
 import { DocumentArrowDownIcon } from './icons/DocumentArrowDownIcon';
 import { displayNameShort } from '../utils/displayNames';
+import MicButton from './MicButton';
 
 
 const ExclamationTriangleIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
@@ -869,7 +870,12 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             <div style={{ marginTop: '0.5rem' }}>
                 <p className="detail-label-compact">Beschreibung</p>
                 {isEditing ? (
-                    <textarea className="edit-description-textarea" value={editDraft.description} onChange={e => setEditDraft(d => ({ ...d, description: e.target.value }))} placeholder="Beschreibung..." rows={4} />
+                    <div style={{ position: 'relative' }}>
+                      <textarea className="edit-description-textarea" value={editDraft.description} onChange={e => setEditDraft(d => ({ ...d, description: e.target.value }))} placeholder="Beschreibung..." rows={4} />
+                      <div style={{ position: 'absolute', bottom: 6, right: 6 }}>
+                        <MicButton onResult={t => setEditDraft(d => ({ ...d, description: (d.description ? d.description + ' ' : '') + t }))} title="Per Sprache eingeben" />
+                      </div>
+                    </div>
                 ) : (
                     <p className="detail-value-compact" style={{ height: 'auto', minHeight: '34px', whiteSpace: 'pre-wrap', alignItems: 'flex-start', paddingTop: '0.5rem', paddingBottom: '0.5rem' }}>
                         {ticket.description && ticket.description.trim()
@@ -1100,6 +1106,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                         onChange={e => setNewStaffMsg(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendStaffMessage(); } }}
                       />
+                      <MicButton onResult={t => setNewStaffMsg(prev => prev ? prev + ' ' + t : t)} title="Per Sprache eingeben" />
                       <button className="channel-send channel-send--chat" onClick={handleSendStaffMessage} disabled={!newStaffMsg.trim()}>
                         <i className="ti ti-send" aria-hidden="true" />
                         Senden
@@ -1129,6 +1136,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                     )}
                     <div className="channel-input-row">
                         <textarea className="channel-input channel-melder-input" rows={2} placeholder="Antwort an den Melder…" value={newNote} onChange={e => setNewNote(e.target.value)} />
+                        <MicButton onResult={t => setNewNote(prev => prev ? prev + ' ' + t : t)} title="Per Sprache eingeben" />
                         <button className="channel-send channel-send--melder" onClick={handleAddNote} disabled={!newNote.trim()}>
                             <i className="ti ti-mail" aria-hidden="true" />
                             An Melder
