@@ -211,8 +211,9 @@ export default function EventsView({ events, tickets, completedTickets, userRole
         }
         .ev-meta i { font-size: 12px; margin-right: 2px; }
         .ev-meta-desc {
-          flex-basis: 100%; color: var(--text-secondary); font-size: 12px;
+          flex-basis: 100%; color: var(--text-primary); font-size: 13px;
           margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+          font-weight: 400;
         }
         .ev-edit-btn {
           background: none; border: 1px solid var(--border); border-radius: 7px;
