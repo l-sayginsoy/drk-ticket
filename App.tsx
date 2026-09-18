@@ -2821,7 +2821,8 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     const updatedTasks: EventTask[] = event.tasks.map(task => {
       if (task.ticketId) return task; // Ticket bereits vorhanden → nicht nochmal erzeugen
 
-      if (!task.label.trim() || task.assignee === 'N/A') return task;
+      if (task.assignee === 'N/A') return task;
+      if (!task.label.trim()) task = { ...task, label: task.assignee };
 
       const dueDateDE = task.dueDate
         ? task.dueDate.split('-').reverse().join('.')
