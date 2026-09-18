@@ -15,25 +15,49 @@ export default function MicButton({ onResult, lang = 'de-DE', title = 'Sprachein
   const [active, setActive] = useState(false);
   const recRef = useRef<any>(null);
 
+  const activeRef = useRef(false);
+
   const toggle = useCallback(() => {
-    if (active) {
+    if (activeRef.current) {
+      activeRef.current = false;
       recRef.current?.stop();
+      setActive(false);
       return;
     }
-    const rec = new SpeechRecognition();
-    rec.lang = lang;
-    rec.interimResults = false;
-    rec.maxAlternatives = 1;
-    rec.onresult = (e: any) => {
-      const transcript = e.results[0][0].transcript;
-      onResult(transcript);
+
+    const start = () => {
+      if (!activeRef.current) return;
+      const rec = new SpeechRecognition();
+      rec.lang = lang;
+      rec.continuous = true;
+      rec.interimResults = false;
+      rec.maxAlternatives = 1;
+      rec.onresult = (e: any) => {
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) {
+            onResult(e.results[i][0].transcript);
+          }
+        }
+      };
+      rec.onend = () => {
+        // Automatisch neu starten wenn noch aktiv (Pause oder Browser-Timeout)
+        if (activeRef.current) setTimeout(start, 100);
+      };
+      rec.onerror = (e: any) => {
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+          activeRef.current = false;
+          setActive(false);
+        }
+        // Bei anderen Fehlern (network, aborted) einfach neu starten
+      };
+      recRef.current = rec;
+      rec.start();
     };
-    rec.onend = () => setActive(false);
-    rec.onerror = () => setActive(false);
-    recRef.current = rec;
-    rec.start();
+
+    activeRef.current = true;
     setActive(true);
-  }, [active, lang, onResult]);
+    start();
+  }, [lang, onResult]);
 
   if (!SpeechRecognition) return null;
 
