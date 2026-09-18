@@ -2838,7 +2838,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
         origin: 'event',
         eventId: event.id,
         eventTaskId: task.id,
-        title: `[${event.title}] ${task.label}`,
+        title: task.label && task.label !== task.assignee ? `[${event.title}] ${task.label}` : `[${event.title}]`,
         area: event.location || 'Veranstaltung',
         location: event.location || '',
         reporter: 'System',
