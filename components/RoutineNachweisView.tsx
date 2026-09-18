@@ -206,12 +206,32 @@ export default function RoutineNachweisView({
           width: 28px; height: 28px; border-radius: 7px;
           display: inline-flex; align-items: center; justify-content: center;
           font-size: 11px; font-weight: 700; cursor: default;
+          position: relative;
         }
         .nv-day--done { background: ${ROUTINE_TEAL.accent}; color: #fff; }
         .nv-day--partial { background: ${ROUTINE_AMBER.accent}; color: #fff; }
         .nv-day--missed { background: #DC2626; color: #fff; }
         .nv-day--planned { background: var(--bg-tertiary); color: var(--text-muted); border: 1px solid var(--border); }
         .nv-day--future { background: var(--bg-tertiary); color: var(--border-active); border: 1px solid var(--border); opacity: 0.4; }
+        .nv-day[data-tooltip]::after {
+          content: attr(data-tooltip);
+          position: absolute;
+          bottom: calc(100% + 6px);
+          left: 50%;
+          transform: translateX(-50%);
+          background: rgba(15,15,20,0.92);
+          color: #fff;
+          font-size: 11.5px;
+          font-weight: 500;
+          white-space: nowrap;
+          padding: 4px 9px;
+          border-radius: 6px;
+          pointer-events: none;
+          opacity: 0;
+          transition: opacity 0.08s;
+          z-index: 999;
+        }
+        .nv-day[data-tooltip]:hover::after { opacity: 1; }
         @media (max-width: 860px) {
           .nv-head { grid-template-columns: 34px 1fr 170px auto; }
           .nv-head-cad { display: none; }
@@ -401,13 +421,15 @@ export default function RoutineNachweisView({
                                   const past = d < todayYmd;
                                   const counts = d >= missedSinceYmd;
                                   const dn = Number(d.split('-')[2]);
+                                  const dayRecs = completions.filter(c => c.scheduleId === sch.id && c.date === d);
+                                  const completedByNames = [...new Set(dayRecs.map(c => c.completedBy).filter(Boolean))].join(', ');
                                   let cls = 'nv-day nv-day--future';
                                   let title = fmtYmd(d) + ': geplant';
-                                  if (s2.complete) { cls = 'nv-day nv-day--done'; title = fmtYmd(d) + ': erledigt'; }
-                                  else if (s2.anyDone) { cls = 'nv-day nv-day--partial'; title = `${fmtYmd(d)}: ${s2.done}/${s2.total} erledigt`; }
+                                  if (s2.complete) { cls = 'nv-day nv-day--done'; title = fmtYmd(d) + ': erledigt' + (completedByNames ? ` von ${completedByNames}` : ''); }
+                                  else if (s2.anyDone) { cls = 'nv-day nv-day--partial'; title = `${fmtYmd(d)}: ${s2.done}/${s2.total} erledigt` + (completedByNames ? ` (${completedByNames})` : ''); }
                                   else if (past && counts) { cls = 'nv-day nv-day--missed'; title = fmtYmd(d) + ': verpasst'; }
                                   else if (past) { cls = 'nv-day nv-day--planned'; title = fmtYmd(d) + ': nicht erfasst'; }
-                                  return <span key={d} className={cls} title={title}>{dn}</span>;
+                                  return <span key={d} className={cls} data-tooltip={title}>{dn}</span>;
                                 })}
                               </div>
                             )}
