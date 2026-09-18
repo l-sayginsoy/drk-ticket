@@ -38,6 +38,9 @@ interface SidebarProps {
     brevoMailLastChecked?: Date | null;
     /** Anzahl überfälliger / vergessener Serienaufträge */
     missedRoutinesCount?: number;
+    drkEvents?: import('../types').DrkEvent[];
+    eventTickets?: import('../types').Ticket[];
+    completedEventTickets?: import('../types').Ticket[];
 }
 
 
@@ -63,9 +66,28 @@ const Sidebar: React.FC<SidebarProps> = ({
     brevoMailOk,
     brevoMailLastChecked,
     missedRoutinesCount = 0,
+    drkEvents = [],
+    eventTickets = [],
+    completedEventTickets = [],
 }) => {
     
     const [isExportOpen, setExportOpen] = useState(false);
+
+    // Badge Veranstaltungen: bevorstehende Events mit noch offenen Aufgaben
+    const eventPendingCount = useMemo(() => {
+        const todayYmd = new Date().toISOString().slice(0, 10);
+        const allTickets = [...eventTickets, ...completedEventTickets];
+        return drkEvents.filter(ev => {
+            if (ev.archivedAt) return false;
+            if (ev.date < todayYmd) return false; // nur bevorstehende
+            return ev.tasks.some(task => {
+                if (!task.ticketId) return true; // Aufgabe ohne Ticket = offen
+                const t = allTickets.find(t => t.id === task.ticketId);
+                if (!t) return true;
+                return t.status !== Status.Abgeschlossen;
+            });
+        }).length;
+    }, [drkEvents, eventTickets, completedEventTickets]);
 
     const parkedCount = useMemo(() => {
         return tickets.filter(t => t.status === Status.Zurueckgestellt).length;
@@ -161,6 +183,11 @@ const Sidebar: React.FC<SidebarProps> = ({
             {viewName === 'routines' && missedRoutinesCount > 0 && (
                 <span className="nav-badge" style={{ backgroundColor: 'rgba(220, 38, 38, 0.9)' }} title="Überfällige Serienaufträge">
                     {missedRoutinesCount}
+                </span>
+            )}
+            {viewName === 'veranstaltungen' && eventPendingCount > 0 && (
+                <span className="nav-badge" style={{ backgroundColor: 'rgba(99, 102, 241, 0.9)' }} title="Bevorstehende Veranstaltungen mit offenen Aufgaben">
+                    {eventPendingCount}
                 </span>
             )}
             <span className="nav-tooltip">{label}</span>

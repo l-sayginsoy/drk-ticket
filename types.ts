@@ -253,4 +253,5 @@ export interface DrkEvent {
   description?: string;
   tasks: EventTask[];
   createdAt: string;    // ISO-Timestamp
+  archivedAt?: string;  // gesetzt = archiviert (Soft-Delete), nie wirklich gelöscht
 }

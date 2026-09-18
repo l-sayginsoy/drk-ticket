@@ -2851,7 +2851,17 @@ const deleteTicketFromFirebase = (ticketId: string) => {
   };
 
   const handleDeleteEvent = (id: string) => {
-    void deleteDoc(doc(db, 'events', id));
+    // Soft-Delete: Veranstaltung wird archiviert, nicht gelöscht
+    const ev = drkEvents.find(e => e.id === id);
+    if (!ev) return;
+    void setDoc(doc(db, 'events', id), { ...ev, archivedAt: new Date().toISOString() });
+  };
+
+  const handleUnarchiveEvent = (id: string) => {
+    const ev = drkEvents.find(e => e.id === id);
+    if (!ev) return;
+    const { archivedAt: _, ...rest } = ev;
+    void setDoc(doc(db, 'events', id), rest);
   };
 
   // FIX: Implement bulk action handlers to replace placeholder functions and resolve prop type errors.
@@ -3675,6 +3685,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
             users={users}
             onSaveEvent={handleSaveEvent}
             onDeleteEvent={handleDeleteEvent}
+            onUnarchiveEvent={handleUnarchiveEvent}
             onSelectTicket={setSelectedTicket}
           />
         );
@@ -3727,6 +3738,9 @@ const deleteTicketFromFirebase = (ticketId: string) => {
         brevoMailOk={currentUser.role === Role.Admin ? brevoMailOk : null}
         brevoMailLastChecked={currentUser.role === Role.Admin ? brevoMailLastChecked : null}
         missedRoutinesCount={missedRoutinesSinceStart.length}
+        drkEvents={drkEvents}
+        eventTickets={tickets.filter(t => t.origin === 'event')}
+        completedEventTickets={completedTickets.filter(t => t.origin === 'event')}
       />
       <main>
         {/* Hamburger-Menü auf Handy */}

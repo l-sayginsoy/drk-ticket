@@ -10,6 +10,7 @@ interface EventsViewProps {
   users: { name: string }[];
   onSaveEvent: (event: DrkEvent) => void;
   onDeleteEvent: (id: string) => void;
+  onUnarchiveEvent?: (id: string) => void;
   onSelectTicket: (ticket: Ticket) => void;
 }
 
@@ -50,8 +51,9 @@ function newEventDraft(): DrkEvent {
   };
 }
 
-export default function EventsView({ events, tickets, completedTickets, userRole, users, onSaveEvent, onDeleteEvent, onSelectTicket }: EventsViewProps) {
+export default function EventsView({ events, tickets, completedTickets, userRole, users, onSaveEvent, onDeleteEvent, onUnarchiveEvent, onSelectTicket }: EventsViewProps) {
   const [editing, setEditing] = useState<{ event: DrkEvent; isNew: boolean } | null>(null);
+  const [showArchive, setShowArchive] = useState(false);
   const canEdit = userRole === Role.Admin;
   const allTickets = [...tickets, ...completedTickets];
 
@@ -59,7 +61,9 @@ export default function EventsView({ events, tickets, completedTickets, userRole
   today.setHours(0, 0, 0, 0);
   const todayYmd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-  const sorted = [...events].sort((a, b) => a.date.localeCompare(b.date));
+  const active = events.filter(e => !e.archivedAt);
+  const archived = events.filter(e => !!e.archivedAt).sort((a, b) => (b.archivedAt ?? '').localeCompare(a.archivedAt ?? ''));
+  const sorted = [...active].sort((a, b) => a.date.localeCompare(b.date));
   const upcoming = sorted.filter(e => e.date >= todayYmd);
   const past = sorted.filter(e => e.date < todayYmd).reverse();
 
@@ -336,8 +340,12 @@ export default function EventsView({ events, tickets, completedTickets, userRole
         </div>
       )}
 
-      {upcoming.length === 0 && past.length === 0 && (
+      {upcoming.length === 0 && past.length === 0 && archived.length === 0 && (
         <div className="ev-empty">Noch keine Veranstaltungen angelegt.<br />Mit „+ Neue Veranstaltung" loslegen.</div>
+      )}
+
+      {upcoming.length === 0 && past.length === 0 && archived.length > 0 && (
+        <div className="ev-empty">Keine aktiven Veranstaltungen.<br />Archivierte Veranstaltungen findest du unten.</div>
       )}
 
       {upcoming.length > 0 && (
@@ -351,6 +359,42 @@ export default function EventsView({ events, tickets, completedTickets, userRole
         <>
           <div className="ev-section-header">Vergangen</div>
           {past.map(renderEvent)}
+        </>
+      )}
+
+      {archived.length > 0 && (
+        <>
+          <button
+            onClick={() => setShowArchive(s => !s)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, marginTop: '1rem',
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--text-muted)', fontSize: '0.78rem', fontWeight: 700,
+              letterSpacing: '0.06em', textTransform: 'uppercase', padding: '4px 0',
+            }}
+          >
+            <i className={`ti ti-chevron-${showArchive ? 'down' : 'right'}`} />
+            Archiv ({archived.length} Veranstaltung{archived.length !== 1 ? 'en' : ''})
+          </button>
+          {showArchive && archived.map(ev => (
+            <div key={ev.id} style={{ opacity: 0.6, position: 'relative' }}>
+              {renderEvent(ev)}
+              {canEdit && onUnarchiveEvent && (
+                <button
+                  onClick={() => onUnarchiveEvent(ev.id)}
+                  style={{
+                    position: 'absolute', top: 8, right: 8,
+                    background: 'none', border: '1px solid var(--border)',
+                    borderRadius: 6, padding: '3px 10px', fontSize: 12,
+                    cursor: 'pointer', color: 'var(--text-secondary)',
+                  }}
+                  title="Aus Archiv wiederherstellen"
+                >
+                  <i className="ti ti-archive-off" /> Wiederherstellen
+                </button>
+              )}
+            </div>
+          ))}
         </>
       )}
 
