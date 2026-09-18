@@ -525,7 +525,14 @@ const TicketCard: React.FC<TicketCardProps> = ({
             <div className="card-body" onClick={() => onSelectTicket(ticket)}>
                 {/* Zeile 1: Titel + Badges + Ticketnummer */}
                 <div className="card-row1">
-                    <h3 className="card-title">{ticket.title}</h3>
+                    <h3 className="card-title">
+                      {ticket.origin === 'event' && (
+                        <span title="Veranstaltungsauftrag" style={{ display: 'inline-flex', alignItems: 'center', marginRight: 5, fontSize: 11, fontWeight: 700, color: '#b3000c', background: '#fff0f0', border: '1px solid rgba(179,0,12,0.25)', borderRadius: 4, padding: '0px 5px', verticalAlign: 'middle', lineHeight: '18px', flexShrink: 0 }}>
+                          <i className="ti ti-calendar-event" style={{ fontSize: 10, marginRight: 3 }} />Veranst.
+                        </span>
+                      )}
+                      {ticket.title}
+                    </h3>
                     <div className="card-icons">
                         {ticket.is_reopened && (
                             <span title="Wiedereröffnet" style={{ display:'inline-flex', alignItems:'center', fontSize:'0.6rem', fontWeight:700, padding:'1px 4px', borderRadius:999, background:'#fff3e0', color:'#e65100', border:'0.5px solid #ff9800' }}>↩</span>

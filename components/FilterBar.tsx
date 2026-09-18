@@ -68,13 +68,14 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
         options: Array<{ name: string; count: number } | string>;
         value: string;
         shortenPersonNames?: boolean;
-    }> = ({ label, name, options, value, shortenPersonNames }) => (
+        onChangeRaw?: (v: string) => void;
+    }> = ({ label, name, options, value, shortenPersonNames, onChangeRaw }) => (
         <div className={`custom-select filter-chip ${value !== 'Alle' ? 'active' : ''}`}>
             <span>{label}</span>
             {value !== 'Alle' && (
                 <span className="filter-badge">{getDisplayValue(value, !!shortenPersonNames)}</span>
             )}
-            <select value={value} onChange={(e) => handleFilterChange(name, e.target.value)}>
+            <select value={value} onChange={(e) => onChangeRaw ? onChangeRaw(e.target.value) : handleFilterChange(name, e.target.value)}>
                 {options.map(opt => {
                     if (typeof opt === 'object' && opt !== null && 'name' in opt) {
                         const locOpt = opt as { name: string; count: number };
@@ -122,6 +123,7 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                         <FilterChip label="Standort" name="area" options={locations} value={filters.area} />
                         <FilterChip label="Status" name="status" options={statuses} value={filters.status} />
                         <FilterChip label="Priorität" name="priority" options={PRIORITIES} value={filters.priority} />
+                        <FilterChip label="Typ" name="origin" options={['Alle', 'Veranstaltung', 'Manuell']} value={filters.origin === 'event' ? 'Veranstaltung' : filters.origin === 'manual' ? 'Manuell' : 'Alle'} onChangeRaw={(v) => setFilters((prev: any) => ({ ...prev, origin: v === 'Veranstaltung' ? 'event' : v === 'Manuell' ? 'manual' : 'Alle' }))} />
                         {reporters.length > 1 && (
                             <FilterChip label="Melder" name="reporter" options={reporters} value={filters.reporter ?? 'Alle'} />
                         )}

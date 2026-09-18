@@ -1593,7 +1593,7 @@ const App: React.FC = () => {
   };
 
   // --- UI State ---
-  const [filters, setFilters] = useState({ area: 'Alle', technician: 'Alle', priority: 'Alle', status: 'Alle', reporter: 'Alle', search: '' });
+  const [filters, setFilters] = useState({ area: 'Alle', technician: 'Alle', priority: 'Alle', status: 'Alle', reporter: 'Alle', search: '', origin: 'Alle' });
   const [groupBy, setGroupBy] = useState<GroupableKey | 'none'>('none');
   const [currentView, setCurrentView] = useState('dashboard');
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(() => window.innerWidth < 768);
@@ -2819,7 +2819,12 @@ const deleteTicketFromFirebase = (ticketId: string) => {
 
   const handleSaveEvent = (event: DrkEvent) => {
     const updatedTasks: EventTask[] = event.tasks.map(task => {
-      if (task.ticketId) return task; // Ticket bereits vorhanden → nicht nochmal erzeugen
+      if (task.ticketId) {
+        // Ticket existiert bereits → Checkliste synchronisieren
+        const ticketRef = doc(db, 'tickets', String(task.ticketId));
+        void updateDoc(ticketRef, { eventChecklistItems: task.items ?? [] });
+        return task;
+      }
 
       if (task.assignee === 'N/A') return task;
       if (!task.label.trim()) task = { ...task, label: task.assignee };
@@ -3061,6 +3066,8 @@ const deleteTicketFromFirebase = (ticketId: string) => {
 
         if (filters.priority !== 'Alle' && ticket.priority !== filters.priority) return false;
         if (filters.reporter && filters.reporter !== 'Alle' && ticket.reporter !== filters.reporter) return false;
+        if (filters.origin === 'event' && ticket.origin !== 'event') return false;
+        if (filters.origin === 'manual' && (ticket.origin === 'event' || ticket.origin === 'routine')) return false;
 
         if (currentView === 'erledigt') {
           if (filters.status !== 'Alle' && ticket.status !== filters.status) return false;
