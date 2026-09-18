@@ -2869,9 +2869,12 @@ const deleteTicketFromFirebase = (ticketId: string) => {
   const handleSaveEvent = (event: DrkEvent) => {
     const updatedTasks: EventTask[] = event.tasks.map(task => {
       if (task.ticketId) {
-        // Ticket existiert bereits → Checkliste synchronisieren
+        // Ticket existiert bereits → Titel + Checkliste synchronisieren
         const ticketRef = doc(db, 'tickets', String(task.ticketId));
-        void updateDoc(ticketRef, { eventChecklistItems: task.items ?? [] });
+        const updatedTitle = task.label && task.label !== task.assignee
+          ? `[${event.title}] ${task.label}`
+          : `[${event.title}]`;
+        void updateDoc(ticketRef, { title: updatedTitle, eventChecklistItems: task.items ?? [] });
         return task;
       }
 
