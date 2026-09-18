@@ -2068,21 +2068,21 @@ const App: React.FC = () => {
     }
   }, [tickets, isInitialized]);
 
-  // Einmalige Migration: Personenname aus Event-Ticket-Titeln entfernen
-  const eventTitleMigDoneRef = useRef(false);
+  // Dauerhafter Abgleich: Event-Ticket-Titel immer mit aktuellem Veranstaltungsnamen synchronisieren
   useEffect(() => {
-    if (!isInitialized || eventTitleMigDoneRef.current) return;
-    if (tickets.length === 0 && drkEvents.length === 0) return;
-    eventTitleMigDoneRef.current = true;
+    if (!isInitialized || tickets.length === 0 || drkEvents.length === 0) return;
     const eventMap = new Map(drkEvents.map(e => [e.id, e]));
     tickets.forEach(ticket => {
       if (ticket.origin !== 'event' || !ticket.eventId) return;
       const ev = eventMap.get(ticket.eventId);
       if (!ev) return;
-      const expectedWithName = `[${ev.title}] ${ticket.technician}`;
-      if (ticket.title === expectedWithName) {
-        const newTitle = `[${ev.title}]`;
-        void updateDoc(doc(db, 'tickets', ticket.id), { title: newTitle });
+      // Aufgabe aus der Veranstaltung suchen um das richtige Label zu kennen
+      const task = ev.tasks.find(t => t.ticketId === ticket.id);
+      const expectedTitle = task && task.label && task.label !== task.assignee
+        ? `[${ev.title}] ${task.label}`
+        : `[${ev.title}]`;
+      if (ticket.title !== expectedTitle) {
+        void updateDoc(doc(db, 'tickets', ticket.id), { title: expectedTitle });
       }
     });
   }, [isInitialized, tickets, drkEvents]);
