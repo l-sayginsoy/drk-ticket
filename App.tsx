@@ -2865,6 +2865,10 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     void setDoc(doc(db, 'events', id), { ...ev, archivedAt: new Date().toISOString() });
   };
 
+  const handleHardDeleteEvent = (id: string) => {
+    void deleteDoc(doc(db, 'events', id));
+  };
+
   const handleUnarchiveEvent = (id: string) => {
     const ev = drkEvents.find(e => e.id === id);
     if (!ev) return;
@@ -3693,6 +3697,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
             users={users}
             onSaveEvent={handleSaveEvent}
             onDeleteEvent={handleDeleteEvent}
+            onHardDeleteEvent={handleHardDeleteEvent}
             onUnarchiveEvent={handleUnarchiveEvent}
             onSelectTicket={setSelectedTicket}
           />

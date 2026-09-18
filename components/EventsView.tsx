@@ -10,6 +10,7 @@ interface EventsViewProps {
   users: { name: string }[];
   onSaveEvent: (event: DrkEvent) => void;
   onDeleteEvent: (id: string) => void;
+  onHardDeleteEvent?: (id: string) => void;
   onUnarchiveEvent?: (id: string) => void;
   onSelectTicket: (ticket: Ticket) => void;
 }
@@ -51,9 +52,10 @@ function newEventDraft(): DrkEvent {
   };
 }
 
-export default function EventsView({ events, tickets, completedTickets, userRole, users, onSaveEvent, onDeleteEvent, onUnarchiveEvent, onSelectTicket }: EventsViewProps) {
+export default function EventsView({ events, tickets, completedTickets, userRole, users, onSaveEvent, onDeleteEvent, onHardDeleteEvent, onUnarchiveEvent, onSelectTicket }: EventsViewProps) {
   const [editing, setEditing] = useState<{ event: DrkEvent; isNew: boolean } | null>(null);
   const [showArchive, setShowArchive] = useState(false);
+  const [confirmHardDelete, setConfirmHardDelete] = useState<string | null>(null);
   const canEdit = userRole === Role.Admin;
   const allTickets = [...tickets, ...completedTickets];
 
@@ -383,19 +385,40 @@ export default function EventsView({ events, tickets, completedTickets, userRole
           {showArchive && archived.map(ev => (
             <div key={ev.id} style={{ opacity: 0.6, position: 'relative' }}>
               {renderEvent(ev)}
-              {canEdit && onUnarchiveEvent && (
-                <button
-                  onClick={() => onUnarchiveEvent(ev.id)}
-                  style={{
-                    position: 'absolute', top: 8, right: 8,
-                    background: 'none', border: '1px solid var(--border)',
-                    borderRadius: 6, padding: '3px 10px', fontSize: 12,
-                    cursor: 'pointer', color: 'var(--text-secondary)',
-                  }}
-                  title="Aus Archiv wiederherstellen"
-                >
-                  <i className="ti ti-archive-off" /> Wiederherstellen
-                </button>
+              {canEdit && (
+                <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6 }}>
+                  {onUnarchiveEvent && (
+                    <button
+                      onClick={() => onUnarchiveEvent(ev.id)}
+                      style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 10px', fontSize: 12, cursor: 'pointer', color: 'var(--text-secondary)' }}
+                      title="Aus Archiv wiederherstellen"
+                    >
+                      <i className="ti ti-archive-off" /> Wiederherstellen
+                    </button>
+                  )}
+                  {onHardDeleteEvent && confirmHardDelete !== ev.id && (
+                    <button
+                      onClick={() => setConfirmHardDelete(ev.id)}
+                      style={{ background: 'none', border: '1px solid #dc2626', borderRadius: 6, padding: '3px 10px', fontSize: 12, cursor: 'pointer', color: '#dc2626' }}
+                      title="Endgültig löschen"
+                    >
+                      <i className="ti ti-trash" /> Löschen
+                    </button>
+                  )}
+                  {onHardDeleteEvent && confirmHardDelete === ev.id && (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                      <span style={{ color: '#dc2626', fontWeight: 600 }}>Sicher?</span>
+                      <button
+                        onClick={() => { onHardDeleteEvent(ev.id); setConfirmHardDelete(null); }}
+                        style={{ background: '#dc2626', border: 'none', borderRadius: 6, padding: '3px 10px', fontSize: 12, cursor: 'pointer', color: '#fff', fontWeight: 700 }}
+                      >Ja, endgültig löschen</button>
+                      <button
+                        onClick={() => setConfirmHardDelete(null)}
+                        style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 10px', fontSize: 12, cursor: 'pointer', color: 'var(--text-secondary)' }}
+                      >Abbrechen</button>
+                    </span>
+                  )}
+                </div>
               )}
             </div>
           ))}
