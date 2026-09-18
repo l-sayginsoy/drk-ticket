@@ -86,9 +86,6 @@ export default function EventsView({ events, tickets, completedTickets, userRole
           <div className="ev-wd">{weekdayDE(ev.date)}</div>
           <div className="ev-dn">{ev.date.split('-')[2]}</div>
           <div className="ev-mon">{monthName}</div>
-          {ev.time && (
-            <div className="ev-tm">{ev.time}{ev.timeTo ? `–${ev.timeTo}` : ''}</div>
-          )}
         </div>
 
         {/* Rechte Seite: alles andere */}
@@ -103,8 +100,9 @@ export default function EventsView({ events, tickets, completedTickets, userRole
                   </span>
                 )}
               </div>
-              {(ev.location || ev.description) && (
+              {(ev.location || ev.time || ev.description) && (
                 <div className="ev-meta">
+                  {ev.time && <span><i className="ti ti-clock" /> {ev.time}{ev.timeTo ? `–${ev.timeTo}` : ''} Uhr</span>}
                   {ev.location && <span><i className="ti ti-map-pin" /> {ev.location}</span>}
                   {ev.description && <span className="ev-meta-desc">{ev.description}</span>}
                 </div>
@@ -188,10 +186,6 @@ export default function EventsView({ events, tickets, completedTickets, userRole
         .ev-mon {
           font-size: 14px; font-weight: 700; text-transform: uppercase;
           color: var(--text-muted); letter-spacing: 0.04em;
-        }
-        .ev-tm {
-          font-size: 11px; color: var(--text-muted); margin-top: 6px;
-          line-height: 1.3; white-space: nowrap;
         }
         /* Rechte weiße Seite */
         .ev-right { flex: 1; min-width: 0; display: flex; flex-direction: column; }
