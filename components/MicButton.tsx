@@ -1,7 +1,8 @@
 import React, { useCallback, useRef, useState } from 'react';
 
 interface Props {
-  onResult: (text: string) => void;
+  value: string;
+  onChange: (text: string) => void;
   lang?: string;
   title?: string;
 }
@@ -11,53 +12,83 @@ const SpeechRecognition =
     ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     : null;
 
-export default function MicButton({ onResult, lang = 'de-DE', title = 'Spracheingabe' }: Props) {
+export default function MicButton({ value, onChange, lang = 'de-DE', title = 'Spracheingabe' }: Props) {
   const [active, setActive] = useState(false);
   const recRef = useRef<any>(null);
-
   const activeRef = useRef(false);
+  // Text im Feld bevor Mikrofon gestartet wurde (+ bereits bestätigte Finals aus Neustarts)
+  const baseRef = useRef('');
+  // Finals die in der aktuellen Erkennungs-Session gesammelt wurden
+  const finalRef = useRef('');
+
+  const startRec = useCallback(() => {
+    if (!SpeechRecognition || !activeRef.current) return;
+
+    const rec = new SpeechRecognition();
+    rec.lang = lang;
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
+
+    rec.onresult = (e: any) => {
+      let newFinals = '';
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          newFinals += (newFinals ? ' ' : '') + e.results[i][0].transcript.trim();
+        } else {
+          interim += e.results[i][0].transcript;
+        }
+      }
+      if (newFinals) {
+        finalRef.current = finalRef.current
+          ? finalRef.current + ' ' + newFinals
+          : newFinals;
+      }
+      const confirmed = [baseRef.current, finalRef.current].filter(Boolean).join(' ');
+      const display = interim ? [confirmed, interim].filter(Boolean).join(' ') : confirmed;
+      onChange(display);
+    };
+
+    rec.onend = () => {
+      if (!activeRef.current) {
+        setActive(false);
+        return;
+      }
+      // Vor dem Neustart: bestätigte Finals in die Basis übernehmen
+      const confirmed = [baseRef.current, finalRef.current].filter(Boolean).join(' ');
+      baseRef.current = confirmed;
+      finalRef.current = '';
+      // Kurze Pause damit der Browser nicht sofort wieder abbricht
+      setTimeout(startRec, 150);
+    };
+
+    rec.onerror = (e: any) => {
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        activeRef.current = false;
+        setActive(false);
+      }
+      // Bei 'no-speech', 'network' usw. feuert onend → Neustart läuft dort
+    };
+
+    recRef.current = rec;
+    try { rec.start(); } catch { /* bereits aktiv */ }
+  }, [lang, onChange]);
 
   const toggle = useCallback(() => {
     if (activeRef.current) {
       activeRef.current = false;
-      recRef.current?.stop();
       setActive(false);
+      recRef.current?.stop();
       return;
     }
-
-    const start = () => {
-      if (!activeRef.current) return;
-      const rec = new SpeechRecognition();
-      rec.lang = lang;
-      rec.continuous = true;
-      rec.interimResults = false;
-      rec.maxAlternatives = 1;
-      rec.onresult = (e: any) => {
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-          if (e.results[i].isFinal) {
-            onResult(e.results[i][0].transcript);
-          }
-        }
-      };
-      rec.onend = () => {
-        // Automatisch neu starten wenn noch aktiv (Pause oder Browser-Timeout)
-        if (activeRef.current) setTimeout(start, 100);
-      };
-      rec.onerror = (e: any) => {
-        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-          activeRef.current = false;
-          setActive(false);
-        }
-        // Bei anderen Fehlern (network, aborted) einfach neu starten
-      };
-      recRef.current = rec;
-      rec.start();
-    };
-
+    // Aktuellen Feldinhalt als Basis merken
+    baseRef.current = value;
+    finalRef.current = '';
     activeRef.current = true;
     setActive(true);
-    start();
-  }, [lang, onResult]);
+    startRec();
+  }, [value, startRec]);
 
   if (!SpeechRecognition) return null;
 
@@ -82,17 +113,10 @@ export default function MicButton({ onResult, lang = 'de-DE', title = 'Sprachein
       }}
     >
       <i
-        className={`ti ${active ? 'ti-microphone' : 'ti-microphone'}`}
-        style={{
-          animation: active ? 'mic-pulse 1s ease-in-out infinite' : 'none',
-        }}
+        className="ti ti-microphone"
+        style={{ animation: active ? 'mic-pulse 1s ease-in-out infinite' : 'none' }}
       />
-      <style>{`
-        @keyframes mic-pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.35; }
-        }
-      `}</style>
+      <style>{`@keyframes mic-pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }`}</style>
     </button>
   );
 }

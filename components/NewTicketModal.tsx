@@ -277,7 +277,7 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
              <div className="form-group full-width">
                 <label htmlFor="description" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   Beschreibung
-                  <MicButton onResult={t => setDescription(p => p ? p + ' ' + t : t)} title="Per Sprache eingeben" />
+                  <MicButton value={description} onChange={setDescription} title="Per Sprache eingeben" />
                 </label>
                 <textarea id="description" rows={3} placeholder="Bitte so genau wie möglich beschreiben." value={description} onChange={e => setDescription(e.target.value)}></textarea>
             </div>
