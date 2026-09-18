@@ -527,7 +527,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 <div className="card-row1">
                     <h3 className="card-title">
                       {ticket.origin === 'event' && (
-                        <span title="Veranstaltungsauftrag" style={{ display: 'inline-flex', alignItems: 'center', marginRight: 5, fontSize: 11, fontWeight: 700, color: '#b3000c', background: '#fff0f0', border: '1px solid rgba(179,0,12,0.25)', borderRadius: 4, padding: '0px 5px', verticalAlign: 'middle', lineHeight: '18px', flexShrink: 0 }}>
+                        <span title="Veranstaltungsauftrag" style={{ display: 'inline-flex', alignItems: 'center', marginRight: 5, fontSize: 11, fontWeight: 700, color: '#4f46e5', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 4, padding: '0px 5px', verticalAlign: 'middle', lineHeight: '18px', flexShrink: 0 }}>
                           <i className="ti ti-calendar-event" style={{ fontSize: 10, marginRight: 3 }} />Veranst.
                         </span>
                       )}
