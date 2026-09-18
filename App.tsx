@@ -7,7 +7,7 @@ import {
 } from './types';
 import { MOCK_TICKETS, MOCK_USERS, MOCK_LOCATIONS, STATUSES, DEFAULT_APP_SETTINGS, MOCK_ASSETS, MOCK_MAINTENANCE_PLANS } from './constants';
 import { db, functions } from './firebase';
-import { collection, doc, setDoc, onSnapshot, getDocs, deleteDoc, arrayUnion, query, where } from 'firebase/firestore';
+import { collection, doc, setDoc, onSnapshot, getDocs, deleteDoc, arrayUnion, query, where, updateDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 
 import Sidebar from './components/Sidebar';
@@ -2841,7 +2841,14 @@ const deleteTicketFromFirebase = (ticketId: string) => {
         technician: task.assignee,
         description: task.description || '',
         notes: [],
-      }, true);
+        ...(task.items && task.items.length > 0 ? { eventChecklistDone: [] } : {}),
+      } as any, true);
+
+      // Checklisten-Punkte nachträglich auf das Ticket speichern
+      if (task.items && task.items.length > 0 && ticketId) {
+        const ticketRef = doc(db, 'tickets', String(ticketId));
+        void updateDoc(ticketRef, { eventChecklistItems: task.items, eventChecklistDone: [] });
+      }
 
       return { ...task, ticketId };
     });

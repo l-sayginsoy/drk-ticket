@@ -880,6 +880,36 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 )}
             </div>
 
+            {/* ── CHECKLISTE (nur bei Event-Tickets mit items) ── */}
+            {ticket.origin === 'event' && ticket.eventChecklistItems && ticket.eventChecklistItems.length > 0 && (
+                <div style={{ marginTop: '0.75rem' }}>
+                    <p className="detail-label-compact">Checkliste</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+                        {ticket.eventChecklistItems.map(item => {
+                            const done = (ticket.eventChecklistDone || []).includes(item.id);
+                            return (
+                                <label key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13.5, color: done ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: done ? 'line-through' : 'none' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={done}
+                                        onChange={() => {
+                                            const current = ticket.eventChecklistDone || [];
+                                            const next = done ? current.filter(id => id !== item.id) : [...current, item.id];
+                                            onUpdateTicket({ ...ticket, eventChecklistDone: next });
+                                        }}
+                                        style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--accent-primary)', flexShrink: 0 }}
+                                    />
+                                    {item.label}
+                                </label>
+                            );
+                        })}
+                        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>
+                            {(ticket.eventChecklistDone || []).length}/{ticket.eventChecklistItems.length} erledigt
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <hr className="section-separator" style={{ margin: '0.75rem 0' }} />
 
             {/* ── 5. PILLS: Priorität | Fällig bis | Status ── */}

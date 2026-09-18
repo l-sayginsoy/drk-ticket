@@ -17,7 +17,12 @@ function newTask(eventDate: string): EventTask {
     assignee: 'N/A',
     description: '',
     dueDate: eventDate,
+    items: [],
   };
+}
+
+function newItem(): { id: string; label: string } {
+  return { id: `ei-${Date.now()}-${Math.floor(Math.random() * 10000)}`, label: '' };
 }
 
 export default function EventEditorModal({ event, isNew, users, onSave, onDelete, onClose }: Props) {
@@ -34,6 +39,15 @@ export default function EventEditorModal({ event, isNew, users, onSave, onDelete
 
   const removeTask = (id: string) =>
     setDraft(prev => ({ ...prev, tasks: prev.tasks.filter(t => t.id !== id) }));
+
+  const addItem = (taskId: string) =>
+    setDraft(prev => ({ ...prev, tasks: prev.tasks.map(t => t.id === taskId ? { ...t, items: [...(t.items || []), newItem()] } : t) }));
+
+  const patchItem = (taskId: string, itemId: string, label: string) =>
+    setDraft(prev => ({ ...prev, tasks: prev.tasks.map(t => t.id === taskId ? { ...t, items: (t.items || []).map(it => it.id === itemId ? { ...it, label } : it) } : t) }));
+
+  const removeItem = (taskId: string, itemId: string) =>
+    setDraft(prev => ({ ...prev, tasks: prev.tasks.map(t => t.id === taskId ? { ...t, items: (t.items || []).filter(it => it.id !== itemId) } : t) }));
 
   const handleSave = () => {
     if (!draft.title.trim() || !draft.date) return;
@@ -108,35 +122,60 @@ export default function EventEditorModal({ event, isNew, users, onSave, onDelete
             )}
 
             {draft.tasks.map((task, idx) => (
-              <div key={task.id} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, padding: '0.65rem 0.75rem', marginBottom: '0.45rem' }}>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.4rem' }}>
-                  <span style={{ fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 700, minWidth: 18 }}>{idx + 1}.</span>
-                  <input
-                    value={task.label}
-                    onChange={e => patchTask(task.id, { label: e.target.value })}
-                    placeholder="Aufgabe beschreiben …"
-                    style={{ ...inputStyle, margin: 0, flex: 1, fontSize: 13 }}
-                  />
-                  <button onClick={() => removeTask(task.id)} title="Entfernen" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: 16, lineHeight: 1, padding: '0 4px' }}>×</button>
+              <div key={task.id} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, marginBottom: '0.45rem', overflow: 'hidden' }}>
+                {/* Aufgaben-Header */}
+                <div style={{ padding: '0.65rem 0.75rem', borderBottom: (task.items && task.items.length > 0) ? '1px solid var(--border)' : 'none' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.4rem' }}>
+                    <span style={{ fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 700, minWidth: 18 }}>{idx + 1}.</span>
+                    <input
+                      value={task.label}
+                      onChange={e => patchTask(task.id, { label: e.target.value })}
+                      placeholder="Aufgaben-Titel (z. B. Vorbereitung Saal) …"
+                      style={{ ...inputStyle, margin: 0, flex: 1, fontSize: 13 }}
+                    />
+                    <button onClick={() => removeTask(task.id)} title="Entfernen" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: 16, lineHeight: 1, padding: '0 4px' }}>×</button>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', paddingLeft: '1.5rem' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ ...labelStyle, fontSize: 11 }}>Zuständig</label>
+                      <select value={task.assignee} onChange={e => patchTask(task.id, { assignee: e.target.value })} style={{ ...inputStyle, margin: 0, fontSize: 12 }}>
+                        <option value="N/A">— nicht zugewiesen —</option>
+                        {sortedUsers.map(u => <option key={u.name} value={u.name}>{u.name}</option>)}
+                      </select>
+                    </div>
+                    <div style={{ flex: '0 0 130px' }}>
+                      <label style={{ ...labelStyle, fontSize: 11 }}>Erledigt bis</label>
+                      <input type="date" value={task.dueDate || draft.date} onChange={e => patchTask(task.id, { dueDate: e.target.value })} style={{ ...inputStyle, margin: 0, fontSize: 12 }} />
+                    </div>
+                  </div>
+                  {task.ticketId && (
+                    <div style={{ paddingLeft: '1.5rem', marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
+                      Ticket #{task.ticketId} wurde bereits erstellt.
+                    </div>
+                  )}
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem', paddingLeft: '1.5rem' }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ ...labelStyle, fontSize: 11 }}>Zuständig</label>
-                    <select value={task.assignee} onChange={e => patchTask(task.id, { assignee: e.target.value })} style={{ ...inputStyle, margin: 0, fontSize: 12 }}>
-                      <option value="N/A">— nicht zugewiesen —</option>
-                      {sortedUsers.map(u => <option key={u.name} value={u.name}>{u.name}</option>)}
-                    </select>
-                  </div>
-                  <div style={{ flex: '0 0 130px' }}>
-                    <label style={{ ...labelStyle, fontSize: 11 }}>Erledigt bis</label>
-                    <input type="date" value={task.dueDate || draft.date} onChange={e => patchTask(task.id, { dueDate: e.target.value })} style={{ ...inputStyle, margin: 0, fontSize: 12 }} />
-                  </div>
+
+                {/* Checklisten-Punkte */}
+                <div style={{ padding: '0.4rem 0.75rem 0.5rem 2rem', background: 'var(--bg-primary)' }}>
+                  {(task.items || []).map((item, iIdx) => (
+                    <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                      <span style={{ width: 14, height: 14, border: '1.5px solid var(--border-active)', borderRadius: 3, flexShrink: 0, display: 'inline-block' }} />
+                      <input
+                        value={item.label}
+                        onChange={e => patchItem(task.id, item.id, e.target.value)}
+                        placeholder={`Punkt ${iIdx + 1} …`}
+                        style={{ ...inputStyle, margin: 0, flex: 1, fontSize: 12.5, padding: '4px 8px' }}
+                      />
+                      <button onClick={() => removeItem(task.id, item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 14, lineHeight: 1, padding: '0 2px' }}>×</button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => addItem(task.id)}
+                    style={{ fontSize: 11.5, color: 'var(--accent-primary)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}
+                  >
+                    + Punkt hinzufügen
+                  </button>
                 </div>
-                {task.ticketId && (
-                  <div style={{ paddingLeft: '1.5rem', marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
-                    Ticket #{task.ticketId} wurde bereits erstellt.
-                  </div>
-                )}
               </div>
             ))}
           </div>

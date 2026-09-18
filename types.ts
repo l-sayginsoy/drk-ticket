@@ -231,16 +231,19 @@ export interface Ticket {
   parkReminderNextDate?: string; // YYYY-MM-DD of next reminder
   parkedAt?: string; // YYYY-MM-DD when it was parked
   isNew?: boolean; // true until first viewed by staff
+  eventChecklistItems?: { id: string; label: string }[]; // Checklisten-Punkte (für event-Tickets, aus EventTask.items)
+  eventChecklistDone?: string[]; // IDs der abgehakten Checklisten-Punkte (für event-Tickets)
 }
 
 /** Eine einzelne Aufgabe innerhalb einer Veranstaltung. */
 export interface EventTask {
   id: string;
-  label: string;        // z. B. "Boden wischen", "Getränke vorbereiten"
+  label: string;        // z. B. "Vorbereitung Heiko", Ticket-Titel
   assignee: string;     // Personenname oder 'N/A'
   description?: string;
   dueDate?: string;     // YYYY-MM-DD; falls leer → Veranstaltungsdatum
   ticketId?: string;    // gesetzt sobald das Ticket erzeugt wurde (Duplikat-Schutz)
+  items?: { id: string; label: string }[]; // Checkliste innerhalb des Tickets
 }
 
 /** Veranstaltung / Termin (einmalig, nicht periodisch). */
