@@ -122,8 +122,15 @@ export default function EventsView({ events, tickets, completedTickets, userRole
               return (
                 <div key={task.id} className={`ev-task-row ${st === 'done' ? 'ev-task-done' : ''}`}>
                   <span className={`ev-task-dot ev-task-dot--${st}`} />
-                  <span className="ev-task-label">{task.label || '—'}</span>
-                  {task.assignee && task.assignee !== 'N/A' && (
+                  <span className="ev-task-label">
+                    {task.label && task.label !== task.assignee ? task.label : task.assignee || '—'}
+                    {task.items && task.items.length > 0 && (
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400, marginLeft: 6 }}>
+                        ({task.items.length} Punkt{task.items.length !== 1 ? 'e' : ''})
+                      </span>
+                    )}
+                  </span>
+                  {task.assignee && task.assignee !== 'N/A' && task.label !== task.assignee && (
                     <span className="ev-task-assignee">{task.assignee}</span>
                   )}
                   {task.dueDate && task.dueDate !== ev.date && (

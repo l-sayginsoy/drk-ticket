@@ -140,17 +140,27 @@ export default function EventEditorModal({ event, isNew, users, onSave, onDelete
                 <div style={{ padding: '0.65rem 0.75rem', borderBottom: (task.items && task.items.length > 0) ? '1px solid var(--border)' : 'none' }}>
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                     <span style={{ fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 700, minWidth: 18 }}>{idx + 1}.</span>
-                    <div style={{ flex: 1, display: 'flex', gap: '0.5rem' }}>
-                      <div style={{ flex: 1 }}>
-                        <label style={{ ...labelStyle, fontSize: 11 }}>Zuständig</label>
-                        <select value={task.assignee} onChange={e => patchTask(task.id, { assignee: e.target.value, label: e.target.value !== 'N/A' ? e.target.value : task.label })} style={{ ...inputStyle, margin: 0, fontSize: 12 }}>
-                          <option value="N/A">— nicht zugewiesen —</option>
-                          {sortedUsers.map(u => <option key={u.name} value={u.name}>{u.name}</option>)}
-                        </select>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ ...labelStyle, fontSize: 11 }}>Zuständig</label>
+                          <select value={task.assignee} onChange={e => patchTask(task.id, { assignee: e.target.value, label: task.label && task.label !== task.assignee ? task.label : e.target.value })} style={{ ...inputStyle, margin: 0, fontSize: 12 }}>
+                            <option value="N/A">— nicht zugewiesen —</option>
+                            {sortedUsers.map(u => <option key={u.name} value={u.name}>{u.name}</option>)}
+                          </select>
+                        </div>
+                        <div style={{ flex: '0 0 130px' }}>
+                          <label style={{ ...labelStyle, fontSize: 11 }}>Erledigt bis</label>
+                          <input type="date" value={task.dueDate || draft.date} onChange={e => patchTask(task.id, { dueDate: e.target.value })} style={{ ...inputStyle, margin: 0, fontSize: 12 }} />
+                        </div>
                       </div>
-                      <div style={{ flex: '0 0 130px' }}>
-                        <label style={{ ...labelStyle, fontSize: 11 }}>Erledigt bis</label>
-                        <input type="date" value={task.dueDate || draft.date} onChange={e => patchTask(task.id, { dueDate: e.target.value })} style={{ ...inputStyle, margin: 0, fontSize: 12 }} />
+                      <div>
+                        <input
+                          value={task.label === task.assignee ? '' : task.label}
+                          onChange={e => patchTask(task.id, { label: e.target.value.trim() || task.assignee })}
+                          placeholder="Kurzbeschreibung (optional, z. B. Saal vorbereiten)"
+                          style={{ ...inputStyle, margin: 0, fontSize: 12, color: 'var(--text-secondary)' }}
+                        />
                       </div>
                     </div>
                     <button onClick={() => removeTask(task.id)} title="Entfernen" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: 16, lineHeight: 1, padding: '0 4px', marginTop: 18 }}>×</button>
