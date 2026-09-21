@@ -12,6 +12,7 @@ import { httpsCallable } from 'firebase/functions';
 
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
+import AppTopBar from './components/AppTopBar';
 import FilterBar from './components/FilterBar';
 import KanbanBoard from './components/KanbanBoard';
 import NewTicketModal from './components/NewTicketModal';
@@ -3809,6 +3810,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
 
   return (
     <div className="app-layout">
+      <AppTopBar collapsed={isSidebarCollapsed} search={filters.search} onSearch={search => setFilters(previous => ({...previous, search}))} showSearch={['dashboard', 'tech-dashboard', 'tickets', 'erledigt', 'parked'].includes(currentView)} />
       <Sidebar
         appSettings={appSettings}
         isCollapsed={isSidebarCollapsed}

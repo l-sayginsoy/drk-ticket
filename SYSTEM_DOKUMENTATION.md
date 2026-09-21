@@ -897,3 +897,8 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 - Anthrazitfarbene Navigation mit weißer Logofläche und lokal begrenzten Farbvariablen.
 - Dashboard/Techniker-Dashboard: kompakte Serienerinnerung zeigt heutige offene und überfällige Aufträge zusammen, inklusive Aufgabennamen. Überfällige verschwinden auch ohne heutige Termine nicht. Öffnet weiterhin die Serienaufträge zur Bearbeitung. Der bisherige große Warnblock bleibt in anderen Ansichten erhalten.
 - Keine Änderungen an Persistenz, Statuslogik oder produktiven Tickets.
+
+### 21.09.2026 – Korrektur der Kopfzeile und lokalen Vorschau
+- Durchgehende weiße Kopfzeile mit DRK-Logo über der anthrazitfarbenen Navigation und zentraler Ticketsuche; ersetzt den separaten weißen Logokasten.
+- Suche an vorhandenen Filter-State angebunden, Dashboard/Listen/Abgeschlossen verwenden denselben Suchwert. Kein doppeltes Suchfeld in der Seitenüberschrift.
+- Lokale Gestaltungsvorschau enthält nun auch die echten Header- und Filter-Komponenten; Beispieldaten bleiben von Firebase getrennt.

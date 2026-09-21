@@ -100,22 +100,7 @@ const Header: React.FC<HeaderProps> = ({ filters, setFilters, currentView }) => 
           </div>
         ) : null}
       </div>
-      <div className="header-actions">
-        {currentView === 'tickets' || currentView === 'erledigt' ? (
-          <div className="search-container">
-            <span className="search-icon">
-              <SearchIcon />
-            </span>
-            <input
-              type="text"
-              className="search-input"
-              placeholder="Tickets durchsuchen..."
-              value={filters.search}
-              onChange={(e) => setFilters((prev: any) => ({ ...prev, search: e.target.value }))}
-            />
-          </div>
-        ) : null}
-      </div>
+
     </header>
   );
 };
