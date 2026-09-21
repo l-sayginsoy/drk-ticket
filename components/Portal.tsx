@@ -35,8 +35,8 @@ interface PortalProps {
   onLogin: (user: User) => void;
   tickets: Ticket[];
   locations: string[];
-  onAddTicket: (newTicket: Omit<Ticket, 'id' | 'entryDate' | 'status' | 'priority'> & { priority?: Priority }) => string;
-  onUpdateTicket: (ticket: Ticket) => void;
+  onAddTicket: (newTicket: Omit<Ticket, 'id' | 'entryDate' | 'status' | 'priority'> & { priority?: Priority }) => Promise<string>;
+  onUpdateTicket: (ticket: Ticket, original?: Ticket) => Promise<Ticket | null>;
   users: User[];
   /** true, wenn Firebase/Init abgeschlossen – für Deep-Link ?ticket= aus E-Mail */
   dataReady: boolean;
@@ -99,7 +99,7 @@ const compressImage = (file: File): Promise<string> => {
 
 const NewTicketForm: React.FC<{
     locations: string[];
-    onAddTicket: (newTicket: Omit<Ticket, 'id' | 'entryDate' | 'status' | 'priority'> & { priority?: Priority }) => string;
+    onAddTicket: (newTicket: Omit<Ticket, 'id' | 'entryDate' | 'status' | 'priority'> & { priority?: Priority }) => Promise<string>;
     setView: (view: PortalView) => void;
     setNewlyCreatedTicketId: (id: string) => void;
     appSettings: AppSettings;
@@ -190,13 +190,16 @@ const NewTicketForm: React.FC<{
         setFormState(prev => ({ ...prev, photos: prev.photos.filter((_, i) => i !== index) }));
     };
 
-    const handleSubmit = () => {
+    const [saving, setSaving] = useState(false);
+    const handleSubmit = async () => {
+        if (saving) return;
         if (!validate()) return;
         const formattedWunschTermin = formState.wunschTermin
             ? formState.wunschTermin.split('-').reverse().join('.')
             : undefined;
 
-        const newTicketId = onAddTicket({
+        setSaving(true);
+        const newTicketId = await onAddTicket({
             ticketType: 'reactive',
             title: formState.title, area: formState.area, location: formState.location,
             reporter: formState.reporter, reporter_email: formState.reporter_email, dueDate: '', // Will be auto-calculated
@@ -206,6 +209,8 @@ const NewTicketForm: React.FC<{
             wunschTermin: formattedWunschTermin, photos: formState.photos, notes: [],
         });
 
+        setSaving(false);
+        if (!newTicketId) { alert('Die Meldung wurde nicht gespeichert. Bitte erneut versuchen.'); return; }
         setNewlyCreatedTicketId(newTicketId);
         // Reporter zur lokalen Autocomplete-Liste hinzufügen (kein Duplikat)
         try {
@@ -370,7 +375,7 @@ const NewTicketForm: React.FC<{
                     </div>
                 </div>
                 <div className="portal-actions">
-                    <button className="portal-btn btn-primary" onClick={handleSubmit} style={{ whiteSpace: 'nowrap' }}>Meldung senden</button>
+                    <button className="portal-btn btn-primary" onClick={handleSubmit} disabled={saving} style={{ whiteSpace: 'nowrap' }}>Meldung senden</button>
                 </div>
             </div>
         </>
@@ -569,7 +574,7 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
       }
   };
   
-  const handleAddNewNote = () => {
+  const handleAddNewNote = async () => {
     if (!newNote.trim() || !foundTicket) return;
 
     const date = new Date();
@@ -581,14 +586,15 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
     const updatedNotes = [...(foundTicket.notes || []), noteTextWithMeta];
     const updatedTicket = { ...foundTicket, notes: updatedNotes, hasNewNoteFromReporter: true, reporterNoteReadBy: [] };
 
-    onUpdateTicket(updatedTicket);
-    setFoundTicket(updatedTicket); // Update local state to show new note immediately
+    const saved = await onUpdateTicket(updatedTicket, foundTicket);
+    if (!saved) { alert('Die Änderung wurde nicht gespeichert. Bitte den aktuellen Ticketstand erneut abrufen.'); return; }
+    setFoundTicket(saved); // Update local state to show new note immediately
     setNewNote('');
     setNoteAdded(true);
     setTimeout(() => setNoteAdded(false), 3000); // Hide message after 3 seconds
   };
 
-  const handleReopenTicket = () => {
+  const handleReopenTicket = async () => {
     if (!foundTicket) return;
     const date = new Date();
     const formattedDate = date.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric' });
@@ -602,8 +608,9 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
     const updatedNotes = [...(foundTicket.notes || []), noteTextWithMeta];
     const updatedTicket = { ...foundTicket, status: Status.InArbeit, notes: updatedNotes, hasNewNoteFromReporter: true, reporterNoteReadBy: [], is_reopened: true };
 
-    onUpdateTicket(updatedTicket);
-    setFoundTicket(updatedTicket);
+    const saved = await onUpdateTicket(updatedTicket, foundTicket);
+    if (!saved) { alert('Die Änderung wurde nicht gespeichert. Bitte den aktuellen Ticketstand erneut abrufen.'); return; }
+    setFoundTicket(saved);
     setNewNote('');
     setNoteAdded(true);
     setTimeout(() => setNoteAdded(false), 3000);

@@ -1,0 +1,8 @@
+{
+  "firestore": { "rules": "firestore.rules", "edition": "enterprise" },
+  "emulators": {
+    "firestore": { "host": "127.0.0.1", "port": 8787, "edition": "enterprise" },
+    "ui": { "enabled": false },
+    "singleProjectMode": true
+  }
+}

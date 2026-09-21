@@ -30,6 +30,36 @@ service cloud.firestore {
       return isAdmin() || isTechnician();
     }
 
+    // Ticket lifecycle only: preserve the existing login/access model.
+    // Each ticket document has id:string and status:string. Completed copies live
+    // in completed_tickets; intentional reopen moves them atomically to active.
+    function isValidTicket(ticketId) {
+      return request.resource.data.id == ticketId
+        && request.resource.data.status in ['Offen', 'In Arbeit', 'Überfällig', 'Abgeschlossen', 'Zurückgestellt'];
+    }
+
+    function canWriteActiveTicket(ticketId) {
+      // The closed-status exception lets old clients finish their legacy close
+      // sequence. Their stale OPEN/OVERDUE writes must never revive an archive.
+      return isValidTicket(ticketId) &&
+        (request.resource.data.status == 'Abgeschlossen' ||
+         !existsAfter(/databases/$(database)/documents/completed_tickets/$(ticketId)));
+    }
+
+    function isReopenedAt(collectionName, ticketId) {
+      let path = /databases/$(database)/documents/$(collectionName)/$(ticketId);
+      return existsAfter(path) && getAfter(path).data.status != 'Abgeschlossen'
+        && getAfter(path).data.get('is_reopened', false) == true;
+    }
+
+    function canRemoveCompletedTicket(ticketId) {
+      // Old clients must not delete the archive after a rejected stale reopen.
+      // Deliberate deletion keeps the existing cross-device deletion blocklist.
+      let deleted = /databases/$(database)/documents/app_data/deleted-ticket-ids;
+      return isReopenedAt('tickets', ticketId) || isReopenedAt('routine_tickets', ticketId)
+        || (existsAfter(deleted) && ticketId in getAfter(deleted).data.value);
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -52,20 +82,21 @@ service cloud.firestore {
 
     // Active Tickets Collection
     match /tickets/{ticketId} {
-      allow read: if true;
-      allow write: if true;
+      allow read, delete: if true;
+      allow create, update: if canWriteActiveTicket(ticketId);
     }
 
     // Completed Tickets Collection
     match /completed_tickets/{ticketId} {
       allow read: if true;
-      allow write: if true;
+      allow create, update: if isValidTicket(ticketId) && request.resource.data.status == 'Abgeschlossen';
+      allow delete: if canRemoveCompletedTicket(ticketId);
     }
 
     // Routine Tickets Collection (active series/routine tickets)
     match /routine_tickets/{ticketId} {
-      allow read: if true;
-      allow write: if true;
+      allow read, delete: if true;
+      allow create, update: if canWriteActiveTicket(ticketId);
     }
 
     // Assets Collection

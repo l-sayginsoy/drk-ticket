@@ -35,6 +35,14 @@ Serienaufträge (Routinen) · Brevo-E-Mails · Stale-Erinnerungen · **Interner 
 
 ## Zuletzt abgeschlossen
 
+### Session 21.09.2026 – Abgeschlossene Tickets dürfen nicht wieder überfällig werden
+- Ticket-Schreibwege über `utils/ticketPersistence.ts` (Transaktionen). Automatische Updates dürfen fehlende/archivierte Tickets NIEMALS per unbedingtem `setDoc` neu anlegen.
+- Abschluss und bewusstes Wiederöffnen verschieben Dokumente atomar. `lifecycleRevision` nicht entfernen.
+- Neue Ticketnummern erst nach geprüfter Reservierung verwenden; `handleAddNewTicket` ist asynchron.
+- Firestore-Regeln schützen auch vor alten Clients. Regeln und App müssen zusammen ausgerollt werden.
+- Regressionstests: `firebase.test.json` + `npm run test:ticket-persistence` (lokale Demo-Datenbank, niemals Produktion).
+- Befund zu 37177/31811: SYSTEM_DOKUMENTATION.md, Änderungshistorie 21.09.2026.
+
 ### Session 15.06.2026 – Layout/UI-Feinschliff (committed & deployed)
 - **Board-Breite** (`App.tsx`, `.kanban-workbench`): max-width **2400px** (vorher 1300→1600→2000→2400).
   Füllt 24"+-Monitore, wächst mit dem Fenster, deckelt erst auf sehr breiten Displays. Die

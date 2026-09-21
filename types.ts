@@ -188,6 +188,7 @@ export interface StaffMessage {
 }
 
 export interface Ticket {
+  lifecycleRevision?: number; // changes only on an explicit reopen
   id: string;
   ticketType: TicketType;
   origin?: 'manual' | 'maintenance' | 'routine' | 'event';

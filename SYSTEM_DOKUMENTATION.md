@@ -804,6 +804,19 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 
 ## 25. Änderungshistorie
 
+### 21.09.2026 – Abschluss gegen verspätete Schreibvorgänge abgesichert
+
+- Ursache im Code: aktive Tickets wurden mit unbedingtem `setDoc` gespeichert; getrennte Archivierung/Löschung ließ andere Geräte entfernte Aufträge erneut anlegen. Zusätzlich wurden zufällige Ticketnummern ohne Kollisionsprüfung vergeben.
+- `utils/ticketPersistence.ts`: Transaktionen prüfen aktuellen Serverstand und Archiv, übernehmen nur tatsächlich geänderte Felder und verschieben Abschluss/Wiederöffnung atomar. Automatische Updates dürfen keine fehlenden aktiven Dokumente neu anlegen. `lifecycleRevision` schützt vor alten Änderungen aus einem früheren Öffnungszyklus.
+- Neue Nummern werden gegen aktive Tickets, Routinen, Archiv und Löschliste geprüft. Erfolgsmeldungen und Melder-E-Mails folgen erst nach bestätigtem Speichern. Portal, Veranstaltungen und Serienerzeugung warten deshalb auf die bestätigte Ticketnummer.
+- Sammelabschluss nutzt denselben geprüften Speicherweg; keine Schreibaktionen mehr innerhalb seiner React-State-Updater.
+- `firestore.rules`: serverseitiger Schutz gegen das Wiederanlegen aktiver Tickets mit vorhandener Archivkopie. Alte Abschlussabläufe bleiben zulässig; absichtliches Wiederöffnen erfolgt atomar. Einzelnes Löschen des Archivs ist nur bei Wiederöffnung oder gesetzter Löschmarkierung erlaubt. Bestehendes Berechtigungs-/Loginmodell bleibt erhalten.
+- Tickets 37177 und 31811 ausschließlich gelesen: beide am 21.09.2026 bereits wieder im Archiv, keine aktive Kopie. Die historischen Verursacher sind aus diesen aktuellen Dokumenten nicht beweisbar. Keine produktiven Ticketdaten verändert.
+- Verifikation: 13 Integrationstests im lokalen Firestore-Enterprise-Emulator (konkurrierende Clients, alte App-Schreibvorgänge, Nummernkollisionen, abgelehnter Archivschreibvorgang, Wiederöffnung, Löschung und Erhalt neuer Nachrichten), TypeScript-Prüfung und Produktionsbuild sowie serverseitige Regelkompilierung im Dry-Run.
+- Tests: `firebase emulators:start --only firestore --project demo-drk-ticket-regression --config firebase.test.json`, anschließend `npm run test:ticket-persistence`. Java 21+ und Firebase CLI erforderlich. Tests löschen ausschließlich die lokale Demo-Testdatenbank.
+- Rollout: Hosting über vorhandenen GitHub-Workflow; Regeln zusätzlich mit `firebase deploy --only firestore:rules --project drk-facility-dashboard`. Geöffnete Apps neu laden, damit die atomare Wiederöffnung verwendet wird. Regeln verhindern die Wiederbelebung auch aus alten Clients; keine vollständige Überarbeitung der bestehenden Zugriffssicherheit.
+
+
 | Datum | Änderung |
 |---|---|
 | 21.06.2026 | **Rückkehr löst keine automatische Umverteilung mehr aus** (`App.tsx` ~Z.1799): Nutzer-Wunsch — kommt ein abwesender Mitarbeiter zurück, werden ihm Aufträge **manuell** zugewiesen. Die frühere Rückkehr-Lastverteilung (zog bei Rückkehr offene Tickets noch abwesender Kollegen automatisch an den Rückkehrer) wurde **entfernt**. **Unverändert** bleiben: Abwesenheits-Umverteilung an Kollegen (Schritt 1), der Schutz zurückgestellter/abgeschlossener Tickets (`canRedistribute`), und die „wartet auf Rückkehr"-Automatik (`parkedForReturnOf` — bewusst Abwesenden zugewiesene Tickets kommen bei Rückkehr zurück). Vor Umsetzung mit dem Nutzer abgeklärt (beide Sonderfälle bestätigt). Verifikation: `tsc` grün, bewusst kein Live-Test (Umverteilung mutiert echte Tickets). |

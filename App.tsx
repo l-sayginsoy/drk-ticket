@@ -40,6 +40,7 @@ import {
   readStoredBrevoMailError,
   type BrevoMailStatusDetail,
 } from './utils/brevoHealth';
+import { persistTicket, TicketConflictError } from './utils/ticketPersistence';
 import { displayNameShort, normalizePersonName } from './utils/displayNames';
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: any}> {
   constructor(props: {children: React.ReactNode}) {
@@ -1838,7 +1839,7 @@ const App: React.FC = () => {
 
               if (updated) {
                   alert(`Erfolg: ${movedTotal} Tickets wurden automatisch umverteilt.`);
-                  ticketsToUpdate.forEach((t, i) => { if (t !== currentTickets[i]) saveTicketToFirebase(t); });
+                  ticketsToUpdate.forEach((t, i) => { if (t !== currentTickets[i]) saveTicketToFirebase(t, currentTickets[i]); });
                   return ticketsToUpdate;
               }
               return currentTickets;
@@ -1892,7 +1893,7 @@ const App: React.FC = () => {
               return t;
           });
           if (!changed) return prev;
-          next.forEach((t, i) => { if (t !== prev[i]) saveTicketToFirebase(t); });
+          next.forEach((t, i) => { if (t !== prev[i]) saveTicketToFirebase(t, prev[i]); });
           return next;
       });
   }, [tickets, users]);
@@ -1913,11 +1914,10 @@ const App: React.FC = () => {
     });
 
     if (duePlans.length > 0) {
-        const updatedPlans = [...maintenancePlans];
-
-        duePlans.forEach(plan => {
+        void (async () => {
+        for (const plan of duePlans) {
             const asset = assets.find(a => a.id === plan.assetId);
-            if(!asset) return;
+            if(!asset) continue;
             
             const location = locations.find(l => l.id === asset.locationId);
 
@@ -1936,16 +1936,14 @@ const App: React.FC = () => {
                 categoryId: 'cat-gebaeudetechnik',
             };
             
-            const ticketId = handleAddNewTicket(newTicket, true); // Add ticket without opening modal
-            const planIndex = updatedPlans.findIndex(p => p.id === plan.id);
-            if (planIndex !== -1) {
-                updatedPlans[planIndex] = { ...updatedPlans[planIndex], lastGenerated: todayStr };
-            }
-        });
-        setMaintenancePlans(updatedPlans);
+            const ticketId = await handleAddNewTicket(newTicket, true);
+            if (ticketId) setMaintenancePlans(prev => prev.map(p => p.id === plan.id ? { ...p, lastGenerated: todayStr } : p));
+        }
+        })();
     }
   }, []); // Runs once on app load
 
+  const routineGenerationRunning = useRef(false);
   // Routine Schedules (Serientermine): Fälligkeit inkl. Startdatum, monatlich/jährlich, RP-Feiertags-Verschiebung
   useEffect(() => {
     if (!isInitialized) return;
@@ -1964,12 +1962,16 @@ const App: React.FC = () => {
 
     const rpSet = new Set(rpHolidayYmdList);
 
+    if (routineGenerationRunning.current) return;
+    routineGenerationRunning.current = true;
+    void (async () => {
+    try {
     const updatedSchedules = [...schedules];
     let changed = false;
 
-    schedules.forEach((schedule, idx) => {
-      if (schedule.lastGenerated === todayStr) return;
-      if (!isRoutineDueOnCalendarDay(schedule, today, rpSet)) return;
+    for (const [idx, schedule] of schedules.entries()) {
+      if (schedule.lastGenerated === todayStr) continue;
+      if (!isRoutineDueOnCalendarDay(schedule, today, rpSet)) continue;
       // Safety: skip if a ticket for this schedule was already created today
       // Use todayStr (ISO YYYY-MM-DD) to compare against entryDate stored as DD.MM.YYYY
       const [y, m, d] = todayStr.split('-');
@@ -1977,7 +1979,7 @@ const App: React.FC = () => {
       const alreadyCreatedToday = routineTickets.some(
         t => t.routineScheduleId === schedule.id && t.entryDate === todayDE
       );
-      if (alreadyCreatedToday) return;
+      if (alreadyCreatedToday) continue;
 
       const eligibleUsers = users
         .filter(u => u.isActive && u.role === schedule.targetRole)
@@ -2023,14 +2025,21 @@ const App: React.FC = () => {
         categoryId: 'cat-gebaeudetechnik',
       };
 
-      handleAddNewTicket(newTicket, true);
+      const ticketId = await handleAddNewTicket(newTicket, true);
+      if (!ticketId) { updatedSchedules[idx] = schedule; continue; }
       updatedSchedules[idx] = { ...updatedSchedules[idx], lastGenerated: todayStr } as any;
       changed = true;
-    });
+    }
 
     if (changed) {
-      setAppSettings(prev => ({ ...prev, routineSchedules: updatedSchedules as any }));
+      setAppSettings(prev => ({ ...prev, routineSchedules: prev.routineSchedules.map(current => {
+        const index = schedules.findIndex(old => old.id === current.id);
+        if (index < 0 || JSON.stringify(current) !== JSON.stringify(schedules[index])) return current;
+        return updatedSchedules[index];
+      }) }));
     }
+    } finally { routineGenerationRunning.current = false; }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- tickets intentionally accessed via closure; adding to deps would re-run on every ticket save
   }, [isInitialized, appSettings.routineSchedules, users, rpHolidayYmdList]);
 
@@ -2064,7 +2073,7 @@ const App: React.FC = () => {
 
     if (wasChanged) {
       setTickets(updatedTickets);
-      updatedTickets.forEach((t, i) => { if (t !== tickets[i]) saveTicketToFirebase(t); });
+      updatedTickets.forEach((t, i) => { if (t !== tickets[i]) saveTicketToFirebase(t, tickets[i]); });
     }
   }, [tickets, isInitialized]);
 
@@ -2149,7 +2158,7 @@ const App: React.FC = () => {
 
     if (wasChanged) {
       setRoutineTickets(updatedRoutineTickets);
-      updatedRoutineTickets.forEach((t, i) => { if (t !== routineTickets[i]) saveTicketToFirebase(t); });
+      updatedRoutineTickets.forEach((t, i) => { if (t !== routineTickets[i]) saveTicketToFirebase(t, routineTickets[i]); });
     }
   }, [routineTickets, isInitialized]);
 
@@ -2341,30 +2350,28 @@ const persistDeletedIds = () => {
   );
 };
 
-const saveTicketToFirebase = (ticket: Ticket) => {
-  const coll = ticket.origin === 'routine' ? 'routine_tickets' : 'tickets';
-  void setDoc(doc(db, coll, ticket.id), JSON.parse(JSON.stringify(ticket)))
-    .then(() => setLastSyncTime(new Date()))
-    .catch((err) => console.error('Fehler beim Speichern des Tickets:', err));
+const reconcileTicket = (id: string, current: Ticket | null) => {
+  setTickets(prev => current && current.status !== Status.Abgeschlossen && current.origin !== 'routine'
+    ? [...prev.filter(t => t.id !== id), current] : prev.filter(t => t.id !== id));
+  setRoutineTickets(prev => current && current.status !== Status.Abgeschlossen && current.origin === 'routine'
+    ? [...prev.filter(t => t.id !== id), current] : prev.filter(t => t.id !== id));
+  setCompletedTickets(prev => current?.status === Status.Abgeschlossen
+    ? [...prev.filter(t => t.id !== id), current] : prev.filter(t => t.id !== id));
+  setSelectedTicket(prev => prev?.id === id ? current : prev);
 };
 
-const saveCompletedTicketToFirebase = (ticket: Ticket) => {
-  void setDoc(doc(db, 'completed_tickets', ticket.id), JSON.parse(JSON.stringify(ticket)))
-    .then(() => setLastSyncTime(new Date()))
-    .catch((err) => console.error('Fehler beim Speichern:', err));
+const reportTicketSaveError = (ticket: Ticket, error: unknown, original?: Ticket) => {
+  if (error instanceof TicketConflictError) reconcileTicket(ticket.id, error.current);
+  console.error('Auftrag konnte nicht gespeichert werden:', error);
+  addToast({ type: 'assigned', title: 'Änderung nicht gespeichert',
+    message: `Ticket ${ticket.id}: ${error instanceof TicketConflictError ? error.message : 'Verbindung prüfen und erneut versuchen.'}` });
 };
 
-const deleteFromActiveFirebase = (ticketId: string) => {
-  void deleteDoc(doc(db, 'tickets', ticketId))
+const saveTicketToFirebase = (ticket: Ticket, original?: Ticket) => {
+  const before = original ?? tickets.find(t => t.id === ticket.id) ?? routineTickets.find(t => t.id === ticket.id);
+  void persistTicket(db, ticket, 'update', before, normalizeTicket)
     .then(() => setLastSyncTime(new Date()))
-    .catch(() => {});
-  void deleteDoc(doc(db, 'routine_tickets', ticketId))
-    .catch(() => {});
-};
-
-const deleteFromCompletedFirebase = (ticketId: string) => {
-  void deleteDoc(doc(db, 'completed_tickets', ticketId))
-    .catch((err) => console.error('Fehler beim Löschen (abgeschlossen):', err));
+    .catch(error => reportTicketSaveError(ticket, error, before));
 };
 
 const deleteTicketFromFirebase = (ticketId: string) => {
@@ -2399,8 +2406,8 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     });
   };
 
-  const commitTicketUpdate = (updatedTicket: Ticket, originalTicket: Ticket) => {
-    const ut: Ticket = { ...updatedTicket };
+  const commitTicketUpdate = async (updatedTicket: Ticket, originalTicket: Ticket) => {
+    let ut: Ticket = { ...updatedTicket };
     const statusChanged = originalTicket.status !== ut.status;
     const originalDueDate = originalTicket.dueDate; // Sicherung: wird am Ende geprüft
 
@@ -2408,9 +2415,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     if (ut.technician !== originalTicket.technician) {
       ut.autoAssigned = false;
       // SELBST-LERNEN: echte manuelle Zuweisung an eine Person (nicht 'N/A') → Schlagwörter merken
-      if (ut.technician && ut.technician !== 'N/A') {
-        learnFromAssignment(ut, ut.technician);
-      }
+
     }
 
     // --- Zuweisung an einen ABWESENDEN → Aufgabe parken („wartet auf Rückkehr") ---
@@ -2418,7 +2423,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     // mit Marker parkedForReturnOf. Bei dessen Rückkehr holt der Wächter sie automatisch zurück.
     // Gegenstück: wird ein bereits geparktes Ticket an eine andere/verfügbare Person umgewiesen,
     // wird es reaktiviert (Marker weg, wieder Offen).
-    if (ut.technician !== 'N/A' && ut.technician !== originalTicket.technician) {
+    if (ut.status !== Status.Abgeschlossen && ut.technician !== 'N/A' && ut.technician !== originalTicket.technician) {
       const techUser = users.find((u) => u.name === ut.technician);
       const d = new Date();
       const stamp = `${d.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric' })}, ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
@@ -2487,6 +2492,37 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       ut.is_reopened = false;
     }
 
+    // Absoluter Sicherheitsanker: dueDate darf sich NUR ändern wenn der User
+    // es selbst geändert hat, oder wunschTermin/Kategorie/Überfällig-Status sich änderte.
+    const dueDateManuallyChanged = updatedTicket.dueDate !== originalTicket.dueDate;
+    const dueDateRelevantChange =
+      dueDateManuallyChanged ||
+      (ut.wunschTermin?.trim() || '') !== (originalTicket.wunschTermin?.trim() || '') ||
+      ut.categoryId !== originalTicket.categoryId ||
+      (originalTicket.status === Status.Ueberfaellig && statusChanged);
+    if (!dueDateRelevantChange) {
+      ut.dueDate = originalDueDate;
+    }
+
+    const addedReporterNote = (ut.notes?.length || 0) > (originalTicket.notes?.length || 0)
+      ? ut.notes![ut.notes!.length - 1] : null;
+    const wasCompleted = originalTicket.status === Status.Abgeschlossen;
+    const isNowCompleted = ut.status === Status.Abgeschlossen;
+
+    try {
+      ut = await persistTicket(db, ut, wasCompleted
+        ? (isNowCompleted ? 'completed' : 'reopen')
+        : (isNowCompleted ? 'complete' : 'update'), originalTicket, normalizeTicket);
+      setLastSyncTime(new Date());
+    } catch (error) {
+      reportTicketSaveError(ut, error, originalTicket);
+      return null;
+    }
+
+    if (ut.technician !== originalTicket.technician && ut.technician && ut.technician !== 'N/A') {
+      learnFromAssignment(ut, ut.technician);
+    }
+
     // E-Mails an den Melder bewusst MINIMAL halten – KEIN Versand beim Umverteilen, Statuswechsel
     // (z. B. „In Arbeit") oder Terminänderungen, sonst fluten wir. Nur noch zwei Anlässe hier:
     //  • Ticket abgeschlossen → Abschluss-Info
@@ -2501,8 +2537,8 @@ const deleteTicketFromFirebase = (ticketId: string) => {
           ticketId: ut.id,
           title: ut.title,
         });
-      } else if ((ut.notes?.length || 0) > (originalTicket.notes?.length || 0)) {
-        const latestNote = ut.notes![ut.notes!.length - 1];
+      } else if (addedReporterNote) {
+        const latestNote = addedReporterNote;
         const isNoteFromReporter =
           latestNote.includes('(Melder am ') || latestNote.includes('Ticket durch Melder wiedereröffnet');
         if (!isNoteFromReporter) {
@@ -2519,21 +2555,6 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     // Nachricht erscheint nur in der App (Chat-Symbol/Badge auf der Karte) und
     // verschwindet automatisch über readBy, sobald die Person das Ticket öffnet.
 
-    // Absoluter Sicherheitsanker: dueDate darf sich NUR ändern wenn der User
-    // es selbst geändert hat, oder wunschTermin/Kategorie/Überfällig-Status sich änderte.
-    const dueDateManuallyChanged = updatedTicket.dueDate !== originalTicket.dueDate;
-    const dueDateRelevantChange =
-      dueDateManuallyChanged ||
-      (ut.wunschTermin?.trim() || '') !== (originalTicket.wunschTermin?.trim() || '') ||
-      ut.categoryId !== originalTicket.categoryId ||
-      (originalTicket.status === Status.Ueberfaellig && statusChanged);
-    if (!dueDateRelevantChange) {
-      ut.dueDate = originalDueDate;
-    }
-
-    const wasCompleted = originalTicket.status === Status.Abgeschlossen;
-    const isNowCompleted = ut.status === Status.Abgeschlossen;
-
     if (!wasCompleted && isNowCompleted) {
       // Active → Completed
       if (!ut.closedAt) {
@@ -2544,28 +2565,18 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       } else {
         setTickets((prev) => prev.filter((t) => t.id !== ut.id));
       }
-      setCompletedTickets((prev) => [ut, ...prev]);
-      saveCompletedTicketToFirebase(ut);
-      // Schreibe Status=Abgeschlossen in die aktive Sammlung BEVOR gelöscht wird.
-      // Andere Clients sehen so sofort den Abgeschlossen-Status im onSnapshot und
-      // der SLA-Effekt überspringt das Ticket (Zeile ~1989), auch wenn deleteDoc noch nicht
-      // angekommen ist. Verhindert das Race-Condition-Rücksetzen auf Überfällig.
-      saveTicketToFirebase(ut);
-      deleteFromActiveFirebase(ut.id);
+      setCompletedTickets((prev) => [ut, ...prev.filter(t => t.id !== ut.id)]);
     } else if (wasCompleted && !isNowCompleted) {
       // Reopened: Completed → Active
       setCompletedTickets((prev) => prev.filter((t) => t.id !== ut.id));
       if (ut.origin === 'routine') {
-        setRoutineTickets((prev) => [ut, ...prev]);
+        setRoutineTickets((prev) => [ut, ...prev.filter(t => t.id !== ut.id)]);
       } else {
-        setTickets((prev) => [ut, ...prev]);
+        setTickets((prev) => [ut, ...prev.filter(t => t.id !== ut.id)]);
       }
-      saveTicketToFirebase(ut);
-      deleteFromCompletedFirebase(ut.id);
     } else if (wasCompleted) {
       // Update within completed
       setCompletedTickets((prev) => prev.map((t) => t.id === ut.id ? ut : t));
-      saveCompletedTicketToFirebase(ut);
     } else {
       // Update within active
       if (ut.origin === 'routine') {
@@ -2573,25 +2584,34 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       } else {
         setTickets((prev) => prev.map((t) => t.id === ut.id ? ut : t));
       }
-      saveTicketToFirebase(ut);
     }
 
     if (selectedTicket && selectedTicket.id === ut.id) {
       setSelectedTicket(ut);
     }
+    return ut;
   };
 
-  const handleTicketUpdate = (updatedTicket: Ticket) => {
-    const originalTicket = tickets.find((t) => t.id === updatedTicket.id)
+  const handleTicketUpdate = async (updatedTicket: Ticket, expectedOriginal?: Ticket): Promise<Ticket | null> => {
+    const originalTicket = expectedOriginal ?? tickets.find((t) => t.id === updatedTicket.id)
       ?? routineTickets.find((t) => t.id === updatedTicket.id)
       ?? completedTickets.find((t) => t.id === updatedTicket.id);
     if (!originalTicket) {
       // Ticket nicht im Speicher (z. B. aus Vormonat, nur per resolveTicketById geladen).
       // Wenn der Melder es wiedereröffnet hat, trotzdem korrekt umbuchen.
       if (updatedTicket.is_reopened && updatedTicket.status !== Status.Abgeschlossen) {
-        commitTicketUpdate(updatedTicket, { ...updatedTicket, status: Status.Abgeschlossen });
+        return commitTicketUpdate(updatedTicket, { ...updatedTicket, status: Status.Abgeschlossen });
       }
-      return;
+      return null;
+    }
+
+    if (originalTicket.status === Status.Abgeschlossen && updatedTicket.status !== Status.Abgeschlossen &&
+        (!originalTicket.closedAt || updatedTicket.closedAt !== originalTicket.closedAt ||
+         updatedTicket.completionDate !== originalTicket.completionDate ||
+         updatedTicket.completionTime !== originalTicket.completionTime ||
+         updatedTicket.lifecycleRevision !== originalTicket.lifecycleRevision)) {
+      reportTicketSaveError(updatedTicket, new TicketConflictError(originalTicket));
+      return null;
     }
 
     const statusChanged = originalTicket.status !== updatedTicket.status;
@@ -2601,10 +2621,10 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       originalTicket.status !== Status.Abgeschlossen
     ) {
       setCompleteOrderDialog({ draft: { ...updatedTicket } });
-      return;
+      return null;
     }
 
-    commitTicketUpdate(updatedTicket, originalTicket);
+    return commitTicketUpdate(updatedTicket, originalTicket);
   };
 
   const handleCompleteOrderConfirm = () => {
@@ -2683,7 +2703,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     return { ok, fail };
   }, [tickets]);
 
-  const handleAddNewTicket = (newTicketData: Omit<Ticket, 'id' | 'entryDate' | 'status' | 'priority'> & { priority?: Priority }, silent = false): string => {
+  const handleAddNewTicket = async (newTicketData: Omit<Ticket, 'id' | 'entryDate' | 'status' | 'priority'> & { priority?: Priority }, silent = false): Promise<string> => {
     // --- INTELLIGENT AUTOMATION LOGIC ---
     const reporterEmail =
       typeof newTicketData.reporter_email === 'string' ? newTicketData.reporter_email.trim() : '';
@@ -2814,12 +2834,33 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       delete (newTicket as Partial<Ticket>).reporter_email;
     }
 
-    if (newTicket.origin === 'routine') {
-      setRoutineTickets((prevRoutine) => [newTicket, ...prevRoutine]);
-    } else {
-      setTickets((prevTickets) => [newTicket, ...prevTickets]);
+    // Reserve a free number across all three collections, including archived tickets.
+    // Old random IDs could reuse a completed ticket's number.
+    let created = false;
+    for (let attempt = 0; attempt < 30; attempt++) {
+      try {
+        await persistTicket(db, newTicket, 'create');
+        created = true;
+        break;
+      } catch (error) {
+        if (error instanceof TicketConflictError) {
+          newTicket.id = `${Math.floor(Math.random() * 10000) + 30000}`;
+          continue;
+        }
+        reportTicketSaveError(newTicket, error);
+        return '';
+      }
     }
-    saveTicketToFirebase(newTicket);
+    if (!created) {
+      addToast({ type: 'assigned', title: 'Auftrag nicht gespeichert', message: 'Keine freie Ticketnummer gefunden. Bitte erneut versuchen.' });
+      return '';
+    }
+
+    if (newTicket.origin === 'routine') {
+      setRoutineTickets((prevRoutine) => [newTicket, ...prevRoutine.filter(t => t.id !== newTicket.id)]);
+    } else {
+      setTickets((prevTickets) => [newTicket, ...prevTickets.filter(t => t.id !== newTicket.id)]);
+    }
 
     if (reporterEmail) {
       sendDrkBrevoMail(reporterEmail, `Ihre Meldung wurde erfasst – Ticket ${newTicket.id}`, {
@@ -2868,8 +2909,9 @@ const deleteTicketFromFirebase = (ticketId: string) => {
   
   // ── Veranstaltungen ──────────────────────────────────────────────────────────
 
-  const handleSaveEvent = (event: DrkEvent) => {
-    const updatedTasks: EventTask[] = event.tasks.map(task => {
+  const handleSaveEvent = async (event: DrkEvent) => {
+    const updatedTasks: EventTask[] = [];
+    for (let task of event.tasks) {
       if (task.ticketId) {
         // Ticket existiert bereits → Titel + Checkliste synchronisieren
         const ticketRef = doc(db, 'tickets', String(task.ticketId));
@@ -2877,17 +2919,18 @@ const deleteTicketFromFirebase = (ticketId: string) => {
           ? `[${event.title}] ${task.label}`
           : `[${event.title}]`;
         void updateDoc(ticketRef, { title: updatedTitle, eventChecklistItems: task.items ?? [] });
-        return task;
+        updatedTasks.push(task);
+        continue;
       }
 
-      if (task.assignee === 'N/A') return task;
+      if (task.assignee === 'N/A') { updatedTasks.push(task); continue; }
       if (!task.label.trim()) task = { ...task, label: task.assignee };
 
       const dueDateDE = task.dueDate
         ? task.dueDate.split('-').reverse().join('.')
         : event.date.split('-').reverse().join('.');
 
-      const ticketId = handleAddNewTicket({
+      const ticketId = await handleAddNewTicket({
         ticketType: 'preventive',
         origin: 'event',
         eventId: event.id,
@@ -2904,14 +2947,16 @@ const deleteTicketFromFirebase = (ticketId: string) => {
         ...(task.items && task.items.length > 0 ? { eventChecklistDone: [] } : {}),
       } as any, true);
 
+      if (!ticketId) return;
+
       // Checklisten-Punkte nachträglich auf das Ticket speichern
       if (task.items && task.items.length > 0 && ticketId) {
         const ticketRef = doc(db, 'tickets', String(ticketId));
         void updateDoc(ticketRef, { eventChecklistItems: task.items, eventChecklistDone: [] });
       }
 
-      return { ...task, ticketId };
-    });
+      updatedTasks.push({ ...task, ticketId });
+    }
 
     const savedEvent: DrkEvent = { ...event, tasks: updatedTasks };
     void setDoc(doc(db, 'events', savedEvent.id), JSON.parse(JSON.stringify(savedEvent)));
@@ -2968,57 +3013,8 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       }
     }
 
-    const toComplete: Ticket[] = [];
-    const toUpdate: Ticket[] = [];
-    const toUpdateRoutine: Ticket[] = [];
-    setTickets((prevTickets) =>
-      prevTickets.filter((ticket) => {
-        if (!selectedTicketIds.includes(ticket.id)) return true;
-        const updatedTicket = { ...ticket, [property]: value } as Ticket;
-        if (property === 'status' && value === Status.Abgeschlossen) {
-          if (!ticket.completionDate) {
-            const stamp = completionStampNow();
-            updatedTicket.completionDate = stamp.completionDate;
-            updatedTicket.completionTime = stamp.completionTime;
-          }
-          updatedTicket.is_reopened = false;
-          toComplete.push(updatedTicket);
-          return false; // remove from active
-        }
-        toUpdate.push(updatedTicket);
-        return true; // keep in active (updated below)
-      }).map(ticket => {
-        const updated = toUpdate.find(t => t.id === ticket.id);
-        return updated ?? ticket;
-      })
-    );
-    setRoutineTickets((prevRoutine) =>
-      prevRoutine.filter((ticket) => {
-        if (!selectedTicketIds.includes(ticket.id)) return true;
-        const updatedTicket = { ...ticket, [property]: value } as Ticket;
-        if (property === 'status' && value === Status.Abgeschlossen) {
-          if (!ticket.completionDate) {
-            const stamp = completionStampNow();
-            updatedTicket.completionDate = stamp.completionDate;
-            updatedTicket.completionTime = stamp.completionTime;
-          }
-          updatedTicket.is_reopened = false;
-          toComplete.push(updatedTicket);
-          return false; // remove from routine active
-        }
-        toUpdateRoutine.push(updatedTicket);
-        return true; // keep in routine (updated below)
-      }).map(ticket => {
-        const updated = toUpdateRoutine.find(t => t.id === ticket.id);
-        return updated ?? ticket;
-      })
-    );
-    if (toComplete.length > 0) {
-      setCompletedTickets((prev) => [...toComplete, ...prev]);
-      toComplete.forEach(t => { saveCompletedTicketToFirebase(t); deleteFromActiveFirebase(t.id); });
-    }
-    toUpdate.forEach(t => saveTicketToFirebase(t));
-    toUpdateRoutine.forEach(t => saveTicketToFirebase(t));
+    const selected = [...tickets, ...routineTickets].filter(t => selectedTicketIds.includes(t.id));
+    selected.forEach(ticket => { void commitTicketUpdate({ ...ticket, [property]: value }, ticket); });
     setSelectedTicketIds([]);
   };
 
@@ -3535,7 +3531,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
           if (movedCount > 0) {
               const originalTickets = tickets;
               setTickets(ticketsToUpdate);
-              ticketsToUpdate.forEach((t, i) => { if (t !== originalTickets[i]) saveTicketToFirebase(t); });
+              ticketsToUpdate.forEach((t, i) => { if (t !== originalTickets[i]) saveTicketToFirebase(t, originalTickets[i]); });
               alert(`ERFOLG: ${movedCount} Tickets von ${displayNameShort(user.name)} wurden automatisch auf ${availableTechnicians.length} verfügbare Kollegen verteilt.`);
           }
       }
@@ -3649,7 +3645,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
 
       if (movedTotal > 0) {
           setTickets(ticketsToUpdate);
-          ticketsToUpdate.forEach((t, i) => { if (t !== originalTickets[i]) saveTicketToFirebase(t); });
+          ticketsToUpdate.forEach((t, i) => { if (t !== originalTickets[i]) saveTicketToFirebase(t, originalTickets[i]); });
           alert(`Erfolg: ${movedTotal} Tickets wurden umverteilt.\n\nDetails:\n${logMessages.join('\n')}`);
       } else {
           alert(`Prüfung abgeschlossen. Keine Tickets mussten umverteilt werden.\n\nDetails:\n${logMessages.join('\n')}`);

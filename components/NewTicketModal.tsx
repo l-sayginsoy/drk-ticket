@@ -7,7 +7,7 @@ import { XIcon } from './icons/XIcon';
 
 interface NewTicketModalProps {
   onClose: () => void;
-  onSave: (newTicket: Omit<Ticket, 'id' | 'entryDate' | 'status' | 'priority'> & { priority?: Priority }) => void;
+  onSave: (newTicket: Omit<Ticket, 'id' | 'entryDate' | 'status' | 'priority'> & { priority?: Priority }) => Promise<string>;
   locations: string[];
   technicians: User[];
   appSettings: AppSettings;
@@ -60,15 +60,18 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
     };
 
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [saving, setSaving] = useState(false);
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     if (!title.trim()) {
         alert('Bitte einen Titel angeben.');
         return;
     }
 
     const emailTrim = reporterEmail.trim();
-    onSave({
+    setSaving(true);
+    await onSave({
       ticketType: 'reactive',
       origin: 'manual',
       title,
@@ -83,6 +86,7 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
       notes: [],
       dueDate: '',
     });
+    setSaving(false);
   };
 
   return (
@@ -341,7 +345,7 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
             </div>
           <div className="form-actions">
             <button type="button" onClick={onClose} className="btn btn-secondary">Abbrechen</button>
-            <button type="submit" className="btn btn-primary">Ticket speichern</button>
+            <button type="submit" disabled={saving} className="btn btn-primary">Ticket speichern</button>
           </div>
         </form>
       </div>
