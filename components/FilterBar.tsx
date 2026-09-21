@@ -45,6 +45,7 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
             priority: 'Alle',
             status: 'Alle',
             reporter: 'Alle',
+            origin: 'Alle',
             search: filters.search,
         });
         setGroupBy('none');
@@ -64,18 +65,20 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
 
     const FilterChip: React.FC<{
         label: string;
+        icon?: string;
         name: string;
         options: Array<{ name: string; count: number } | string>;
         value: string;
         shortenPersonNames?: boolean;
         onChangeRaw?: (v: string) => void;
-    }> = ({ label, name, options, value, shortenPersonNames, onChangeRaw }) => (
+    }> = ({ label, icon, name, options, value, shortenPersonNames, onChangeRaw }) => (
         <div className={`custom-select filter-chip ${value !== 'Alle' ? 'active' : ''}`}>
+            {icon && <i className={`ti ti-${icon}`} aria-hidden="true" style={{ marginRight: 8, fontSize: 17 }} />}
             <span>{label}</span>
             {value !== 'Alle' && (
                 <span className="filter-badge">{getDisplayValue(value, !!shortenPersonNames)}</span>
             )}
-            <select value={value} onChange={(e) => onChangeRaw ? onChangeRaw(e.target.value) : handleFilterChange(name, e.target.value)}>
+            <select aria-label={label} value={value} onChange={(e) => onChangeRaw ? onChangeRaw(e.target.value) : handleFilterChange(name, e.target.value)}>
                 {options.map(opt => {
                     if (typeof opt === 'object' && opt !== null && 'name' in opt) {
                         const locOpt = opt as { name: string; count: number };
@@ -116,7 +119,24 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
     const renderFiltersForView = () => {
         switch (currentView) {
             case 'dashboard':
-            case 'tech-dashboard':
+            case 'tech-dashboard': {
+                const extraCount = [filters.status, filters.origin, filters.reporter].filter(value => value && value !== 'Alle').length;
+                return <>
+                    <FilterChip label="Standort" icon="map-pin" name="area" options={locations} value={filters.area} />
+                    {!isServiceTeamUser && <FilterChip label="Bearbeiter" icon="user" name="technician" options={technicians} value={filters.technician} shortenPersonNames />}
+                    <FilterChip label="Priorität" icon="flag" name="priority" options={PRIORITIES} value={filters.priority} />
+                    <details className="more-filters" onKeyDown={event => { if (event.key === 'Escape') { event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus(); } }}>
+                        <summary><i className="ti ti-filter" aria-hidden="true" />Weitere Filter{extraCount > 0 && <span className="filter-badge">{extraCount}</span>}<ChevronDownIcon /></summary>
+                        <div className="more-filters-panel">
+                            <FilterChip label="Status" name="status" options={statuses} value={filters.status} />
+                            <FilterChip label="Typ" name="origin" options={['Alle', 'Veranstaltung', 'Manuell']} value={filters.origin === 'event' ? 'Veranstaltung' : filters.origin === 'manual' ? 'Manuell' : 'Alle'} onChangeRaw={value => setFilters((previous: any) => ({ ...previous, origin: value === 'Veranstaltung' ? 'event' : value === 'Manuell' ? 'manual' : 'Alle' }))} />
+                            {reporters.length > 1 && <FilterChip label="Melder" name="reporter" options={reporters} value={filters.reporter ?? 'Alle'} />}
+                        </div>
+                    </details>
+                    <span className="divider" aria-hidden="true" />
+                    {resetButton}
+                </>;
+            }
             case 'tickets':
                 return (
                     <>
@@ -173,10 +193,10 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
         <div className={`filter-bar${panelEmbed ? ' filter-bar--panel-embed' : ''}`}>
             <style>{`
                 .filter-bar {
-                    max-width: 1800px;
+                    max-width: 2400px;
                     width: 100%;
                     box-sizing: border-box;
-                    margin-top: 1.25rem;
+                    margin-top: 0;
                     background: transparent;
                     border: none;
                     border-radius: 0;
@@ -196,7 +216,7 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                     padding: 12px 16px;
                     border-bottom: 1px solid var(--border);
                 }
-                .filter-controls { display: flex; gap: 1rem; flex-wrap: wrap; flex-grow: 1; align-items: center; }
+                .filter-controls { display: flex; gap: 12px; flex-wrap: wrap; flex-grow: 1; align-items: center; }
                 .filter-bearbeiter-reset { display: flex; align-items: center; gap: 0.75rem; flex-wrap: nowrap; }
                 
                 .view-toggle { display: flex; background: var(--bg-tertiary); padding: 4px; border-radius: 6px; }
@@ -294,11 +314,15 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                 .status-stat--offen    { background: #F1F0EC; color: #5F5E5A; border-color: #D3D1C7; }
                 .status-stat--inarbeit { background: #E6F1FB; color: #185FA5; border-color: #B5D4F4; }
                 .status-stat--ueberfaellig { background: #FCEBEB; color: #A32D2D; border-color: #F7C1C1; }
+                .filter-bar .custom-select.filter-chip { background: var(--bg-secondary); height: 40px; box-shadow: 0 1px 2px rgba(0,0,0,.03); }
+                .filter-bar .custom-select:focus-within { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+                .more-filters { position: relative; }
+                .more-filters summary { display: flex; align-items: center; gap: 8px; list-style: none; cursor: pointer; height: 40px; padding: 0 12px; font-size: .85rem; font-weight: 500; color: var(--text-secondary); background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 9px; }
+                .more-filters summary::-webkit-details-marker { display: none; }
+                .more-filters summary svg { width: 14px; height: 14px; }
+                .more-filters summary:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+                .more-filters-panel { position: absolute; top: calc(100% + 8px); left: 0; width: 230px; max-width: 75vw; display: grid; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-secondary); box-shadow: 0 8px 24px rgba(0,0,0,.12); z-index: 30; }
             `}</style>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', flexShrink: 0 }}>
-                <i className="ti ti-adjustments-horizontal" aria-hidden style={{ fontSize: 16, color: 'var(--text-muted)' }} />
-                Filter
-            </span>
             <div className="filter-controls">
                 {currentView === 'tickets' && (
                     <>

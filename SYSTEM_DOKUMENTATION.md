@@ -912,3 +912,7 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 - Nur grauer Footer bleibt im bisherigen Aufbau. Darüber Standort mit Symbol, Priorität links (bisherige Farbe/Punkt), Fälligkeit rechts mit Kalender und verständlichem Fristtext.
 - Redundante Statusspalte in Karten entfällt; Status bleibt in Spalten, Listen und Detailansicht erhalten.
 - Fristüberschreitung wird in Kalendertagen berechnet; abgeschlossene/zurückgestellte Karten erhalten keinen aktiven Überfällig-Hinweis.
+
+### 21.09.2026 – Dashboard-Filterleiste an Entwurf angepasst
+- Standort, Bearbeiter (rollenabhängig), Priorität, Weitere Filter und Zurücksetzen in kompakter Zeile mit weißen Controls und dezenten Icons. Separates Filter-Label entfernt.
+- Status, Typ, Melder unter Weitere Filter; Anzahl aktiver Zusatzfilter sichtbar. Escape schließt das Panel. Zurücksetzen setzt ausdrücklich auch Typ zurück.
