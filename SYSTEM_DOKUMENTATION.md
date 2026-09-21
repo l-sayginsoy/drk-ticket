@@ -902,3 +902,8 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 - Durchgehende weiße Kopfzeile mit DRK-Logo über der anthrazitfarbenen Navigation und zentraler Ticketsuche; ersetzt den separaten weißen Logokasten.
 - Suche an vorhandenen Filter-State angebunden, Dashboard/Listen/Abgeschlossen verwenden denselben Suchwert. Kein doppeltes Suchfeld in der Seitenüberschrift.
 - Lokale Gestaltungsvorschau enthält nun auch die echten Header- und Filter-Komponenten; Beispieldaten bleiben von Firebase getrennt.
+
+### 21.09.2026 – Weniger Kopfbereich, dezente Kartentrennung
+- Redundante Seitenüberschrift in allen Hauptansichten entfernt; die Navigation zeigt die aktive Ansicht. Leere Desktop-Hamburger-Zeile entfällt ebenfalls.
+- Senkrechte Trennlinie zwischen Logo und App-Name entfernt.
+- Feine eingerückte Linie trennt Karteninhalt von Metadaten. Grauer Footer, Prioritätsfarben und Statusbedienung unverändert.

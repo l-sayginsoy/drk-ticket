@@ -363,12 +363,14 @@ const TicketCard: React.FC<TicketCardProps> = ({
 
                 /* ── Meta-Zeile ── */
                 .card-meta {
+                    position: relative;
                     display: grid;
                     grid-template-columns: 1fr 1fr 1fr;
-                    padding: 4px 10px 7px;
+                    padding: 10px 10px 9px;
                     gap: 6px;
                     -webkit-user-drag: none;
                 }
+                .card-meta::before { content: ''; position: absolute; top: 0; left: 14px; right: 14px; height: 1px; background: var(--border); }
                 .card-meta-col {
                     display: flex; flex-direction: column; align-items: center; gap: 3px;
                     position: relative; cursor: pointer;

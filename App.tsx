@@ -11,7 +11,6 @@ import { collection, doc, setDoc, onSnapshot, getDocs, deleteDoc, arrayUnion, qu
 import { httpsCallable } from 'firebase/functions';
 
 import Sidebar from './components/Sidebar';
-import Header from './components/Header';
 import AppTopBar from './components/AppTopBar';
 import FilterBar from './components/FilterBar';
 import KanbanBoard from './components/KanbanBoard';
@@ -3839,7 +3838,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       />
       <main>
         {/* Hamburger-Menü auf Handy */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <div className="mobile-menu-row" style={{ alignItems: 'center', gap: 8, marginBottom: 8 }}>
           <button
             className="mobile-menu-btn"
             onClick={() => setSidebarCollapsed(false)}
@@ -3848,7 +3847,6 @@ const deleteTicketFromFirebase = (ticketId: string) => {
             <i className="ti ti-menu-2" aria-hidden />
           </button>
         </div>
-        <Header filters={filters} setFilters={setFilters} currentView={currentView} />
         {currentUser?.role === Role.Admin && brevoAdminAlert && !brevoAlertSuppressed && (
           <div
             role="alert"
