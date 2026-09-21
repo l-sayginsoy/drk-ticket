@@ -907,3 +907,8 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 - Redundante Seitenüberschrift in allen Hauptansichten entfernt; die Navigation zeigt die aktive Ansicht. Leere Desktop-Hamburger-Zeile entfällt ebenfalls.
 - Senkrechte Trennlinie zwischen Logo und App-Name entfernt.
 - Feine eingerückte Linie trennt Karteninhalt von Metadaten. Grauer Footer, Prioritätsfarben und Statusbedienung unverändert.
+
+### 21.09.2026 – Kartenaufbau gemäß Entwurf korrigiert
+- Nur grauer Footer bleibt im bisherigen Aufbau. Darüber Standort mit Symbol, Priorität links (bisherige Farbe/Punkt), Fälligkeit rechts mit Kalender und verständlichem Fristtext.
+- Redundante Statusspalte in Karten entfällt; Status bleibt in Spalten, Listen und Detailansicht erhalten.
+- Fristüberschreitung wird in Kalendertagen berechnet; abgeschlossene/zurückgestellte Karten erhalten keinen aktiven Überfällig-Hinweis.

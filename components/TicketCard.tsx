@@ -225,6 +225,19 @@ const TicketCard: React.FC<TicketCardProps> = ({
         : ticket.status === Status.Abgeschlossen ? 'pill-s-done'
         : 'pill-s-offen';
 
+    const dueLabel = (() => {
+        const due = parseGermanDate(ticket.dueDate);
+        if (!due || Number.isNaN(due.getTime())) return { text: ticket.dueDate || 'Ohne Frist', overdue: false };
+        const today = new Date();
+        // Calendar-day arithmetic stays correct across daylight-saving changes.
+        const days = Math.round((Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) - Date.UTC(due.getFullYear(), due.getMonth(), due.getDate())) / 86400000);
+        const shortDate = `${String(due.getDate()).padStart(2, '0')}.${String(due.getMonth() + 1).padStart(2, '0')}.`;
+        const active = [Status.Offen, Status.InArbeit, Status.Ueberfaellig].includes(ticket.status);
+        if (active && days > 0) return { text: `Seit ${days} ${days === 1 ? 'Tag' : 'Tagen'} überfällig`, overdue: true };
+        if (active && days === 0) return { text: `Heute fällig · ${shortDate}`, overdue: false };
+        return { text: `Fällig am ${shortDate}`, overdue: false };
+    })();
+
     const canEditDate = !currentUser || currentUser.role === Role.Admin || ticket.technician === currentUser.name;
 
     // Interner-Chat-Zustand aus Sicht der angemeldeten Person (neu / wartet / ruhig)
@@ -320,8 +333,8 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     animation: pulse-indigo 1.5s infinite;
                 }
 
-                .card-loc { font-size: 12px; color: #555; font-weight: 500; margin-bottom: 3px; }
-                .card-who { display: flex; align-items: center; justify-content: space-between; gap: 3px; font-size: 11px; color: #666; margin-bottom: 0; }
+                .card-loc { display: flex; align-items: baseline; gap: 6px; font-size: 13px; color: var(--text-secondary); font-weight: 500; margin-bottom: 3px; }
+                .card-who { display: flex; align-items: center; justify-content: space-between; gap: 3px; font-size: 12px; color: var(--text-secondary); margin-bottom: 0; }
                 .status-change-btn {
                     position: relative; display: inline-flex; align-items: center; justify-content: center;
                     width: 24px; height: 24px; border-radius: 7px;
@@ -365,16 +378,19 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .card-meta {
                     position: relative;
                     display: grid;
-                    grid-template-columns: 1fr 1fr 1fr;
-                    padding: 10px 10px 9px;
+                    grid-template-columns: auto minmax(0, 1fr);
+                    padding: 12px 16px;
                     gap: 6px;
                     -webkit-user-drag: none;
                 }
                 .card-meta::before { content: ''; position: absolute; top: 0; left: 14px; right: 14px; height: 1px; background: var(--border); }
                 .card-meta-col {
-                    display: flex; flex-direction: column; align-items: center; gap: 3px;
+                    display: flex; flex-direction: row; align-items: center; gap: 6px;
                     position: relative; cursor: pointer;
                 }
+                .card-meta-col:last-child { justify-content: flex-end; text-align: right; }
+                .card-meta .meta-val { font-size: 12px; }
+                .card-meta .meta-lbl { font-size: 12px; }
                 .meta-lbl { font-size: 9.5px; color: #999; letter-spacing: 0.02em; }
                 .meta-val { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; }
                 .meta-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
@@ -540,7 +556,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 </div>
 
                 {/* Zeile 2: Standort */}
-                <div className="card-loc">{ticket.area} · {ticket.location}</div>
+                <div className="card-loc"><i className="ti ti-map-pin" aria-hidden="true" /> <span>{ticket.area} · {ticket.location}</span></div>
 
                 {/* Zeile 3: Melder */}
                 <div className="card-who">
@@ -554,11 +570,11 @@ const TicketCard: React.FC<TicketCardProps> = ({
 
             </div>
 
-            {/* Meta-Zeile: Priorität | Fällig bis | Status */}
+            {/* Meta-Zeile: Priorität und verständliche Fälligkeit */}
             <div className="card-meta">
                 {/* Priorität */}
                 <div className="card-meta-col" onClick={e => e.stopPropagation()} title="Priorität ändern">
-                    <span className="meta-lbl">Priorität</span>
+                    <span className="meta-lbl">Priorität:</span>
                     <div className="meta-val">
                         <div className={`meta-dot meta-dot-${priorityDotColor}`} />
                         <span style={{ color: priorityTextColor }}>{isEmergency ? 'Notfall' : ticket.priority}</span>
@@ -569,10 +585,9 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 </div>
                 {/* Fällig bis */}
                 <div className="card-meta-col" onClick={e => e.stopPropagation()} title={canEditDate ? 'Fällig bis – zum Ändern klicken' : 'Fällig bis'}>
-                    <span className="meta-lbl">Fällig bis</span>
-                    <div className="meta-val">
-                        <div className={`meta-dot meta-dot-${dueDotColor}`} />
-                        <span style={{ color: dueTextColor }}>{ticket.dueDate.slice(0,5)}.</span>
+                                        <div className="meta-val">
+                        <i className="ti ti-calendar" aria-hidden="true" />
+                        <span style={{ color: dueLabel.overdue ? '#A32D2D' : 'var(--text-secondary)' }}>{dueLabel.text}</span>
                     </div>
                     {canEditDate && (
                         <input ref={dateInputRef} type="date" className="meta-col-select"
@@ -580,23 +595,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                             onClick={e => { e.stopPropagation(); try { (e.currentTarget as HTMLInputElement).showPicker(); } catch {} }} />
                     )}
                 </div>
-                {/* Status */}
-                <div className="card-meta-col" onClick={e => e.stopPropagation()} title="Status ändern">
-                    <span className="meta-lbl">Status</span>
-                    <div className="meta-val">
-                        <div className={`meta-dot meta-dot-${statusDotColor}`} />
-                        <span style={{ color: statusTextColor }}>{ticket.status}</span>
-                    </div>
-                    <select className="meta-col-select"
-                        value={ticket.status !== Status.Ueberfaellig ? ticket.status : ''}
-                        onChange={handleStatusChange}
-                        onMouseDown={() => { lastSelectChangeRef.current = Date.now(); }}>
-                        <option value="" disabled hidden></option>
-                        {Object.values(Status).filter(s => s !== Status.Ueberfaellig).map(s => (
-                            <option key={s} value={s}>{s === Status.Abgeschlossen ? 'Abschließen' : s}</option>
-                        ))}
-                    </select>
-                </div>
+
             </div>
 
             {/* Footer: Mitarbeiter + Chat/Mail */}
