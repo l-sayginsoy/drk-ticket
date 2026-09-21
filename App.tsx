@@ -3932,7 +3932,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
         )}
         {/* Nachrichten-Badge: wird in der FilterBar rechts angezeigt (messageActivityCount-Prop) */}
         {/* Vergessene Serienaufträge – prominenter Warnblock (bleibt stehen bis erledigt) */}
-        {missedRoutinesSinceStart.length > 0 && (
+        {missedRoutinesSinceStart.length > 0 && currentView !== 'dashboard' && currentView !== 'tech-dashboard' && (
           <div
             role="alert"
             style={{
@@ -4092,6 +4092,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
             )}
             {/* Rechte Karte: Serientermine */}
             <DashboardRoutineLinkBar
+              overdueTitles={missedRoutinesSinceStart.map(ticket => ticket.title)}
               schedules={appSettings.routineSchedules as any}
               users={users}
               userRole={currentUser.role}

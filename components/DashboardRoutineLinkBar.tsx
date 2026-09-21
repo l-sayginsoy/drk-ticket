@@ -7,9 +7,9 @@ import {
   isScheduleVisibleForUser,
   localISODate,
 } from '../utils/routineHelpers';
-import { ROUTINE_TEAL } from '../utils/routineUiPalette';
 
 export interface DashboardRoutineLinkBarProps {
+  overdueTitles?: string[];
   schedules: Array<RoutineSchedule & { recurrence?: any }>;
   users: User[];
   userRole: Role;
@@ -23,6 +23,7 @@ export interface DashboardRoutineLinkBarProps {
 
 const DashboardRoutineLinkBar: React.FC<DashboardRoutineLinkBarProps> = ({
   schedules,
+  overdueTitles = [],
   users,
   userRole,
   userName,
@@ -71,14 +72,16 @@ const DashboardRoutineLinkBar: React.FC<DashboardRoutineLinkBarProps> = ({
     return { totalDue: total, openCount: open, openTaskTitles: openTitles };
   }, [schedules, users, userRole, userName, todayYmd, completionSet, rpHolidaySet]);
 
-  if (totalDue === 0) return null;
+  if (totalDue === 0 && overdueTitles.length === 0) return null;
 
   const label =
     openCount > 0
-      ? `${openCount} Serienaufträge heute offen`
-      : 'Alle fälligen Serienaufträge heute erledigt';
+      ? `Serienaufträge: ${openCount} heute offen`
+      : overdueTitles.length > 0
+        ? 'Serienaufträge: Heute keine offenen Aufträge'
+        : 'Alle fälligen Serienaufträge heute erledigt';
 
-  const taskNamesLine = openCount > 0 && openTaskTitles.length > 0 ? openTaskTitles : [];
+  const taskNamesLine = [...new Set([...openTaskTitles, ...overdueTitles])];
 
   const styles = (
     <style>{`
@@ -91,13 +94,13 @@ const DashboardRoutineLinkBar: React.FC<DashboardRoutineLinkBarProps> = ({
         box-sizing: border-box;
         padding: 10px 14px;
         border-radius: 10px;
-        border: 1px solid ${ROUTINE_TEAL.border};
-        background: ${ROUTINE_TEAL.bg};
-        color: #1a1a1a;
+        border: 1px solid var(--border-active);
+        background: var(--bg-secondary);
+        color: var(--text-primary);
         font-family: inherit;
-        font-size: 17px;
+        font-size: 15px;
         font-weight: 700;
-        letter-spacing: 0.02em;
+        letter-spacing: 0;
         cursor: pointer;
         text-align: left;
         transition: filter 0.15s ease, box-shadow 0.15s ease;
@@ -108,36 +111,40 @@ const DashboardRoutineLinkBar: React.FC<DashboardRoutineLinkBarProps> = ({
       }
       .dash-routine-link-bar:focus {
         outline: none;
-        box-shadow: 0 0 0 2px ${ROUTINE_TEAL.border};
+        box-shadow: 0 0 0 2px var(--border-active);
       }
       .dash-routine-link-bar__icon {
         flex-shrink: 0;
         width: 36px;
         height: 36px;
         border-radius: 8px;
-        background: ${ROUTINE_TEAL.accent};
-        color: #fff;
+        background: transparent;
+        color: #d97706;
         display: inline-flex;
         align-items: center;
         justify-content: center;
       }
-      .dash-routine-link-bar__icon .ti { font-size: 20px; line-height: 1; }
+      .dash-routine-link-bar__icon .ti { font-size: 26px; line-height: 1; }
       .dash-routine-link-bar__text {
         flex: 1;
         min-width: 0;
-        text-align: center;
+        text-align: left;
         display: flex;
         flex-direction: column;
-        align-items: center;
+        align-items: flex-start;
         gap: 4px;
       }
       .dash-routine-link-bar__title { line-height: 1.2; }
       .dash-routine-link-bar__sub {
         font-size: 13px;
         font-weight: 400;
-        color: #444;
+        color: var(--text-secondary);
         line-height: 1.3;
         letter-spacing: 0.01em;
+        max-width: 100%;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
       }
       .dash-routine-link-bar__chevron { flex-shrink: 0; opacity: 0.85; }
       .dash-routine-link-bar__chevron .ti { font-size: 22px; line-height: 1; }
@@ -151,16 +158,19 @@ const DashboardRoutineLinkBar: React.FC<DashboardRoutineLinkBarProps> = ({
       style={inline ? { flex: '1 1 0%', minWidth: 0 } : undefined}
       onClick={onOpenRoutines}
       aria-label={
-        taskNamesLine.length > 0 ? `${label}. ${taskNamesLine.join(', ')}. Zu Serienaufträge wechseln.` : `${label}. Zu Serienaufträge wechseln.`
+        taskNamesLine.length > 0 ? `${label}. ${overdueTitles.length} überfällig. ${taskNamesLine.join(', ')}. Zu Serienaufträge wechseln.` : `${label}. Zu Serienaufträge wechseln.`
       }
     >
       <span className="dash-routine-link-bar__icon" aria-hidden>
         <i className="ti ti-repeat" />
       </span>
       <span className="dash-routine-link-bar__text">
-        <span className="dash-routine-link-bar__title">{label}</span>
+        <span className="dash-routine-link-bar__title">
+          {label}
+          {overdueTitles.length > 0 && <span style={{ color: 'var(--accent-danger)' }}> · {overdueTitles.length} überfällig</span>}
+        </span>
         {taskNamesLine.length > 0 ? (
-          <span className="dash-routine-link-bar__sub">
+          <span className="dash-routine-link-bar__sub" title={taskNamesLine.join(" · ")}>
             {taskNamesLine.map((name, i) => (
               <span key={i}>
                 {i > 0 && <span style={{ color: '#bbb', margin: '0 6px' }}>•</span>}
@@ -171,7 +181,7 @@ const DashboardRoutineLinkBar: React.FC<DashboardRoutineLinkBarProps> = ({
         ) : null}
       </span>
       <span className="dash-routine-link-bar__chevron" aria-hidden>
-        <i className="ti ti-chevron-right" />
+        <span style={{ fontSize: 12, marginRight: 6 }}>Ansehen</span><i className="ti ti-arrow-right" />
       </span>
     </button>
   );

@@ -208,6 +208,12 @@ const Sidebar: React.FC<SidebarProps> = ({
         <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
             <style>{`
                 .sidebar {
+                    --bg-secondary: #252e37;
+                    --bg-tertiary: #35404b;
+                    --text-primary: #f4f6f8;
+                    --text-secondary: #d2d8df;
+                    --text-muted: #a9b3bf;
+                    --border: #414b56;
                     width: 240px;
                     background: var(--bg-secondary);
                     border-right: 1px solid var(--border);
@@ -240,6 +246,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                 }
                 .sidebar-mobile-overlay { display: none; }
                 .sidebar-header {
+                    background: #fff;
+                    border-radius: 8px;
                     display: flex;
                     justify-content: center;
                     align-items: center;

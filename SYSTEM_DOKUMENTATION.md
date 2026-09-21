@@ -889,3 +889,11 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 | Mai 2026 | **Kanban-Header**: Farbiger Punkt + Titel + Zähler + Trennlinie |
 | Mai 2026 | **Cards auf Fläche**: Seitenhintergrund grau, Spalten weiß mit Schatten |
 | Mai 2026 | **Portal 3-Pillen-Zeile**: Bearbeiter / Fällig bis / Status |
+
+
+### 21.09.2026 – Dashboard-Gestaltung nach Nutzerfreigabe
+- Karten: größerer Betreff, mehr Abstand im oberen Bereich, neutraler Rand statt linkem Prioritätsstreifen. Grauer Footer inklusive Bearbeiter, Chat/Mail sowie vollständige Prioritäts-/Fälligkeits-/Statuszeile unverändert.
+- Kanban-Spalten und Überschriften Offen / In Arbeit / Überfällig bleiben unverändert.
+- Anthrazitfarbene Navigation mit weißer Logofläche und lokal begrenzten Farbvariablen.
+- Dashboard/Techniker-Dashboard: kompakte Serienerinnerung zeigt heutige offene und überfällige Aufträge zusammen, inklusive Aufgabennamen. Überfällige verschwinden auch ohne heutige Termine nicht. Öffnet weiterhin die Serienaufträge zur Bearbeitung. Der bisherige große Warnblock bleibt in anderen Ansichten erhalten.
+- Keine Änderungen an Persistenz, Statuslogik oder produktiven Tickets.

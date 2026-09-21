@@ -215,11 +215,6 @@ const TicketCard: React.FC<TicketCardProps> = ({
         return 'normal';
     })();
 
-    // Linker Karten-Akzent = Priorität (Niedrig grün / Mittel beige-orange / Hoch rot)
-    const priorityBorderColor = (isEmergency || ticket.priority === Priority.Hoch) ? '#E24B4A'
-        : ticket.priority === Priority.Mittel ? '#E6A23C'
-        : '#8FBF4D';
-
     const priorityPillClass = isEmergency ? 'pill-p-hoch'
         : ticket.priority === Priority.Hoch   ? 'pill-p-hoch'
         : ticket.priority === Priority.Mittel ? 'pill-p-mittel'
@@ -248,7 +243,6 @@ const TicketCard: React.FC<TicketCardProps> = ({
     return (
         <div
             className={cardClasses}
-            style={{ borderLeftColor: priorityBorderColor }}
             draggable="true"
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
@@ -266,8 +260,6 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     border-radius: 12px;
                     margin-bottom: 12px;
                     border: 1px solid #E5E5E5;
-                    border-left-width: 3px;
-                    border-left-style: solid;
                     overflow: hidden;
                     transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
                     position: relative;
@@ -276,8 +268,8 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 }
                 [data-theme="dark"] .ticket-card { border-color: var(--border); }
                 .ticket-card:hover {
-                    transform: translateY(-3px);
-                    box-shadow: 0 6px 18px rgba(0,0,0,0.13);
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
                 }
                 [data-theme="dark"] .ticket-card:hover {
                     box-shadow: 0 6px 18px rgba(0,0,0,0.4);
@@ -287,9 +279,9 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 /* .ticket-card.selected — kein extra Indikator, Sidebar reicht als Feedback */
 
                 /* ── Body ── */
-                .card-body { padding: 10px 14px 6px; }
-                .card-row1 { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 3px; }
-                .card-title { font-size: 13px; font-weight: 600; color: var(--text-primary); flex: 1; line-height: 1.35; margin: 0; }
+                .card-body { padding: 16px 16px 10px; }
+                .card-row1 { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
+                .card-title { font-size: 16px; font-weight: 600; color: var(--text-primary); flex: 1; line-height: 1.35; margin: 0; }
                 .card-icons { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
                 .card-tnum { font-size: 10px; color: #999; white-space: nowrap; margin-top: 2px; }
                 .card-tnum-new {
