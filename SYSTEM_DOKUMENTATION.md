@@ -916,3 +916,9 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 ### 21.09.2026 – Dashboard-Filterleiste an Entwurf angepasst
 - Standort, Bearbeiter (rollenabhängig), Priorität, Weitere Filter und Zurücksetzen in kompakter Zeile mit weißen Controls und dezenten Icons. Separates Filter-Label entfernt.
 - Status, Typ, Melder unter Weitere Filter; Anzahl aktiver Zusatzfilter sichtbar. Escape schließt das Panel. Zurücksetzen setzt ausdrücklich auch Typ zurück.
+
+### 22.09.2026 – Einheitliche Karten mit direktem Statuswechsel
+- Einheitliche Kartenhöhe, zwei reservierte Betreffzeilen mit vollständigem Titel im Tooltip; lange Standorte einzeilig gekürzt.
+- Metazeile ohne Feldüberschriften: bisherige Prioritätsfarben, dezenter direkt bedienbarer Status, Fristtext „Heute fällig“, „Überfällig seit …“ oder „Fällig am …“.
+- Bestehender Statushandler wieder angeschlossen; automatische Überfälligkeit nicht manuell auswählbar. Tastaturfokus und zugängliche Feldnamen ergänzt.
+- Grauer Footer unverändert; kein Fortschrittsbalken.
