@@ -75,11 +75,13 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
     const chatScrollRef = useRef<HTMLDivElement>(null);
     const notesScrollRef = useRef<HTMLDivElement>(null);
     const [isEditing, setIsEditing] = useState(false);
-    const [editDraft, setEditDraft] = useState({ title: '', area: '', location: '', description: '', reporter: '' });
+    const [editDraft, setEditDraft] = useState({ title: '', area: '', location: '', description: '', reporter: '', reporter_email: '' });
     const [showParkModal, setShowParkModal] = useState(false);
 
-    const canEdit = ticket.origin === 'manual' &&
-        (currentUser?.role === Role.Admin || currentUser?.role === Role.Technician);
+    // Admins dürfen jedes Ticket korrigieren, auch ältere sowie Veranstaltungs-Tickets.
+    // Techniker behalten die Bearbeitung von manuell angelegten Aufträgen.
+    const canEdit = currentUser?.role === Role.Admin ||
+        (ticket.origin === 'manual' && currentUser?.role === Role.Technician);
 
     const startEdit = () => {
         setEditDraft({
@@ -88,11 +90,16 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             location: ticket.location,
             description: ticket.description || '',
             reporter: ticket.reporter,
+            reporter_email: ticket.reporter_email || '',
         });
         setIsEditing(true);
     };
     const saveEdit = () => {
-        onUpdateTicket({ ...ticket, ...editDraft });
+        onUpdateTicket({
+            ...ticket,
+            ...editDraft,
+            reporter_email: editDraft.reporter_email.trim() || undefined,
+        });
         setIsEditing(false);
     };
     const cancelEdit = () => setIsEditing(false);
@@ -634,6 +641,14 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                 transition: border-color 0.2s ease;
             }
             .edit-input-compact:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px rgba(179,0,12,0.1); }
+            .edit-basic-fields {
+                display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px;
+                padding: 12px; border: 1px solid var(--border); border-radius: 10px;
+                background: var(--bg-primary);
+            }
+            .edit-basic-fields__two-column { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+            .edit-basic-fields .detail-label-compact { margin-top: 0; }
+            @media (max-width: 420px) { .edit-basic-fields__two-column { grid-template-columns: 1fr; } }
             .edit-title-input {
                 width: 100%; font-size: 1.1rem; font-weight: 700; color: var(--text-primary);
                 background: var(--bg-secondary); border: 1px solid var(--border-active);
@@ -828,11 +843,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
         <div className="sidebar-header-compact">
             {/* Titel im Header, gleiche Höhe wie X */}
             <div style={{ flex: 1, minWidth: 0, marginRight: '0.5rem' }}>
-                {isEditing ? (
-                    <textarea className="edit-title-input" value={editDraft.title} onChange={e => setEditDraft(d => ({ ...d, title: e.target.value }))} rows={1} style={{ fontSize: '1rem' }} />
-                ) : (
-                    <p className="detail-subject-text" style={{ margin: 0, fontSize: '1.15rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ticket.title}</p>
-                )}
+                <p className="detail-subject-text" style={{ margin: 0, fontSize: '1.15rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ticket.title}</p>
             </div>
             <div className="header-actions" style={{ flexShrink: 0 }}>
                 {canEdit && !isEditing && (
@@ -860,9 +871,24 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
         </div>
         <div className="sidebar-body-compact">
 
-            {/* ── 2. MELDER + TICKET-ID rechts (gleiche Texthöhe) ── */}
+            {/* ── 2. GRUNDDATEN / MELDER ── */}
             {isEditing ? (
-                <input className="edit-reporter-input" value={editDraft.reporter} onChange={e => setEditDraft(d => ({ ...d, reporter: e.target.value }))} placeholder="Name des Melders..." style={{ marginBottom: '0.6rem' }} />
+                <section className="edit-basic-fields" aria-label="Grunddaten bearbeiten">
+                    <div>
+                        <p className="detail-label-compact">Betreff</p>
+                        <input className="edit-input-compact" value={editDraft.title} onChange={e => setEditDraft(d => ({ ...d, title: e.target.value }))} aria-label="Betreff" />
+                    </div>
+                    <div className="edit-basic-fields__two-column">
+                        <div>
+                            <p className="detail-label-compact">Melder</p>
+                            <input className="edit-input-compact" value={editDraft.reporter} onChange={e => setEditDraft(d => ({ ...d, reporter: e.target.value }))} aria-label="Name des Melders" />
+                        </div>
+                        <div>
+                            <p className="detail-label-compact">E-Mail-Adresse</p>
+                            <input className="edit-input-compact" type="email" value={editDraft.reporter_email} onChange={e => setEditDraft(d => ({ ...d, reporter_email: e.target.value }))} placeholder="name@beispiel.de" aria-label="E-Mail-Adresse des Melders" />
+                        </div>
+                    </div>
+                </section>
             ) : (
                 <div className="ds-reporter-section">
                     <div className="ds-melder-row" style={{ justifyContent: 'space-between' }}>

@@ -962,3 +962,7 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 
 ### 22.09.2026 – Lesbarer App-Name
 - Der Schriftzug „DRK Serviceportal“ im Kopfbereich ist auf 19px vergrößert und minimal enger gesetzt, ohne die Suche zu verdrängen.
+
+### 22.09.2026 – Vollständige Ticketbearbeitung für Admins
+- Admins können nun auch ältere, Serien- und Veranstaltungs-Tickets über „Ticket bearbeiten“ öffnen. Der Bearbeitungsmodus bündelt Betreff, Melder und E-Mail-Adresse in einem klaren Block; Standort, Bereich und Beschreibung folgen darunter.
+- Priorität, Fälligkeit, Status, Bearbeiter und Kategorie bleiben direkt auswählbar. Beim Speichern wird eine leere E-Mail-Adresse als „nicht angegeben“ gespeichert; Chats, Checklisten und Ticket-Herkunft bleiben unverändert.
