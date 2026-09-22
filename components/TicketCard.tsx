@@ -337,10 +337,11 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .card-loc { display: flex; align-items: baseline; gap: 6px; font-size: 13px; color: var(--text-secondary); font-weight: 500; margin-bottom: 3px; }
                 .card-loc span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
                 .card-loc i { flex-shrink: 0; }
-                .card-who { display: grid; grid-template-columns: 11px minmax(0, 1fr); column-gap: 6px; row-gap: 2px; font-size: 12px; line-height: 18px; color: var(--text-secondary); margin-bottom: 0; }
-                .card-who > i { align-self: center; }
+                .card-who { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 12px; line-height: 18px; color: var(--text-secondary); margin-bottom: 0; }
+                .card-who > i { flex-shrink: 0; }
                 .card-reporter-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-                .card-entry { grid-column: 2; font-size: 11px; line-height: 16px; color: var(--text-muted); white-space: nowrap; }
+                .card-entry { display: flex; align-items: center; flex-shrink: 0; gap: 8px; font-size: 11px; line-height: 14px; color: var(--text-secondary); white-space: nowrap; font-variant-numeric: tabular-nums; }
+                .card-entry span { border-left: 1px solid var(--border); padding-left: 8px; }
                 .status-change-btn {
                     position: relative; display: inline-flex; align-items: center; justify-content: center;
                     width: 24px; height: 24px; border-radius: 7px;
@@ -575,12 +576,13 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 {/* Zeile 2: Standort */}
                 <div className="card-loc" title={`${ticket.area} · ${ticket.location}`}><i className="ti ti-map-pin" aria-hidden="true" /> <span>{ticket.area} · {ticket.location}</span></div>
 
-                {/* Melder und Eingangszeit bewusst auf getrennten Zeilen */}
+                {/* Melder, Datum und Uhrzeit mit dezenten Trennlinien */}
                 <div className="card-who">
                     <i className="ti ti-user" aria-hidden="true" />
                     <span className="card-reporter-name" title={ticket.reporter}>{ticket.reporter}</span>
-                    <span className="card-entry" title={`Eingang: ${ticket.entryDate}${ticket.entryTime ? ` um ${ticket.entryTime} Uhr` : ''}`}>
-                        Eingang: {ticket.entryDate.slice(0, 5)}.{ticket.entryTime ? ` um ${ticket.entryTime} Uhr` : ''}
+                    <span className="card-entry" title={`${ticket.entryDate} ${ticket.entryTime || ''}`}>
+                        {ticket.entryDate && <span>{ticket.entryDate.slice(0, 5)}.</span>}
+                        {ticket.entryTime && <span>{ticket.entryTime}</span>}
                     </span>
                 </div>
 

@@ -640,15 +640,17 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             .ds-reporter-section { padding: 0 0 16px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
             .ds-reporter-name { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
             .ds-reporter-section a { overflow-wrap: anywhere; }
-            .ds-entry-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 16px 0 0; }
-            .ds-entry-grid dt { font-size: 11px; color: var(--text-muted); margin-bottom: 5px; }
-            .ds-entry-grid dd { display: flex; align-items: center; gap: 7px; margin: 0; font-size: 13px; font-weight: 500; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
-            .ds-entry-grid i { color: var(--text-muted); font-size: 14px; }
+            .ds-reporter-inline { display: flex; align-items: center; min-width: 0; gap: 6px; }
+            .ds-reporter-inline .ds-reporter-name { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .ds-entry-part { border-left: 1px solid var(--border); padding-left: 8px; margin-left: 2px; white-space: nowrap; font-size: 12px; font-weight: 400; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
             .detail-sidebar .channel-head--chat, .detail-sidebar .channel-head--melder { background: var(--bg-primary); color: var(--text-primary); border-bottom: 1px solid var(--border); }
             .detail-sidebar .channel-head--chat > i { color: #6366f1; }
             .detail-sidebar .channel-head--melder > i { color: #b45309; }
             .detail-sidebar .channel-pill--chat { background: var(--bg-tertiary); color: var(--text-secondary); }
-            .detail-sidebar .ds-pill { border-radius: 7px; min-height: 32px; }
+            .detail-sidebar .ds-pill { border-radius: 7px; height: 26px; min-height: 26px; padding: 3px 6px; line-height: 18px; }
+            .detail-sidebar .channel-head { padding: 7px 12px; line-height: 18px; }
+            .detail-sidebar .channel-body { padding: 12px; }
+            .detail-sidebar .channel-card { margin-bottom: 16px; }
             .detail-sidebar .ds-fields-grid { gap: 12px; }
             /* ── Melder row ── */
             .ds-melder-row {
@@ -842,9 +844,11 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             ) : (
                 <div className="ds-reporter-section">
                     <div className="ds-melder-row" style={{ justifyContent: 'space-between' }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span className="ds-reporter-inline">
                             <i className="ti ti-user" aria-hidden="true" />
-                            <span className="ds-reporter-name">{ticket.reporter}</span>
+                            <span className="ds-reporter-name" title={ticket.reporter}>{ticket.reporter}</span>
+                            {ticket.entryDate && <span className="ds-entry-part" title={ticket.entryDate}>{ticket.entryDate.slice(0, 5)}.</span>}
+                            {ticket.entryTime && <span className="ds-entry-part">{ticket.entryTime}</span>}
                         </span>
                         <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-muted)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 3 }}>
                             {ticket.is_emergency && <ExclamationTriangleIcon className="urgent-sidebar-icon" width={11} height={11} />}
@@ -858,10 +862,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                     ) : (
                         <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.1rem', display: 'inline-block', fontStyle: 'italic' }}>Keine E-Mail angegeben</span>
                     )}
-                    <dl className="ds-entry-grid">
-                        <div><dt>Eingegangen am</dt><dd><i className="ti ti-calendar" aria-hidden="true" />{ticket.entryDate || 'Nicht angegeben'}</dd></div>
-                        <div><dt>Uhrzeit</dt><dd><i className="ti ti-clock" aria-hidden="true" />{ticket.entryTime ? `${ticket.entryTime} Uhr` : 'Nicht angegeben'}</dd></div>
-                    </dl>
+
                 </div>
             )}
 

@@ -940,3 +940,7 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 ### 22.09.2026 – Detailansicht: klare Melder- und Eingangsdaten
 - Meldername und E-Mail separat; Eingangsdatum und Uhrzeit als beschriftete, ausgerichtete Felder statt Punktkette. Karten-Eingang verwendet „um“ zwischen Datum und Uhrzeit.
 - Dezente Trenner, ruhigere Chatköpfe mit weiterhin getrennten Kanälen, einheitliche Ecken und Feldabstände. Nachrichten-/Bearbeitungslogik unverändert.
+
+### 22.09.2026 – Kompakte, einheitliche Ticket-Metadaten
+- Name, Datum und Uhrzeit auf Karten und im Detail wieder in einer Zeile, getrennt durch dezente vertikale Linien; ohne Eingang/um und zusätzliche Kästchen. Lange Namen mit vollständigem Tooltip.
+- Detailfelder Priorität/Fälligkeit/Status auf einheitliche 26px Höhe reduziert; Chatkopf und Innenabstände abgestimmt. Bedienlogik unverändert.
