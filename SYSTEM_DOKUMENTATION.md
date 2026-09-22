@@ -944,3 +944,7 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 ### 22.09.2026 – Kompakte, einheitliche Ticket-Metadaten
 - Name, Datum und Uhrzeit auf Karten und im Detail wieder in einer Zeile, getrennt durch dezente vertikale Linien; ohne Eingang/um und zusätzliche Kästchen. Lange Namen mit vollständigem Tooltip.
 - Detailfelder Priorität/Fälligkeit/Status auf einheitliche 26px Höhe reduziert; Chatkopf und Innenabstände abgestimmt. Bedienlogik unverändert.
+
+### 22.09.2026 – Einheitliche Ticketlisten
+- Listenansicht, Abgeschlossen und Zurückgestellt teilen TicketTableFormats.css: 26px hohe, flache Status-/Prioritätsfelder wie im Detail, einheitliche Typografie und Abstände.
+- Ticketnummer dezent unter dem Betreff neben dem Melder; Nummernsortierung über # im Betreffkopf erhalten. Auswahl, Hinweise, Fachspalten und Aktionen unverändert.

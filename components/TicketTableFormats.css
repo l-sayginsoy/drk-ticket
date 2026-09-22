@@ -1,0 +1,21 @@
+/* Gemeinsames Tabellenformat für aktive, abgeschlossene und geparkte Tickets. */
+.unified-ticket-view .ticket-table th { font-size: 12px; padding: 12px 16px; font-weight: 500; }
+.unified-ticket-view .ticket-table td { padding: 13px 16px; font-size: 13px; vertical-align: middle !important; }
+.unified-ticket-view .ticket-table .ticket-title { font-size: 14px; font-weight: 600; max-width: 330px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.unified-ticket-view .ticket-title-cell { max-width: 350px; }
+.unified-ticket-view .reporter-name { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-top: 4px; color: var(--text-muted); }
+.unified-ticket-view .table-ticket-number { font-size: 11px; font-weight: 400; white-space: nowrap; color: var(--text-muted); padding-right: 8px; border-right: 1px solid var(--border); }
+.unified-ticket-view .id-sort { background: none; border: 0; color: var(--text-muted); font: inherit; font-size: 11px; padding: 2px 4px; margin-left: 8px; cursor: pointer; }
+.unified-ticket-view .id-sort:hover { color: var(--text-primary); background: var(--bg-tertiary); border-radius: 4px; }
+.unified-ticket-view .status-pill, .unified-ticket-view .priority-pill { display: inline-flex; align-items: center; justify-content: center; height: 26px; min-width: 72px; padding: 3px 9px; border-radius: 7px; border-width: .5px; font-size: 11px; font-weight: 600; line-height: 18px; box-sizing: border-box; box-shadow: none; }
+.unified-ticket-view .group-header td { padding: 12px 16px; font-size: 13px; border-color: var(--border); }
+.unified-ticket-view .group-count { font-size: 11px; font-weight: 500; }
+.unified-ticket-view .table-view-container, .table-view-container.unified-ticket-view { border-radius: 10px; box-shadow: none; overflow-x: auto; }
+.unified-ticket-view .unpark-btn { height: 28px; padding: 3px 9px; border-radius: 7px; font-size: 12px; }
+.unified-ticket-view .erledigt-month-nav input, .unified-ticket-view .erledigt-month-nav select { border-radius: 7px; min-height: 32px; font-size: 12px; }
+.unified-ticket-view .reminder-due-chip { border-radius: 7px; font-size: 11px; font-weight: 500; }
+.unified-ticket-view .ticket-table td.completion-cell { font-variant-numeric: tabular-nums; }
+
+.unified-ticket-view .table-time { font-size: 11px; color: var(--text-muted); margin-top: 4px; font-variant-numeric: tabular-nums; }
+.unified-ticket-view .unpark-btn { background: #E6F1FB; color: #185FA5; border: .5px solid #B5D4F4; }
+.unified-ticket-view .unpark-btn:hover { background: #d6e8f8; }

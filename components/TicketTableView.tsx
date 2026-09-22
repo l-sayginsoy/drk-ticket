@@ -1,3 +1,4 @@
+import './TicketTableFormats.css';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Ticket, Status, Priority, GroupableKey, User } from '../types';
 import { SortAscendingIcon } from './icons/SortAscendingIcon';
@@ -86,6 +87,7 @@ const ExclamationTriangleIcon: React.FC = () => (
 );
 
 const statusPillStyle: Record<string, React.CSSProperties> = {
+    [Status.Zurueckgestellt]: { background: '#FFF3E0', color: '#E65100', borderColor: '#FFCC80' },
     [Status.Offen]:        { background: '#F1F0EC', color: '#5F5E5A', borderColor: '#D3D1C7' },
     [Status.InArbeit]:     { background: '#E6F1FB', color: '#185FA5', borderColor: '#B5D4F4' },
     [Status.Ueberfaellig]: { background: '#FCEBEB', color: '#A32D2D', borderColor: '#F7C1C1' },
@@ -137,7 +139,7 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
 
     const processedTickets: ProcessedTickets = useMemo(() => {
         let sortableItems = [...mainTickets];
-        
+
         if (sortConfig !== null) {
             sortableItems.sort((a, b) => {
                 const priorityA = getTicketSortPriority(a);
@@ -160,7 +162,7 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
                 return 0;
             });
         }
-        
+
         if (groupBy === 'none') {
             return { type: 'flat', data: sortableItems };
         }
@@ -217,7 +219,7 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
             setSelectedTicketIds(selectedTicketIds.filter(ticketId => ticketId !== id));
         }
     };
-    
+
     const getGroupHeaderLabel = (key: GroupableKey, groupName: string) => {
         const labels: Record<string, string> = {
             status: 'Status',
@@ -252,12 +254,6 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
                 <td className="checkbox-cell" onClick={e => e.stopPropagation()}>
                    <input type="checkbox" checked={selectedTicketIds.includes(ticket.id)} onChange={e => handleSelectOne(e, ticket.id)} />
                 </td>
-                <td>
-                  <div className="ticket-id-cell">
-                    {ticket.id}
-                    {hasUnreadReporterNote(ticket, currentUser?.name ?? null) && <span className="new-note-indicator" title="Neue Nachricht vom Melder"></span>}
-                  </div>
-                </td>
                 <td className="icons-cell">
                     <div className="icons-cell-content">
                         {ticket.is_reopened && (
@@ -274,8 +270,8 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
                 </td>
                 <td>
                     <div className="ticket-title-cell">
-                        <div className="ticket-title">{ticket.title}</div>
-                        <div className="reporter-name">{ticket.reporter}</div>
+                        <div className="ticket-title" title={ticket.title}>{ticket.title}</div>
+                        <div className="reporter-name"><span className="table-ticket-number">#{ticket.id}</span><span>{ticket.reporter}</span>{hasUnreadReporterNote(ticket, currentUser?.name ?? null) && <span className="new-note-indicator" title="Neue Nachricht vom Melder" />}</div>
                     </div>
                 </td>
                 <td style={{maxWidth: 180}}>
@@ -292,11 +288,11 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
                     )}
                 </td>
                 <td style={{whiteSpace:'nowrap', verticalAlign:'top'}}>
-                    <div style={{fontWeight:500, color:'var(--text-primary)'}}>{ticket.entryDate.slice(0,5)}.</div>
+                    <div style={{fontWeight:500, color:'var(--text-primary)'}}>{ticket.entryDate}</div>
                     {ticket.entryTime && <div style={{fontSize:'0.72rem', color:'var(--text-muted)', marginTop:'0.25rem', letterSpacing:'0.02em'}}>{ticket.entryTime}</div>}
                 </td>
                 <td style={{verticalAlign:'top'}}>
-                    <div style={{fontWeight:500, color:'var(--text-primary)'}}>{ticket.dueDate.slice(0,5)}.</div>
+                    <div style={{fontWeight:500, color:'var(--text-primary)'}}>{ticket.dueDate}</div>
                 </td>
             </tr>
         );
@@ -304,7 +300,7 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
 
     const noTicketsRow = (
          <tr>
-            <td colSpan={10} style={{textAlign: 'center', padding: '2rem', color: 'var(--text-muted)'}}>
+            <td colSpan={9} style={{textAlign: 'center', padding: '2rem', color: 'var(--text-muted)'}}>
                 Keine Tickets für die aktuellen Filter gefunden.
             </td>
          </tr>
@@ -328,7 +324,7 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
                     <tbody>
                         {groupedData.flatMap(([groupName, groupTickets]) => [
                             <tr key={`header-${groupName}`} className="group-header">
-                                <td colSpan={10}>
+                                <td colSpan={9}>
                                     <div className="group-header-content">
                                         {getGroupHeaderLabel(groupBy as GroupableKey, groupName)}
                                         <span className="group-count">{groupTickets.length} Ticket{groupTickets.length !== 1 ? 's' : ''}</span>
@@ -348,7 +344,7 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
             return (
                 <tbody>
                     <tr>
-                        <td colSpan={10} style={{textAlign: 'center', padding: '1.25rem', color: 'var(--text-muted)'}}>
+                        <td colSpan={9} style={{textAlign: 'center', padding: '1.25rem', color: 'var(--text-muted)'}}>
                             Keine Serienaufträge für die aktuellen Filter gefunden.
                         </td>
                     </tr>
@@ -361,7 +357,7 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {!showRoutineSection && !showingOnlyRoutineTickets && (
-        <div className="table-view-container">
+        <div className="table-view-container unified-ticket-view">
             <style>{`
                  @keyframes pulse-border {
                     0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.8); }
@@ -589,9 +585,9 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
                     <th className="checkbox-cell">
                         <input type="checkbox" ref={selectAllCheckboxRef} onChange={handleSelectAll} />
                     </th>
-                    <SortableHeader sortKey="id">Ticket</SortableHeader>
+
                     <th className="icons-header-cell"></th>
-                    <SortableHeader sortKey="title">Betreff</SortableHeader>
+                    <SortableHeader sortKey="title">Betreff <button className="id-sort" title="Nach Ticketnummer sortieren" onClick={e=>{e.stopPropagation();requestSort('id');}}># ↕</button></SortableHeader>
                     <SortableHeader sortKey="area">Standort</SortableHeader>
                     <SortableHeader sortKey="technician">Bearbeiter</SortableHeader>
                     <SortableHeader sortKey="status">Status</SortableHeader>
@@ -606,7 +602,7 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
         )}
 
         {showRoutineSection && (
-            <div className="table-view-container">
+            <div className="table-view-container unified-ticket-view">
                 <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <strong>Serienaufträge</strong>
                     <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
@@ -617,7 +613,7 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
                     <thead>
                         <tr>
                             <th className="checkbox-cell"></th>
-                            <th>ID</th>
+
                             <th className="icons-header-cell"></th>
                             <th><SortableHeader sortKey="title">Titel</SortableHeader></th>
                             <th><SortableHeader sortKey="area">Standort</SortableHeader></th>

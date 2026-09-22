@@ -1,3 +1,4 @@
+import './TicketTableFormats.css';
 import React, { useState, useMemo, useEffect } from 'react';
 import { Ticket, Priority, Role } from '../types';
 import { SortAscendingIcon } from './icons/SortAscendingIcon';
@@ -135,7 +136,7 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({
   };
 
   return (
-    <div className="erledigt-page">
+    <div className="erledigt-page unified-ticket-view">
       <DeleteTicketDialog
         open={!!deleteDialogTicket}
         ticketId={deleteDialogTicket?.id ?? ''}
@@ -265,12 +266,12 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({
         {isLoading && <span className="erledigt-loading">Lade...</span>}
         <span className="erledigt-count">{tickets.length} Ticket{tickets.length !== 1 ? 's' : ''}</span>
       </div>
-      <div className="table-view-container">
+      <div className="table-view-container unified-ticket-view">
         <table className="ticket-table">
           <thead>
             <tr>
-              <SortableHeader sortKey="id">Ticket</SortableHeader>
-              <SortableHeader sortKey="title">Betreff</SortableHeader>
+
+              <SortableHeader sortKey="title">Betreff <button className="id-sort" title="Nach Ticketnummer sortieren" onClick={e=>{e.stopPropagation();requestSort('id');}}># ↕</button></SortableHeader>
               <SortableHeader sortKey="area">Standort</SortableHeader>
               <SortableHeader sortKey="technician">Bearbeiter</SortableHeader>
               <SortableHeader sortKey="priority">Priorität</SortableHeader>
@@ -288,10 +289,10 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({
                   onClick={() => onSelectTicket(ticket)}
                   className={selectedTicket?.id === ticket.id ? 'selected' : ''}
                 >
-                  <td>{ticket.id}</td>
+
                   <td className="ticket-title-cell">
-                    <div className="ticket-title">{ticket.title}</div>
-                    <div className="reporter-name">{ticket.reporter}</div>
+                    <div className="ticket-title" title={ticket.title}>{ticket.title}</div>
+                    <div className="reporter-name"><span className="table-ticket-number">#{ticket.id}</span><span>{ticket.reporter}</span></div>
                   </td>
                   <td style={{maxWidth: 180}}>
                     <div style={{overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{ticket.area}</div>
@@ -303,13 +304,13 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({
                   </td>
                   <td className="completion-cell">
                     <div className="completion-stack">
-                      <span className="completion-date-line">{ticket.entryDate.slice(0,5)}.</span>
+                      <span className="completion-date-line">{ticket.entryDate}</span>
                       {ticket.entryTime && <span className="completion-time-line">{ticket.entryTime}</span>}
                     </div>
                   </td>
                   <td className="completion-cell">
                     <div className="completion-stack">
-                      <span className="completion-date-line">{ticket.dueDate.slice(0,5)}.</span>
+                      <span className="completion-date-line">{ticket.dueDate}</span>
                     </div>
                   </td>
                   <td className="completion-cell">
@@ -336,7 +337,7 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({
               ))
             ) : (
               <tr>
-                <td colSpan={9} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                <td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
                   {isLoading ? 'Lade Aufträge...' : `Keine abgeschlossenen Aufträge im ${MONTHS[selectedMonth - 1]} ${selectedYear}.`}
                 </td>
               </tr>

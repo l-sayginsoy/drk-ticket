@@ -1,3 +1,4 @@
+import './TicketTableFormats.css';
 import React, { useState, useMemo } from 'react';
 import { Ticket, Status, Priority, Role } from '../types';
 import { SortAscendingIcon } from './icons/SortAscendingIcon';
@@ -139,7 +140,7 @@ const ZurückgestelltView: React.FC<ZurückgestelltViewProps> = ({
   const isReminderDue = (ticket: Ticket) => ticket.parkReminderNextDate && ticket.parkReminderNextDate <= today;
 
   return (
-    <div className="erledigt-page">
+    <div className="erledigt-page unified-ticket-view">
       <style>{`
         .erledigt-page { display: flex; flex-direction: column; }
         .erledigt-month-nav {
@@ -227,12 +228,12 @@ const ZurückgestelltView: React.FC<ZurückgestelltViewProps> = ({
       </div>
 
       {/* Tabelle */}
-      <div className="table-view-container">
+      <div className="table-view-container unified-ticket-view">
         <table className="ticket-table">
           <thead>
             <tr>
-              <Th k="id">Ticket</Th>
-              <Th k="title">Betreff</Th>
+
+              <Th k="title">Betreff <button className="id-sort" title="Nach Ticketnummer sortieren" onClick={e=>{e.stopPropagation();requestSort('id');}}># ↕</button></Th>
               <Th k="area">Standort</Th>
               <Th k="technician">Bearbeiter</Th>
               <Th k="priority">Priorität</Th>
@@ -250,10 +251,10 @@ const ZurückgestelltView: React.FC<ZurückgestelltViewProps> = ({
                 onClick={() => onSelectTicket(ticket)}
                 className={selectedTicket?.id === ticket.id ? 'selected' : ''}
               >
-                <td>{ticket.id}</td>
+
                 <td className="ticket-title-cell">
-                  <div className="ticket-title">{ticket.title}</div>
-                  <div className="reporter-name">{ticket.reporter}</div>
+                  <div className="ticket-title" title={ticket.title}>{ticket.title}</div>
+                  <div className="reporter-name"><span className="table-ticket-number">#{ticket.id}</span><span>{ticket.reporter}</span></div>
                   {ticket.parkedForReturnOf && (
                     <span style={{
                       display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 3,
@@ -285,7 +286,7 @@ const ZurückgestelltView: React.FC<ZurückgestelltViewProps> = ({
                 </td>
                 <td>{techCell(ticket.technician)}</td>
                 <td><PriorityPill priority={ticket.priority} /></td>
-                <td>{ticket.entryDate}</td>
+                <td><div>{ticket.entryDate}</div>{ticket.entryTime && <div className="table-time">{ticket.entryTime}</div>}</td>
                 <td>{formatDE(ticket.parkedAt)}</td>
                 <td>
                   {ticket.parkReminderNextDate ? (
@@ -306,7 +307,7 @@ const ZurückgestelltView: React.FC<ZurückgestelltViewProps> = ({
               </tr>
             )) : (
               <tr>
-                <td colSpan={10} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                <td colSpan={9} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
                   Keine zurückgestellten Aufträge{search || filterArea !== 'Alle' || filterTech !== 'Alle' || filterPriority !== 'Alle' || filterReminder !== 'Alle' ? ' (Filter aktiv)' : ''}.
                 </td>
               </tr>
