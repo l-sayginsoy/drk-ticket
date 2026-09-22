@@ -275,7 +275,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     margin-bottom: 12px;
                     border: 1px solid #E5E5E5;
                     overflow: hidden;
-                    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+                    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
                     position: relative;
                     cursor: default;
                     box-shadow: 0 1px 3px rgba(0,0,0,0.06);
@@ -283,6 +283,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 [data-theme="dark"] .ticket-card { border-color: var(--border); }
                 .ticket-card:hover {
                     transform: translateY(-1px);
+                    background: #f7faff; border-color: #b7cdeb;
                     box-shadow: 0 4px 12px rgba(0,0,0,0.08);
                 }
                 [data-theme="dark"] .ticket-card:hover {
@@ -290,7 +291,8 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 }
                 .ticket-card.urgent-alert { animation: pulse-border 1.5s infinite; }
                 .ticket-card.card-is-new { border: 2px solid rgba(220, 38, 38, 0.5); }
-                /* .ticket-card.selected — kein extra Indikator, Sidebar reicht als Feedback */
+                .ticket-card.selected { background: #f3f7fc; border-color: #9cbce4; }
+                [data-theme="dark"] .ticket-card:hover, [data-theme="dark"] .ticket-card.selected { background: color-mix(in srgb, var(--bg-secondary) 92%, #609be5); border-color: #56779e; }
 
                 /* ── Body ── */
                 .card-body { padding: 12px 16px 8px; flex: 1; min-height: 0; }

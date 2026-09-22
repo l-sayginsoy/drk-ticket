@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 // FIX: Import User type to align with App state
 import { Ticket, Status, Priority, Role, User, AppSettings, AvailabilityStatus, StaffMessage } from '../types';
 import { markStaffMessagesRead, markReporterNoteRead } from '../utils/staffChat';
@@ -58,6 +58,20 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
     const [newNote, setNewNote] = useState('');
     const [newStaffMsg, setNewStaffMsg] = useState('');
     const [chatOpen, setChatOpen] = useState(true);
+    const staffInputRef = useRef<HTMLTextAreaElement>(null);
+    const reporterInputRef = useRef<HTMLTextAreaElement>(null);
+    useLayoutEffect(() => {
+        const resizeInputs = () => {
+            for (const input of [staffInputRef.current, reporterInputRef.current]) {
+                if (!input) continue;
+                input.style.height = 'auto';
+                input.style.height = `${input.scrollHeight + 2}px`;
+            }
+        };
+        resizeInputs();
+        window.addEventListener('resize', resizeInputs);
+        return () => window.removeEventListener('resize', resizeInputs);
+    }, [newStaffMsg, newNote, chatOpen, ticket.id]);
     const chatScrollRef = useRef<HTMLDivElement>(null);
     const notesScrollRef = useRef<HTMLDivElement>(null);
     const [isEditing, setIsEditing] = useState(false);
@@ -438,7 +452,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             .channel-input-row { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; }
             .channel-input {
                 grid-column: 1 / -1; width: 100%; min-width: 0; box-sizing: border-box;
-                min-height: 104px; resize: vertical; border: 1px solid var(--border); border-radius: 8px;
+                min-height: 0; max-height: 240px; overflow-y: auto; resize: none; border: 1px solid var(--border); border-radius: 8px;
                 background: var(--bg-secondary); color: var(--text-primary);
                 padding: 12px; font-size: 14px; line-height: 1.6; font-family: inherit;
             }
@@ -456,7 +470,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             .channel-send--chat:not(:disabled) { color: #4f46e5; }
             .channel-send--melder:not(:disabled) { color: #b45309; }
             @media (max-width: 600px) {
-                .channel-input { min-height: 128px; font-size: 16px; }
+                .channel-input { font-size: 16px; }
                 .channel-send { min-height: 44px; }
                 .channel-input-row > button:not(.channel-send) { min-height: 44px; min-width: 44px; }
             }
@@ -1126,6 +1140,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                     <div className="channel-input-row">
                       <textarea
                         className="channel-input"
+                        ref={staffInputRef}
                         rows={2}
                         placeholder="Nachricht an das Team…"
                         value={newStaffMsg}
@@ -1161,7 +1176,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                         </div>
                     )}
                     <div className="channel-input-row">
-                        <textarea className="channel-input channel-melder-input" rows={2} placeholder="Antwort an den Melder…" value={newNote} onChange={e => setNewNote(e.target.value)} />
+                        <textarea ref={reporterInputRef} className="channel-input channel-melder-input" rows={2} placeholder="Antwort an den Melder…" value={newNote} onChange={e => setNewNote(e.target.value)} />
                         <MicButton value={newNote} onChange={setNewNote} title="Per Sprache eingeben" />
                         <button className="channel-send channel-send--melder" onClick={handleAddNote} disabled={!newNote.trim()}>
                             <i className="ti ti-mail" aria-hidden="true" />

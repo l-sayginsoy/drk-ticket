@@ -955,3 +955,7 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 ### 22.09.2026 – Nachrichteneingabe im Vordergrund
 - Teamchat und Melderantwort nutzen die volle Breite; Eingabe mindestens 104px, mobil 128px bei 16px Schrift. Mikrofon und dezenter Senden-Button darunter, mobile Touchflächen 44px. Versandlogik unverändert.
 - Kartenmetadaten wieder auf gemeinsamer erster Textlinie bei gleichmäßiger horizontaler Verteilung.
+
+### 22.09.2026 – Kompakte, mitwachsende Nachrichteneingabe
+- Beide Nachrichtenfelder beginnen bei zwei Zeilen und wachsen mit Text bis 240px; danach scrollbar. Höhe wird auch nach Leeren, Sprachänderungen und Fenstergrößenwechsel angepasst.
+- Karten-Hover und aktive Auswahl mit dezenter blauer Tönung und Rahmen, inklusive Dark Mode; bestehender Schatten bleibt.
