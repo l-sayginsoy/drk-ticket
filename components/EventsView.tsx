@@ -95,11 +95,7 @@ export default function EventsView({ events, tickets, completedTickets, userRole
             <div className="ev-main">
               <div className="ev-title-row">
                 <span className="ev-title">{ev.title || '—'}</span>
-                {total > 0 && (
-                  <span className="ev-progress-pill" style={{ background: allDone ? '#dcfce7' : 'var(--bg-tertiary)', color: allDone ? '#16a34a' : 'var(--text-muted)' }}>
-                    {done}/{total} erledigt
-                  </span>
-                )}
+
               </div>
               {(ev.location || ev.time || ev.description) && (
                 <div className="ev-meta">
@@ -115,6 +111,15 @@ export default function EventsView({ events, tickets, completedTickets, userRole
               </button>
             )}
           </div>
+
+          {total > 0 && (
+            <div className="ev-progress">
+              <div className="ev-progress-label"><span>Fortschritt</span><span>{done} von {total} Aufgaben erledigt · {Math.round(done / total * 100)} %</span></div>
+              <div className="ev-progress-track" role="progressbar" aria-label={`Fortschritt: ${ev.title}`} aria-valuemin={0} aria-valuemax={total} aria-valuenow={done} aria-valuetext={`${done} von ${total} Aufgaben erledigt`}>
+                <div style={{ width: `${done / total * 100}%`, background: allDone ? 'var(--accent-success)' : 'var(--accent-inprogress)' }} />
+              </div>
+            </div>
+          )}
 
           {ev.tasks.length > 0 && (
             <div className="ev-chips">
@@ -201,6 +206,10 @@ export default function EventsView({ events, tickets, completedTickets, userRole
         .ev-title {
           font-size: 15px; font-weight: 700; color: var(--text-primary);
         }
+        .ev-progress { padding: 4px 14px 12px; }
+        .ev-progress-label { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; }
+        .ev-progress-track { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+        .ev-progress-track > div { height: 100%; border-radius: inherit; transition: width .2s; }
         .ev-progress-pill {
           font-size: 11px; font-weight: 700; padding: 2px 8px;
           border-radius: 99px; white-space: nowrap;

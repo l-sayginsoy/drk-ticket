@@ -227,15 +227,15 @@ const TicketCard: React.FC<TicketCardProps> = ({
 
     const dueLabel = (() => {
         const due = parseGermanDate(ticket.dueDate);
-        if (!due || Number.isNaN(due.getTime())) return { text: ticket.dueDate || 'Ohne Frist', overdue: false };
+        if (!due || Number.isNaN(due.getTime())) return { date: ticket.dueDate || 'Ohne Frist', hint: '', overdue: false };
         const today = new Date();
-        // Calendar-day arithmetic stays correct across daylight-saving changes.
         const days = Math.round((Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) - Date.UTC(due.getFullYear(), due.getMonth(), due.getDate())) / 86400000);
-        const shortDate = `${String(due.getDate()).padStart(2, '0')}.${String(due.getMonth() + 1).padStart(2, '0')}.`;
+        const date = `${String(due.getDate()).padStart(2, '0')}.${String(due.getMonth() + 1).padStart(2, '0')}.${due.getFullYear()}`;
         const active = [Status.Offen, Status.InArbeit, Status.Ueberfaellig].includes(ticket.status);
-        if (active && days > 0) return { text: `Überfällig seit ${days} ${days === 1 ? 'Tag' : 'Tagen'}`, overdue: true };
-        if (active && days === 0) return { text: 'Heute fällig', overdue: false };
-        return { text: `Fällig am ${shortDate}`, overdue: false };
+        const hint = !active ? '' : days === 0 ? 'heute' : days > 0
+            ? `seit ${days} ${days === 1 ? 'Tag' : 'Tagen'}`
+            : `in ${-days} ${days === -1 ? 'Tag' : 'Tagen'}`;
+        return { date, hint, overdue: active && days > 0 };
     })();
 
     const canEditDate = !currentUser || currentUser.role === Role.Admin || ticket.technician === currentUser.name;
@@ -269,7 +269,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     100% { box-shadow: 0 0 0 0   rgba(226,75,74,0);   }
                 }
                 .ticket-card {
-                    display: flex; flex-direction: column; height: 218px;
+                    display: flex; flex-direction: column; height: 196px;
                     background: var(--bg-secondary);
                     border-radius: 12px;
                     margin-bottom: 12px;
@@ -295,7 +295,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 /* ── Body ── */
                 .card-body { padding: 16px 16px 10px; flex: 1; min-height: 0; }
                 .card-row1 { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
-                .card-title { font-size: 16px; font-weight: 600; color: var(--text-primary); flex: 1; min-width: 0; line-height: 1.35; margin: 0; height: 43.2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+                .card-title { font-size: 16px; font-weight: 600; color: var(--text-primary); flex: 1; min-width: 0; line-height: 1.35; margin: 0; height: 21.6px; display: block; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
                 .card-icons { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
                 .card-tnum { font-size: 10px; color: #999; white-space: nowrap; margin-top: 2px; }
                 .card-tnum-new {
@@ -401,6 +401,9 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .card-meta .meta-lbl { font-size: 12px; }
                 .meta-lbl { font-size: 9.5px; color: #999; letter-spacing: 0.02em; }
                 .meta-val { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; }
+                .card-due-date, .card-due-hint { display: block; white-space: nowrap; }
+                .card-due-date { font-variant-numeric: tabular-nums; }
+                .card-due-hint { font-size: 10px; min-height: 14px; }
                 .meta-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
                 .meta-dot-red   { background: #E24B4A; }
                 .meta-dot-amber { background: #E6A23C; }
@@ -609,7 +612,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 <div className="card-meta-col" onClick={e => e.stopPropagation()} title={canEditDate ? 'Fällig bis – zum Ändern klicken' : 'Fällig bis'}>
                                         <div className="meta-val">
                         <i className="ti ti-calendar" aria-hidden="true" />
-                        <span style={{ color: dueLabel.overdue ? '#A32D2D' : 'var(--text-secondary)' }}>{dueLabel.text}</span>
+                        <span style={{ color: dueLabel.overdue ? '#A32D2D' : 'var(--text-secondary)' }}><span className="card-due-date">{dueLabel.date}</span><span className="card-due-hint">{dueLabel.hint || '\u00a0'}</span></span>
                     </div>
                     {canEditDate && (
                         <input aria-label="Fälligkeitsdatum ändern" ref={dateInputRef} type="date" className="meta-col-select"

@@ -922,3 +922,8 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 - Metazeile ohne Feldüberschriften: bisherige Prioritätsfarben, dezenter direkt bedienbarer Status, Fristtext „Heute fällig“, „Überfällig seit …“ oder „Fällig am …“.
 - Bestehender Statushandler wieder angeschlossen; automatische Überfälligkeit nicht manuell auswählbar. Tastaturfokus und zugängliche Feldnamen ergänzt.
 - Grauer Footer unverändert; kein Fortschrittsbalken.
+
+### 22.09.2026 – Einheitliches Datum und Veranstaltungsfortschritt
+- Kartenbetreff einzeilig mit Ellipse und vollständigem Tooltip; einheitliche Höhe angepasst.
+- Datum immer DD.MM.YYYY, darunter heute / seit N Tagen / in N Tagen; bei überschrittener aktiver Frist rot. Kein doppelter Überfällig-Text.
+- Veranstaltungsübersicht zeigt dezenten Fortschrittsbalken mit erledigten/verknüpften Aufgaben und Prozent. Bestehende Aufgabenstatus-Auswertung bleibt Grundlage, Aufgaben ohne Ticket zählen nicht als erledigt. Kein Balken bei null Aufgaben, keine zusätzliche Höhe für Ticketkarten.
