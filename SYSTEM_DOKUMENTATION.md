@@ -1,6 +1,6 @@
 # DRK Haustechnik Service — Systemdokumentation
 
-> Letzte Aktualisierung: 21. Juni 2026  
+> Letzte Aktualisierung: 22. September 2026  
 > Diese Datei wird bei jeder Änderung am System gepflegt und erweitert.
 
 ---
@@ -966,3 +966,10 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 ### 22.09.2026 – Vollständige Ticketbearbeitung für Admins
 - Admins können nun auch ältere, Serien- und Veranstaltungs-Tickets über „Ticket bearbeiten“ öffnen. Der Bearbeitungsmodus bündelt Betreff, Melder und E-Mail-Adresse in einem klaren Block; Standort, Bereich und Beschreibung folgen darunter.
 - Priorität, Fälligkeit, Status, Bearbeiter und Kategorie bleiben direkt auswählbar. Beim Speichern wird eine leere E-Mail-Adresse als „nicht angegeben“ gespeichert; Chats, Checklisten und Ticket-Herkunft bleiben unverändert.
+### 22.09.2026 – Arbeitszeit direkt am Ticket buchen
+
+- Im Ticket gibt es zwischen Zuordnung und Chat einen kompakten, aufklappbaren Bereich **Arbeitszeit**. Im geschlossenen Zustand bleibt nur die bisher erfasste Gesamtdauer sichtbar.
+- Zeiten lassen sich über **10, 15, 30 oder 60 Minuten** schnell auswählen oder als freie Minutenzahl eingeben. Eine kurze Tätigkeitsnotiz ist optional.
+- Jede Buchung speichert Dauer, Person und Zeitpunkt. Eigene Buchungen können bearbeitet oder gelöscht werden; Administratoren können alle Buchungen korrigieren.
+- Die Gesamtdauer bleibt auch bei abgeschlossenen Tickets erhalten. Zusätzlich wird `costs.laborHours` aus der Summe synchronisiert, damit Berichte die gebuchte Arbeitszeit später direkt verwenden können.
+- Bewusst kein laufender Timer: Die feste Auswahl ist auf Mobilgeräten schneller, klarer und weniger fehleranfällig.

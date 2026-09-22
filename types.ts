@@ -187,6 +187,16 @@ export interface StaffMessage {
   readBy?: string[]; // User-Namen, die gelesen haben (Absender zählt als gelesen)
 }
 
+export interface WorkTimeEntry {
+  id: string;
+  minutes: number;
+  note?: string;
+  authorId?: string;
+  author: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface Ticket {
   lifecycleRevision?: number; // changes only on an explicit reopen
   id: string;
@@ -226,6 +236,7 @@ export interface Ticket {
     laborHours: number;
     materials: number;
   };
+  workTimeEntries?: WorkTimeEntry[];
   closedAt?: string; // YYYY-MM-DD, gesetzt beim Abschließen
   reminderSentAt?: string; // YYYY-MM-DD, letzter Versand der Stale-Erinnerung
   parkReminderInterval?: number; // weeks between reminders (1/2/3/4)
