@@ -637,6 +637,19 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             }
             .edit-description-textarea:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px rgba(179,0,12,0.1); }
 
+            .ds-reporter-section { padding: 0 0 16px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+            .ds-reporter-name { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+            .ds-reporter-section a { overflow-wrap: anywhere; }
+            .ds-entry-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 16px 0 0; }
+            .ds-entry-grid dt { font-size: 11px; color: var(--text-muted); margin-bottom: 5px; }
+            .ds-entry-grid dd { display: flex; align-items: center; gap: 7px; margin: 0; font-size: 13px; font-weight: 500; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+            .ds-entry-grid i { color: var(--text-muted); font-size: 14px; }
+            .detail-sidebar .channel-head--chat, .detail-sidebar .channel-head--melder { background: var(--bg-primary); color: var(--text-primary); border-bottom: 1px solid var(--border); }
+            .detail-sidebar .channel-head--chat > i { color: #6366f1; }
+            .detail-sidebar .channel-head--melder > i { color: #b45309; }
+            .detail-sidebar .channel-pill--chat { background: var(--bg-tertiary); color: var(--text-secondary); }
+            .detail-sidebar .ds-pill { border-radius: 7px; min-height: 32px; }
+            .detail-sidebar .ds-fields-grid { gap: 12px; }
             /* ── Melder row ── */
             .ds-melder-row {
                 display: flex; align-items: center; gap: 5px;
@@ -827,11 +840,11 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             {isEditing ? (
                 <input className="edit-reporter-input" value={editDraft.reporter} onChange={e => setEditDraft(d => ({ ...d, reporter: e.target.value }))} placeholder="Name des Melders..." style={{ marginBottom: '0.6rem' }} />
             ) : (
-                <div style={{ marginBottom: '0.6rem' }}>
+                <div className="ds-reporter-section">
                     <div className="ds-melder-row" style={{ justifyContent: 'space-between' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                             <i className="ti ti-user" aria-hidden="true" />
-                            <span>{ticket.reporter}{ticket.entryDate ? ` · ${ticket.entryDate.slice(0,5)}.` : ''}{ticket.entryTime ? ` · ${ticket.entryTime}` : ''}</span>
+                            <span className="ds-reporter-name">{ticket.reporter}</span>
                         </span>
                         <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-muted)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 3 }}>
                             {ticket.is_emergency && <ExclamationTriangleIcon className="urgent-sidebar-icon" width={11} height={11} />}
@@ -845,6 +858,10 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                     ) : (
                         <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.1rem', display: 'inline-block', fontStyle: 'italic' }}>Keine E-Mail angegeben</span>
                     )}
+                    <dl className="ds-entry-grid">
+                        <div><dt>Eingegangen am</dt><dd><i className="ti ti-calendar" aria-hidden="true" />{ticket.entryDate || 'Nicht angegeben'}</dd></div>
+                        <div><dt>Uhrzeit</dt><dd><i className="ti ti-clock" aria-hidden="true" />{ticket.entryTime ? `${ticket.entryTime} Uhr` : 'Nicht angegeben'}</dd></div>
+                    </dl>
                 </div>
             )}
 

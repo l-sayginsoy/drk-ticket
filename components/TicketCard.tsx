@@ -579,8 +579,8 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 <div className="card-who">
                     <i className="ti ti-user" aria-hidden="true" />
                     <span className="card-reporter-name" title={ticket.reporter}>{ticket.reporter}</span>
-                    <span className="card-entry" title={`Eingang: ${ticket.entryDate}${ticket.entryTime ? ` · ${ticket.entryTime} Uhr` : ''}`}>
-                        Eingang: {ticket.entryDate.slice(0, 5)}.{ticket.entryTime ? ` · ${ticket.entryTime} Uhr` : ''}
+                    <span className="card-entry" title={`Eingang: ${ticket.entryDate}${ticket.entryTime ? ` um ${ticket.entryTime} Uhr` : ''}`}>
+                        Eingang: {ticket.entryDate.slice(0, 5)}.{ticket.entryTime ? ` um ${ticket.entryTime} Uhr` : ''}
                     </span>
                 </div>
 

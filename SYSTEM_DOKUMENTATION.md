@@ -936,3 +936,7 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 ### 22.09.2026 – Melder und Eingang getrennt
 - Meldername mit Personensymbol auf erster Zeile, darunter links am Namen ausgerichtet „Eingang: DD.MM. · HH:MM Uhr“. Vollständige Angaben im Tooltip.
 - Innenabstände angepasst; Kartenhöhe, einzeiliger Betreff und Footer bleiben erhalten.
+
+### 22.09.2026 – Detailansicht: klare Melder- und Eingangsdaten
+- Meldername und E-Mail separat; Eingangsdatum und Uhrzeit als beschriftete, ausgerichtete Felder statt Punktkette. Karten-Eingang verwendet „um“ zwischen Datum und Uhrzeit.
+- Dezente Trenner, ruhigere Chatköpfe mit weiterhin getrennten Kanälen, einheitliche Ecken und Feldabstände. Nachrichten-/Bearbeitungslogik unverändert.
