@@ -385,7 +385,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .card-meta {
                     position: relative;
                     display: grid;
-                    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 104px;
+                    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(104px, 1fr);
                     height: 50px; flex-shrink: 0; align-items: start;
                     padding: 8px 16px;
                     gap: 6px;
@@ -396,8 +396,8 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     display: flex; flex-direction: row; align-items: center; gap: 6px;
                     position: relative; cursor: pointer;
                 }
-                .card-meta-col { height: 18px; }
-                .card-meta-col.card-meta-due { height: 34px; justify-content: flex-start; text-align: left; }
+                .card-meta-col { height: 34px; justify-content: center; }
+                .card-meta-col.card-meta-due { height: 34px; justify-content: center; text-align: center; }
                 .card-meta-due .meta-val { align-items: flex-start; }
                 .card-meta-due .ti-calendar { width: 14px; line-height: 18px; flex-shrink: 0; }
                 .card-meta .meta-val { font-size: 12px; line-height: 18px; min-width: 0; }
