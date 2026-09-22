@@ -16,7 +16,7 @@ export default function AppTopBar({ collapsed, search, onSearch, showSearch }: A
       .app-topbar__logo { width: 240px; height: 100%; flex-shrink: 0; display: flex; align-items: center; padding: 14px 28px; transition: width .3s; }
       .app-topbar__logo img { width: 145px; max-width: 100%; height: 44px; object-fit: contain; object-position: left center; }
       .app-topbar--collapsed .app-topbar__logo { width: 70px; padding: 12px; }
-      .app-topbar__name { font-size: 15px; font-weight: 600; margin-left: 32px; }
+      .app-topbar__name { font-size: 19px; font-weight: 650; letter-spacing: -0.015em; margin-left: 32px; }
       .app-topbar__search { position: relative; margin: 0 32px 0 auto; width: min(340px, 35vw); }
       .app-topbar__search svg { position: absolute; width: 18px; height: 18px; left: 12px; top: 11px; color: #626b75; }
       .app-topbar__search input { width: 100%; height: 40px; border: 1px solid #dce1e6; border-radius: 8px; background: #f7f8fa; color: #20252b; padding: 8px 12px 8px 38px; font: inherit; font-size: 13px; }

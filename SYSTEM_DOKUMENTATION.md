@@ -959,3 +959,6 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 ### 22.09.2026 – Kompakte, mitwachsende Nachrichteneingabe
 - Beide Nachrichtenfelder beginnen bei zwei Zeilen und wachsen mit Text bis 240px; danach scrollbar. Höhe wird auch nach Leeren, Sprachänderungen und Fenstergrößenwechsel angepasst.
 - Karten-Hover und aktive Auswahl mit dezenter blauer Tönung und Rahmen, inklusive Dark Mode; bestehender Schatten bleibt.
+
+### 22.09.2026 – Lesbarer App-Name
+- Der Schriftzug „DRK Serviceportal“ im Kopfbereich ist auf 19px vergrößert und minimal enger gesetzt, ohne die Suche zu verdrängen.
