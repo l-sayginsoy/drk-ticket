@@ -381,8 +381,8 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .card-meta {
                     position: relative;
                     display: grid;
-                    grid-template-columns: auto auto minmax(0, 1fr);
-                    height: 58px; flex-shrink: 0; align-items: center;
+                    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 104px;
+                    height: 58px; flex-shrink: 0; align-items: start;
                     padding: 12px 16px;
                     gap: 6px;
                     -webkit-user-drag: none;
@@ -392,18 +392,21 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     display: flex; flex-direction: row; align-items: center; gap: 6px;
                     position: relative; cursor: pointer;
                 }
-                .card-meta-col:last-child { justify-content: flex-end; text-align: right; }
-                .card-meta .meta-val { font-size: 12px; line-height: 1.35; }
+                .card-meta-col { height: 18px; }
+                .card-meta-col.card-meta-due { height: 34px; justify-content: flex-start; text-align: left; }
+                .card-meta-due .meta-val { align-items: flex-start; }
+                .card-meta-due .ti-calendar { width: 14px; line-height: 18px; flex-shrink: 0; }
+                .card-meta .meta-val { font-size: 12px; line-height: 18px; min-width: 0; }
                 .card-meta-col { min-width: 0; }
                 .card-meta-col:focus-within { outline: 2px solid var(--accent-primary); outline-offset: 3px; border-radius: 3px; }
                 .card-meta-chevron { width: 10px; height: 10px; color: var(--text-muted); flex-shrink: 0; }
-                .card-meta-status .meta-val span { max-width: 83px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                .card-meta-status .meta-val span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
                 .card-meta .meta-lbl { font-size: 12px; }
                 .meta-lbl { font-size: 9.5px; color: #999; letter-spacing: 0.02em; }
                 .meta-val { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; }
                 .card-due-date, .card-due-hint { display: block; white-space: nowrap; }
                 .card-due-date { font-variant-numeric: tabular-nums; }
-                .card-due-hint { font-size: 10px; min-height: 14px; }
+                .card-due-hint { font-size: 10px; height: 14px; line-height: 14px; }
                 .meta-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
                 .meta-dot-red   { background: #E24B4A; }
                 .meta-dot-amber { background: #E6A23C; }
@@ -609,7 +612,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     </select>
                 </div>
                 {/* Fällig bis */}
-                <div className="card-meta-col" onClick={e => e.stopPropagation()} title={canEditDate ? 'Fällig bis – zum Ändern klicken' : 'Fällig bis'}>
+                <div className="card-meta-col card-meta-due" onClick={e => e.stopPropagation()} title={canEditDate ? 'Fällig bis – zum Ändern klicken' : 'Fällig bis'}>
                                         <div className="meta-val">
                         <i className="ti ti-calendar" aria-hidden="true" />
                         <span style={{ color: dueLabel.overdue ? '#A32D2D' : 'var(--text-secondary)' }}><span className="card-due-date">{dueLabel.date}</span><span className="card-due-hint">{dueLabel.hint || '\u00a0'}</span></span>

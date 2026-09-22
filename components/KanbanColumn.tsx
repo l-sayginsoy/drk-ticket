@@ -155,6 +155,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
       >
            <style>{`
               .board-column {
+                  min-width: 0;
                   background-color: #E9EBEF;
                   border: 1px solid var(--border);
                   border-radius: 12px;

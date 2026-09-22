@@ -927,3 +927,8 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 - Kartenbetreff einzeilig mit Ellipse und vollständigem Tooltip; einheitliche Höhe angepasst.
 - Datum immer DD.MM.YYYY, darunter heute / seit N Tagen / in N Tagen; bei überschrittener aktiver Frist rot. Kein doppelter Überfällig-Text.
 - Veranstaltungsübersicht zeigt dezenten Fortschrittsbalken mit erledigten/verknüpften Aufgaben und Prozent. Bestehende Aufgabenstatus-Auswertung bleibt Grundlage, Aufgaben ohne Ticket zählen nicht als erledigt. Kein Balken bei null Aufgaben, keine zusätzliche Höhe für Ticketkarten.
+
+### 22.09.2026 – Ausrichtung der Kartenmetadaten
+- Priorität, Status und Datum stehen auf derselben oberen Textlinie in stabilen Spalten. Datumszusatz linksbündig darunter; Kalender auf Höhe des Datums statt zwischen zwei Zeilen.
+- Kartenhöhe und grauer Footer unverändert.
+- Kanban-Spalten mit min-width: 0 verhindern, dass lange einzeilige Titel die Spaltenbreite verändern.
