@@ -293,7 +293,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 /* .ticket-card.selected — kein extra Indikator, Sidebar reicht als Feedback */
 
                 /* ── Body ── */
-                .card-body { padding: 16px 16px 10px; flex: 1; min-height: 0; }
+                .card-body { padding: 12px 16px 8px; flex: 1; min-height: 0; }
                 .card-row1 { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
                 .card-title { font-size: 16px; font-weight: 600; color: var(--text-primary); flex: 1; min-width: 0; line-height: 1.35; margin: 0; height: 21.6px; display: block; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
                 .card-icons { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
@@ -337,7 +337,10 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .card-loc { display: flex; align-items: baseline; gap: 6px; font-size: 13px; color: var(--text-secondary); font-weight: 500; margin-bottom: 3px; }
                 .card-loc span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
                 .card-loc i { flex-shrink: 0; }
-                .card-who { display: flex; align-items: center; justify-content: space-between; gap: 3px; font-size: 12px; color: var(--text-secondary); margin-bottom: 0; }
+                .card-who { display: grid; grid-template-columns: 11px minmax(0, 1fr); column-gap: 6px; row-gap: 2px; font-size: 12px; line-height: 18px; color: var(--text-secondary); margin-bottom: 0; }
+                .card-who > i { align-self: center; }
+                .card-reporter-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                .card-entry { grid-column: 2; font-size: 11px; line-height: 16px; color: var(--text-muted); white-space: nowrap; }
                 .status-change-btn {
                     position: relative; display: inline-flex; align-items: center; justify-content: center;
                     width: 24px; height: 24px; border-radius: 7px;
@@ -382,8 +385,8 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     position: relative;
                     display: grid;
                     grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 104px;
-                    height: 58px; flex-shrink: 0; align-items: start;
-                    padding: 12px 16px;
+                    height: 50px; flex-shrink: 0; align-items: start;
+                    padding: 8px 16px;
                     gap: 6px;
                     -webkit-user-drag: none;
                 }
@@ -572,14 +575,13 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 {/* Zeile 2: Standort */}
                 <div className="card-loc" title={`${ticket.area} · ${ticket.location}`}><i className="ti ti-map-pin" aria-hidden="true" /> <span>{ticket.area} · {ticket.location}</span></div>
 
-                {/* Zeile 3: Melder */}
+                {/* Melder und Eingangszeit bewusst auf getrennten Zeilen */}
                 <div className="card-who">
-                    <div style={{ display:'flex', alignItems:'center', gap:3, minWidth:0, overflow:'hidden' }}>
-                        <i className="ti ti-user" aria-hidden="true" />
-                        <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                            {ticket.reporter} · {ticket.entryDate.slice(0,5)}.{ticket.entryTime ? ` · ${ticket.entryTime}` : ''}
-                        </span>
-                    </div>
+                    <i className="ti ti-user" aria-hidden="true" />
+                    <span className="card-reporter-name" title={ticket.reporter}>{ticket.reporter}</span>
+                    <span className="card-entry" title={`Eingang: ${ticket.entryDate}${ticket.entryTime ? ` · ${ticket.entryTime} Uhr` : ''}`}>
+                        Eingang: {ticket.entryDate.slice(0, 5)}.{ticket.entryTime ? ` · ${ticket.entryTime} Uhr` : ''}
+                    </span>
                 </div>
 
             </div>

@@ -932,3 +932,7 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 - Priorität, Status und Datum stehen auf derselben oberen Textlinie in stabilen Spalten. Datumszusatz linksbündig darunter; Kalender auf Höhe des Datums statt zwischen zwei Zeilen.
 - Kartenhöhe und grauer Footer unverändert.
 - Kanban-Spalten mit min-width: 0 verhindern, dass lange einzeilige Titel die Spaltenbreite verändern.
+
+### 22.09.2026 – Melder und Eingang getrennt
+- Meldername mit Personensymbol auf erster Zeile, darunter links am Namen ausgerichtet „Eingang: DD.MM. · HH:MM Uhr“. Vollständige Angaben im Tooltip.
+- Innenabstände angepasst; Kartenhöhe, einzeiliger Betreff und Footer bleiben erhalten.
