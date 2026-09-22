@@ -434,24 +434,32 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             .note-del-btn { position: absolute; top: 6px; right: 6px; }
             .chat-empty { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 12px; padding: 2px; }
 
-            /* gemeinsame Eingabezeile (Chat + Melder) */
-            .channel-input-row { display: flex; gap: 6px; align-items: flex-end; }
+            /* Nachricht zuerst: volle Breite, Werkzeuge in eigener Zeile. */
+            .channel-input-row { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; }
             .channel-input {
-                flex: 1; resize: none; border: 1px solid var(--border); border-radius: 8px;
+                grid-column: 1 / -1; width: 100%; min-width: 0; box-sizing: border-box;
+                min-height: 104px; resize: vertical; border: 1px solid var(--border); border-radius: 8px;
                 background: var(--bg-secondary); color: var(--text-primary);
-                padding: 7px 10px; font-size: 0.85rem; font-family: inherit; transition: border-color 0.2s;
+                padding: 12px; font-size: 14px; line-height: 1.6; font-family: inherit;
             }
             .channel-input:focus { outline: none; border-color: #6366F1; }
             .channel-melder-input:focus { border-color: #D97706; }
+            .channel-input-row > button:not(.channel-send) { justify-self: start; }
             .channel-send {
-                flex-shrink: 0; padding: 8px 14px; border-radius: 8px; border: none; color: #fff;
-                font-weight: 600; font-size: 0.82rem; cursor: pointer; transition: opacity 0.15s;
-                display: flex; align-items: center; gap: 5px; white-space: nowrap;
+                padding: 6px 10px; min-height: 34px; border-radius: 7px; border: 1px solid var(--border);
+                color: var(--text-secondary); background: var(--bg-secondary);
+                font-weight: 500; font-size: 12px; cursor: pointer;
+                display: flex; align-items: center; gap: 6px; white-space: nowrap; justify-self: end;
             }
-            .channel-send:hover { opacity: 0.88; }
-            .channel-send:disabled { opacity: 0.4; cursor: default; }
-            .channel-send--chat { background: #6366F1; }
-            .channel-send--melder { background: #D97706; }
+            .channel-send:not(:disabled):hover { background: var(--bg-tertiary); }
+            .channel-send:disabled { opacity: .45; cursor: default; }
+            .channel-send--chat:not(:disabled) { color: #4f46e5; }
+            .channel-send--melder:not(:disabled) { color: #b45309; }
+            @media (max-width: 600px) {
+                .channel-input { min-height: 128px; font-size: 16px; }
+                .channel-send { min-height: 44px; }
+                .channel-input-row > button:not(.channel-send) { min-height: 44px; min-width: 44px; }
+            }
 
             .notes-list-compact { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem; max-height: 260px; overflow-y: auto; padding-right: 4px; }
             .note-item-compact {

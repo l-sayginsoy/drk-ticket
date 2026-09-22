@@ -396,7 +396,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     display: flex; flex-direction: row; align-items: center; gap: 6px;
                     position: relative; cursor: pointer;
                 }
-                .card-meta-col { height: 34px; justify-content: center; }
+                .card-meta-col { height: 18px; justify-content: center; }
                 .card-meta-col.card-meta-due { height: 34px; justify-content: center; text-align: center; }
                 .card-meta-due .meta-val { align-items: flex-start; }
                 .card-meta-due .ti-calendar { width: 14px; line-height: 18px; flex-shrink: 0; }

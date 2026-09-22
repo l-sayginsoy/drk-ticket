@@ -951,3 +951,7 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 
 ### 22.09.2026 – Karten-Metadaten zentriert
 - Priorität, Status und Datum in drei gleichmäßig verteilten Bereichen horizontal und vertikal zentriert; Datumshinweis mittig unter dem Datum. Bedienung unverändert.
+
+### 22.09.2026 – Nachrichteneingabe im Vordergrund
+- Teamchat und Melderantwort nutzen die volle Breite; Eingabe mindestens 104px, mobil 128px bei 16px Schrift. Mikrofon und dezenter Senden-Button darunter, mobile Touchflächen 44px. Versandlogik unverändert.
+- Kartenmetadaten wieder auf gemeinsamer erster Textlinie bei gleichmäßiger horizontaler Verteilung.
