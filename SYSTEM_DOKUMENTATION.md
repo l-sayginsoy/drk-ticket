@@ -981,3 +981,9 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 - Mitwirkende sehen denselben Auftrag in ihrer Übersicht, in zurückgestellten Tickets, bei Nachrichten und über den Bearbeiterfilter. Der Auftrag wird nicht kopiert und der Hauptbearbeiter bleibt für die Zuordnung erkennbar.
 - Jede Zeitbuchung enthält bereits den Namen der buchenden Person. Die Auswertung „Arbeitszeit nach Mitarbeiter“ berechnet daraus den prozentualen Anteil der tatsächlich gebuchten Minuten, etwa 30 Minuten von Heiko und 15 Minuten von Anton = 66,7 % / 33,3 %. So wird ein gemeinsamer Auftrag in der Zeitstatistik nicht doppelt gezählt.
 - Das Hinzufügen-Symbol ist ein klarer, kompakter Button direkt neben dem Bearbeiterfeld; die eigentlichen Mitwirkenden erscheinen erst nach Auswahl als kleine Namenschips.
+
+### 23.09.2026 – Teamansicht: Auslastung auf einen Blick
+
+- Die Teamansicht beginnt jetzt mit einem kompakten Überblick für verfügbare Teammitglieder, aktive Tickets und überfällige Aufträge. Die Überfällig-Kennzahl bleibt anklickbar und öffnet die passende Liste.
+- Jede Person erhält eine ruhige, direkt anklickbare Karte mit Verfügbarkeit, Rolle, Anzahl aktiver und kritischer Aufträge, Teamlast sowie erledigten Aufträgen der letzten 30 Tage. Überfällige Arbeit wird klar, aber nicht dominant hervorgehoben.
+- Der separate Ranglistenblock entfällt, weil die identische Information bereits auf jeder Teamkarte steht. Es gibt bewusst keine automatische Umverteilung: Die Ansicht macht die Lage transparent, die Entscheidung bleibt beim Team bzw. Administrator.

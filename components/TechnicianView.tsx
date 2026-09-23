@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 // FIX: Replaced non-existent 'Technician' type with the correct 'User' type.
-import { Ticket, User, Status, Priority } from '../types';
+import { Ticket, User, Status, Priority, Role } from '../types';
 import { Avatar } from './Avatar';
 import { ArrowUpIcon } from './icons/ArrowUpIcon';
 import { ArrowDownIcon } from './icons/ArrowDownIcon';
@@ -27,7 +27,7 @@ const parseGermanDate = (dateStr: string | undefined): Date | null => {
 
 const TechnicianView: React.FC<TechnicianViewProps> = ({ tickets, technicians, onTechnicianSelect, onFilter }) => {
 
-    const { totalOverdue, sortedTechnicians, performanceRanking } = useMemo(() => {
+    const { totalOverdue, activeTicketCount, availableCount, sortedTechnicians, performanceRanking } = useMemo(() => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
@@ -86,7 +86,13 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ tickets, technicians, o
             .map(t => ({ name: t.name, completed: t.completedLast30Days }))
             .sort((a,b) => b.completed - a.completed);
 
-        return { totalOverdue, sortedTechnicians: finalTechnicians, performanceRanking };
+        return {
+            totalOverdue,
+            activeTicketCount: tickets.filter(t => [Status.Offen, Status.InArbeit, Status.Ueberfaellig].includes(t.status)).length,
+            availableCount: technicians.filter(t => t.availability.status === 'Verfügbar').length,
+            sortedTechnicians: finalTechnicians,
+            performanceRanking,
+        };
 
     }, [tickets, technicians]);
 
@@ -186,7 +192,61 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ tickets, technicians, o
                 .ranking-bar-track { height: 10px; background: var(--bg-tertiary); border-radius: 5px; }
                 .ranking-bar-fill { height: 100%; background-color: var(--accent-primary); border-radius: 5px; transition: width 0.5s ease-out; }
                 .ranking-value { font-size: 0.9rem; font-weight: 600; color: var(--text-primary); }
+
+                /* Teamübersicht: kompakte, klar vergleichbare Karten */
+                .team-summary-header {
+                    display: flex; align-items: center; justify-content: space-between; gap: 18px;
+                    padding: 18px 20px; margin-bottom: 18px; border: 1px solid var(--border);
+                    border-radius: 14px; background: var(--bg-secondary);
+                }
+                .team-summary-eyebrow { margin: 0 0 5px; color: var(--accent-primary); font-size: .72rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+                .team-summary-header h2 { margin: 0; color: var(--text-primary); font-size: 1.3rem; letter-spacing: -.025em; }
+                .team-summary-header > div > p:last-child { margin: 4px 0 0; color: var(--text-secondary); font-size: .84rem; }
+                .team-summary-metrics { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
+                .team-summary-metrics > span, .team-summary-metrics > button {
+                    display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border: 1px solid var(--border);
+                    border-radius: 999px; background: var(--bg-primary); color: var(--text-secondary); font: inherit; font-size: .78rem; white-space: nowrap;
+                }
+                .team-summary-metrics strong { color: var(--text-primary); }
+                .team-summary-metrics > button { border-color: rgba(220,53,69,.28); background: rgba(220,53,69,.05); color: #C0343F; cursor: pointer; }
+                .team-summary-metrics > button strong { color: #C0343F; }
+                .view-header { display: none; }
+                .technician-grid { grid-template-columns: repeat(auto-fit, minmax(245px, 1fr)); gap: 14px; }
+                .technician-card { min-width: 0; padding: 16px; border-radius: 14px; box-shadow: var(--shadow-sm); }
+                .technician-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+                .technician-card--critical { border-color: rgba(220,53,69,.42); }
+                .card-header { margin-bottom: 14px; }
+                .technician-info .avatar { width: 36px; height: 36px; font-size: .78rem; }
+                .technician-name { display: block; font-size: .98rem; font-weight: 750; }
+                .technician-role { display: block; margin-top: 2px; color: var(--text-muted); font-size: .72rem; }
+                .technician-availability { display: inline-flex; align-items: center; gap: 4px; padding: 4px 7px; border-radius: 999px; font-size: .68rem; font-weight: 750; }
+                .technician-availability::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+                .technician-availability.is-available { color: #16815F; background: rgba(22,129,95,.1); }
+                .technician-availability.is-away { color: #8A5B08; background: rgba(202,138,4,.11); }
+                .kpi-row { gap: 8px; margin-bottom: 14px; padding: 0; border: 0; }
+                .kpi-item { flex: 1; padding: 10px; border-radius: 10px; background: var(--bg-tertiary); }
+                .kpi-item.clickable { background: rgba(220,53,69,.055); }
+                .kpi-value { font-size: 1.28rem; }
+                .kpi-label { margin-top: 4px; font-size: .65rem; font-weight: 750; letter-spacing: .04em; text-transform: uppercase; }
+                .workload-section { margin-top: 0; }
+                .workload-label { font-size: .75rem; }
+                .workload-bar-track { height: 7px; border: 0; }
+                .performance-ranking-container { display: none; }
+                @media (max-width: 720px) { .team-summary-header { align-items: flex-start; flex-direction: column; } .team-summary-metrics { justify-content: flex-start; } }
             `}</style>
+
+            <header className="team-summary-header">
+                <div>
+                    <p className="team-summary-eyebrow"><i className="ti ti-users" aria-hidden="true" /> Verwaltung · Team</p>
+                    <h2>Team &amp; Auslastung</h2>
+                    <p>Verfügbarkeit, Arbeitslast und kritische Fristen auf einen Blick.</p>
+                </div>
+                <div className="team-summary-metrics">
+                    <span><i className="ti ti-users" aria-hidden="true" /> Verfügbar <strong>{availableCount}/{technicians.length}</strong></span>
+                    <span><i className="ti ti-briefcase" aria-hidden="true" /> Aktive Tickets <strong>{activeTicketCount}</strong></span>
+                    <button type="button" onClick={() => onFilter({ status: Status.Ueberfaellig })}><i className="ti ti-alert-triangle" aria-hidden="true" /> Überfällig <strong>{totalOverdue}</strong></button>
+                </div>
+            </header>
 
             {totalOverdue > 0 ? (
                 <div className="view-header">
@@ -208,15 +268,19 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ tickets, technicians, o
                     return (
                         <div
                             key={tech.name}
-                            className="technician-card"
+                            className={`technician-card${tech.overdueTicketsCount > 0 ? ' technician-card--critical' : ''}`}
                             title={tech.name}
                             onClick={() => onTechnicianSelect({ technician: tech.name, status: 'Alle' })}
                         >
                             <div className="card-header">
                                 <div className="technician-info">
-                                    <Avatar name={displayNameShort(tech.name)} initialsFrom={tech.name} />
-                                    <span className="technician-name">{displayNameShort(tech.name)}</span>
+                                    <Avatar name={displayNameShort(tech.name)} initialsFrom={tech.name} color={tech.color} />
+                                    <div>
+                                        <span className="technician-name">{displayNameShort(tech.name)}</span>
+                                        <span className="technician-role">{tech.role === Role.Technician ? 'Haustechnik' : 'Hauswirtschaft'}</span>
+                                    </div>
                                 </div>
+                                <span className={`technician-availability ${tech.availability.status === 'Verfügbar' ? 'is-available' : 'is-away'}`}>{tech.availability.status}</span>
                             </div>
                             <div className="kpi-row">
                                 <div className="kpi-item">
