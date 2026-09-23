@@ -4,6 +4,7 @@ import EventEditorModal from './EventEditorModal';
 
 interface EventsViewProps {
   events: DrkEvent[];
+  loadError?: string | null;
   tickets: Ticket[];
   completedTickets: Ticket[];
   userRole: Role;
@@ -65,7 +66,7 @@ function newEventDraft(): DrkEvent {
   };
 }
 
-export default function EventsView({ events, tickets, completedTickets, userRole, users, onSaveEvent, onDeleteEvent, onHardDeleteEvent, onUnarchiveEvent, onSelectTicket, onOpenTicketId }: EventsViewProps) {
+export default function EventsView({ events, loadError, tickets, completedTickets, userRole, users, onSaveEvent, onDeleteEvent, onHardDeleteEvent, onUnarchiveEvent, onSelectTicket, onOpenTicketId }: EventsViewProps) {
   const [editing, setEditing] = useState<{ event: DrkEvent; isNew: boolean } | null>(null);
   const [showArchive, setShowArchive] = useState(false);
   const [confirmHardDelete, setConfirmHardDelete] = useState<string | null>(null);
@@ -289,6 +290,7 @@ export default function EventsView({ events, tickets, completedTickets, userRole
         }
         .ev-chip-open { font-size: 13px; margin-left: 1px; opacity: .72; }
         .ev-empty { padding: 2rem; text-align: center; color: var(--text-muted); font-size: 14px; }
+        .ev-load-error { margin-top: 1.5rem; padding: 0.9rem 1rem; border: 1px solid #f5c16c; border-radius: 8px; background: #fff8e8; color: #8a4b00; font-size: 14px; line-height: 1.45; }
       `}</style>
 
       {canEdit && (
@@ -302,7 +304,9 @@ export default function EventsView({ events, tickets, completedTickets, userRole
         </div>
       )}
 
-      {upcoming.length === 0 && past.length === 0 && archived.length === 0 && (
+      {loadError && <div className="ev-load-error" role="alert"><i className="ti ti-alert-triangle" aria-hidden="true" /> {loadError}</div>}
+
+      {!loadError && upcoming.length === 0 && past.length === 0 && archived.length === 0 && (
         <div className="ev-empty">Noch keine Veranstaltungen angelegt.<br />Mit „+ Neue Veranstaltung" loslegen.</div>
       )}
 

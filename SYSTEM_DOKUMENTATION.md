@@ -1034,3 +1034,7 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 ### 23.09.2026 – Veröffentlichung: Fehlerhinweise für Veranstaltungsaufträge
 
 - Kann ein Veranstaltungsauftrag nicht mehr gefunden oder vorübergehend nicht geladen werden, erscheint nun eine eindeutige rote Fehlermeldung in der App. Der Hinweis hat einen eigenen Typ in der zentralen Hinweisleiste und verhindert keine Veröffentlichung mehr.
+
+### 23.09.2026 – Veranstaltungen: Ladefehler eindeutig anzeigen
+
+- Die Veranstaltungsansicht zeigt bei einem Firebase-Ladefehler einen verständlichen Hinweis, statt eine leere Liste wie fehlende Daten wirken zu lassen. Die bereits gespeicherten Veranstaltungen werden durch einen solchen Fehler nicht verändert oder gelöscht.

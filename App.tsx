@@ -946,6 +946,7 @@ const App: React.FC = () => {
   const dismissToast = (id: string) => setToasts(prev => prev.filter(t => t.id !== id));
   const addToast = (toast: Omit<Toast, 'id'>) => setToasts(prev => [...prev, { ...toast, id: `${Date.now()}-${Math.random()}` }]);
   const [drkEvents, setDrkEvents] = useState<DrkEvent[]>([]);
+  const [eventsLoadError, setEventsLoadError] = useState<string | null>(null);
   /** Sidebar-Status wie „Synchronisiert“ */
   const [brevoMailOk, setBrevoMailOk] = useState<boolean | null>(null);
   const [brevoMailLastChecked, setBrevoMailLastChecked] = useState<Date | null>(null);
@@ -1586,6 +1587,10 @@ const App: React.FC = () => {
     const unsubscribeEvents = onSnapshot(collection(db, 'events'), (snapshot) => {
       const evs: DrkEvent[] = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as DrkEvent));
       setDrkEvents(evs.sort((a, b) => a.date.localeCompare(b.date)));
+      setEventsLoadError(null);
+    }, (error) => {
+      console.error('Firebase events onSnapshot error:', error);
+      setEventsLoadError('Die Veranstaltungen sind weiterhin gespeichert, können im Moment aber nicht geladen werden. Bitte später erneut versuchen.');
     });
 
     return () => {
@@ -3825,6 +3830,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
         case 'veranstaltungen': return (
           <EventsView
             events={drkEvents}
+            loadError={eventsLoadError}
             tickets={tickets}
             completedTickets={completedTickets}
             userRole={currentUser.role}
