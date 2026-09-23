@@ -1003,3 +1003,8 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 - Die neue, kompakte Liste **Zeitaufwand pro Auftrag** nennt je Ticket die Gesamtzeit sowie die Zeitanteile der beteiligten Mitarbeitenden. Gemeinsame Aufträge werden dadurch nur einmal gezählt; die Verteilung bleibt nachvollziehbar.
 - Die Liste zeigt höchstens acht Aufträge, damit die Berichtsansicht übersichtlich bleibt. Ohne Zeitbuchungen wird klar angezeigt, dass noch keine Arbeitszeit vorliegt.
 - Zusätzlich zeigt **Arbeitszeit nach Standort / Bereich** für Kreisverband, Schlosspark, Sozialdienst usw. die gebuchten Stunden und den prozentualen Anteil an der gesamten Arbeitszeit des gewählten Zeitraums.
+
+### 23.09.2026 – Fehlende abgeschlossene Tickets eindeutig anzeigen
+
+- Wenn Firebase abgeschlossene Tickets vorübergehend nicht laden kann, bleibt die bisherige Liste unverändert. Die App löscht die lokale Ansicht nicht mehr als Fehlerreaktion.
+- Statt einer irreführenden leeren Tabelle erscheint ein klarer Hinweis mit einer Wiederholen-Schaltfläche. Bei einem ausgeschöpften Firebase-Leselimit wird ausdrücklich erklärt, dass die Tickets weiterhin gespeichert sind.

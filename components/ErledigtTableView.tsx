@@ -20,6 +20,7 @@ interface ErledigtTableViewProps {
   onYearChange: (year: number) => void;
   onReload: (month: number, year: number) => void;
   isLoading?: boolean;
+  loadError?: string | null;
 }
 
 type SortableKeys = keyof Ticket | 'entryDate' | 'dueDate' | 'completionDate';
@@ -49,6 +50,7 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({
   onYearChange,
   onReload,
   isLoading,
+  loadError,
 }) => {
   const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>({
     key: 'completionDate',
@@ -171,6 +173,17 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({
                   font-size: 0.85rem;
                   color: var(--text-muted);
                 }
+                .erledigt-load-error {
+                  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+                  margin: 0 0 1rem; padding: 0.8rem 1rem; border: 1px solid #fac775;
+                  border-radius: 10px; background: #fff9e8; color: #854f0b; font-size: 0.875rem;
+                }
+                .erledigt-load-error button {
+                  flex: 0 0 auto; border: 1px solid #e8a23a; border-radius: 8px; background: #fff;
+                  color: #854f0b; padding: 0.4rem 0.65rem; cursor: pointer; font: inherit; font-size: 0.8rem; font-weight: 650;
+                }
+                .erledigt-load-error button:hover { background: #fff2cf; }
+                @media (max-width: 520px) { .erledigt-load-error { align-items: flex-start; flex-direction: column; } }
                 .erledigt-count {
                   font-size: 0.85rem;
                   color: var(--text-muted);
@@ -266,6 +279,12 @@ const ErledigtTableView: React.FC<ErledigtTableViewProps> = ({
         {isLoading && <span className="erledigt-loading">Lade...</span>}
         <span className="erledigt-count">{tickets.length} Ticket{tickets.length !== 1 ? 's' : ''}</span>
       </div>
+      {loadError && (
+        <div className="erledigt-load-error" role="alert">
+          <span><i className="ti ti-cloud-off" aria-hidden="true" /> {loadError}</span>
+          <button type="button" onClick={() => onReload(selectedMonth, selectedYear)}>Erneut versuchen</button>
+        </div>
+      )}
       <div className="table-view-container unified-ticket-view">
         <table className="ticket-table">
           <thead>

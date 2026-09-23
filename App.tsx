@@ -966,6 +966,7 @@ const App: React.FC = () => {
   const [completedMonth, setCompletedMonth] = useState<number>(_today.getMonth() + 1); // 1–12
   const [completedYear, setCompletedYear] = useState<number>(_today.getFullYear());
   const [isLoadingCompleted, setIsLoadingCompleted] = useState<boolean>(false);
+  const [completedLoadError, setCompletedLoadError] = useState<string | null>(null);
   const [reportYearTickets, setReportYearTickets] = useState<Ticket[]>([]);
   const [reportLoadedYear, setReportLoadedYear] = useState<number | null>(null);
   const [isLoadingReportYear, setIsLoadingReportYear] = useState(false);
@@ -981,6 +982,7 @@ const App: React.FC = () => {
 
   const loadCompletedTicketsForMonth = useCallback(async (month: number, year: number) => {
     setIsLoadingCompleted(true);
+    setCompletedLoadError(null);
     try {
       // Schritt 1: Einmaliger closedAt-Backfill für Alt-Tickets.
       // ACHTUNG Firestore-Lesekosten: dieser Voll-Scan der GESAMTEN completed_tickets-Sammlung
@@ -1020,7 +1022,10 @@ const App: React.FC = () => {
       setCompletedTickets(loaded);
     } catch (e) {
       console.error('loadCompletedTicketsForMonth error:', e);
-      setCompletedTickets([]);
+      const isQuotaExceeded = (e as { code?: string } | null)?.code === 'resource-exhausted';
+      setCompletedLoadError(isQuotaExceeded
+        ? 'Die abgeschlossenen Tickets sind weiterhin gespeichert, können im Moment aber nicht geladen werden. Bitte später erneut versuchen.'
+        : 'Die abgeschlossenen Tickets konnten vorübergehend nicht geladen werden. Bitte erneut versuchen.');
     } finally {
       setIsLoadingCompleted(false);
     }
@@ -3789,6 +3794,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
           onYearChange={setCompletedYear}
           onReload={loadCompletedTicketsForMonth}
           isLoading={isLoadingCompleted}
+          loadError={completedLoadError}
         />;
         case 'reports': {
           return <ReportsView activeTickets={tickets} completedTickets={completedTickets} completedMonth={completedMonth} completedYear={completedYear} onLoadMonth={(m, y) => { setCompletedMonth(m); setCompletedYear(y); setReportYearTickets([]); setReportLoadedYear(null); void loadCompletedTicketsForMonth(m, y); }} users={users} appSettings={appSettings} routineSchedules={appSettings.routineSchedules as any} routineCompletions={appSettings.routineDayCompletions || []} rpHolidayYmdList={rpHolidayYmdList} reportYearTickets={reportYearTickets} reportLoadedYear={reportLoadedYear} isLoadingReportYear={isLoadingReportYear} onLoadYearForStats={loadYearForReports} />;
