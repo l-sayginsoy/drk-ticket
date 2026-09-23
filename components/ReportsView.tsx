@@ -407,7 +407,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({
         .rp-month-select label { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
         .rp-chip {
           position: relative; display: flex; align-items: center; gap: 0.4rem;
-          border: 1px solid var(--border); border-radius: 20px; padding: 0 2rem 0 0.85rem;
+          border: 1px solid var(--border); border-radius: 7px; padding: 0 2rem 0 0.85rem;
           height: 34px; font-size: 0.875rem; color: var(--text-secondary);
           background: var(--bg-primary); cursor: pointer; min-width: 110px;
         }
@@ -417,14 +417,14 @@ const ReportsView: React.FC<ReportsViewProps> = ({
         .rp-chip svg { position: absolute; right: 0.6rem; top: 50%; transform: translateY(-50%); width: 14px; color: var(--text-muted); pointer-events: none; }
         .rp-divider { width: 1px; height: 24px; background: var(--border); }
         .rp-chip-badge { font-size: 0.75rem; font-weight: 700; background: var(--border); padding: 1px 6px; border-radius: 10px; color: var(--text-primary); }
-        .rp-reset { background: transparent; border: none; color: var(--text-muted); font-size: 0.875rem; padding: 0.4rem 0.75rem; border-radius: 20px; cursor: pointer; margin-left: auto; display: flex; align-items: center; gap: 0.4rem; }
+        .rp-reset { background: transparent; border: none; color: var(--text-muted); font-size: 0.875rem; padding: 0.4rem 0.75rem; border-radius: 7px; cursor: pointer; margin-left: auto; display: flex; align-items: center; gap: 0.4rem; }
         .rp-reset:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 
         /* ── Mode badge ── */
         .rp-mode-badge {
           display: inline-flex; align-items: center; gap: 0.5rem;
           font-size: 0.75rem; font-weight: 600; padding: 4px 12px;
-          border-radius: 20px; margin-bottom: -0.5rem;
+          border-radius: 7px; margin-bottom: -0.5rem;
         }
         .rp-mode-badge--live { background: #e1f5ee; color: #085041; border: 1px solid #5dcaa5; }
         .rp-mode-badge--past { background: #e6f1fb; color: #185fa5; border: 1px solid #b5d4f4; }
