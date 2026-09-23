@@ -1019,3 +1019,8 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 
 - Status, Priorität, Fälligkeit und zugehörige Übersichten verwenden nun durchgehend die gleiche kompakte Form mit 7px-Rundung statt stark gerundeter Pills.
 - Das gilt in Listen, Ticketkarten, Ticketdetails, dem Melderportal, Veranstaltungen, Team, zurückgestellten und abgeschlossenen Aufträgen sowie dem Seriennachweis. Farben und Bedienung bleiben unverändert.
+
+### 23.09.2026 – Veranstaltungen: Aufgaben direkt öffnen und zeitlich einordnen
+
+- Jede Veranstaltungsaufgabe ist klar als Link zum zugehörigen Ticket erkennbar und lässt sich direkt öffnen. Ist ein älteres abgeschlossenes Ticket nicht bereits geladen, wird es gezielt aus dem gespeicherten Bestand abgerufen.
+- Kommende Veranstaltungen bleiben hervorgehoben. Vergangene Veranstaltungen werden mit neutralem Rahmen und ruhigerer Darstellung sichtbar zurückgenommen; vollständig erledigte Veranstaltungen erhalten zusätzlich einen grünen Hinweisrahmen.

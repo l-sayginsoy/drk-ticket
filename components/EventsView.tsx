@@ -13,6 +13,7 @@ interface EventsViewProps {
   onHardDeleteEvent?: (id: string) => void;
   onUnarchiveEvent?: (id: string) => void;
   onSelectTicket: (ticket: Ticket) => void;
+  onOpenTicketId?: (ticketId: string) => void;
 }
 
 function formatDateDE(ymd: string): string {
@@ -64,7 +65,7 @@ function newEventDraft(): DrkEvent {
   };
 }
 
-export default function EventsView({ events, tickets, completedTickets, userRole, users, onSaveEvent, onDeleteEvent, onHardDeleteEvent, onUnarchiveEvent, onSelectTicket }: EventsViewProps) {
+export default function EventsView({ events, tickets, completedTickets, userRole, users, onSaveEvent, onDeleteEvent, onHardDeleteEvent, onUnarchiveEvent, onSelectTicket, onOpenTicketId }: EventsViewProps) {
   const [editing, setEditing] = useState<{ event: DrkEvent; isNew: boolean } | null>(null);
   const [showArchive, setShowArchive] = useState(false);
   const [confirmHardDelete, setConfirmHardDelete] = useState<string | null>(null);
@@ -96,7 +97,7 @@ export default function EventsView({ events, tickets, completedTickets, userRole
     const monthName = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'][Number(ev.date.split('-')[1]) - 1];
 
     return (
-      <div key={ev.id} className="ev-card">
+      <div key={ev.id} className={`ev-card${isPast ? ' ev-card--past' : ' ev-card--upcoming'}${allDone ? ' ev-card--done' : ''}`}>
         {/* Graue Datumsspalte — volle Höhe */}
         <div className="ev-date-col" style={{ opacity: isPast ? 0.7 : 1 }}>
           <div className="ev-wd">{weekdayDE(ev.date)}</div>
@@ -144,13 +145,14 @@ export default function EventsView({ events, tickets, completedTickets, userRole
                 const ticket = task.ticketId ? allTickets.find(t => t.id === task.ticketId) : undefined;
                 const label = task.label && task.label !== task.assignee ? task.label : task.assignee || '—';
                 const firstName = (task.assignee || '').split(' ')[0];
+                const canOpenTicket = !!task.ticketId;
                 return (
                   <button
                     key={task.id}
                     className={`ev-chip ev-chip--${st}`}
-                    onClick={() => ticket && onSelectTicket(ticket)}
-                    title={`${label}${task.assignee && task.label !== task.assignee ? ' · ' + task.assignee : ''}${ticket ? ' · #' + ticket.id : ''}`}
-                    style={{ cursor: ticket ? 'pointer' : 'default' }}
+                    onClick={() => ticket ? onSelectTicket(ticket) : task.ticketId && onOpenTicketId?.(task.ticketId)}
+                    title={`${label}${task.assignee && task.label !== task.assignee ? ' · ' + task.assignee : ''}${task.ticketId ? ' · Auftrag öffnen' : ''}`}
+                    style={{ cursor: canOpenTicket ? 'pointer' : 'default' }}
                   >
                     <span className={`ev-chip-dot ev-chip-dot--${st}`} />
                     <span>{label !== task.assignee ? label : firstName}</span>
@@ -160,6 +162,7 @@ export default function EventsView({ events, tickets, completedTickets, userRole
                     {progress.total > 1 && (
                       <span className="ev-chip-count">{progress.done}/{progress.total}</span>
                     )}
+                    {canOpenTicket && <i className="ti ti-arrow-up-right ev-chip-open" aria-hidden="true" />}
                   </button>
                 );
               })}
@@ -188,6 +191,11 @@ export default function EventsView({ events, tickets, completedTickets, userRole
           margin-bottom: 0.5rem;
           overflow: hidden;
         }
+        .ev-card--upcoming { border-color: rgba(179, 0, 12, 0.4); box-shadow: 0 2px 8px rgba(60, 20, 25, 0.04); }
+        .ev-card--past { border-color: var(--border); background: var(--bg-tertiary); }
+        .ev-card--past .ev-right { opacity: 0.72; }
+        .ev-card--past .ev-date-col { background: var(--bg-primary); }
+        .ev-card--done { border-color: rgba(22, 129, 95, 0.42); }
         /* Graue Datumsspalte – volle Kartenhöhe */
         .ev-date-col {
           width: 100px; flex-shrink: 0;
@@ -279,6 +287,7 @@ export default function EventsView({ events, tickets, completedTickets, userRole
           border-radius: 99px; font-size: 10px; font-weight: 700;
           padding: 0 5px; color: var(--text-muted); min-width: 16px; text-align: center;
         }
+        .ev-chip-open { font-size: 13px; margin-left: 1px; opacity: .72; }
         .ev-empty { padding: 2rem; text-align: center; color: var(--text-muted); font-size: 14px; }
       `}</style>
 

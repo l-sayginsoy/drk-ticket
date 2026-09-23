@@ -7,7 +7,7 @@ import {
 } from './types';
 import { MOCK_TICKETS, MOCK_USERS, MOCK_LOCATIONS, STATUSES, DEFAULT_APP_SETTINGS, MOCK_ASSETS, MOCK_MAINTENANCE_PLANS } from './constants';
 import { db, functions } from './firebase';
-import { collection, doc, setDoc, onSnapshot, getDocs, deleteDoc, arrayUnion, query, where, updateDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, onSnapshot, getDocs, getDoc, deleteDoc, arrayUnion, query, where, updateDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 
 import Sidebar from './components/Sidebar';
@@ -3070,6 +3070,27 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       .sort((a, b) => a.name.localeCompare(b.name, 'de'));
   }, [users]);
 
+  const handleOpenEventTicket = useCallback(async (ticketId: string) => {
+    const loaded = [...tickets, ...routineTickets, ...completedTickets].find(ticket => ticket.id === ticketId);
+    if (loaded) {
+      setSelectedTicket(loaded);
+      return;
+    }
+    try {
+      for (const collectionName of ['tickets', 'routine_tickets', 'completed_tickets']) {
+        const snapshot = await getDoc(doc(db, collectionName, ticketId));
+        if (snapshot.exists()) {
+          setSelectedTicket(normalizeTicket(snapshot.data() as Ticket));
+          return;
+        }
+      }
+      addToast({ type: 'error', title: 'Auftrag nicht gefunden', message: 'Dieser Veranstaltungsauftrag ist nicht mehr verfügbar.' });
+    } catch (error) {
+      console.error('open event ticket error:', error);
+      addToast({ type: 'error', title: 'Auftrag konnte nicht geöffnet werden', message: 'Bitte später erneut versuchen.' });
+    }
+  }, [tickets, routineTickets, completedTickets]);
+
   /** Gleiche Grundmenge wie die Haupttabelle der Listenansicht: keine Serienaufträge (origin routine). */
   const listenBenchTickets = useMemo(() => {
     return [...tickets, ...routineTickets, ...completedTickets].filter((ticket) => {
@@ -3813,6 +3834,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
             onHardDeleteEvent={handleHardDeleteEvent}
             onUnarchiveEvent={handleUnarchiveEvent}
             onSelectTicket={setSelectedTicket}
+            onOpenTicketId={handleOpenEventTicket}
           />
         );
         case 'zurueckgestellt': return (
