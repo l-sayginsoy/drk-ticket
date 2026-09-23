@@ -211,7 +211,7 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ tickets, technicians, o
                 .team-summary-metrics > button { border-color: rgba(220,53,69,.28); background: rgba(220,53,69,.05); color: #C0343F; cursor: pointer; }
                 .team-summary-metrics > button strong { color: #C0343F; }
                 .view-header { display: none; }
-                .technician-grid { grid-template-columns: repeat(auto-fit, minmax(245px, 1fr)); gap: 14px; }
+                .technician-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
                 .technician-card { min-width: 0; padding: 16px; border-radius: 14px; box-shadow: var(--shadow-sm); }
                 .technician-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
                 .technician-card--critical { border-color: rgba(220,53,69,.42); }
@@ -232,7 +232,7 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ tickets, technicians, o
                 .workload-label { font-size: .75rem; }
                 .workload-bar-track { height: 7px; border: 0; }
                 .performance-ranking-container { display: none; }
-                @media (max-width: 720px) { .team-summary-header { align-items: flex-start; flex-direction: column; } .team-summary-metrics { justify-content: flex-start; } }
+                @media (max-width: 720px) { .team-summary-header { align-items: flex-start; flex-direction: column; } .team-summary-metrics { justify-content: flex-start; } .technician-grid { grid-template-columns: 1fr; } }
             `}</style>
 
             <header className="team-summary-header">
