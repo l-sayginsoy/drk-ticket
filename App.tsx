@@ -42,6 +42,7 @@ import {
 } from './utils/brevoHealth';
 import { persistTicket, TicketConflictError } from './utils/ticketPersistence';
 import { displayNameShort, normalizePersonName } from './utils/displayNames';
+import { isTicketParticipant } from './utils/ticketParticipants';
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: any}> {
   constructor(props: {children: React.ReactNode}) {
     super(props);
@@ -851,6 +852,15 @@ const normalizeTicket = (t: Ticket): Ticket => {
     location: typeof t.location === 'string' ? t.location.trim() : t.location,
     reporter: typeof t.reporter === 'string' ? t.reporter.trim() : t.reporter,
   };
+  const coTechnicians = Array.isArray(t.coTechnicians)
+    ? t.coTechnicians
+        .filter((name): name is string => typeof name === 'string')
+        .map(name => name.trim())
+        .filter(name => name && name !== 'N/A' && normalizePersonName(name) !== normalizePersonName(technician))
+        .filter((name, index, values) => values.findIndex(other => normalizePersonName(other) === normalizePersonName(name)) === index)
+    : [];
+  if (coTechnicians.length) base.coTechnicians = coTechnicians;
+  else delete (base as Partial<Ticket>).coTechnicians;
   if (reporterEmailRaw) {
     base.reporter_email = reporterEmailRaw;
   } else {
@@ -3058,7 +3068,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
   /** Gleiche Grundmenge wie die Haupttabelle der Listenansicht: keine Serienaufträge (origin routine). */
   const listenBenchTickets = useMemo(() => {
     return [...tickets, ...routineTickets, ...completedTickets].filter((ticket) => {
-      if (currentUser?.role && isServiceTeamRole(currentUser.role) && ticket.technician !== currentUser.name) {
+      if (currentUser?.role && isServiceTeamRole(currentUser.role) && !isTicketParticipant(ticket, currentUser.name)) {
         return false;
       }
       if (ticket.origin === 'routine') return false;
@@ -3138,7 +3148,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     const source = currentView === 'erledigt' ? completedTickets : [...tickets, ...routineTickets];
     return source.filter(ticket => {
         // Role-based pre-filtering: Service-Team should only see tickets assigned to them.
-        if (currentUser?.role && isServiceTeamRole(currentUser.role) && ticket.technician !== currentUser.name) {
+        if (currentUser?.role && isServiceTeamRole(currentUser.role) && !isTicketParticipant(ticket, currentUser.name)) {
             return false;
         }
 
@@ -3149,7 +3159,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
 
         if (
           filters.technician !== 'Alle' &&
-          normalizePersonName(ticket.technician) !== normalizePersonName(filters.technician)
+          !isTicketParticipant(ticket, filters.technician)
         ) {
           return false;
         }
@@ -3253,7 +3263,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     const allActive = [...tickets, ...routineTickets];
     if (!currentUser) return allActive;
     if (isServiceTeamRole(currentUser.role)) {
-      return allActive.filter((t) => t.technician === currentUser.name);
+      return allActive.filter((t) => isTicketParticipant(t, currentUser.name));
     }
     return allActive;
   }, [tickets, routineTickets, currentUser]);
@@ -3276,7 +3286,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     const isAdmin = currentUser?.role === Role.Admin;
     const active = [...tickets, ...routineTickets].filter(t =>
       t.status !== Status.Abgeschlossen && t.origin !== 'routine' &&
-      (isAdmin || t.technician === me)
+      (isAdmin || isTicketParticipant(t, me))
     );
     const map = new Map<string, { ticket: Ticket; reporter: boolean; chat: boolean }>();
     active.forEach(t => {
@@ -3354,7 +3364,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     if (isServiceTeamRole(currentUser.role)) {
       tickets.forEach(t => {
         const p = prev.find(x => x.id === t.id);
-        if (p && p.technician !== currentUser.name && t.technician === currentUser.name) {
+        if (p && !isTicketParticipant(p, currentUser.name) && isTicketParticipant(t, currentUser.name)) {
           addToast({ type: 'assigned', title: 'Ticket zugewiesen', message: `Ticket ${t.id}: ${t.title}` });
           if ('Notification' in window && Notification.permission === 'granted') {
             new Notification('Ticket zugewiesen', { body: `Ticket ${t.id}: ${t.title}`, icon: '/favicon.ico' });

@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Ticket, Status, Priority, User, Role, AppSettings, RoutineSchedule, RoutineDayCompletion } from '../types';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
-import { displayNameShort, normalizePersonName } from '../utils/displayNames';
+import { displayNameShort } from '../utils/displayNames';
+import { isTicketParticipant } from '../utils/ticketParticipants';
 import { getDueDatesInYear, getRoutinePool, getRoutineAssigneeDisplayName, localISODate, routineDayStatus } from '../utils/routineHelpers';
 
 interface ReportsViewProps {
@@ -111,7 +112,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({
     if (!isCurrentMonth && !isYearMode) return [];
     return activeTickets.filter(t => {
       if (filterArea !== 'Alle' && t.area !== filterArea) return false;
-      if (filterTech !== 'Alle' && normalizePersonName(t.technician) !== normalizePersonName(filterTech)) return false;
+      if (filterTech !== 'Alle' && !isTicketParticipant(t, filterTech)) return false;
       return true;
     });
   }, [activeTickets, filterArea, filterTech, isCurrentMonth, isYearMode]);
@@ -121,7 +122,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({
     const src = isYearMode ? reportYearTickets : completedTickets;
     return src.filter(t => {
       if (filterArea !== 'Alle' && t.area !== filterArea) return false;
-      if (filterTech !== 'Alle' && normalizePersonName(t.technician) !== normalizePersonName(filterTech)) return false;
+      if (filterTech !== 'Alle' && !isTicketParticipant(t, filterTech)) return false;
       return true;
     });
   }, [completedTickets, reportYearTickets, isYearMode, filterArea, filterTech]);
@@ -182,6 +183,28 @@ const ReportsView: React.FC<ReportsViewProps> = ({
     filteredCompleted.forEach(t => { if (t.technician && t.technician !== 'N/A') counts[t.technician] = (counts[t.technician] || 0) + 1; });
     return Object.entries(counts).sort((a, b) => b[1] - a[1])
       .map(([name, value], i) => ({ label: name, caption: displayNameShort(name), value: Math.round((value / total) * 1000) / 10, suffix: '%', color: TECH_COLORS[i % TECH_COLORS.length] }));
+  }, [filteredCompleted]);
+
+  // Die Zeit wird demjenigen zugerechnet, der sie gebucht hat. Damit wird ein
+  // gemeinsamer Auftrag nicht doppelt gezählt, sondern fair nach Aufwand geteilt.
+  const workTimeShareByTech = useMemo(() => {
+    const minutesByPerson: Record<string, number> = {};
+    filteredCompleted.forEach(ticket => {
+      (ticket.workTimeEntries || []).forEach(entry => {
+        if (!entry.author || !entry.minutes) return;
+        minutesByPerson[entry.author] = (minutesByPerson[entry.author] || 0) + entry.minutes;
+      });
+    });
+    const totalMinutes = Object.values(minutesByPerson).reduce((sum, minutes) => sum + minutes, 0);
+    if (totalMinutes === 0) return [];
+    return Object.entries(minutesByPerson).sort((a, b) => b[1] - a[1])
+      .map(([name, minutes], index) => ({
+        label: name,
+        caption: displayNameShort(name),
+        value: Math.round((minutes / totalMinutes) * 1000) / 10,
+        suffix: '%',
+        color: TECH_COLORS[index % TECH_COLORS.length],
+      }));
   }, [filteredCompleted]);
 
   const completedByArea = useMemo(() => {
@@ -443,6 +466,11 @@ const ReportsView: React.FC<ReportsViewProps> = ({
               {completedByTechPct.length > 0 ? <HBar items={completedByTechPct} maxOverride={100} /> : empty}
             </Section>
           </div>
+          <div className="rp-grid-2">
+            <Section title="Arbeitszeit nach Mitarbeiter" sub="Anteil der gebuchten Zeit">
+              {workTimeShareByTech.length > 0 ? <HBar items={workTimeShareByTech} maxOverride={100} /> : <div className="rp-empty">Noch keine Arbeitszeit gebucht</div>}
+            </Section>
+          </div>
 
           <div className="rp-grid-3">
             <Section title={`Nach Standort – ${periodLabel}`}>
@@ -481,6 +509,11 @@ const ReportsView: React.FC<ReportsViewProps> = ({
             </Section>
             <Section title={`Abgeschlossen pro Bearbeiter – ${isYearMode ? yearLabel : monthLabel}`} sub="Erledigte Tickets">
               {completedByTech.length > 0 ? <HBar items={completedByTech} /> : <div className="rp-empty">Noch keine abgeschlossenen Tickets</div>}
+            </Section>
+          </div>
+          <div className="rp-grid-2">
+            <Section title="Arbeitszeit nach Mitarbeiter" sub="Anteil der gebuchten Zeit">
+              {workTimeShareByTech.length > 0 ? <HBar items={workTimeShareByTech} maxOverride={100} /> : <div className="rp-empty">Noch keine Arbeitszeit gebucht</div>}
             </Section>
           </div>
 

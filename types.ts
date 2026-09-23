@@ -214,7 +214,10 @@ export interface Ticket {
   entryTime?: string; // HH:MM
   dueDate: string; // DD.MM.YYYY
   status: Status;
+  /** Verantwortlicher Bearbeiter. Weitere Mitwirkende stehen in `coTechnicians`. */
   technician: string;
+  /** Zusätzliche Teammitglieder am selben Ticket; sie sehen den Auftrag und buchen ihre eigene Zeit. */
+  coTechnicians?: string[];
   priority: Priority;
   categoryId?: string;
   assetId?: string;

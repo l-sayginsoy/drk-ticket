@@ -6,6 +6,7 @@ import { CheckIcon } from './icons/CheckIcon';
 import { ClockIcon } from './icons/ClockIcon';
 import { RefreshIcon } from './icons/RefreshIcon';
 import { displayNameShort } from '../utils/displayNames';
+import { isTicketParticipant } from '../utils/ticketParticipants';
 import { getStaffChatState, hasUnreadReporterNote } from '../utils/staffChat';
 
 interface TicketCardProps {
@@ -238,7 +239,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
         return { date, hint, overdue: active && days > 0 };
     })();
 
-    const canEditDate = !currentUser || currentUser.role === Role.Admin || ticket.technician === currentUser.name;
+    const canEditDate = !currentUser || currentUser.role === Role.Admin || isTicketParticipant(ticket, currentUser.name);
 
     // Interner-Chat-Zustand aus Sicht der angemeldeten Person (neu / wartet / ruhig)
     const chatState = getStaffChatState(ticket, currentUser?.name ?? null);

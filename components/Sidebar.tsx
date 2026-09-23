@@ -9,6 +9,7 @@ import { DocumentPlusIcon } from './icons/DocumentPlusIcon';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
 import { BarChartIcon } from './icons/BarChartIcon';
 import { CalendarIcon } from './icons/CalendarIcon';
+import { isTicketParticipant } from '../utils/ticketParticipants';
 
 
 interface SidebarProps {
@@ -169,7 +170,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             {viewName === 'tech-dashboard' && userRole !== Role.Admin && (() => {
                 // Ganze Arbeitslast: alle aktiven (nicht abgeschlossenen/zurückgestellten) eigenen Tickets
                 const active = [Status.Offen, Status.InArbeit, Status.Ueberfaellig];
-                const c = tickets.filter(t => t.technician === userNameFull && active.includes(t.status) && t.origin !== 'routine').length;
+                const c = tickets.filter(t => isTicketParticipant(t, userNameFull) && active.includes(t.status) && t.origin !== 'routine').length;
                 return c > 0 ? <span className="nav-badge">{c}</span> : null;
             })()}
             {viewName === 'zurueckgestellt' && parkedCount > 0 && (

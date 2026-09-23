@@ -6,6 +6,7 @@ import { ArrowUpIcon } from './icons/ArrowUpIcon';
 import { ArrowDownIcon } from './icons/ArrowDownIcon';
 import { ExclamationTriangleIcon } from './icons/ExclamationTriangleIcon';
 import { displayNameShort, normalizePersonName } from '../utils/displayNames';
+import { isTicketParticipant } from '../utils/ticketParticipants';
 
 interface TechnicianViewProps {
     tickets: Ticket[];
@@ -35,7 +36,7 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ tickets, technicians, o
         // --- Technician-Level Stats ---
         const processedTechnicians = technicians.map(tech => {
             const techKey = normalizePersonName(tech.name);
-            const assignedTickets = tickets.filter(t => normalizePersonName(t.technician) === techKey);
+            const assignedTickets = tickets.filter(t => isTicketParticipant(t, techKey));
             const activeTickets = assignedTickets.filter(t => t.status !== Status.Abgeschlossen);
             const overdueTicketsCount = activeTickets.filter(t => t.status === Status.Ueberfaellig).length;
             

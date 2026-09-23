@@ -974,3 +974,9 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 - Die Gesamtdauer bleibt auch bei abgeschlossenen Tickets erhalten. Zusätzlich wird `costs.laborHours` aus der Summe synchronisiert, damit Berichte die gebuchte Arbeitszeit später direkt verwenden können.
 - Bewusst kein laufender Timer: Die feste Auswahl ist auf Mobilgeräten schneller, klarer und weniger fehleranfällig.
 - Beim Abschließen ohne gebuchte Zeit erscheint eine deutliche Warnung mit **Zeit eintragen** und **Trotzdem abschließen**. „Zeit eintragen“ öffnet das Ticket direkt am Zeitbereich; Sammelabschlüsse warnen ebenfalls, wenn ausgewählte Tickets keine Zeit enthalten.
+
+### 23.09.2026 – Gemeinsame Ticketbearbeitung und faire Zeitanteile
+
+- Ein Auftrag bleibt immer **ein Ticket**. Der bisherige Bearbeiter bleibt als verantwortliche Person gesetzt; über das kleine Plus im Bearbeiterfeld können ein oder mehrere Mitwirkende ergänzt und bei Bedarf wieder entfernt werden.
+- Mitwirkende sehen denselben Auftrag in ihrer Übersicht, in zurückgestellten Tickets, bei Nachrichten und über den Bearbeiterfilter. Der Auftrag wird nicht kopiert und der Hauptbearbeiter bleibt für die Zuordnung erkennbar.
+- Jede Zeitbuchung enthält bereits den Namen der buchenden Person. Die Auswertung „Arbeitszeit nach Mitarbeiter“ berechnet daraus den prozentualen Anteil der tatsächlich gebuchten Minuten, etwa 30 Minuten von Heiko und 15 Minuten von Anton = 66,7 % / 33,3 %. So wird ein gemeinsamer Auftrag in der Zeitstatistik nicht doppelt gezählt.

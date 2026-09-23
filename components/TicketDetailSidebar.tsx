@@ -77,6 +77,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
     const [isEditing, setIsEditing] = useState(false);
     const [editDraft, setEditDraft] = useState({ title: '', area: '', location: '', description: '', reporter: '', reporter_email: '' });
     const [showParkModal, setShowParkModal] = useState(false);
+    const [collaboratorPickerOpen, setCollaboratorPickerOpen] = useState(false);
 
     // Admins dürfen jedes Ticket korrigieren, auch ältere sowie Veranstaltungs-Tickets.
     // Techniker behalten die Bearbeitung von manuell angelegten Aufträgen.
@@ -151,6 +152,16 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
     const technicians = users
       .filter(u => u.role === Role.Technician || u.role === Role.Housekeeping)
       .sort((a, b) => a.name.localeCompare(b.name, 'de'));
+    const coTechnicians = (ticket.coTechnicians || []).filter(name => name && name !== ticket.technician);
+    const setCoTechnicians = (names: string[]) => {
+        const unique = names.filter((name, index, values) => name && name !== ticket.technician && values.indexOf(name) === index);
+        onUpdateTicket({ ...ticket, coTechnicians: unique.length ? unique : undefined });
+    };
+    const addCollaborator = (name: string) => {
+        if (!name || name === ticket.technician || coTechnicians.includes(name)) return;
+        setCoTechnicians([...coTechnicians, name]);
+        setCollaboratorPickerOpen(false);
+    };
 
     // Avatar-Farbe & Initialen für Chat-Absender (gleiche Farbe wie im Kanban)
     const userColorFor = (name: string) => users.find(u => u.name === name)?.color;
@@ -818,6 +829,25 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             .ds-assignee-field select {
                 position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer;
             }
+            .ds-assignee-row { display: flex; align-items: center; gap: 6px; }
+            .ds-assignee-row .ds-assignee-field { flex: 1; min-width: 0; }
+            .ds-collaborator-add {
+                width: 34px; height: 34px; flex: 0 0 34px; border-radius: var(--radius-md);
+                border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-secondary);
+                display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+                transition: border-color .15s ease, color .15s ease, background .15s ease;
+            }
+            .ds-collaborator-add:hover { border-color: #6366F1; color: #4F46E5; background: #F5F3FF; }
+            .ds-collaborators { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+            .ds-collaborator-chip {
+                display: inline-flex; align-items: center; gap: 4px; padding: 3px 5px 3px 3px;
+                border: 1px solid var(--border); border-radius: 999px; background: var(--bg-secondary);
+                color: var(--text-secondary); font-size: .72rem; line-height: 1;
+            }
+            .ds-collaborator-chip .ds-av { width: 18px; height: 18px; font-size: .56rem; }
+            .ds-collaborator-remove { border: 0; background: transparent; color: var(--text-muted); padding: 0 0 0 2px; cursor: pointer; line-height: 1; }
+            .ds-collaborator-remove:hover { color: #DC3545; }
+            .ds-collaborator-picker { width: 100%; height: 30px; margin-top: 6px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-primary); padding: 0 7px; font-size: .78rem; }
             .ds-av {
                 width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
                 display: inline-flex; align-items: center; justify-content: center;
@@ -1106,31 +1136,49 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                             ? 'rgba(255,255,255,0.95)'
                             : isAssigned ? '#444' : '#E24B4A';
                         return (
-                            <div className={`ds-assignee-field${!isAssigned ? ' ds-assignee-field--unassigned' : ''}`}>
-                                {isAssigned
-                                    ? <span className="ds-av" style={{ background: avBg, color: avColor }}>{initials}</span>
-                                    : <span className="ds-av ds-av-un" style={{ background: '#FF8C00', color: '#fff', border: 'none' }}><i className="ti ti-alert-triangle" aria-hidden="true" /></span>
-                                }
-                                <span className="ds-assignee-name">{isAssigned ? displayNameShort(ticket.technician) : '⚠ Bitte wählen'}</span>
-                                {isAuto && (
-                                    <span style={{
-                                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                        width: 14, height: 14, borderRadius: 4,
-                                        background: '#6366F1', color: '#fff',
-                                        fontSize: 8, fontWeight: 800,
-                                        flexShrink: 0,
-                                    }} title="Automatisch zugewiesen">A</span>
-                                )}
-                                <ChevronDownIcon />
-                                <select style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }} value={ticket.technician} onChange={e => handleFieldChange('technician', e.target.value)}>
-                                    <option value="N/A">Nicht zugewiesen</option>
-                                    {technicians.map(t => (
-                                        <option key={t.id} value={t.name}>
-                                            {displayNameShort(t.name)}{t.availability.status === AvailabilityStatus.OnLeave ? ' (Abwesend)' : ''}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+                            <>
+                                <div className="ds-assignee-row">
+                                    <div className={`ds-assignee-field${!isAssigned ? ' ds-assignee-field--unassigned' : ''}`}>
+                                        {isAssigned
+                                            ? <span className="ds-av" style={{ background: avBg, color: avColor }}>{initials}</span>
+                                            : <span className="ds-av ds-av-un" style={{ background: '#FF8C00', color: '#fff', border: 'none' }}><i className="ti ti-alert-triangle" aria-hidden="true" /></span>
+                                        }
+                                        <span className="ds-assignee-name">{isAssigned ? displayNameShort(ticket.technician) : '⚠ Bitte wählen'}</span>
+                                        {isAuto && (
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14, height: 14, borderRadius: 4, background: '#6366F1', color: '#fff', fontSize: 8, fontWeight: 800, flexShrink: 0 }} title="Automatisch zugewiesen">A</span>
+                                        )}
+                                        <ChevronDownIcon />
+                                        <select value={ticket.technician} onChange={e => {
+                                            const nextPrimary = e.target.value;
+                                            onUpdateTicket({ ...ticket, technician: nextPrimary, coTechnicians: coTechnicians.filter(name => name !== nextPrimary) });
+                                        }}>
+                                            <option value="N/A">Nicht zugewiesen</option>
+                                            {technicians.map(t => (
+                                                <option key={t.id} value={t.name}>
+                                                    {displayNameShort(t.name)}{t.availability.status === AvailabilityStatus.OnLeave ? ' (Abwesend)' : ''}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <button type="button" className="ds-collaborator-add" title="Mitwirkende hinzufügen" aria-label="Mitwirkende hinzufügen" onClick={() => setCollaboratorPickerOpen(open => !open)}>
+                                        <i className="ti ti-plus" aria-hidden="true" />
+                                    </button>
+                                </div>
+                                {coTechnicians.length > 0 && <div className="ds-collaborators" aria-label="Mitwirkende">
+                                    {coTechnicians.map(name => {
+                                        const user = technicians.find(t => t.name === name);
+                                        return <span className="ds-collaborator-chip" key={name} title={`${name} arbeitet an diesem Ticket mit`}>
+                                            <span className="ds-av" style={{ background: user?.color || '#C8C8C8', color: user?.color ? '#fff' : '#444' }}>{initialsOf(name)}</span>
+                                            {displayNameShort(name)}
+                                            <button type="button" className="ds-collaborator-remove" aria-label={`${name} entfernen`} title="Mitwirkenden entfernen" onClick={() => setCoTechnicians(coTechnicians.filter(item => item !== name))}><i className="ti ti-x" aria-hidden="true" /></button>
+                                        </span>;
+                                    })}
+                                </div>}
+                                {collaboratorPickerOpen && <select className="ds-collaborator-picker" value="" aria-label="Mitwirkenden auswählen" onChange={e => addCollaborator(e.target.value)}>
+                                    <option value="">Mitwirkenden auswählen…</option>
+                                    {technicians.filter(person => person.name !== ticket.technician && !coTechnicians.includes(person.name)).map(person => <option key={person.id} value={person.name}>{person.name}{person.availability.status === AvailabilityStatus.OnLeave ? ' (Abwesend)' : ''}</option>)}
+                                </select>}
+                            </>
                         );
                     })()}
                 </div>

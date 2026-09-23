@@ -4,6 +4,7 @@ import { Ticket, Status, Priority, Role } from '../types';
 import { SortAscendingIcon } from './icons/SortAscendingIcon';
 import { SortDescendingIcon } from './icons/SortDescendingIcon';
 import { displayNameShort } from '../utils/displayNames';
+import { isTicketParticipant, ticketParticipants } from '../utils/ticketParticipants';
 import { getStaffChatState, hasUnreadReporterNote } from '../utils/staffChat';
 
 interface ZurückgestelltViewProps {
@@ -54,7 +55,7 @@ const ZurückgestelltView: React.FC<ZurückgestelltViewProps> = ({
   const parked = useMemo(() => {
     const all = tickets.filter(t => t.status === Status.Zurueckgestellt);
     if (userRole === Role.Admin) return all;
-    return all.filter(t => t.technician === currentUserName);
+    return all.filter(t => isTicketParticipant(t, currentUserName));
   }, [tickets, userRole, currentUserName]);
 
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({
@@ -68,14 +69,14 @@ const ZurückgestelltView: React.FC<ZurückgestelltViewProps> = ({
   const [search, setSearch] = useState('');
 
   const areas = useMemo(() => ['Alle', ...Array.from(new Set(parked.map(t => t.area))).sort()], [parked]);
-  const techs = useMemo(() => ['Alle', ...Array.from(new Set(parked.map(t => t.technician).filter(t => t && t !== 'N/A'))).sort()], [parked]);
+  const techs = useMemo(() => ['Alle', ...Array.from(new Set(parked.flatMap(ticketParticipants))).sort()], [parked]);
 
   const today = new Date().toISOString().slice(0, 10);
 
   const filtered = useMemo(() => {
     return parked.filter(t => {
       if (filterArea !== 'Alle' && t.area !== filterArea) return false;
-      if (filterTech !== 'Alle' && t.technician !== filterTech) return false;
+      if (filterTech !== 'Alle' && !isTicketParticipant(t, filterTech)) return false;
       if (filterPriority !== 'Alle' && t.priority !== filterPriority) return false;
       if (filterReminder === 'Fällig' && (t.parkReminderNextDate || '9999') > today) return false;
       if (filterReminder === 'Ausstehend' && (t.parkReminderNextDate || '9999') <= today) return false;
@@ -85,7 +86,7 @@ const ZurückgestelltView: React.FC<ZurückgestelltViewProps> = ({
           !t.title.toLowerCase().includes(q) &&
           !t.id.toLowerCase().includes(q) &&
           !t.area.toLowerCase().includes(q) &&
-          !t.technician.toLowerCase().includes(q)
+          !ticketParticipants(t).some(name => name.toLowerCase().includes(q))
         ) return false;
       }
       return true;
