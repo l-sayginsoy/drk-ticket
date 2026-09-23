@@ -195,6 +195,10 @@ const TicketCard: React.FC<TicketCardProps> = ({
 
     // Look up user's personal color from technicians list
     const techUser = isAssigned ? technicians.find(u => u.name === ticket.technician) : null;
+    const visibleCollaborators = (ticket.coTechnicians || [])
+        .filter(name => name && name !== ticket.technician)
+        .slice(0, 2);
+    const additionalCollaboratorCount = Math.max(0, (ticket.coTechnicians || []).filter(name => name && name !== ticket.technician).length - visibleCollaborators.length);
     const userColor = techUser?.color ?? null;
     const avColor = isAssigned && userColor
         ? { bg: userColor, text: 'rgba(255,255,255,0.95)' }
@@ -503,6 +507,9 @@ const TicketCard: React.FC<TicketCardProps> = ({
                     background: transparent; border: 1.5px dashed #c8102e; color: #c8102e;
                 }
                 .av-un i { font-size: 10px; }
+                .assignee-avatars { display: inline-flex; align-items: center; padding-right: 2px; }
+                .assignee-avatars .av + .av { margin-left: -7px; box-shadow: 0 0 0 2px var(--bg-secondary); }
+                .assignee-more { margin-left: -4px; padding: 1px 4px; border-radius: 999px; background: var(--bg-tertiary); color: var(--text-muted); font-size: 9px; font-weight: 700; line-height: 15px; }
                 .assignee-chip--unassigned {
                     color: #c8102e;
                     font-weight: 600;
@@ -636,10 +643,19 @@ const TicketCard: React.FC<TicketCardProps> = ({
             {/* Footer: Mitarbeiter + Chat/Mail */}
             <div className="card-footer" onClick={() => onSelectTicket(ticket)}>
                 <div className={`assignee-chip${!isAssigned ? ' assignee-chip--unassigned' : ''}`} onClick={e => e.stopPropagation()} title={isAssigned ? ticket.technician : 'Bearbeiter zuweisen'}>
-                    {isAssigned
-                        ? <span className="av" style={{ background: avColor.bg, color: avColor.text }}>{initials}</span>
-                        : <span className="av av-un"><i className="ti ti-plus" style={{ fontSize: 10 }} aria-hidden="true" /></span>
-                    }
+                    <span className="assignee-avatars" title={isAssigned ? [ticket.technician, ...(ticket.coTechnicians || [])].filter(Boolean).join(', ') : undefined}>
+                        {isAssigned
+                            ? <span className="av" style={{ background: avColor.bg, color: avColor.text }}>{initials}</span>
+                            : <span className="av av-un"><i className="ti ti-plus" style={{ fontSize: 10 }} aria-hidden="true" /></span>
+                        }
+                        {visibleCollaborators.map(name => {
+                            const person = technicians.find(technician => technician.name === name);
+                            const parts = name.trim().split(/\s+/).filter(Boolean);
+                            const collaboratorInitials = parts.length > 1 ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase() : name.slice(0, 2).toUpperCase();
+                            return <span key={name} className="av" style={{ background: person?.color || '#C8C8C8', color: person?.color ? 'rgba(255,255,255,0.95)' : '#444' }}>{collaboratorInitials}</span>;
+                        })}
+                        {additionalCollaboratorCount > 0 && <span className="assignee-more">+{additionalCollaboratorCount}</span>}
+                    </span>
                     {isAutoAssigned && <span className="av-badge-a" title="Automatisch zugewiesen">A</span>}
                     <span style={{ fontSize:11, fontWeight:500, color:'var(--text-primary)' }}>
                         {isAssigned ? displayNameShort(ticket.technician) : 'Zuweisen'}

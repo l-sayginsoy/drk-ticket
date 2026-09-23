@@ -987,3 +987,8 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 - Die Teamansicht beginnt jetzt mit einem kompakten Überblick für verfügbare Teammitglieder, aktive Tickets und überfällige Aufträge. Die Überfällig-Kennzahl bleibt anklickbar und öffnet die passende Liste.
 - Jede Person erhält eine ruhige, direkt anklickbare Karte mit Verfügbarkeit, Rolle, Anzahl aktiver und kritischer Aufträge, Teamlast sowie erledigten Aufträgen der letzten 30 Tage. Überfällige Arbeit wird klar, aber nicht dominant hervorgehoben.
 - Der separate Ranglistenblock entfällt, weil die identische Information bereits auf jeder Teamkarte steht. Es gibt bewusst keine automatische Umverteilung: Die Ansicht macht die Lage transparent, die Entscheidung bleibt beim Team bzw. Administrator.
+
+### 23.09.2026 – Mitwirkende auf Ticketkarten sichtbar
+
+- Hat ein Ticket zusätzliche Mitwirkende, zeigt der Karten-Footer die Personen als überlappende, farbige Namenskürzel. Das gilt gleichermaßen im Admin-Dashboard und in den persönlichen Ansichten.
+- Der Hauptbearbeiter bleibt zuerst sichtbar; bis zu zwei Mitwirkende werden direkt angezeigt, weitere als dezentes `+N`. Der Tooltip nennt alle beteiligten Personen.
