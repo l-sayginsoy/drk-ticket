@@ -4,7 +4,7 @@ export interface Toast {
   id: string;
   title: string;
   message: string;
-  type: 'new-ticket' | 'assigned';
+  type: 'new-ticket' | 'assigned' | 'error';
 }
 
 interface ToastContainerProps {
@@ -16,9 +16,10 @@ const AUTO_DISMISS_MS = 8000;
 
 const ToastItem: React.FC<{ toast: Toast; onDismiss: (id: string) => void }> = ({ toast, onDismiss }) => {
   const isNew = toast.type === 'new-ticket';
-  const accentColor = isNew ? '#e30613' : '#1a73e8';
+  const isError = toast.type === 'error';
+  const accentColor = isNew ? '#e30613' : isError ? '#b42318' : '#1a73e8';
   const bgColor = isNew ? '#fff' : '#fff';
-  const iconClass = isNew ? 'ti ti-bell-ringing' : 'ti ti-user-check';
+  const iconClass = isNew ? 'ti ti-bell-ringing' : isError ? 'ti ti-alert-circle' : 'ti ti-user-check';
 
   useEffect(() => {
     const t = setTimeout(() => onDismiss(toast.id), AUTO_DISMISS_MS);

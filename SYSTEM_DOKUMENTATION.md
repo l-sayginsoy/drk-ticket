@@ -1030,3 +1030,7 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 - Die Teamkarten stehen auf Desktop-Bildschirmen in einer ruhigen zweispaltigen Anordnung. Auf schmalen Bildschirmen wechseln sie automatisch in eine einzelne Spalte, damit Kennzahlen und Beschriftungen genügend Platz behalten.
 - Die Statusübersicht in der Filterleiste sowie die Status-, Prioritäts- und Fälligkeitsfelder in Karten, Listen, Details, Team, Berichten, Veranstaltungen und Portal verwenden dieselbe kompakte Form mit 7px-Rundung. Dadurch wirken sie wie zusammengehörige Bedienfelder statt wie unterschiedlich stark gerundete Pills.
 - Die Berichtsfilter, Zeitraumauswahl und Kennzahlen-Chips folgen jetzt ebenfalls dieser Form. Die Auswertung bleibt dadurch optisch mit Tickets und Teamansicht abgestimmt, ohne Informationen oder Funktionen zu verändern.
+
+### 23.09.2026 – Veröffentlichung: Fehlerhinweise für Veranstaltungsaufträge
+
+- Kann ein Veranstaltungsauftrag nicht mehr gefunden oder vorübergehend nicht geladen werden, erscheint nun eine eindeutige rote Fehlermeldung in der App. Der Hinweis hat einen eigenen Typ in der zentralen Hinweisleiste und verhindert keine Veröffentlichung mehr.
