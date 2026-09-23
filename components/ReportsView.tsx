@@ -35,7 +35,7 @@ const KpiCard: React.FC<{ label: string; value: string | number; sub?: string; a
 );
 
 // ── Horizontal Bar ────────────────────────────────────────────────────────────
-interface BarItem { label: string; value: number; color?: string; suffix?: string; caption?: string }
+interface BarItem { label: string; value: number; color?: string; suffix?: string; caption?: string; valueLabel?: string }
 
 const HBar: React.FC<{ items: BarItem[]; maxOverride?: number; labelWidth?: number }> = ({ items, maxOverride, labelWidth = 90 }) => {
   const max = maxOverride ?? Math.max(...items.map(i => i.value), 1);
@@ -47,7 +47,7 @@ const HBar: React.FC<{ items: BarItem[]; maxOverride?: number; labelWidth?: numb
           <div className="rp-hbar-track">
             <div className="rp-hbar-fill" style={{ width: `${(item.value / max) * 100}%`, background: item.color ?? 'var(--accent-primary)' }} />
           </div>
-          <span className="rp-hbar-val">{item.value}{item.suffix ?? ''}</span>
+          <span className="rp-hbar-val">{item.valueLabel ?? `${item.value}${item.suffix ?? ''}`}</span>
         </div>
       ))}
     </div>
@@ -71,6 +71,34 @@ const formatWorkDuration = (minutes: number) => {
   const rest = minutes % 60;
   if (hours === 0) return `${rest} Min.`;
   return rest > 0 ? `${hours} Std. ${rest} Min.` : `${hours} Std.`;
+};
+
+interface WorkTimeTicketRow {
+  ticket: Ticket;
+  minutes: number;
+  minutesByPerson: Record<string, number>;
+}
+
+const WorkTimeTicketList: React.FC<{ rows: WorkTimeTicketRow[] }> = ({ rows }) => {
+  if (rows.length === 0) return <div className="rp-empty">Noch keine Arbeitszeit gebucht</div>;
+  return (
+    <div className="rp-work-list">
+      {rows.map(({ ticket, minutes, minutesByPerson }) => (
+        <div className="rp-work-ticket" key={ticket.id}>
+          <div>
+            <strong className="rp-work-ticket-title" title={ticket.title}>{ticket.title}</strong>
+            <span className="rp-work-ticket-meta">#{ticket.id} · {ticket.location}{ticket.area ? ` · ${ticket.area}` : ''}</span>
+          </div>
+          <div className="rp-work-ticket-time">
+            <strong>{formatWorkDuration(minutes)}</strong>
+            <span className="rp-work-ticket-people" title={Object.entries(minutesByPerson).map(([name, value]) => `${name}: ${formatWorkDuration(value)}`).join(' · ')}>
+              {Object.entries(minutesByPerson).map(([name, value]) => `${displayNameShort(name)} ${formatWorkDuration(value)}`).join(' · ')}
+            </span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 };
 
 // ── MAIN ──────────────────────────────────────────────────────────────────────
@@ -237,6 +265,28 @@ const ReportsView: React.FC<ReportsViewProps> = ({
       averageMinutes: rows.length ? Math.round(totalMinutes / rows.length) : 0,
       ticketRows: rows.sort((a, b) => b.minutes - a.minutes).slice(0, 8),
     };
+  }, [filteredCompleted]);
+
+  const workTimeByArea = useMemo(() => {
+    const minutesByArea: Record<string, number> = {};
+    filteredCompleted.forEach(ticket => {
+      const minutes = (ticket.workTimeEntries || []).reduce((sum, entry) => sum + (entry.minutes || 0), 0);
+      if (minutes <= 0) return;
+      const area = ticket.area || ticket.location || 'Ohne Standort';
+      minutesByArea[area] = (minutesByArea[area] || 0) + minutes;
+    });
+    const totalMinutes = Object.values(minutesByArea).reduce((sum, value) => sum + value, 0);
+    if (totalMinutes === 0) return [];
+    return Object.entries(minutesByArea).sort((a, b) => b[1] - a[1]).slice(0, 10)
+      .map(([label, minutes], index) => {
+        const percent = Math.round((minutes / totalMinutes) * 1000) / 10;
+        return {
+          label,
+          value: percent,
+          valueLabel: `${formatWorkDuration(minutes)} · ${percent} %`,
+          color: TECH_COLORS[index % TECH_COLORS.length],
+        };
+      });
   }, [filteredCompleted]);
 
   const completedByArea = useMemo(() => {
@@ -516,27 +566,13 @@ const ReportsView: React.FC<ReportsViewProps> = ({
               <Section title="Arbeitszeit nach Mitarbeiter" sub="Anteil der gebuchten Zeit">
                 {workTimeShareByTech.length > 0 ? <HBar items={workTimeShareByTech} maxOverride={100} /> : <div className="rp-empty">Noch keine Arbeitszeit gebucht</div>}
               </Section>
-              <Section title="Zeitaufwand pro Auftrag" sub="Abgeschlossene Tickets mit Zeitbuchung">
-                {workTimeSummary.ticketRows.length > 0 ? (
-                  <div className="rp-work-list">
-                    {workTimeSummary.ticketRows.map(({ ticket, minutes, minutesByPerson }) => (
-                      <div className="rp-work-ticket" key={ticket.id}>
-                        <div>
-                          <strong className="rp-work-ticket-title" title={ticket.title}>{ticket.title}</strong>
-                          <span className="rp-work-ticket-meta">#{ticket.id} · {ticket.location}{ticket.area ? ` · ${ticket.area}` : ''}</span>
-                        </div>
-                        <div className="rp-work-ticket-time">
-                          <strong>{formatWorkDuration(minutes)}</strong>
-                          <span className="rp-work-ticket-people" title={Object.entries(minutesByPerson).map(([name, value]) => `${name}: ${formatWorkDuration(value)}`).join(' · ')}>
-                            {Object.entries(minutesByPerson).map(([name, value]) => `${displayNameShort(name)} ${formatWorkDuration(value)}`).join(' · ')}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : <div className="rp-empty">Noch keine Arbeitszeit gebucht</div>}
+              <Section title="Arbeitszeit nach Standort / Bereich" sub="Zeitaufwand und Anteil">
+                {workTimeByArea.length > 0 ? <HBar items={workTimeByArea} maxOverride={100} labelWidth={130} /> : <div className="rp-empty">Noch keine Arbeitszeit gebucht</div>}
               </Section>
             </div>
+          <Section title="Zeitaufwand pro Auftrag" sub="Abgeschlossene Tickets mit Zeitbuchung">
+            <WorkTimeTicketList rows={workTimeSummary.ticketRows} />
+          </Section>
 
           <div className="rp-grid-3">
             <Section title={`Nach Standort – ${periodLabel}`}>
@@ -581,27 +617,13 @@ const ReportsView: React.FC<ReportsViewProps> = ({
             <Section title="Arbeitszeit nach Mitarbeiter" sub="Anteil der gebuchten Zeit">
               {workTimeShareByTech.length > 0 ? <HBar items={workTimeShareByTech} maxOverride={100} /> : <div className="rp-empty">Noch keine Arbeitszeit gebucht</div>}
             </Section>
-            <Section title="Zeitaufwand pro Auftrag" sub="Abgeschlossene Tickets mit Zeitbuchung">
-              {workTimeSummary.ticketRows.length > 0 ? (
-                <div className="rp-work-list">
-                  {workTimeSummary.ticketRows.map(({ ticket, minutes, minutesByPerson }) => (
-                    <div className="rp-work-ticket" key={ticket.id}>
-                      <div>
-                        <strong className="rp-work-ticket-title" title={ticket.title}>{ticket.title}</strong>
-                        <span className="rp-work-ticket-meta">#{ticket.id} · {ticket.location}{ticket.area ? ` · ${ticket.area}` : ''}</span>
-                      </div>
-                      <div className="rp-work-ticket-time">
-                        <strong>{formatWorkDuration(minutes)}</strong>
-                        <span className="rp-work-ticket-people" title={Object.entries(minutesByPerson).map(([name, value]) => `${name}: ${formatWorkDuration(value)}`).join(' · ')}>
-                          {Object.entries(minutesByPerson).map(([name, value]) => `${displayNameShort(name)} ${formatWorkDuration(value)}`).join(' · ')}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : <div className="rp-empty">Noch keine Arbeitszeit gebucht</div>}
+            <Section title="Arbeitszeit nach Standort / Bereich" sub="Zeitaufwand und Anteil">
+              {workTimeByArea.length > 0 ? <HBar items={workTimeByArea} maxOverride={100} labelWidth={130} /> : <div className="rp-empty">Noch keine Arbeitszeit gebucht</div>}
             </Section>
           </div>}
+          {!isYearMode && <Section title="Zeitaufwand pro Auftrag" sub="Abgeschlossene Tickets mit Zeitbuchung">
+            <WorkTimeTicketList rows={workTimeSummary.ticketRows} />
+          </Section>}
 
           <div className="rp-grid-3">
             <Section title="Aktive Tickets nach Standort">
