@@ -832,11 +832,13 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             .ds-assignee-row { display: flex; align-items: center; gap: 6px; }
             .ds-assignee-row .ds-assignee-field { flex: 1; min-width: 0; }
             .ds-collaborator-add {
-                width: 20px; height: 26px; flex: 0 0 20px; border: 0; background: transparent; color: #A5B4FC;
+                width: 34px; height: 34px; flex: 0 0 34px; border-radius: var(--radius-md);
+                border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-secondary);
                 display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
-                transition: color .15s ease; font-size: 1.15rem; font-weight: 700; line-height: 1;
+                transition: border-color .15s ease, color .15s ease, background .15s ease;
+                font-size: .76rem;
             }
-            .ds-collaborator-add:hover { color: #6366F1; }
+            .ds-collaborator-add:hover { border-color: #6366F1; color: #4F46E5; background: #F5F3FF; }
             .ds-collaborators { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
             .ds-collaborator-chip {
                 display: inline-flex; align-items: center; gap: 4px; padding: 3px 5px 3px 3px;
