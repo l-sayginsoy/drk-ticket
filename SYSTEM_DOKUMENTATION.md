@@ -969,7 +969,7 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 ### 22.09.2026 – Arbeitszeit direkt am Ticket buchen
 
 - Im Ticket gibt es zwischen Zuordnung und Chat einen kompakten, dauerhaft sichtbaren Bereich **Arbeitszeit**. Das vermeidet auf dem Handy einen zusätzlichen Schritt.
-- **5, 10, 30 oder 60 Minuten** werden mit einem Tipp sofort addiert. Mehrere Klicks ergänzen sich, etwa 30 + 5 = 35 Minuten. Freie Eingabe und Tätigkeitsnotiz entfallen bewusst, damit die Bedienung schnell und eindeutig bleibt.
+- **10, 15, 30 oder 60 Minuten** werden mit einem Tipp sofort addiert. Mehrere Klicks ergänzen sich, etwa 30 + 15 = 45 Minuten. Freie Eingabe und Tätigkeitsnotiz entfallen bewusst, damit die Bedienung schnell und eindeutig bleibt.
 - Im Ticket wird nur die Gesamtdauer gezeigt, nicht jede einzelne Teilbuchung. Die letzte eigene Buchung kann dezent zurückgenommen und bei Bedarf korrekt neu gebucht werden; Administratoren können die letzte Buchung ebenfalls zurücknehmen.
 - Die Gesamtdauer bleibt auch bei abgeschlossenen Tickets erhalten. Zusätzlich wird `costs.laborHours` aus der Summe synchronisiert, damit Berichte die gebuchte Arbeitszeit später direkt verwenden können.
 - Bewusst kein laufender Timer: Die feste Auswahl ist auf Mobilgeräten schneller, klarer und weniger fehleranfällig.

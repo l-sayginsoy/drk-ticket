@@ -1159,7 +1159,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
 
                     <div className="time-booking__body">
                         <div className="time-presets" aria-label="Arbeitszeit direkt buchen">
-                            {[5, 10, 30, 60].map(minutes => (
+                            {[10, 15, 30, 60].map(minutes => (
                                 <button key={minutes} type="button" className="time-preset" onClick={() => handleQuickBookWorkTime(minutes)}>
                                     +{minutes === 60 ? '1 Std.' : `${minutes} Min.`}
                                 </button>
