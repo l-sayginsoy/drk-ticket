@@ -1038,3 +1038,7 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 ### 23.09.2026 – Veranstaltungen: Ladefehler eindeutig anzeigen
 
 - Die Veranstaltungsansicht zeigt bei einem Firebase-Ladefehler einen verständlichen Hinweis, statt eine leere Liste wie fehlende Daten wirken zu lassen. Die bereits gespeicherten Veranstaltungen werden durch einen solchen Fehler nicht verändert oder gelöscht.
+
+### 23.09.2026 – Seitenleiste: Aktualisieren immer verfügbar
+
+- Die Aktualisieren-Schaltfläche in der Seitenleiste bleibt nun auch sichtbar, wenn die erste Firebase-Synchronisierung noch nicht erfolgreich war. Damit lässt sich die App jederzeit neu laden und die Datenabfrage erneut starten.

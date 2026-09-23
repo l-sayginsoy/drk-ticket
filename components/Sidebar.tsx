@@ -740,24 +740,22 @@ const Sidebar: React.FC<SidebarProps> = ({
                     );
                 })}
             </nav>
-            {lastSyncTime ? (
-                <div
-                    className="sidebar-sync"
-                    title={`Zuletzt synchronisiert: ${lastSyncTime.toLocaleTimeString()}`}
+            <div
+                className="sidebar-sync"
+                title={lastSyncTime ? `Zuletzt synchronisiert: ${lastSyncTime.toLocaleTimeString()}` : 'App aktualisieren'}
+            >
+                <div className={`sidebar-sync-dot ${isSyncing ? 'syncing' : ''}`}></div>
+                {!isCollapsed && <span>{isSyncing ? 'Synchronisiere...' : lastSyncTime ? 'Synchronisiert' : 'Aktualisieren'}</span>}
+                <button
+                    type="button"
+                    className="sidebar-refresh-btn"
+                    onClick={() => window.location.reload()}
+                    title="App aktualisieren"
+                    aria-label="App aktualisieren"
                 >
-                    <div className={`sidebar-sync-dot ${isSyncing ? 'syncing' : ''}`}></div>
-                    {!isCollapsed && <span>{isSyncing ? 'Synchronisiere...' : 'Synchronisiert'}</span>}
-                    <button
-                        type="button"
-                        className="sidebar-refresh-btn"
-                        onClick={() => window.location.reload()}
-                        title="App aktualisieren"
-                        aria-label="App aktualisieren"
-                    >
-                        <i className="ti ti-refresh" aria-hidden="true" />
-                    </button>
-                </div>
-            ) : null}
+                    <i className="ti ti-refresh" aria-hidden="true" />
+                </button>
+            </div>
             {userRole === Role.Admin && brevoMailOk !== undefined && brevoMailOk !== null && brevoMailLastChecked ? (
                 <div
                     className="sidebar-sync sidebar-sync--clickable"
