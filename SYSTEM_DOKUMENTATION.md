@@ -992,3 +992,7 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 
 - Hat ein Ticket zusätzliche Mitwirkende, zeigt der Karten-Footer die Personen als überlappende, farbige Namenskürzel. Das gilt gleichermaßen im Admin-Dashboard und in den persönlichen Ansichten.
 - Der Hauptbearbeiter bleibt zuerst sichtbar; bis zu zwei Mitwirkende werden direkt angezeigt, weitere als dezentes `+N`. Der Tooltip nennt alle beteiligten Personen.
+
+### 23.09.2026 – Ticket schließen klar getrennt
+
+- Das Schließen-X im Ticketkopf hat nun eine eigene 38px-Fläche und wird durch einen feinen vertikalen Trenner von Bearbeiten und Notfall getrennt. Dadurch ist die häufige Schließen-Aktion leichter zu treffen und kann nicht versehentlich mit den benachbarten Symbolen verwechselt werden.

@@ -399,9 +399,12 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             }
 
             .close-btn {
-                background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 0.5rem; margin: -0.5rem;
+                width: 38px; height: 38px; padding: 0; margin: 0; border: 1px solid var(--border);
+                border-radius: 9px; background: var(--bg-secondary); cursor: pointer; color: var(--text-secondary);
+                display: inline-flex; align-items: center; justify-content: center;
+                transition: color .15s ease, border-color .15s ease, background .15s ease;
             }
-            .close-btn:hover { color: var(--text-primary); }
+            .close-btn:hover { color: var(--text-primary); border-color: var(--border-active); background: var(--bg-tertiary); }
             .close-btn svg { width: 18px; height: 18px; }
             
             .sidebar-body-compact {
@@ -655,17 +658,18 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             }
 
             .edit-btn {
-                background: none; border: none; cursor: pointer; color: var(--text-muted);
-                padding: 0.5rem; margin: -0.5rem; border-radius: var(--radius-sm);
+                width: 32px; height: 32px; background: none; border: none; cursor: pointer; color: var(--text-muted);
+                padding: 0; margin: 0; border-radius: var(--radius-sm);
                 transition: color 0.2s ease, background-color 0.2s ease;
             }
             .edit-btn:hover { color: var(--text-primary); background: var(--bg-tertiary); }
             .edit-btn svg { width: 20px; height: 20px; }
-            .header-actions { display: flex; align-items: center; gap: 0.25rem; flex-shrink: 0; }
+            .header-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+            .header-close-divider { width: 1px; height: 24px; margin-left: 5px; background: var(--border); }
 
             /* Notfall: fast unsichtbar, nur als Geisterschaltfläche */
             .notfall-ghost-btn {
-                background: none; border: none; cursor: pointer; padding: 0.4rem;
+                width: 32px; height: 32px; background: none; border: none; cursor: pointer; padding: 0;
                 border-radius: var(--radius-sm); color: var(--border);
                 transition: color 0.2s ease, background-color 0.2s ease;
                 display: flex; align-items: center; justify-content: center;
@@ -956,7 +960,8 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                         <ExclamationTriangleIcon width={16} height={16} />
                     </button>
                 )}
-                <button className="close-btn" onClick={onClose}><XIcon /></button>
+                <span className="header-close-divider" aria-hidden="true" />
+                <button className="close-btn" onClick={onClose} title="Ticket schließen" aria-label="Ticket schließen"><XIcon /></button>
             </div>
         </div>
         <div className="sidebar-body-compact">
