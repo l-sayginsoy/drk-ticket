@@ -563,11 +563,11 @@ const ReportsView: React.FC<ReportsViewProps> = ({
             </Section>
           </div>
           <div className="rp-grid-2">
-              <Section title="Arbeitszeit nach Mitarbeiter" sub="Anteil der gebuchten Zeit">
-                {workTimeShareByTech.length > 0 ? <HBar items={workTimeShareByTech} maxOverride={100} /> : <div className="rp-empty">Noch keine Arbeitszeit gebucht</div>}
-              </Section>
               <Section title="Arbeitszeit nach Standort / Bereich" sub="Zeitaufwand und Anteil">
                 {workTimeByArea.length > 0 ? <HBar items={workTimeByArea} maxOverride={100} labelWidth={130} /> : <div className="rp-empty">Noch keine Arbeitszeit gebucht</div>}
+              </Section>
+              <Section title="Arbeitszeit nach Mitarbeiter" sub="Anteil der gebuchten Zeit">
+                {workTimeShareByTech.length > 0 ? <HBar items={workTimeShareByTech} maxOverride={100} /> : <div className="rp-empty">Noch keine Arbeitszeit gebucht</div>}
               </Section>
             </div>
           <Section title="Zeitaufwand pro Auftrag" sub="Abgeschlossene Tickets mit Zeitbuchung">
@@ -614,11 +614,11 @@ const ReportsView: React.FC<ReportsViewProps> = ({
             </Section>
           </div>
           {!isYearMode && <div className="rp-grid-2">
-            <Section title="Arbeitszeit nach Mitarbeiter" sub="Anteil der gebuchten Zeit">
-              {workTimeShareByTech.length > 0 ? <HBar items={workTimeShareByTech} maxOverride={100} /> : <div className="rp-empty">Noch keine Arbeitszeit gebucht</div>}
-            </Section>
             <Section title="Arbeitszeit nach Standort / Bereich" sub="Zeitaufwand und Anteil">
               {workTimeByArea.length > 0 ? <HBar items={workTimeByArea} maxOverride={100} labelWidth={130} /> : <div className="rp-empty">Noch keine Arbeitszeit gebucht</div>}
+            </Section>
+            <Section title="Arbeitszeit nach Mitarbeiter" sub="Anteil der gebuchten Zeit">
+              {workTimeShareByTech.length > 0 ? <HBar items={workTimeShareByTech} maxOverride={100} /> : <div className="rp-empty">Noch keine Arbeitszeit gebucht</div>}
             </Section>
           </div>}
           {!isYearMode && <Section title="Zeitaufwand pro Auftrag" sub="Abgeschlossene Tickets mit Zeitbuchung">
