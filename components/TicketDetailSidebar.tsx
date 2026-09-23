@@ -137,9 +137,14 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
         };
         updateWorkTimeEntries([...workTimeEntries, entry]);
     };
-    const handleDeleteTimeEntry = (entry: WorkTimeEntry) => {
-        if (!window.confirm(`Zeitbuchung über ${formatWorkDuration(entry.minutes)} wirklich löschen?`)) return;
-        updateWorkTimeEntries(workTimeEntries.filter(item => item.id !== entry.id));
+    const lastWorkTimeEntry = workTimeEntries[workTimeEntries.length - 1];
+    const canUndoLastWorkTimeEntry = !!lastWorkTimeEntry && (
+        currentUser?.role === Role.Admin ||
+        (lastWorkTimeEntry.authorId ? lastWorkTimeEntry.authorId === currentUser?.id : lastWorkTimeEntry.author === currentUser?.name)
+    );
+    const handleUndoLastWorkTime = () => {
+        if (!canUndoLastWorkTimeEntry) return;
+        updateWorkTimeEntries(workTimeEntries.slice(0, -1));
     };
 
     // Filter service-team users from users (alphabetisch nach gespeichertem Namen)
@@ -738,15 +743,8 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             .time-preset { min-height: 36px; padding: 5px 6px; border-radius: 7px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary); font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; touch-action: manipulation; }
             .time-preset:hover { border-color: #B5D4F4; background: #E6F1FB; color: #185FA5; }
             .time-preset:active { transform: translateY(1px); }
-            .time-history { margin-top: 11px; border-top: 1px solid var(--border); padding-top: 8px; display: flex; flex-direction: column; gap: 6px; }
-            .time-entry { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 9px; align-items: center; padding: 6px 0; }
-            .time-entry + .time-entry { border-top: 1px solid var(--border); }
-            .time-entry__duration { font-size: 12px; font-weight: 650; color: var(--text-primary); white-space: nowrap; }
-            .time-entry__details { min-width: 0; display: flex; flex-direction: column; }
-            .time-entry__meta { font-size: 11px; color: var(--text-muted); }
-            .time-entry__actions { display: flex; align-items: center; gap: 2px; }
-            .time-entry__action { width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--text-muted); cursor: pointer; }
-            .time-entry__action:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+            .time-booking__undo { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; padding: 0; border: 0; background: transparent; color: var(--text-muted); font: inherit; font-size: 11px; cursor: pointer; }
+            .time-booking__undo:hover { color: var(--text-primary); }
             @media (max-width: 420px) {
                 .time-preset { min-height: 40px; }
             }
@@ -1161,34 +1159,18 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
 
                     <div className="time-booking__body">
                         <div className="time-presets" aria-label="Arbeitszeit direkt buchen">
-                            {[10, 15, 30, 60].map(minutes => (
+                            {[5, 10, 30, 60].map(minutes => (
                                 <button key={minutes} type="button" className="time-preset" onClick={() => handleQuickBookWorkTime(minutes)}>
                                     +{minutes === 60 ? '1 Std.' : `${minutes} Min.`}
                                 </button>
                             ))}
                         </div>
 
-                        {workTimeEntries.length > 0 && (
-                            <div className="time-history">
-                                {[...workTimeEntries].reverse().map(entry => {
-                                    const timestamp = new Date(entry.createdAt);
-                                    const formattedTimestamp = Number.isNaN(timestamp.getTime())
-                                        ? ''
-                                        : timestamp.toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-                                    const canManageEntry = currentUser.role === Role.Admin || (entry.authorId ? entry.authorId === currentUser.id : entry.author === currentUser.name);
-                                    return (
-                                        <div className="time-entry" key={entry.id}>
-                                            <span className="time-entry__duration">{formatWorkDuration(entry.minutes)}</span>
-                                            <span className="time-entry__details"><span className="time-entry__meta">{entry.author}{formattedTimestamp ? ` · ${formattedTimestamp}` : ''}</span></span>
-                                            {canManageEntry && (
-                                                <span className="time-entry__actions">
-                                                    <button type="button" className="time-entry__action" onClick={() => handleDeleteTimeEntry(entry)} aria-label="Zeitbuchung löschen" title="Löschen"><i className="ti ti-trash" aria-hidden="true" /></button>
-                                                </span>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                        {canUndoLastWorkTimeEntry && (
+                            <button type="button" className="time-booking__undo" onClick={handleUndoLastWorkTime}>
+                                <i className="ti ti-arrow-back-up" aria-hidden="true" />
+                                Letzte Buchung zurücknehmen
+                            </button>
                         )}
                     </div>
                 </section>
