@@ -996,3 +996,9 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 ### 23.09.2026 – Ticket schließen klar getrennt
 
 - Das Schließen-X im Ticketkopf hat nun eine eigene 38px-Fläche und wird durch einen feinen vertikalen Trenner von Bearbeiten und Notfall getrennt. Dadurch ist die häufige Schließen-Aktion leichter zu treffen und kann nicht versehentlich mit den benachbarten Symbolen verwechselt werden.
+
+### 23.09.2026 – Arbeitszeit im Bericht sichtbar
+
+- Berichte zeigen für abgeschlossene Aufträge jetzt die gesamte gebuchte Arbeitszeit und den Durchschnitt pro Ticket.
+- Die neue, kompakte Liste **Zeitaufwand pro Auftrag** nennt je Ticket die Gesamtzeit sowie die Zeitanteile der beteiligten Mitarbeitenden. Gemeinsame Aufträge werden dadurch nur einmal gezählt; die Verteilung bleibt nachvollziehbar.
+- Die Liste zeigt höchstens acht Aufträge, damit die Berichtsansicht übersichtlich bleibt. Ohne Zeitbuchungen wird klar angezeigt, dass noch keine Arbeitszeit vorliegt.
