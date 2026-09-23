@@ -1008,3 +1008,9 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 
 - Wenn Firebase abgeschlossene Tickets vorübergehend nicht laden kann, bleibt die bisherige Liste unverändert. Die App löscht die lokale Ansicht nicht mehr als Fehlerreaktion.
 - Statt einer irreführenden leeren Tabelle erscheint ein klarer Hinweis mit einer Wiederholen-Schaltfläche. Bei einem ausgeschöpften Firebase-Leselimit wird ausdrücklich erklärt, dass die Tickets weiterhin gespeichert sind.
+
+### 23.09.2026 – Veranstaltungsfortschritt aus Ticket-Checklisten
+
+- Der Fortschritt einer Veranstaltung wird nun aus den tatsächlich abgehakten Punkten der zugehörigen Tickets berechnet, nicht erst nach dem vollständigen Abschließen eines Tickets.
+- Auf der Veranstaltungskarte wird beispielsweise `3 von 9 Punkten erledigt · 33 %` angezeigt. Je Aufgabe zeigen die Chips den Stand als `1/2`; teilweise erledigte Aufgaben erhalten eine dezente gelbe Kennzeichnung.
+- Im Stift-Editor sind dieselben bereits im Ticket erledigten Punkte mit einem grünen Häkchen und einer Fortschrittsangabe sichtbar. Dort bleibt die Checkbox-Anzeige rein informativ; das tatsächliche Abhaken findet weiterhin sicher im Ticket statt.

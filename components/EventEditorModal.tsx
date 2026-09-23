@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { DrkEvent, EventTask } from '../types';
+import { DrkEvent, EventTask, Ticket } from '../types';
 import MicButton from './MicButton';
 
 interface Props {
   event: DrkEvent;
   isNew: boolean;
   users: { name: string }[];
+  tickets: Ticket[];
   canDelete?: boolean;
   onSave: (event: DrkEvent) => void;
   onDelete: (id: string) => void;
@@ -27,7 +28,66 @@ function newItem(): { id: string; label: string } {
   return { id: `ei-${Date.now()}-${Math.floor(Math.random() * 10000)}`, label: '' };
 }
 
-export default function EventEditorModal({ event, isNew, users, canDelete = false, onSave, onDelete, onClose }: Props) {
+interface EventTaskEditorProps {
+  task: EventTask;
+  index: number;
+  users: { name: string }[];
+  ticket?: Ticket;
+  eventDate: string;
+  onPatchTask: (id: string, fields: Partial<EventTask>) => void;
+  onRemoveTask: (id: string) => void;
+  onPatchItem: (taskId: string, itemId: string, label: string) => void;
+  onRemoveItem: (taskId: string, itemId: string) => void;
+  onAddItem: (taskId: string) => void;
+}
+
+const EventTaskEditor: React.FC<EventTaskEditorProps> = ({ task, index, users, ticket, eventDate, onPatchTask, onRemoveTask, onPatchItem, onRemoveItem, onAddItem }) => {
+  const items = task.items || [];
+  const doneIds = new Set(ticket?.eventChecklistDone || []);
+  const doneCount = items.filter(item => doneIds.has(item.id)).length;
+  return (
+    <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, marginBottom: '0.45rem', overflow: 'hidden' }}>
+      <div style={{ padding: '0.65rem 0.75rem', borderBottom: items.length > 0 ? '1px solid var(--border)' : 'none' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <span style={{ fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 700, minWidth: 18 }}>{index + 1}.</span>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ ...labelStyle, fontSize: 11 }}>Zuständig</label>
+                <select value={task.assignee} onChange={e => onPatchTask(task.id, { assignee: e.target.value, label: task.label && task.label !== task.assignee ? task.label : e.target.value })} style={{ ...inputStyle, margin: 0, fontSize: 12 }}>
+                  <option value="N/A">— nicht zugewiesen —</option>
+                  {users.map(user => <option key={user.name} value={user.name}>{user.name}</option>)}
+                </select>
+              </div>
+              <div style={{ flex: '0 0 130px' }}>
+                <label style={{ ...labelStyle, fontSize: 11 }}>Erledigt bis</label>
+                <input type="date" value={task.dueDate || eventDate} onChange={e => onPatchTask(task.id, { dueDate: e.target.value })} style={{ ...inputStyle, margin: 0, fontSize: 12 }} />
+              </div>
+            </div>
+            <input value={task.label === task.assignee ? '' : task.label} onChange={e => onPatchTask(task.id, { label: e.target.value.trim() || task.assignee })} placeholder="Kurzbeschreibung (optional, z. B. Saal vorbereiten)" style={{ ...inputStyle, margin: 0, fontSize: 12, color: 'var(--text-secondary)' }} />
+          </div>
+          <button onClick={() => onRemoveTask(task.id)} title="Entfernen" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: 16, lineHeight: 1, padding: '0 4px', marginTop: 18 }}>×</button>
+        </div>
+        {task.ticketId && <div style={{ paddingLeft: '1.5rem', marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>Ticket #{task.ticketId} wurde bereits erstellt{items.length > 0 ? ` · ${doneCount}/${items.length} Punkte im Ticket erledigt` : ''}.</div>}
+      </div>
+      <div style={{ padding: '0.4rem 0.75rem 0.5rem 2rem', background: 'var(--bg-primary)' }}>
+        {items.map((item, itemIndex) => {
+          const done = doneIds.has(item.id);
+          return (
+            <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <span title={done ? 'Im Ticket erledigt' : 'Noch offen'} style={{ width: 14, height: 14, border: `1.5px solid ${done ? '#16a34a' : 'var(--border-active)'}`, borderRadius: 3, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: done ? '#16a34a' : 'transparent', color: '#fff', fontSize: 10, fontWeight: 800 }}>{done ? '✓' : ''}</span>
+              <input value={item.label} onChange={e => onPatchItem(task.id, item.id, e.target.value)} placeholder={`Punkt ${itemIndex + 1} …`} style={{ ...inputStyle, margin: 0, flex: 1, fontSize: 12.5, padding: '4px 8px', textDecoration: done ? 'line-through' : 'none', color: done ? 'var(--text-muted)' : 'var(--text-primary)' }} />
+              <button onClick={() => onRemoveItem(task.id, item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 14, lineHeight: 1, padding: '0 2px' }}>×</button>
+            </div>
+          );
+        })}
+        <button onClick={() => onAddItem(task.id)} style={{ fontSize: 11.5, color: 'var(--accent-primary)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>+ Punkt hinzufügen</button>
+      </div>
+    </div>
+  );
+};
+
+export default function EventEditorModal({ event, isNew, users, tickets, canDelete = false, onSave, onDelete, onClose }: Props) {
   const [draft, setDraft] = useState<DrkEvent>({ ...event, tasks: event.tasks.map(t => ({ ...t })) });
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -154,65 +214,19 @@ export default function EventEditorModal({ event, isNew, users, canDelete = fals
             )}
 
             {draft.tasks.map((task, idx) => (
-              <div key={task.id} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, marginBottom: '0.45rem', overflow: 'hidden' }}>
-                {/* Aufgaben-Header */}
-                <div style={{ padding: '0.65rem 0.75rem', borderBottom: (task.items && task.items.length > 0) ? '1px solid var(--border)' : 'none' }}>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <span style={{ fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 700, minWidth: 18 }}>{idx + 1}.</span>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <div style={{ flex: 1 }}>
-                          <label style={{ ...labelStyle, fontSize: 11 }}>Zuständig</label>
-                          <select value={task.assignee} onChange={e => patchTask(task.id, { assignee: e.target.value, label: task.label && task.label !== task.assignee ? task.label : e.target.value })} style={{ ...inputStyle, margin: 0, fontSize: 12 }}>
-                            <option value="N/A">— nicht zugewiesen —</option>
-                            {sortedUsers.map(u => <option key={u.name} value={u.name}>{u.name}</option>)}
-                          </select>
-                        </div>
-                        <div style={{ flex: '0 0 130px' }}>
-                          <label style={{ ...labelStyle, fontSize: 11 }}>Erledigt bis</label>
-                          <input type="date" value={task.dueDate || draft.date} onChange={e => patchTask(task.id, { dueDate: e.target.value })} style={{ ...inputStyle, margin: 0, fontSize: 12 }} />
-                        </div>
-                      </div>
-                      <div>
-                        <input
-                          value={task.label === task.assignee ? '' : task.label}
-                          onChange={e => patchTask(task.id, { label: e.target.value.trim() || task.assignee })}
-                          placeholder="Kurzbeschreibung (optional, z. B. Saal vorbereiten)"
-                          style={{ ...inputStyle, margin: 0, fontSize: 12, color: 'var(--text-secondary)' }}
-                        />
-                      </div>
-                    </div>
-                    <button onClick={() => removeTask(task.id)} title="Entfernen" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: 16, lineHeight: 1, padding: '0 4px', marginTop: 18 }}>×</button>
-                  </div>
-                  {task.ticketId && (
-                    <div style={{ paddingLeft: '1.5rem', marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
-                      Ticket #{task.ticketId} wurde bereits erstellt.
-                    </div>
-                  )}
-                </div>
-
-                {/* Checklisten-Punkte */}
-                <div style={{ padding: '0.4rem 0.75rem 0.5rem 2rem', background: 'var(--bg-primary)' }}>
-                  {(task.items || []).map((item, iIdx) => (
-                    <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                      <span style={{ width: 14, height: 14, border: '1.5px solid var(--border-active)', borderRadius: 3, flexShrink: 0, display: 'inline-block' }} />
-                      <input
-                        value={item.label}
-                        onChange={e => patchItem(task.id, item.id, e.target.value)}
-                        placeholder={`Punkt ${iIdx + 1} …`}
-                        style={{ ...inputStyle, margin: 0, flex: 1, fontSize: 12.5, padding: '4px 8px' }}
-                      />
-                      <button onClick={() => removeItem(task.id, item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 14, lineHeight: 1, padding: '0 2px' }}>×</button>
-                    </div>
-                  ))}
-                  <button
-                    onClick={() => addItem(task.id)}
-                    style={{ fontSize: 11.5, color: 'var(--accent-primary)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}
-                  >
-                    + Punkt hinzufügen
-                  </button>
-                </div>
-              </div>
+              <EventTaskEditor
+                key={task.id}
+                task={task}
+                index={idx}
+                users={sortedUsers}
+                ticket={task.ticketId ? tickets.find(ticket => ticket.id === task.ticketId) : undefined}
+                onPatchTask={patchTask}
+                onRemoveTask={removeTask}
+                onPatchItem={patchItem}
+                onRemoveItem={removeItem}
+                onAddItem={addItem}
+                eventDate={draft.date}
+              />
             ))}
           </div>
         </div>

@@ -28,13 +28,25 @@ function weekdayDE(ymd: string): string {
   return ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][date.getDay()];
 }
 
-function taskStatus(task: EventTask, tickets: Ticket[], completedTickets: Ticket[]): 'done' | 'open' | 'no-ticket' {
-  if (!task.ticketId) return 'no-ticket';
-  const inCompleted = completedTickets.find(t => t.id === task.ticketId);
-  if (inCompleted) return 'done';
-  const inActive = tickets.find(t => t.id === task.ticketId);
-  if (inActive && inActive.status === Status.Abgeschlossen) return 'done';
-  return 'open';
+type EventTaskStatus = 'done' | 'partial' | 'open' | 'no-ticket';
+
+function taskProgress(task: EventTask, tickets: Ticket[], completedTickets: Ticket[]) {
+  if (!task.ticketId) return { status: 'no-ticket' as EventTaskStatus, done: 0, total: 1 };
+  const ticket = tickets.find(t => t.id === task.ticketId) ?? completedTickets.find(t => t.id === task.ticketId);
+  if (!ticket) return { status: 'no-ticket' as EventTaskStatus, done: 0, total: 1 };
+
+  const items = ticket.eventChecklistItems?.length ? ticket.eventChecklistItems : (task.items || []);
+  const total = items.length || 1;
+  const isCompleted = ticket.status === Status.Abgeschlossen || completedTickets.some(t => t.id === task.ticketId);
+  if (isCompleted) return { status: 'done' as EventTaskStatus, done: total, total };
+
+  const allowedIds = new Set(items.map(item => item.id));
+  const done = (ticket.eventChecklistDone || []).filter(id => allowedIds.has(id)).length;
+  return {
+    status: (done === total ? 'done' : done > 0 ? 'partial' : 'open') as EventTaskStatus,
+    done,
+    total,
+  };
 }
 
 function newEventDraft(): DrkEvent {
@@ -73,8 +85,11 @@ export default function EventsView({ events, tickets, completedTickets, userRole
   const past = sorted.filter(e => e.date < todayYmd).reverse();
 
   const renderEvent = (ev: DrkEvent) => {
-    const done = ev.tasks.filter(t => taskStatus(t, tickets, completedTickets) === 'done').length;
-    const total = ev.tasks.length;
+    const taskProgresses = ev.tasks.map(task => taskProgress(task, tickets, completedTickets));
+    const done = taskProgresses.reduce((sum, progress) => sum + progress.done, 0);
+    const total = taskProgresses.reduce((sum, progress) => sum + progress.total, 0);
+    const hasChecklistItems = taskProgresses.some(progress => progress.total > 1);
+    const progressLabel = hasChecklistItems ? 'Punkte' : 'Aufgaben';
     const allDone = total > 0 && done === total;
     const isPast = ev.date < todayYmd;
 
@@ -114,8 +129,8 @@ export default function EventsView({ events, tickets, completedTickets, userRole
 
           {total > 0 && (
             <div className="ev-progress">
-              <div className="ev-progress-label"><span>Fortschritt</span><span>{done} von {total} Aufgaben erledigt · {Math.round(done / total * 100)} %</span></div>
-              <div className="ev-progress-track" role="progressbar" aria-label={`Fortschritt: ${ev.title}`} aria-valuemin={0} aria-valuemax={total} aria-valuenow={done} aria-valuetext={`${done} von ${total} Aufgaben erledigt`}>
+              <div className="ev-progress-label"><span>Fortschritt</span><span>{done} von {total} {progressLabel} erledigt · {Math.round(done / total * 100)} %</span></div>
+              <div className="ev-progress-track" role="progressbar" aria-label={`Fortschritt: ${ev.title}`} aria-valuemin={0} aria-valuemax={total} aria-valuenow={done} aria-valuetext={`${done} von ${total} ${progressLabel} erledigt`}>
                 <div style={{ width: `${done / total * 100}%`, background: allDone ? 'var(--accent-success)' : 'var(--accent-inprogress)' }} />
               </div>
             </div>
@@ -124,7 +139,8 @@ export default function EventsView({ events, tickets, completedTickets, userRole
           {ev.tasks.length > 0 && (
             <div className="ev-chips">
               {ev.tasks.map(task => {
-                const st = taskStatus(task, tickets, completedTickets);
+                const progress = taskProgress(task, tickets, completedTickets);
+                const st = progress.status;
                 const ticket = task.ticketId ? allTickets.find(t => t.id === task.ticketId) : undefined;
                 const label = task.label && task.label !== task.assignee ? task.label : task.assignee || '—';
                 const firstName = (task.assignee || '').split(' ')[0];
@@ -141,8 +157,8 @@ export default function EventsView({ events, tickets, completedTickets, userRole
                     {label !== task.assignee && task.assignee && task.assignee !== 'N/A' && (
                       <span className="ev-chip-who">{firstName}</span>
                     )}
-                    {task.items && task.items.length > 0 && (
-                      <span className="ev-chip-count">{task.items.length}</span>
+                    {progress.total > 1 && (
+                      <span className="ev-chip-count">{progress.done}/{progress.total}</span>
                     )}
                   </button>
                 );
@@ -246,9 +262,12 @@ export default function EventsView({ events, tickets, completedTickets, userRole
         .ev-chip:hover { background: var(--bg-tertiary); }
         .ev-chip--done { border-color: #bbf7d0; background: #f0fdf4; color: #15803d; }
         .ev-chip--done:hover { background: #dcfce7; }
+        .ev-chip--partial { border-color: #fde68a; background: #fffbeb; color: #a16207; }
+        .ev-chip--partial:hover { background: #fef3c7; }
         .ev-chip--no-ticket { opacity: 0.6; }
         .ev-chip-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
         .ev-chip-dot--done { background: #16a34a; }
+        .ev-chip-dot--partial { background: #d97706; }
         .ev-chip-dot--open { background: var(--accent-primary); }
         .ev-chip-dot--no-ticket { background: var(--border-active); }
         .ev-chip-who {
@@ -358,6 +377,7 @@ export default function EventsView({ events, tickets, completedTickets, userRole
           event={editing.event}
           isNew={editing.isNew}
           users={users}
+          tickets={allTickets}
           canDelete={canDelete}
           onSave={(ev) => { onSaveEvent(ev); setEditing(null); }}
           onDelete={(id) => { onDeleteEvent(id); setEditing(null); }}
