@@ -1024,3 +1024,9 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 
 - Jede Veranstaltungsaufgabe ist klar als Link zum zugehörigen Ticket erkennbar und lässt sich direkt öffnen. Ist ein älteres abgeschlossenes Ticket nicht bereits geladen, wird es gezielt aus dem gespeicherten Bestand abgerufen.
 - Kommende Veranstaltungen bleiben hervorgehoben. Vergangene Veranstaltungen werden mit neutralem Rahmen und ruhigerer Darstellung sichtbar zurückgenommen; vollständig erledigte Veranstaltungen erhalten zusätzlich einen grünen Hinweisrahmen.
+
+### 23.09.2026 – Nachtrag: Layout und einheitliche Bedienfelder
+
+- Die Teamkarten stehen auf Desktop-Bildschirmen in einer ruhigen zweispaltigen Anordnung. Auf schmalen Bildschirmen wechseln sie automatisch in eine einzelne Spalte, damit Kennzahlen und Beschriftungen genügend Platz behalten.
+- Die Statusübersicht in der Filterleiste sowie die Status-, Prioritäts- und Fälligkeitsfelder in Karten, Listen, Details, Team, Berichten, Veranstaltungen und Portal verwenden dieselbe kompakte Form mit 7px-Rundung. Dadurch wirken sie wie zusammengehörige Bedienfelder statt wie unterschiedlich stark gerundete Pills.
+- Die Berichtsfilter, Zeitraumauswahl und Kennzahlen-Chips folgen jetzt ebenfalls dieser Form. Die Auswertung bleibt dadurch optisch mit Tickets und Teamansicht abgestimmt, ohne Informationen oder Funktionen zu verändern.
