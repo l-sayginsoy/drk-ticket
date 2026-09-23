@@ -254,7 +254,7 @@ export default function EventsView({ events, tickets, completedTickets, userRole
         }
         .ev-chip {
           display: inline-flex; align-items: center; gap: 5px;
-          padding: 4px 10px 4px 7px; border-radius: 99px;
+          padding: 4px 10px 4px 7px; border-radius: 7px;
           border: 1px solid var(--border); background: var(--bg-primary);
           font-size: 12.5px; font-weight: 600; color: var(--text-secondary);
           transition: background 0.12s;

@@ -151,7 +151,7 @@ export default function RoutineNachweisView({
         .nv-head-status { padding: 14px 18px 14px 0; display: flex; align-items: center; justify-content: flex-end; }
         .nv-pill {
           display: inline-flex; align-items: center; gap: 5px;
-          font-size: 12px; font-weight: 700; border-radius: 20px;
+          font-size: 12px; font-weight: 700; border-radius: 7px;
           padding: 4px 12px; white-space: nowrap;
         }
         .nv-pill--done { background: ${ROUTINE_TEAL.bg}; color: ${ROUTINE_TEAL.dark}; border: 1px solid ${ROUTINE_TEAL.border}; }

@@ -1014,3 +1014,8 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 - Der Fortschritt einer Veranstaltung wird nun aus den tatsächlich abgehakten Punkten der zugehörigen Tickets berechnet, nicht erst nach dem vollständigen Abschließen eines Tickets.
 - Auf der Veranstaltungskarte wird beispielsweise `3 von 9 Punkten erledigt · 33 %` angezeigt. Je Aufgabe zeigen die Chips den Stand als `1/2`; teilweise erledigte Aufgaben erhalten eine dezente gelbe Kennzeichnung.
 - Im Stift-Editor sind dieselben bereits im Ticket erledigten Punkte mit einem grünen Häkchen und einer Fortschrittsangabe sichtbar. Dort bleibt die Checkbox-Anzeige rein informativ; das tatsächliche Abhaken findet weiterhin sicher im Ticket statt.
+
+### 23.09.2026 – Einheitliche Status- und Prioritätsfelder
+
+- Status, Priorität, Fälligkeit und zugehörige Übersichten verwenden nun durchgehend die gleiche kompakte Form mit 7px-Rundung statt stark gerundeter Pills.
+- Das gilt in Listen, Ticketkarten, Ticketdetails, dem Melderportal, Veranstaltungen, Team, zurückgestellten und abgeschlossenen Aufträgen sowie dem Seriennachweis. Farben und Bedienung bleiben unverändert.

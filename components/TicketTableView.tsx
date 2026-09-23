@@ -562,7 +562,7 @@ const TicketTableView: React.FC<TicketTableViewProps> = ({ tickets, onSelectTick
                 }
                 .status-pill, .priority-pill {
                     padding: 0.18rem 0.65rem;
-                    border-radius: 999px;
+                    border-radius: 7px;
                     font-size: 0.75rem;
                     font-weight: 600;
                     display: inline-block;

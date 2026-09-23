@@ -305,7 +305,7 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, locations, t
                     font-size: 0.78rem;
                     font-weight: 600;
                     padding: 0.2rem 0.6rem;
-                    border-radius: 20px;
+                    border-radius: 7px;
                     border: 1.5px solid transparent;
                     white-space: nowrap;
                     cursor: default;

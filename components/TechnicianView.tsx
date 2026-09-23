@@ -205,7 +205,7 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ tickets, technicians, o
                 .team-summary-metrics { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
                 .team-summary-metrics > span, .team-summary-metrics > button {
                     display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border: 1px solid var(--border);
-                    border-radius: 999px; background: var(--bg-primary); color: var(--text-secondary); font: inherit; font-size: .78rem; white-space: nowrap;
+                    border-radius: 7px; background: var(--bg-primary); color: var(--text-secondary); font: inherit; font-size: .78rem; white-space: nowrap;
                 }
                 .team-summary-metrics strong { color: var(--text-primary); }
                 .team-summary-metrics > button { border-color: rgba(220,53,69,.28); background: rgba(220,53,69,.05); color: #C0343F; cursor: pointer; }
@@ -219,7 +219,7 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ tickets, technicians, o
                 .technician-info .avatar { width: 36px; height: 36px; font-size: .78rem; }
                 .technician-name { display: block; font-size: .98rem; font-weight: 750; }
                 .technician-role { display: block; margin-top: 2px; color: var(--text-muted); font-size: .72rem; }
-                .technician-availability { display: inline-flex; align-items: center; gap: 4px; padding: 4px 7px; border-radius: 999px; font-size: .68rem; font-weight: 750; }
+                .technician-availability { display: inline-flex; align-items: center; gap: 4px; padding: 4px 7px; border-radius: 7px; font-size: .68rem; font-weight: 750; }
                 .technician-availability::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
                 .technician-availability.is-available { color: #16815F; background: rgba(22,129,95,.1); }
                 .technician-availability.is-away { color: #8A5B08; background: rgba(202,138,4,.11); }

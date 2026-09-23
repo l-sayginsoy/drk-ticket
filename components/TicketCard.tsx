@@ -367,7 +367,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .pill-lbl { font-size: 9.5px; color: #999; letter-spacing: 0; margin-bottom: 3px; text-align: center; }
                 .pill {
                     display: flex; align-items: center; justify-content: center; gap: 3px;
-                    padding: 4px 8px; border-radius: 20px; font-size: 10.5px;
+                    padding: 4px 8px; border-radius: 7px; font-size: 10.5px;
                     border: 0.5px solid; width: 100%; box-sizing: border-box;
                     position: relative; cursor: pointer; white-space: nowrap;
                     /* Pills nicht draggable machen */
@@ -482,7 +482,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
                 .footer-right { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
                 .status-footer-chip {
                     display: inline-flex; align-items: center;
-                    font-size: 10.5px; font-weight: 600; border-radius: 999px;
+                    font-size: 10.5px; font-weight: 600; border-radius: 7px;
                     padding: 3px 9px; position: relative;
                     cursor: pointer; white-space: nowrap; flex-shrink: 0;
                     border: 0.5px solid;

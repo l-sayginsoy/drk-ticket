@@ -1135,7 +1135,7 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                 /* Ticket-ID Chip + Status-Pill nebeneinander oben */
                 .sr-toprow { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
                 .sr-id-chip { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 999px; padding: 0.2rem 0.7rem; letter-spacing: 0.01em; }
-                .sr-status-pill { font-size: 0.75rem; font-weight: 700; border-radius: 999px; padding: 0.2rem 0.8rem; border: 1px solid; }
+                .sr-status-pill { font-size: 0.75rem; font-weight: 700; border-radius: 7px; padding: 0.2rem 0.8rem; border: 1px solid; }
                 .sr-status-offen     { background: #F1F0EC; color: #5F5E5A; border-color: #D3D1C7; }
                 .sr-status-inarbeit  { background: #E6F1FB; color: #185FA5; border-color: #B5D4F4; }
                 .sr-status-ueberfaellig { background: #FCEBEB; color: #A32D2D; border-color: #F7C1C1; }
@@ -1155,7 +1155,7 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                 .sr-pill-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
                 .sr-pill-cell { display: flex; flex-direction: column; align-items: center; gap: 5px; }
                 .sr-pill-lbl { font-size: 0.7rem; font-weight: 500; color: var(--text-muted); }
-                .sr-pill { display: inline-flex; align-items: center; justify-content: center; gap: 4px; border-radius: 20px; padding: 5px 8px; font-size: 11px; font-weight: 600; border: 0.5px solid; width: 100%; box-sizing: border-box; }
+                .sr-pill { display: inline-flex; align-items: center; justify-content: center; gap: 4px; border-radius: 7px; padding: 5px 8px; font-size: 11px; font-weight: 600; border: 0.5px solid; width: 100%; box-sizing: border-box; }
                 .sr-pill-assignee { background: var(--bg-tertiary); border-color: var(--border); color: var(--text-primary); }
                 .sr-pill-unassigned { color: var(--text-muted); }
                 .sr-pill-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -777,7 +777,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
             .ds-pill-lbl { font-size: 0.7rem; color: var(--text-muted); font-weight: 500; margin-bottom: 3px; text-align: center; letter-spacing: 0.01em; }
             .ds-pill {
                 display: flex; align-items: center; justify-content: center; gap: 3px;
-                padding: 5px 6px; border-radius: 20px; font-size: 11px; font-weight: 600;
+                padding: 5px 6px; border-radius: 7px; font-size: 11px; font-weight: 600;
                 border: 0.5px solid; position: relative; cursor: pointer; white-space: nowrap;
                 width: 100%; box-sizing: border-box;
             }
