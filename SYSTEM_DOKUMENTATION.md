@@ -968,8 +968,9 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 - Priorität, Fälligkeit, Status, Bearbeiter und Kategorie bleiben direkt auswählbar. Beim Speichern wird eine leere E-Mail-Adresse als „nicht angegeben“ gespeichert; Chats, Checklisten und Ticket-Herkunft bleiben unverändert.
 ### 22.09.2026 – Arbeitszeit direkt am Ticket buchen
 
-- Im Ticket gibt es zwischen Zuordnung und Chat einen kompakten, aufklappbaren Bereich **Arbeitszeit**. Im geschlossenen Zustand bleibt nur die bisher erfasste Gesamtdauer sichtbar.
-- Zeiten lassen sich über **10, 15, 30 oder 60 Minuten** schnell auswählen oder als freie Minutenzahl eingeben. Eine kurze Tätigkeitsnotiz ist optional.
-- Jede Buchung speichert Dauer, Person und Zeitpunkt. Eigene Buchungen können bearbeitet oder gelöscht werden; Administratoren können alle Buchungen korrigieren.
+- Im Ticket gibt es zwischen Zuordnung und Chat einen kompakten, dauerhaft sichtbaren Bereich **Arbeitszeit**. Das vermeidet auf dem Handy einen zusätzlichen Schritt.
+- **10, 15, 30 oder 60 Minuten** werden mit einem Tipp sofort addiert. Freie Eingabe und Tätigkeitsnotiz entfallen bewusst, damit die Bedienung schnell und eindeutig bleibt.
+- Jede Buchung speichert Dauer, Person und Zeitpunkt. Eigene Buchungen können gelöscht und anschließend korrekt neu gebucht werden; Administratoren können alle Buchungen löschen.
 - Die Gesamtdauer bleibt auch bei abgeschlossenen Tickets erhalten. Zusätzlich wird `costs.laborHours` aus der Summe synchronisiert, damit Berichte die gebuchte Arbeitszeit später direkt verwenden können.
 - Bewusst kein laufender Timer: Die feste Auswahl ist auf Mobilgeräten schneller, klarer und weniger fehleranfällig.
+- Beim Abschließen ohne gebuchte Zeit erscheint eine deutliche Warnung mit **Zeit eintragen** und **Trotzdem abschließen**. „Zeit eintragen“ öffnet das Ticket direkt am Zeitbereich; Sammelabschlüsse warnen ebenfalls, wenn ausgewählte Tickets keine Zeit enthalten.

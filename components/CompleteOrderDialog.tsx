@@ -4,7 +4,9 @@ export interface CompleteOrderDialogProps {
   open: boolean;
   ticketId: string;
   ticketTitle: string;
+  missingWorkTime: boolean;
   onConfirm: () => void;
+  onEnterWorkTime: () => void;
   onCancel: () => void;
 }
 
@@ -13,7 +15,9 @@ const CompleteOrderDialog: React.FC<CompleteOrderDialogProps> = ({
   open,
   ticketId,
   ticketTitle,
+  missingWorkTime,
   onConfirm,
+  onEnterWorkTime,
   onCancel,
 }) => {
   if (!open) return null;
@@ -25,18 +29,30 @@ const CompleteOrderDialog: React.FC<CompleteOrderDialogProps> = ({
         <h2 id="cod-heading" className="cod-heading">
           Auftrag abschließen?
         </h2>
-        <p className="cod-lead">Möchten Sie diesen Auftrag wirklich als erledigt markieren?</p>
+        {missingWorkTime ? (
+          <div className="cod-warning" role="alert">
+            <i className="ti ti-clock-exclamation" aria-hidden="true" />
+            <span><strong>Es wurde noch keine Arbeitszeit eingetragen.</strong><br />Bitte buche zuerst die benötigte Zeit.</span>
+          </div>
+        ) : (
+          <p className="cod-lead">Möchten Sie diesen Auftrag wirklich als erledigt markieren?</p>
+        )}
         <p className="cod-meta">
           <strong>Ticket {ticketId}</strong>
         </p>
         <p className="cod-title">{ticketTitle}</p>
         <div className="cod-actions">
-          <button type="button" className="cod-btn cod-btn-secondary" onClick={onCancel}>
-            Nein
-          </button>
-          <button type="button" className="cod-btn cod-btn-primary" onClick={onConfirm}>
-            Ja, abschließen
-          </button>
+          {missingWorkTime ? (
+            <>
+              <button type="button" className="cod-btn cod-btn-secondary" onClick={onEnterWorkTime}>Zeit eintragen</button>
+              <button type="button" className="cod-btn cod-btn-warning" onClick={onConfirm}>Trotzdem abschließen</button>
+            </>
+          ) : (
+            <>
+              <button type="button" className="cod-btn cod-btn-secondary" onClick={onCancel}>Nein</button>
+              <button type="button" className="cod-btn cod-btn-primary" onClick={onConfirm}>Ja, abschließen</button>
+            </>
+          )}
         </div>
       </div>
       <style>{`
@@ -76,6 +92,20 @@ const CompleteOrderDialog: React.FC<CompleteOrderDialogProps> = ({
           color: var(--text-secondary);
           line-height: 1.45;
         }
+        .cod-warning {
+          display: flex;
+          gap: 0.7rem;
+          align-items: flex-start;
+          margin: 0 0 1rem;
+          padding: 0.8rem;
+          border: 1px solid #f2c66d;
+          border-radius: 9px;
+          background: #fff8e7;
+          color: #7a4b00;
+          font-size: 0.9rem;
+          line-height: 1.4;
+        }
+        .cod-warning i { font-size: 1.15rem; margin-top: 1px; }
         .cod-meta {
           margin: 0 0 0.25rem;
           font-size: 0.9rem;
@@ -118,6 +148,16 @@ const CompleteOrderDialog: React.FC<CompleteOrderDialogProps> = ({
         }
         .cod-btn-primary:hover {
           filter: brightness(1.05);
+        }
+        .cod-btn-warning {
+          background: transparent;
+          border-color: #d97706;
+          color: #b45309;
+        }
+        .cod-btn-warning:hover { background: #fff8e7; }
+        @media (max-width: 480px) {
+          .cod-actions { display: grid; grid-template-columns: 1fr; }
+          .cod-btn { width: 100%; min-height: 44px; }
         }
       `}</style>
     </div>

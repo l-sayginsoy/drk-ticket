@@ -2642,6 +2642,18 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     setCompleteOrderDialog(null);
   };
 
+  const handleCompleteOrderEnterTime = () => {
+    if (!completeOrderDialog) return;
+    const draft = completeOrderDialog.draft;
+    const originalTicket = tickets.find((t) => t.id === draft.id)
+      ?? routineTickets.find((t) => t.id === draft.id)
+      ?? completedTickets.find((t) => t.id === draft.id);
+    setCompleteOrderDialog(null);
+    if (!originalTicket) return;
+    setSelectedTicket(originalTicket);
+    window.setTimeout(() => document.getElementById('ticket-work-time')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+  };
+
   const handleDeleteTicket = (ticketId: string) => {
     setTickets((prev) => prev.filter((t) => t.id !== ticketId));
     setRoutineTickets((prev) => prev.filter((t) => t.id !== ticketId));
@@ -3008,7 +3020,12 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     if (property === 'status' && value === Status.Abgeschlossen) {
       const n = selectedTicketIds.length;
       if (n === 0) return;
-      if (!window.confirm(`Alle ${n} ausgewählten Aufträge wirklich abschließen?`)) {
+      const selectedForCompletion = [...tickets, ...routineTickets].filter(t => selectedTicketIds.includes(t.id));
+      const withoutWorkTime = selectedForCompletion.filter(t => (t.workTimeEntries || []).reduce((sum, entry) => sum + entry.minutes, 0) === 0).length;
+      const confirmationText = withoutWorkTime > 0
+        ? `${withoutWorkTime} von ${n} ausgewählten Aufträgen haben noch keine Arbeitszeit. Trotzdem alle abschließen?`
+        : `Alle ${n} ausgewählten Aufträge wirklich abschließen?`;
+      if (!window.confirm(confirmationText)) {
         return;
       }
     }
@@ -4164,7 +4181,9 @@ const deleteTicketFromFirebase = (ticketId: string) => {
         open={!!completeOrderDialog}
         ticketId={completeOrderDialog?.draft.id ?? ''}
         ticketTitle={completeOrderDialog?.draft.title ?? ''}
+        missingWorkTime={!!completeOrderDialog && (completeOrderDialog.draft.workTimeEntries || []).reduce((sum, entry) => sum + entry.minutes, 0) === 0}
         onConfirm={handleCompleteOrderConfirm}
+        onEnterWorkTime={handleCompleteOrderEnterTime}
         onCancel={handleCompleteOrderCancel}
       />
       {selectedTicket && <TicketDetailSidebar ticket={selectedTicket} onClose={() => setSelectedTicket(null)} onUpdateTicket={handleTicketUpdate} users={users} statuses={Object.values(Status)} currentUser={currentUser} appSettings={appSettings} />}
