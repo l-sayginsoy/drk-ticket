@@ -58,7 +58,7 @@ interface RoutineNachweisViewProps {
   missedSinceYmd?: string;
   onSetCompletion?: (scheduleId: string, ymd: string, completedBy: string | null) => void;
   onToggleSubtask?: (scheduleId: string, ymd: string, subtaskId: string, completedBy: string | null) => void;
-  onAdminRetroSetDay?: (scheduleId: string, ymd: string, completedBy: string | null) => void;
+  onAdminRetroSetDay?: (scheduleId: string, ymd: string, completedBy: string | null, subtaskIds?: string[]) => void;
 }
 
 export default function RoutineNachweisView({
@@ -79,6 +79,7 @@ export default function RoutineNachweisView({
   const [scheduleFilter, setScheduleFilter] = useState<string>('alle');
   const [retroModal, setRetroModal] = useState<RetroModal | null>(null);
   const [retroPerson, setRetroPerson] = useState<string>('');
+  const [retroChecked, setRetroChecked] = useState<Set<string>>(new Set());
   const retroModalRef = useRef<HTMLDivElement>(null);
 
   const todayYmd = useMemo(() => localISODate(new Date()), []);
@@ -454,6 +455,7 @@ export default function RoutineNachweisView({
                                           const targetUsers = users.filter(u => u.isActive && u.role === sch.targetRole);
                                           const defaultPerson = targetUsers.find(u => u.name === assignee)?.name || targetUsers[0]?.name || userName;
                                           setRetroPerson(defaultPerson);
+                                          setRetroChecked(new Set(s2.doneSubtaskIds));
                                           setRetroModal({ scheduleId: sch.id, ymd: d, sch, isDone: s2.complete });
                                         }}
                                       >{dn}</button>
@@ -476,75 +478,137 @@ export default function RoutineNachweisView({
       )}
 
       {/* Admin-Nachtragen-Modal */}
-      {retroModal && (
-        <div
-          onClick={() => setRetroModal(null)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
-        >
+      {retroModal && (() => {
+        const subtasks = retroModal.sch.subtasks || [];
+        const hasSubtasks = subtasks.length > 0;
+        const allChecked = hasSubtasks && subtasks.every(s => retroChecked.has(s.id));
+        const noneChecked = hasSubtasks && subtasks.every(s => !retroChecked.has(s.id));
+        const toggleSub = (id: string) => setRetroChecked(prev => {
+          const next = new Set(prev);
+          next.has(id) ? next.delete(id) : next.add(id);
+          return next;
+        });
+        const handleSave = () => {
+          if (hasSubtasks) {
+            onAdminRetroSetDay!(retroModal.scheduleId, retroModal.ymd, retroChecked.size > 0 ? retroPerson : null, Array.from(retroChecked));
+          } else {
+            onAdminRetroSetDay!(retroModal.scheduleId, retroModal.ymd, retroPerson);
+          }
+          setRetroModal(null);
+        };
+        return (
           <div
-            ref={retroModalRef}
-            onClick={e => e.stopPropagation()}
-            style={{ background: 'var(--bg-secondary)', borderRadius: 14, boxShadow: '0 12px 40px rgba(0,0,0,0.25)', width: '100%', maxWidth: 400, overflow: 'hidden' }}
+            onClick={() => setRetroModal(null)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
           >
-            <div style={{ padding: '13px 18px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-primary)' }}>
-              <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>
-                <i className="ti ti-calendar-check" style={{ marginRight: 7 }} />
-                Eintrag nachtragen
-              </span>
-              <button onClick={() => setRetroModal(null)} style={{ background: 'none', border: 'none', fontSize: 22, lineHeight: 1, color: 'var(--text-muted)', cursor: 'pointer' }}>×</button>
-            </div>
-            <div style={{ padding: '1.1rem 1.2rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-              <div style={{ background: 'var(--bg-tertiary)', borderRadius: 8, padding: '10px 14px', fontSize: 13 }}>
-                <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 3 }}>{retroModal.sch.title}</div>
-                <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>{fmtYmd(retroModal.ymd)}</div>
+            <div
+              ref={retroModalRef}
+              onClick={e => e.stopPropagation()}
+              style={{ background: 'var(--bg-secondary)', borderRadius: 14, boxShadow: '0 12px 40px rgba(0,0,0,0.25)', width: '100%', maxWidth: 440, overflow: 'hidden' }}
+            >
+              {/* Header */}
+              <div style={{ padding: '13px 18px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-primary)' }}>
+                <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>
+                  <i className="ti ti-calendar-check" style={{ marginRight: 7 }} />
+                  Eintrag nachtragen
+                </span>
+                <button onClick={() => setRetroModal(null)} style={{ background: 'none', border: 'none', fontSize: 22, lineHeight: 1, color: 'var(--text-muted)', cursor: 'pointer' }}>×</button>
               </div>
-              {retroModal.isDone ? (
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)', padding: '4px 0' }}>
-                  Dieser Tag ist bereits als erledigt markiert. Du kannst den Eintrag entfernen oder einen anderen Bearbeiter setzen.
+
+              {/* Body */}
+              <div style={{ padding: '1rem 1.2rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                {/* Titel + Datum */}
+                <div style={{ background: 'var(--bg-tertiary)', borderRadius: 8, padding: '10px 14px', fontSize: 13 }}>
+                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 3 }}>{retroModal.sch.title}</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>{fmtYmd(retroModal.ymd)}</div>
                 </div>
-              ) : null}
-              <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Erledigt von</label>
-                <select
-                  value={retroPerson}
-                  onChange={e => setRetroPerson(e.target.value)}
-                  style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: 13.5, fontFamily: 'inherit' }}
-                >
-                  {users.filter(u => u.isActive && u.role === retroModal.sch.targetRole).map(u => (
-                    <option key={u.name} value={u.name}>{u.name}</option>
-                  ))}
-                  {users.filter(u => u.isActive && u.role === Role.Admin).map(u => (
-                    <option key={u.name + '-admin'} value={u.name}>{u.name} (Admin)</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div style={{ padding: '0.85rem 1.2rem', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', gap: 8, background: 'var(--bg-primary)' }}>
-              <div>
-                {retroModal.isDone && (
-                  <button
-                    onClick={() => { onAdminRetroSetDay!(retroModal.scheduleId, retroModal.ymd, null); setRetroModal(null); }}
-                    style={{ background: 'none', border: '1px solid #dc2626', color: '#dc2626', borderRadius: 7, padding: '6px 12px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
+
+                {/* Person */}
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Erledigt von</label>
+                  <select
+                    value={retroPerson}
+                    onChange={e => setRetroPerson(e.target.value)}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: 13.5, fontFamily: 'inherit' }}
                   >
-                    Eintrag entfernen
-                  </button>
+                    {users.filter(u => u.isActive && u.role === retroModal.sch.targetRole).map(u => (
+                      <option key={u.name} value={u.name}>{u.name}</option>
+                    ))}
+                    {users.filter(u => u.isActive && u.role === Role.Admin).map(u => (
+                      <option key={u.name + '-admin'} value={u.name}>{u.name} (Admin)</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Subtasks */}
+                {hasSubtasks && (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>Erledigte Punkte</label>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button
+                          type="button"
+                          onClick={() => setRetroChecked(new Set(subtasks.map(s => s.id)))}
+                          style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 600 }}
+                        >Alle</button>
+                        <button
+                          type="button"
+                          onClick={() => setRetroChecked(new Set())}
+                          style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 600 }}
+                        >Keine</button>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {subtasks.map(sub => {
+                        const checked = retroChecked.has(sub.id);
+                        return (
+                          <label
+                            key={sub.id}
+                            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, background: checked ? 'color-mix(in srgb, var(--accent-primary) 10%, transparent)' : 'var(--bg-primary)', border: `1px solid ${checked ? 'var(--accent-primary)' : 'var(--border)'}`, cursor: 'pointer', transition: 'all 0.12s' }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleSub(sub.id)}
+                              style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--accent-primary)', flexShrink: 0 }}
+                            />
+                            <span style={{ fontSize: 13.5, color: 'var(--text-primary)', flex: 1 }}>{sub.label || '—'}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => setRetroModal(null)} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 16px', cursor: 'pointer', fontSize: 13, color: 'var(--text-secondary)' }}>Abbrechen</button>
-                <button
-                  disabled={!retroPerson}
-                  onClick={() => { onAdminRetroSetDay!(retroModal.scheduleId, retroModal.ymd, retroPerson); setRetroModal(null); }}
-                  style={{ background: 'var(--accent-primary)', border: 'none', borderRadius: 8, padding: '7px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#fff', opacity: retroPerson ? 1 : 0.5 }}
-                >
-                  <i className="ti ti-check" style={{ marginRight: 5 }} />
-                  Eintragen
-                </button>
+
+              {/* Footer */}
+              <div style={{ padding: '0.85rem 1.2rem', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', gap: 8, background: 'var(--bg-primary)' }}>
+                <div>
+                  {(retroModal.isDone || (!noneChecked && hasSubtasks)) && (
+                    <button
+                      onClick={() => { onAdminRetroSetDay!(retroModal.scheduleId, retroModal.ymd, null, []); setRetroModal(null); }}
+                      style={{ background: 'none', border: '1px solid #dc2626', color: '#dc2626', borderRadius: 7, padding: '6px 12px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
+                    >
+                      Alle entfernen
+                    </button>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => setRetroModal(null)} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 16px', cursor: 'pointer', fontSize: 13, color: 'var(--text-secondary)' }}>Abbrechen</button>
+                  <button
+                    disabled={!retroPerson || (hasSubtasks && retroChecked.size === 0)}
+                    onClick={handleSave}
+                    style={{ background: 'var(--accent-primary)', border: 'none', borderRadius: 8, padding: '7px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#fff', opacity: (!retroPerson || (hasSubtasks && retroChecked.size === 0)) ? 0.5 : 1 }}
+                  >
+                    <i className="ti ti-check" style={{ marginRight: 5 }} />
+                    Speichern
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

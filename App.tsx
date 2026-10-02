@@ -2343,22 +2343,31 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
     });
   };
 
-  /** Admin-Nachtrag: setzt Erledigung für einen beliebigen vergangenen Tag (alle Subtasks oder Ganz-Tag). Keine E-Mail. */
-  const handleAdminRetroSetDay = (scheduleId: string, ymd: string, completedBy: string | null) => {
+  /** Admin-Nachtrag: setzt Erledigung für einen beliebigen vergangenen Tag. Keine E-Mail.
+   *  subtaskIds: welche Subtasks gesetzt werden sollen (leer = alle entfernen).
+   *  Ohne subtaskIds: Ganz-Tag-Eintrag (für Aufgaben ohne Unterpunkte). */
+  const handleAdminRetroSetDay = (scheduleId: string, ymd: string, completedBy: string | null, subtaskIds?: string[]) => {
     const sch = (appSettings.routineSchedules as any[]).find((s: any) => s.id === scheduleId);
-    const subtasks: { id: string; label: string }[] = sch?.subtasks || [];
+    const allSubtasks: { id: string; label: string }[] = sch?.subtasks || [];
     setAppSettings(prev => {
       const rest = (prev.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd));
       let next: AppSettings;
-      if (!completedBy) {
+      if (!completedBy || (subtaskIds !== undefined && subtaskIds.length === 0)) {
         next = { ...prev, routineDayCompletions: rest };
-      } else if (subtasks.length > 0) {
-        const entries: RoutineDayCompletion[] = subtasks.map(sub => ({
-          scheduleId, date: ymd, subtaskId: sub.id, completedBy, completedAt: new Date().toISOString(),
+      } else if (subtaskIds !== undefined) {
+        // Nur die explizit übergebenen Subtask-IDs setzen
+        const entries: RoutineDayCompletion[] = subtaskIds.map(id => ({
+          scheduleId, date: ymd, subtaskId: id, completedBy: completedBy!, completedAt: new Date().toISOString(),
+        }));
+        next = { ...prev, routineDayCompletions: [...rest, ...entries] };
+      } else if (allSubtasks.length > 0) {
+        // Fallback: alle Subtasks setzen
+        const entries: RoutineDayCompletion[] = allSubtasks.map(sub => ({
+          scheduleId, date: ymd, subtaskId: sub.id, completedBy: completedBy!, completedAt: new Date().toISOString(),
         }));
         next = { ...prev, routineDayCompletions: [...rest, ...entries] };
       } else {
-        next = { ...prev, routineDayCompletions: [...rest, { scheduleId, date: ymd, completedBy, completedAt: new Date().toISOString() }] };
+        next = { ...prev, routineDayCompletions: [...rest, { scheduleId, date: ymd, completedBy: completedBy!, completedAt: new Date().toISOString() }] };
       }
       void setDoc(doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS), { value: JSON.parse(JSON.stringify(next)), updated_at: new Date().toISOString() });
       return next;
