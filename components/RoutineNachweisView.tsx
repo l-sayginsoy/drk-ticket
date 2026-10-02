@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Role, RoutineDayCompletion, RoutineSchedule, User } from '../types';
 import { getDueDatesInYear, getRoutineAssigneeDisplayName, getRoutinePool, localISODate, routineDayStatus } from '../utils/routineHelpers';
 import { ROUTINE_AMBER, ROUTINE_TEAL } from '../utils/routineUiPalette';
@@ -41,6 +41,13 @@ function cadenceLabel(sch: RoutineSchedule & { recurrence?: any }): string {
   return '—';
 }
 
+interface RetroModal {
+  scheduleId: string;
+  ymd: string;
+  sch: RoutineSchedule & { recurrence?: any; subtasks?: { id: string; label: string }[] };
+  isDone: boolean;
+}
+
 interface RoutineNachweisViewProps {
   schedules: Array<RoutineSchedule & { recurrence?: any }>;
   completions: RoutineDayCompletion[];
@@ -51,6 +58,7 @@ interface RoutineNachweisViewProps {
   missedSinceYmd?: string;
   onSetCompletion?: (scheduleId: string, ymd: string, completedBy: string | null) => void;
   onToggleSubtask?: (scheduleId: string, ymd: string, subtaskId: string, completedBy: string | null) => void;
+  onAdminRetroSetDay?: (scheduleId: string, ymd: string, completedBy: string | null) => void;
 }
 
 export default function RoutineNachweisView({
@@ -63,11 +71,15 @@ export default function RoutineNachweisView({
   missedSinceYmd = '',
   onSetCompletion,
   onToggleSubtask,
+  onAdminRetroSetDay,
 }: RoutineNachweisViewProps) {
   const [openRows, setOpenRows] = useState<Record<string, boolean>>({});
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
   const [scheduleFilter, setScheduleFilter] = useState<string>('alle');
+  const [retroModal, setRetroModal] = useState<RetroModal | null>(null);
+  const [retroPerson, setRetroPerson] = useState<string>('');
+  const retroModalRef = useRef<HTMLDivElement>(null);
 
   const todayYmd = useMemo(() => localISODate(new Date()), []);
   const rpHolidaySet = useMemo(() => new Set(rpHolidayYmdList), [rpHolidayYmdList]);
@@ -429,6 +441,24 @@ export default function RoutineNachweisView({
                                   else if (s2.anyDone) { cls = 'nv-day nv-day--partial'; title = `${fmtYmd(d)}: ${s2.done}/${s2.total} erledigt` + (completedByNames ? ` (${completedByNames})` : ''); }
                                   else if (past && counts) { cls = 'nv-day nv-day--missed'; title = fmtYmd(d) + ': verpasst'; }
                                   else if (past) { cls = 'nv-day nv-day--planned'; title = fmtYmd(d) + ': nicht erfasst'; }
+                                  const isAdminClickable = userRole === Role.Admin && past && !!onAdminRetroSetDay;
+                                  if (isAdminClickable) {
+                                    return (
+                                      <button
+                                        key={d}
+                                        className={cls}
+                                        data-tooltip={title + ' – klicken zum Nachtragen'}
+                                        style={{ cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
+                                        onClick={() => {
+                                          const assignee = getRoutineAssigneeDisplayName(sch, pool, d);
+                                          const targetUsers = users.filter(u => u.isActive && u.role === sch.targetRole);
+                                          const defaultPerson = targetUsers.find(u => u.name === assignee)?.name || targetUsers[0]?.name || userName;
+                                          setRetroPerson(defaultPerson);
+                                          setRetroModal({ scheduleId: sch.id, ymd: d, sch, isDone: s2.complete });
+                                        }}
+                                      >{dn}</button>
+                                    );
+                                  }
                                   return <span key={d} className={cls} data-tooltip={title}>{dn}</span>;
                                 })}
                               </div>
@@ -442,6 +472,77 @@ export default function RoutineNachweisView({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Admin-Nachtragen-Modal */}
+      {retroModal && (
+        <div
+          onClick={() => setRetroModal(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+        >
+          <div
+            ref={retroModalRef}
+            onClick={e => e.stopPropagation()}
+            style={{ background: 'var(--bg-secondary)', borderRadius: 14, boxShadow: '0 12px 40px rgba(0,0,0,0.25)', width: '100%', maxWidth: 400, overflow: 'hidden' }}
+          >
+            <div style={{ padding: '13px 18px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-primary)' }}>
+              <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>
+                <i className="ti ti-calendar-check" style={{ marginRight: 7 }} />
+                Eintrag nachtragen
+              </span>
+              <button onClick={() => setRetroModal(null)} style={{ background: 'none', border: 'none', fontSize: 22, lineHeight: 1, color: 'var(--text-muted)', cursor: 'pointer' }}>×</button>
+            </div>
+            <div style={{ padding: '1.1rem 1.2rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              <div style={{ background: 'var(--bg-tertiary)', borderRadius: 8, padding: '10px 14px', fontSize: 13 }}>
+                <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 3 }}>{retroModal.sch.title}</div>
+                <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>{fmtYmd(retroModal.ymd)}</div>
+              </div>
+              {retroModal.isDone ? (
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', padding: '4px 0' }}>
+                  Dieser Tag ist bereits als erledigt markiert. Du kannst den Eintrag entfernen oder einen anderen Bearbeiter setzen.
+                </div>
+              ) : null}
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Erledigt von</label>
+                <select
+                  value={retroPerson}
+                  onChange={e => setRetroPerson(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: 13.5, fontFamily: 'inherit' }}
+                >
+                  {users.filter(u => u.isActive && u.role === retroModal.sch.targetRole).map(u => (
+                    <option key={u.name} value={u.name}>{u.name}</option>
+                  ))}
+                  {users.filter(u => u.isActive && u.role === Role.Admin).map(u => (
+                    <option key={u.name + '-admin'} value={u.name}>{u.name} (Admin)</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div style={{ padding: '0.85rem 1.2rem', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', gap: 8, background: 'var(--bg-primary)' }}>
+              <div>
+                {retroModal.isDone && (
+                  <button
+                    onClick={() => { onAdminRetroSetDay!(retroModal.scheduleId, retroModal.ymd, null); setRetroModal(null); }}
+                    style={{ background: 'none', border: '1px solid #dc2626', color: '#dc2626', borderRadius: 7, padding: '6px 12px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
+                  >
+                    Eintrag entfernen
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setRetroModal(null)} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 16px', cursor: 'pointer', fontSize: 13, color: 'var(--text-secondary)' }}>Abbrechen</button>
+                <button
+                  disabled={!retroPerson}
+                  onClick={() => { onAdminRetroSetDay!(retroModal.scheduleId, retroModal.ymd, retroPerson); setRetroModal(null); }}
+                  style={{ background: 'var(--accent-primary)', border: 'none', borderRadius: 8, padding: '7px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#fff', opacity: retroPerson ? 1 : 0.5 }}
+                >
+                  <i className="ti ti-check" style={{ marginRight: 5 }} />
+                  Eintragen
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

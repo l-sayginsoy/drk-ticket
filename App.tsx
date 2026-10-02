@@ -2343,6 +2343,28 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
     });
   };
 
+  /** Admin-Nachtrag: setzt Erledigung für einen beliebigen vergangenen Tag (alle Subtasks oder Ganz-Tag). Keine E-Mail. */
+  const handleAdminRetroSetDay = (scheduleId: string, ymd: string, completedBy: string | null) => {
+    const sch = (appSettings.routineSchedules as any[]).find((s: any) => s.id === scheduleId);
+    const subtasks: { id: string; label: string }[] = sch?.subtasks || [];
+    setAppSettings(prev => {
+      const rest = (prev.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd));
+      let next: AppSettings;
+      if (!completedBy) {
+        next = { ...prev, routineDayCompletions: rest };
+      } else if (subtasks.length > 0) {
+        const entries: RoutineDayCompletion[] = subtasks.map(sub => ({
+          scheduleId, date: ymd, subtaskId: sub.id, completedBy, completedAt: new Date().toISOString(),
+        }));
+        next = { ...prev, routineDayCompletions: [...rest, ...entries] };
+      } else {
+        next = { ...prev, routineDayCompletions: [...rest, { scheduleId, date: ymd, completedBy, completedAt: new Date().toISOString() }] };
+      }
+      void setDoc(doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS), { value: JSON.parse(JSON.stringify(next)), updated_at: new Date().toISOString() });
+      return next;
+    });
+  };
+
   /** Hakt eine EINZELNE Unter-Aufgabe für einen Tag ab bzw. wieder zurück (completedBy=null → entfernen). */
   const handleToggleRoutineSubtask = (scheduleId: string, ymd: string, subtaskId: string, completedBy: string | null) => {
     const rest = (appSettings.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd && c.subtaskId === subtaskId));
@@ -3806,6 +3828,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
               missedSinceYmd={ROUTINE_WARN_START}
               onSetCompletion={handleSetRoutineCompletion}
               onToggleSubtask={handleToggleRoutineSubtask}
+              onAdminRetroSetDay={handleAdminRetroSetDay}
             />
           );
         case 'erledigt': return <ErledigtTableView
