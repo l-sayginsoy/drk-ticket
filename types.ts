@@ -101,7 +101,7 @@ export interface RoutineSchedule {
   rotationCursor: number; // used when assignment.type === 'rotate'
 }
 
-/** Tagesabschluss eines Serienauftrags (Dashboard „Erledigt“) */
+/** Tagesabschluss eines Serienauftrags (Dashboard „Erledigt”) */
 export interface RoutineDayCompletion {
   scheduleId: string;
   date: string; // YYYY-MM-DD (lokal)
@@ -109,6 +109,8 @@ export interface RoutineDayCompletion {
   completedAt: string; // ISO
   /** Wenn gesetzt: nur diese Unter-Aufgabe (subtask) wurde erledigt. Ohne = ganzer Auftrag (Alt-Verhalten). */
   subtaskId?: string;
+  /** Optionaler Freitext-Kommentar zur Erledigung (wird in die Abschluss-Mail aufgenommen). */
+  comment?: string;
 }
 
 export interface AppSettings {

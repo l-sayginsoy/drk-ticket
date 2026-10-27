@@ -2255,6 +2255,7 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
     ymd: string,
     completions: RoutineDayCompletion[],
     completedBy: string,
+    comment?: string,
   ): string[] | null => {
     const schedule = (base.routineSchedules || []).find((s) => s.id === scheduleId);
     const emails = (schedule?.notifyEmail || '').trim();
@@ -2269,11 +2270,13 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
     const bodyText =
       `Der Serienauftrag „${schedule.title}" wurde am ${dateDE} vollständig erledigt.\n` +
       (whereLine ? `Bereich: ${whereLine}\n` : '') +
-      `Erledigt von: ${completedBy}`;
+      `Erledigt von: ${completedBy}` +
+      (comment ? `\n\nKommentar: ${comment}` : '');
     const bodyHtml =
       `<p style="margin:0;font-size:15px;line-height:1.55;color:#333;">Der Serienauftrag <strong>${escapeHtml(schedule.title)}</strong> wurde am <strong>${escapeHtml(dateDE)}</strong> vollständig erledigt.</p>` +
       (whereLine ? `<p style="margin:12px 0 0;font-size:14px;color:#444;">Bereich: ${escapeHtml(whereLine)}</p>` : '') +
-      `<p style="margin:10px 0 0;font-size:14px;color:#444;">Erledigt von: ${escapeHtml(completedBy)}</p>`;
+      `<p style="margin:10px 0 0;font-size:14px;color:#444;">Erledigt von: ${escapeHtml(completedBy)}</p>` +
+      (comment ? `<p style="margin:14px 0 0;font-size:14px;color:#333;background:#f5f5f5;padding:10px 14px;border-radius:6px;border-left:3px solid #ccc;"><strong>Kommentar:</strong><br>${escapeHtml(comment).replace(/\n/g, '<br>')}</p>` : '');
     emails
       .split(',')
       .map((e) => e.trim())
@@ -2290,15 +2293,15 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
     return sent.includes(key) ? sent.filter((k) => k !== key) : sent;
   };
 
-  const handleRoutineDayComplete = (scheduleId: string, forDate?: string) => {
+  const handleRoutineDayComplete = (scheduleId: string, forDate?: string, comment?: string) => {
     if (!currentUser) return;
     const ymd = forDate || localISODate(new Date());
     const rest = (appSettings.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd));
     const completions: RoutineDayCompletion[] = [
       ...rest,
-      { scheduleId, date: ymd, completedBy: currentUser.name, completedAt: new Date().toISOString() },
+      { scheduleId, date: ymd, completedBy: currentUser.name, completedAt: new Date().toISOString(), ...(comment ? { comment } : {}) },
     ];
-    const notifySent = maybeBuildRoutineDoneNotify(appSettings, scheduleId, ymd, completions, currentUser.name);
+    const notifySent = maybeBuildRoutineDoneNotify(appSettings, scheduleId, ymd, completions, currentUser.name, comment);
 
     // Cursor weiterrücken, damit die Zuständig-Spalte nach dem Abhaken die nächste Person zeigt.
     // Nur wenn heute noch kein Ticket generiert wurde (lastGenerated !== heute) — sonst wurde
@@ -2383,12 +2386,12 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
   };
 
   /** Hakt eine EINZELNE Unter-Aufgabe für einen Tag ab bzw. wieder zurück (completedBy=null → entfernen). */
-  const handleToggleRoutineSubtask = (scheduleId: string, ymd: string, subtaskId: string, completedBy: string | null) => {
+  const handleToggleRoutineSubtask = (scheduleId: string, ymd: string, subtaskId: string, completedBy: string | null, comment?: string) => {
     const rest = (appSettings.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd && c.subtaskId === subtaskId));
     if (completedBy) {
       const completions: RoutineDayCompletion[] = [...rest, { scheduleId, date: ymd, subtaskId, completedBy, completedAt: new Date().toISOString() }];
       // Info-Mail erst, wenn mit dieser letzten Unter-Aufgabe ALLE erledigt sind.
-      const notifySent = maybeBuildRoutineDoneNotify(appSettings, scheduleId, ymd, completions, completedBy);
+      const notifySent = maybeBuildRoutineDoneNotify(appSettings, scheduleId, ymd, completions, completedBy, comment);
       persistRoutineSettings({
         ...appSettings,
         routineDayCompletions: completions,

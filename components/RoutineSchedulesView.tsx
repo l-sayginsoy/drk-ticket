@@ -24,11 +24,11 @@ interface RoutineSchedulesViewProps {
   rpHolidayYmdList?: string[];
   onReorder: (fromId: string, toId: string) => void;
   completions: RoutineDayCompletion[];
-  onComplete: (scheduleId: string, forDate?: string) => void;
+  onComplete: (scheduleId: string, forDate?: string, comment?: string) => void;
   onUncomplete: (scheduleId: string, forDate?: string) => void;
   onSaveSchedule: (schedule: RoutineSchedule) => void;
   onDeleteSchedule: (id: string) => void;
-  onToggleSubtask?: (scheduleId: string, ymd: string, subtaskId: string, completedBy: string | null) => void;
+  onToggleSubtask?: (scheduleId: string, ymd: string, subtaskId: string, completedBy: string | null, comment?: string) => void;
 }
 
 const weekdayLabel: Record<WeekdayKey, string> = {
@@ -130,6 +130,9 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ schedule: RoutineSchedule & { recurrence?: any }; isNew: boolean } | null>(null);
   const [subPop, setSubPop] = useState<{ schedId: string; activeDate: string } | null>(null);
+  const [subPopComment, setSubPopComment] = useState('');
+  const [completeModal, setCompleteModal] = useState<{ schedId: string; forDate: string } | null>(null);
+  const [completeComment, setCompleteComment] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const canEdit = userRole === Role.Admin;
   const [todayYmd, setTodayYmd] = useState(() => localISODate(new Date()));
@@ -539,7 +542,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                               ) : !completed && canComplete ? (
                                 <button type="button" className="rs-circle rs-circle--off"
                                   title="Als erledigt markieren" aria-label="Als erledigt markieren"
-                                  onClick={(e) => { e.stopPropagation(); onComplete(s.id, activeDueDate); }} />
+                                  onClick={(e) => { e.stopPropagation(); setCompleteModal({ schedId: s.id, forDate: activeDueDate }); setCompleteComment(''); }} />
                               ) : completed && canUncomplete ? (
                                 <button type="button" className="rs-circle rs-circle--on"
                                   title="Erledigt – Klick zum Zurücknehmen" aria-label="Erledigt"
@@ -573,7 +576,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                               {!completed && canComplete ? (
                                 <button type="button" className="rs-circle rs-circle--off"
                                   title="Heute als erledigt markieren" aria-label="Heute als erledigt markieren"
-                                  onClick={(e) => { e.stopPropagation(); onComplete(s.id, activeDueDate); }} />
+                                  onClick={(e) => { e.stopPropagation(); setCompleteModal({ schedId: s.id, forDate: activeDueDate }); setCompleteComment(''); }} />
                               ) : !completed ? (
                                 <span style={{ color: 'var(--text-muted)', fontSize: 22, fontWeight: 200, lineHeight: 1 }}>—</span>
                               ) : canUncomplete ? (
@@ -641,7 +644,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                                 <button
                                   className={`rs-expand-circle${completed ? ' rs-expand-circle--on' : ''}`}
                                   disabled={!due || !(userRole === Role.Admin || userRole === s.targetRole)}
-                                  onClick={() => completed ? onUncomplete(s.id, activeDueDate) : onComplete(s.id, activeDueDate)}
+                                  onClick={() => { if (completed) { onUncomplete(s.id, activeDueDate); } else { setCompleteModal({ schedId: s.id, forDate: activeDueDate }); setCompleteComment(''); } }}
                                   title={completed ? 'Erledigt – zurücknehmen' : 'Als erledigt markieren'}
                                 >
                                   {completed ? <CheckIcon width={12} height={12} strokeWidth={3} aria-hidden /> : null}
@@ -675,14 +678,14 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
         const status = routineDayStatus(sched, popDate, completions);
         const popDateLabel = popDate === todayYmd ? 'Heute' : `${popDate.split('-')[2]}.${popDate.split('-')[1]}.`;
         return (
-          <div onClick={() => setSubPop(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 9999, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '60px 16px', overflow: 'auto' }}>
+          <div onClick={() => { setSubPop(null); setSubPopComment(''); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 9999, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '60px 16px', overflow: 'auto' }}>
             <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 440, background: 'var(--bg-secondary)', borderRadius: 14, boxShadow: '0 12px 40px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
               <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>{sched.title || '—'}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{popDateLabel} · {status.done}/{status.total} erledigt</div>
                 </div>
-                <button onClick={() => setSubPop(null)} aria-label="Schließen" style={{ background: 'none', border: 'none', fontSize: 24, lineHeight: 1, color: 'var(--text-muted)', cursor: 'pointer' }}>×</button>
+                <button onClick={() => { setSubPop(null); setSubPopComment(''); }} aria-label="Schließen" style={{ background: 'none', border: 'none', fontSize: 24, lineHeight: 1, color: 'var(--text-muted)', cursor: 'pointer' }}>×</button>
               </div>
               <div style={{ padding: '6px 18px 16px' }}>
                 {subs.map((sub) => {
@@ -696,7 +699,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                         className={`routine-today-circle ${done ? 'routine-today-circle--on' : 'routine-today-circle--off'}`}
                         title={done ? 'Erledigt – zurücknehmen' : 'Als erledigt markieren'}
                         aria-label={sub.label || 'Unter-Aufgabe'}
-                        onClick={() => onToggleSubtask && onToggleSubtask(sched.id, popDate, sub.id, done ? null : userName)}
+                        onClick={() => onToggleSubtask && onToggleSubtask(sched.id, popDate, sub.id, done ? null : userName, subPopComment.trim() || undefined)}
                       >
                         {done ? <CheckIcon width={14} height={14} strokeWidth={2.5} aria-hidden /> : null}
                       </button>
@@ -706,6 +709,65 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                   );
                 })}
                 {!canAct && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 10 }}>Nur die zuständige Person oder ein Admin kann abhaken.</div>}
+              </div>
+              {canAct && (
+                <div style={{ padding: '0 18px 16px', borderTop: '1px solid var(--border)' }}>
+                  <label style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', margin: '12px 0 5px' }}>
+                    Kommentar zur Abschluss-Mail <span style={{ fontStyle: 'italic' }}>(optional)</span>
+                  </label>
+                  <textarea
+                    value={subPopComment}
+                    onChange={e => setSubPopComment(e.target.value)}
+                    placeholder="z. B. Alles geprüft, kein Handlungsbedarf"
+                    rows={2}
+                    style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontSize: 13, padding: '7px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontFamily: 'inherit' }}
+                  />
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Wird beim Abklicken der letzten Aufgabe mit der Info-Mail versendet (nur wenn E-Mail hinterlegt).</div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+      {completeModal && (() => {
+        const sched = visible.find(x => x.id === completeModal.schedId);
+        const dateLabel = completeModal.forDate === todayYmd ? 'Heute' : `${completeModal.forDate.split('-')[2]}.${completeModal.forDate.split('-')[1]}.`;
+        return (
+          <div onClick={() => setCompleteModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 9999, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '60px 16px', overflow: 'auto' }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 440, background: 'var(--bg-secondary)', borderRadius: 14, boxShadow: '0 12px 40px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
+              <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>{sched?.title || 'Erledigt markieren'}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{dateLabel} als erledigt markieren</div>
+                </div>
+                <button onClick={() => setCompleteModal(null)} aria-label="Schließen" style={{ background: 'none', border: 'none', fontSize: 24, lineHeight: 1, color: 'var(--text-muted)', cursor: 'pointer' }}>×</button>
+              </div>
+              <div style={{ padding: '14px 18px' }}>
+                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>
+                  Kommentar <span style={{ fontStyle: 'italic' }}>(optional)</span>
+                </label>
+                <textarea
+                  value={completeComment}
+                  onChange={e => setCompleteComment(e.target.value)}
+                  placeholder="z. B. Alles geprüft, kein Handlungsbedarf"
+                  rows={3}
+                  autoFocus
+                  style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontSize: 13, padding: '8px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontFamily: 'inherit' }}
+                />
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Wird in der Info-Mail mitgeschickt (nur wenn E-Mail hinterlegt ist).</div>
+              </div>
+              <div style={{ padding: '4px 18px 18px', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button onClick={() => setCompleteModal(null)} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 13 }}>Abbrechen</button>
+                <button
+                  onClick={() => {
+                    onComplete(completeModal.schedId, completeModal.forDate, completeComment.trim() || undefined);
+                    setCompleteModal(null);
+                    setCompleteComment('');
+                  }}
+                  style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: ROUTINE_TEAL.accent, color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}
+                >
+                  Erledigt speichern
+                </button>
               </div>
             </div>
           </div>
