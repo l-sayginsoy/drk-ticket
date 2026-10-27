@@ -30,7 +30,7 @@ import CompleteOrderDialog from './components/CompleteOrderDialog';
 import ToastContainer, { type Toast } from './components/ToastContainer';
 import DashboardRoutineLinkBar from './components/DashboardRoutineLinkBar';
 import ZurückgestelltView from './components/ZurückgestelltView';
-import { localISODate, isRoutineDueOnCalendarDay, routineDayStatus, isoWeekNumber, getRoutineWindowDays } from './utils/routineHelpers';
+import { localISODate, parseYmdLocal, isRoutineDueOnCalendarDay, routineDayStatus, isoWeekNumber, getRoutineWindowDays } from './utils/routineHelpers';
 import { getStaffChatState, hasUnreadReporterNote } from './utils/staffChat';
 import { fetchRpHolidays } from './utils/rpHolidays';
 import {
@@ -962,6 +962,7 @@ const App: React.FC = () => {
     new Set<string>(safeJSONParse<string[]>(LOCAL_STORAGE_KEY_DELETED_IDS, []))
   );
   const prevUsersRef = useRef<User[]>(users);
+  const dayAfterCheckRef = useRef(false);
 
   const _today = new Date();
   const [completedMonth, setCompletedMonth] = useState<number>(_today.getMonth() + 1); // 1–12
@@ -2285,6 +2286,44 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
     return [...sent, key].slice(-ROUTINE_NOTIFY_MAX);
   };
 
+  /** Sofort-Mail wenn Kommentar hinterlegt, aber Auftrag noch nicht vollständig abgehakt.
+   *  Dedupe-Key: `scheduleId|ymd|partial` (unabhängig von vollständig-Key). */
+  const maybeSendPartialWithComment = (
+    base: AppSettings,
+    scheduleId: string,
+    ymd: string,
+    completions: RoutineDayCompletion[],
+    completedBy: string,
+    comment: string,
+  ): string[] | null => {
+    const schedule = (base.routineSchedules || []).find((s) => s.id === scheduleId);
+    const emails = (schedule?.notifyEmail || '').trim();
+    if (!schedule || !emails || !comment) return null;
+    if (routineDayStatus(schedule, ymd, completions).complete) return null; // vollständig → eigene Mail
+    const key = `${scheduleId}|${ymd}|partial`;
+    const sent = base.routineNotifySent || [];
+    if (sent.includes(key)) return null;
+    const dateDE = ymd.split('-').reverse().join('.');
+    const whereLine = [schedule.area, schedule.location].filter(Boolean).join(' · ');
+    const status = routineDayStatus(schedule, ymd, completions);
+    const statusLine = (schedule as any).subtasks?.length
+      ? `${status.done} von ${status.total} Punkte erledigt`
+      : 'Noch nicht vollständig abgehakt';
+    const subject = `Serienauftrag – Kommentar hinterlegt: ${schedule.title}`;
+    const bodyText =
+      `Zum Serienauftrag „${schedule.title}" (${dateDE}) wurde ein Kommentar hinterlegt.\n` +
+      (whereLine ? `Bereich: ${whereLine}\n` : '') +
+      `Stand: ${statusLine}\n\nKommentar von ${completedBy}: ${comment}`;
+    const bodyHtml =
+      `<p style="margin:0;font-size:15px;line-height:1.55;color:#333;">Zum Serienauftrag <strong>${escapeHtml(schedule.title)}</strong> (${escapeHtml(dateDE)}) wurde ein Kommentar hinterlegt.</p>` +
+      (whereLine ? `<p style="margin:10px 0 0;font-size:14px;color:#444;">Bereich: ${escapeHtml(whereLine)}</p>` : '') +
+      `<p style="margin:10px 0 0;font-size:14px;color:#444;">Stand: ${escapeHtml(statusLine)}</p>` +
+      `<p style="margin:14px 0 0;font-size:14px;color:#333;background:#f5f5f5;padding:10px 14px;border-radius:6px;border-left:3px solid #ccc;"><strong>Kommentar von ${escapeHtml(completedBy)}:</strong><br>${escapeHtml(comment).replace(/\n/g, '<br>')}</p>`;
+    emails.split(',').map((e) => e.trim()).filter(Boolean)
+      .forEach((addr) => void sendDrkBrevoMailAsync(addr, subject, { kind: 'custom', subject, bodyHtml, bodyText }, { silent: true }));
+    return [...sent, key].slice(-ROUTINE_NOTIFY_MAX);
+  };
+
   /** Entfernt den Dedupe-Marker, damit eine erneute Erledigung am selben Tag wieder benachrichtigt. */
   const clearRoutineNotifyMarker = (base: AppSettings, scheduleId: string, ymd: string): string[] | undefined => {
     const sent = base.routineNotifySent;
@@ -2302,6 +2341,8 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
       { scheduleId, date: ymd, completedBy: currentUser.name, completedAt: new Date().toISOString(), ...(comment ? { comment } : {}) },
     ];
     const notifySent = maybeBuildRoutineDoneNotify(appSettings, scheduleId, ymd, completions, currentUser.name, comment);
+    const partialSent = comment ? maybeSendPartialWithComment(appSettings, scheduleId, ymd, completions, currentUser.name, comment) : null;
+    const finalNotifySent = notifySent ?? partialSent;
 
     // Cursor weiterrücken, damit die Zuständig-Spalte nach dem Abhaken die nächste Person zeigt.
     // Nur wenn heute noch kein Ticket generiert wurde (lastGenerated !== heute) — sonst wurde
@@ -2329,7 +2370,7 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
       ...appSettings,
       routineSchedules: updatedSchedules as any,
       routineDayCompletions: completions,
-      ...(notifySent ? { routineNotifySent: notifySent } : {}),
+      ...(finalNotifySent ? { routineNotifySent: finalNotifySent } : {}),
     });
   };
 
@@ -2390,12 +2431,14 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
     const rest = (appSettings.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd && c.subtaskId === subtaskId));
     if (completedBy) {
       const completions: RoutineDayCompletion[] = [...rest, { scheduleId, date: ymd, subtaskId, completedBy, completedAt: new Date().toISOString() }];
-      // Info-Mail erst, wenn mit dieser letzten Unter-Aufgabe ALLE erledigt sind.
+      // Info-Mail wenn vollständig; Kommentar-Mail wenn Kommentar aber noch nicht fertig
       const notifySent = maybeBuildRoutineDoneNotify(appSettings, scheduleId, ymd, completions, completedBy, comment);
+      const partialSent = comment ? maybeSendPartialWithComment(appSettings, scheduleId, ymd, completions, completedBy, comment) : null;
+      const finalNotifySent = notifySent ?? partialSent;
       persistRoutineSettings({
         ...appSettings,
         routineDayCompletions: completions,
-        ...(notifySent ? { routineNotifySent: notifySent } : {}),
+        ...(finalNotifySent ? { routineNotifySent: finalNotifySent } : {}),
       });
     } else {
       persistRoutineSettings({
@@ -2405,6 +2448,49 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
       });
     }
   };
+
+  // Nächster-Tag-Mail: Wenn ein Serienauftrag gestern fällig war, weder vollständig abgehakt
+  // noch mit Kommentar versehen → Mail am nächsten Tag (einmalig nach erstem Daten-Load).
+  useEffect(() => {
+    if (dayAfterCheckRef.current) return;
+    const schedules = appSettings.routineSchedules;
+    if (!schedules || schedules.length === 0) return; // warten bis Daten geladen
+    dayAfterCheckRef.current = true;
+
+    const yesterday = localISODate(new Date(Date.now() - 24 * 60 * 60 * 1000));
+    const sent = [...(appSettings.routineNotifySent || [])];
+    let changed = false;
+
+    for (const schedule of schedules) {
+      const emails = ((schedule.notifyEmail || '') as string).trim();
+      if (!schedule.enabled || !emails) continue;
+      const yesterdayDate = parseYmdLocal(yesterday);
+      if (!isRoutineDueOnCalendarDay(schedule as any, yesterdayDate)) continue;
+      const completeKey = `${schedule.id}|${yesterday}`;
+      const partialKey = `${schedule.id}|${yesterday}|partial`;
+      const dayAfterKey = `${schedule.id}|${yesterday}|dayafter`;
+      if (sent.includes(completeKey) || sent.includes(partialKey) || sent.includes(dayAfterKey)) continue;
+
+      const assigneeName = (schedule.assignees || [])[0] || 'Team';
+      const subject = `[Serienauftrag] ${schedule.title} – Zusammenfassung (${yesterday})`;
+      const bodyText = `Serienauftrag: ${schedule.title}\nStandort: ${schedule.location}\nZuständig: ${assigneeName}\nTermin: ${yesterday}\n\nDieser Auftrag wurde gestern weder vollständig abgehakt noch kommentiert.`;
+      const bodyHtml = `<p><strong>Serienauftrag:</strong> ${schedule.title}<br><strong>Standort:</strong> ${schedule.location}<br><strong>Zuständig:</strong> ${assigneeName}<br><strong>Termin:</strong> ${yesterday}</p><p>Dieser Auftrag wurde gestern weder vollständig abgehakt noch kommentiert.</p>`;
+
+      emails.split(',').map((e: string) => e.trim()).filter(Boolean).forEach((email: string) => {
+        void sendDrkBrevoMailAsync(email, subject, { kind: 'custom', subject, bodyHtml, bodyText }, { silent: true });
+      });
+
+      sent.push(dayAfterKey);
+      changed = true;
+    }
+
+    if (changed) {
+      persistRoutineSettings({ ...appSettings, routineNotifySent: sent.slice(-ROUTINE_NOTIFY_MAX) });
+    }
+  // appSettings als Dep: läuft erneut wenn Daten laden; Ref-Guard stellt sicher: nur einmal wirklich ausgeführt
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appSettings.routineSchedules]);
+
 const persistDeletedIds = () => {
   localStorage.setItem(
     LOCAL_STORAGE_KEY_DELETED_IDS,
