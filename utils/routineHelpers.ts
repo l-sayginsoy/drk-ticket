@@ -342,3 +342,37 @@ export function routineDayStatus(
   const done = subtasks.filter((s) => doneSubtaskIds.has(s.id)).length;
   return { done, total: subtasks.length, complete: done === subtasks.length, anyDone: done > 0, doneSubtaskIds };
 }
+
+/** Anzahl Tage, die eine monatliche/jährliche Aufgabe nach dem Fälligkeitstag noch abklickbar ist. */
+export function getRoutineWindowDays(schedule: RoutineSchedule & { recurrence?: any }): number {
+  const rec: any = (schedule as any).recurrence;
+  if (!rec) return 1;
+  if (rec.type === 'monthly' || rec.type === 'yearly') return 7;
+  return 1;
+}
+
+/**
+ * Für Aufgaben mit Mehrtagefenster (monatlich/jährlich): Sucht den jüngsten Fälligkeitstag
+ * innerhalb des Fensters [today-6 … today-1], der noch nicht abgehakt ist.
+ * Gibt null zurück, wenn heute der Fälligkeitstag ist (normaler due-Pfad) oder kein offener
+ * Termin im Fenster liegt.
+ */
+export function findWindowDueDate(
+  schedule: RoutineSchedule & { recurrence?: any; startDate?: string | null },
+  todayYmd: string,
+  completions: RoutineDayCompletion[],
+  rpHolidays: Set<string> = new Set()
+): string | null {
+  const windowDays = getRoutineWindowDays(schedule);
+  if (windowDays <= 1) return null;
+  for (let daysBack = 1; daysBack < windowDays; daysBack++) {
+    const d = parseYmdLocal(todayYmd);
+    d.setDate(d.getDate() - daysBack);
+    d.setHours(0, 0, 0, 0);
+    if (!isRoutineDueOnCalendarDay(schedule, d, rpHolidays)) continue;
+    const checkYmd = localISODate(d);
+    const isDone = completions.some(c => c.scheduleId === schedule.id && c.date === checkYmd);
+    if (!isDone) return checkYmd;
+  }
+  return null;
+}

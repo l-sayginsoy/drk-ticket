@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Role, RoutineDayCompletion, RoutineSchedule, User, WeekdayKey } from '../types';
 import {
+  findWindowDueDate,
   getRoutineAssigneeDisplayName,
   getRoutinePool,
   isRoutineDueOnCalendarDay,
@@ -23,8 +24,8 @@ interface RoutineSchedulesViewProps {
   rpHolidayYmdList?: string[];
   onReorder: (fromId: string, toId: string) => void;
   completions: RoutineDayCompletion[];
-  onComplete: (scheduleId: string) => void;
-  onUncomplete: (scheduleId: string) => void;
+  onComplete: (scheduleId: string, forDate?: string) => void;
+  onUncomplete: (scheduleId: string, forDate?: string) => void;
   onSaveSchedule: (schedule: RoutineSchedule) => void;
   onDeleteSchedule: (id: string) => void;
   onToggleSubtask?: (scheduleId: string, ymd: string, subtaskId: string, completedBy: string | null) => void;
@@ -128,7 +129,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
   const { userRole, userName, schedules, users, rpHolidayYmdList = [], onReorder, completions, onComplete, onUncomplete, onSaveSchedule, onDeleteSchedule, onToggleSubtask } = props;
   const [dragId, setDragId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ schedule: RoutineSchedule & { recurrence?: any }; isNew: boolean } | null>(null);
-  const [subPop, setSubPop] = useState<{ schedId: string } | null>(null);
+  const [subPop, setSubPop] = useState<{ schedId: string; activeDate: string } | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const canEdit = userRole === Role.Admin;
   const [todayYmd, setTodayYmd] = useState(() => localISODate(new Date()));
@@ -432,13 +433,16 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                     const current = getRoutineAssigneeDisplayName(s, pool, todayYmd);
                     const avatarColor = nameToColor(current);
                     const accentColor = getCadenceAccent(s);
-                    const due = isRoutineDueOnCalendarDay(s, new Date(), rpHolidaySet);
+                    const dueToday = isRoutineDueOnCalendarDay(s, new Date(), rpHolidaySet);
+                    const windowDate = dueToday ? null : findWindowDueDate(s, todayYmd, completions, rpHolidaySet);
+                    const due = dueToday || !!windowDate;
+                    const activeDueDate = dueToday ? todayYmd : (windowDate ?? todayYmd);
                     const subtasks = s.subtasks || [];
-                    const completed = (completions || []).some(c => c.scheduleId === s.id && c.date === todayYmd && !c.subtaskId);
-                    const completion = (completions || []).find(c => c.scheduleId === s.id && c.date === todayYmd);
+                    const completed = (completions || []).some(c => c.scheduleId === s.id && c.date === activeDueDate && !c.subtaskId);
+                    const completion = (completions || []).find(c => c.scheduleId === s.id && c.date === activeDueDate);
                     const canComplete = !completed && (userRole === Role.Admin || userRole === s.targetRole);
                     const canUncomplete = completed && (userRole === Role.Admin || userRole === s.targetRole || completion?.completedBy === userName);
-                    const subtaskStatus = subtasks.length > 0 ? routineDayStatus(s, todayYmd, completions) : null;
+                    const subtaskStatus = subtasks.length > 0 ? routineDayStatus(s, activeDueDate, completions) : null;
                     const rec = (s as any).recurrence;
                     const WEEKDAY_ORDER: WeekdayKey[] = ['mo', 'di', 'mi', 'do', 'fr', 'sa', 'so'];
                     const isExpanded = expandedId === s.id;
@@ -514,10 +518,45 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                         <div className="rs-today-cell">
                           {!due ? (
                             <span style={{ color: 'var(--text-muted)', fontSize: 22, fontWeight: 200, lineHeight: 1 }}>—</span>
+                          ) : windowDate ? (
+                            // Im Zeitfenster (nicht heute fällig, aber noch offen)
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                              {subtasks.length > 0 ? (
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); setSubPop({ schedId: s.id, activeDate: activeDueDate }); }}
+                                  title="Unter-Aufgaben abhaken"
+                                  className="rs-sub-btn"
+                                  style={{
+                                    color: subtaskStatus!.complete ? ROUTINE_TEAL.dark : subtaskStatus!.anyDone ? '#854F0B' : 'var(--text-muted)',
+                                    borderColor: subtaskStatus!.complete ? ROUTINE_TEAL.border : 'var(--border)',
+                                    background: subtaskStatus!.complete ? ROUTINE_TEAL.bg : 'var(--bg-tertiary)',
+                                  }}
+                                >
+                                  {subtaskStatus!.complete ? <CheckIcon width={13} height={13} strokeWidth={2.5} aria-hidden /> : null}
+                                  {subtaskStatus!.done}/{subtaskStatus!.total}
+                                </button>
+                              ) : !completed && canComplete ? (
+                                <button type="button" className="rs-circle rs-circle--off"
+                                  title="Als erledigt markieren" aria-label="Als erledigt markieren"
+                                  onClick={(e) => { e.stopPropagation(); onComplete(s.id, activeDueDate); }} />
+                              ) : completed && canUncomplete ? (
+                                <button type="button" className="rs-circle rs-circle--on"
+                                  title="Erledigt – Klick zum Zurücknehmen" aria-label="Erledigt"
+                                  onClick={(e) => { e.stopPropagation(); onUncomplete(s.id, activeDueDate); }}>
+                                  <CheckIcon width={15} height={15} strokeWidth={2.5} aria-hidden />
+                                </button>
+                              ) : completed ? (
+                                <span className="rs-circle rs-circle--on" style={{ cursor: 'default' }} title="Erledigt" aria-label="Erledigt">
+                                  <CheckIcon width={15} height={15} strokeWidth={2.5} aria-hidden />
+                                </span>
+                              ) : null}
+                              <div style={{ fontSize: 10, color: 'var(--text-muted)', lineHeight: 1 }}>seit {windowDate.split('-')[2]}.{windowDate.split('-')[1]}.</div>
+                            </div>
                           ) : subtasks.length > 0 ? (
                             <button
                               type="button"
-                              onClick={(e) => { e.stopPropagation(); setSubPop({ schedId: s.id }); }}
+                              onClick={(e) => { e.stopPropagation(); setSubPop({ schedId: s.id, activeDate: activeDueDate }); }}
                               title="Unter-Aufgaben abhaken"
                               className="rs-sub-btn"
                               style={{
@@ -534,14 +573,14 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                               {!completed && canComplete ? (
                                 <button type="button" className="rs-circle rs-circle--off"
                                   title="Heute als erledigt markieren" aria-label="Heute als erledigt markieren"
-                                  onClick={(e) => { e.stopPropagation(); onComplete(s.id); }} />
+                                  onClick={(e) => { e.stopPropagation(); onComplete(s.id, activeDueDate); }} />
                               ) : !completed ? (
                                 <span style={{ color: 'var(--text-muted)', fontSize: 22, fontWeight: 200, lineHeight: 1 }}>—</span>
                               ) : canUncomplete ? (
                                 <>
                                   <button type="button" className="rs-circle rs-circle--on"
                                     title="Erledigt – Klick zum Zurücknehmen" aria-label="Erledigt"
-                                    onClick={(e) => { e.stopPropagation(); onUncomplete(s.id); }}>
+                                    onClick={(e) => { e.stopPropagation(); onUncomplete(s.id, activeDueDate); }}>
                                     <CheckIcon width={15} height={15} strokeWidth={2.5} aria-hidden />
                                   </button>
                                   {completion?.completedBy && <div className="rs-by">{displayNameShort(completion.completedBy)}</div>}
@@ -562,9 +601,11 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                         <div className="rs-expand-body" onClick={e => e.stopPropagation()}>
                           {/* Info-Zeile */}
                           <div className="rs-expand-info">
-                            {due
+                            {dueToday
                               ? <>Aktueller Termin: <strong>Heute</strong> · zuständig: <strong>{displayNameShort(current)}</strong></>
-                              : <>Nicht heute fällig · zuständig: <strong>{displayNameShort(current)}</strong></>
+                              : windowDate
+                                ? <>Zeitfenster offen seit <strong>{windowDate.split('-')[2]}.{windowDate.split('-')[1]}.</strong> · zuständig: <strong>{displayNameShort(current)}</strong></>
+                                : <>Nicht heute fällig · zuständig: <strong>{displayNameShort(current)}</strong></>
                             }
                           </div>
                           {/* Beschreibung */}
@@ -575,15 +616,15 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                           {subtasks.length > 0 ? (
                             <div className="rs-expand-sub-block">
                               {subtasks.map((sub) => {
-                                const subDone = (completions || []).some(c => c.scheduleId === s.id && c.date === todayYmd && c.subtaskId === sub.id);
-                                const subRec = (completions || []).find(c => c.scheduleId === s.id && c.date === todayYmd && c.subtaskId === sub.id);
+                                const subDone = (completions || []).some(c => c.scheduleId === s.id && c.date === activeDueDate && c.subtaskId === sub.id);
+                                const subRec = (completions || []).find(c => c.scheduleId === s.id && c.date === activeDueDate && c.subtaskId === sub.id);
                                 const canAct = due && (userRole === Role.Admin || userRole === s.targetRole);
                                 return (
                                   <div key={sub.id} className="rs-expand-sub-row">
                                     <button
                                       className={`rs-expand-circle${subDone ? ' rs-expand-circle--on' : ''}`}
                                       disabled={!canAct}
-                                      onClick={() => onToggleSubtask?.(s.id, todayYmd, sub.id, subDone ? null : userName)}
+                                      onClick={() => onToggleSubtask?.(s.id, activeDueDate, sub.id, subDone ? null : userName)}
                                       title={subDone ? 'Erledigt – zurücknehmen' : 'Als erledigt markieren'}
                                     >
                                       {subDone ? <CheckIcon width={12} height={12} strokeWidth={3} aria-hidden /> : null}
@@ -600,7 +641,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                                 <button
                                   className={`rs-expand-circle${completed ? ' rs-expand-circle--on' : ''}`}
                                   disabled={!due || !(userRole === Role.Admin || userRole === s.targetRole)}
-                                  onClick={() => completed ? onUncomplete(s.id) : onComplete(s.id)}
+                                  onClick={() => completed ? onUncomplete(s.id, activeDueDate) : onComplete(s.id, activeDueDate)}
                                   title={completed ? 'Erledigt – zurücknehmen' : 'Als erledigt markieren'}
                                 >
                                   {completed ? <CheckIcon width={12} height={12} strokeWidth={3} aria-hidden /> : null}
@@ -630,20 +671,22 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
         const subs = sched.subtasks || [];
         const assignee = getRoutineAssigneeDisplayName(sched, getRoutinePool(sched, users), todayYmd);
         const canAct = userRole === Role.Admin || userRole === sched.targetRole;
-        const status = routineDayStatus(sched, todayYmd, completions);
+        const popDate = subPop.activeDate;
+        const status = routineDayStatus(sched, popDate, completions);
+        const popDateLabel = popDate === todayYmd ? 'Heute' : `${popDate.split('-')[2]}.${popDate.split('-')[1]}.`;
         return (
           <div onClick={() => setSubPop(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 9999, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '60px 16px', overflow: 'auto' }}>
             <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 440, background: 'var(--bg-secondary)', borderRadius: 14, boxShadow: '0 12px 40px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
               <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>{sched.title || '—'}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Heute · {status.done}/{status.total} erledigt</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{popDateLabel} · {status.done}/{status.total} erledigt</div>
                 </div>
                 <button onClick={() => setSubPop(null)} aria-label="Schließen" style={{ background: 'none', border: 'none', fontSize: 24, lineHeight: 1, color: 'var(--text-muted)', cursor: 'pointer' }}>×</button>
               </div>
               <div style={{ padding: '6px 18px 16px' }}>
                 {subs.map((sub) => {
-                  const rec = (completions || []).find((c) => c.scheduleId === sched.id && c.date === todayYmd && c.subtaskId === sub.id);
+                  const rec = (completions || []).find((c) => c.scheduleId === sched.id && c.date === popDate && c.subtaskId === sub.id);
                   const done = !!rec;
                   return (
                     <div key={sub.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderBottom: '1px solid var(--border)' }}>
@@ -653,7 +696,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                         className={`routine-today-circle ${done ? 'routine-today-circle--on' : 'routine-today-circle--off'}`}
                         title={done ? 'Erledigt – zurücknehmen' : 'Als erledigt markieren'}
                         aria-label={sub.label || 'Unter-Aufgabe'}
-                        onClick={() => onToggleSubtask && onToggleSubtask(sched.id, todayYmd, sub.id, done ? null : userName)}
+                        onClick={() => onToggleSubtask && onToggleSubtask(sched.id, popDate, sub.id, done ? null : userName)}
                       >
                         {done ? <CheckIcon width={14} height={14} strokeWidth={2.5} aria-hidden /> : null}
                       </button>

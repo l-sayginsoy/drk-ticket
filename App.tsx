@@ -30,7 +30,7 @@ import CompleteOrderDialog from './components/CompleteOrderDialog';
 import ToastContainer, { type Toast } from './components/ToastContainer';
 import DashboardRoutineLinkBar from './components/DashboardRoutineLinkBar';
 import ZurückgestelltView from './components/ZurückgestelltView';
-import { localISODate, isRoutineDueOnCalendarDay, routineDayStatus, isoWeekNumber } from './utils/routineHelpers';
+import { localISODate, isRoutineDueOnCalendarDay, routineDayStatus, isoWeekNumber, getRoutineWindowDays } from './utils/routineHelpers';
 import { getStaffChatState, hasUnreadReporterNote } from './utils/staffChat';
 import { fetchRpHolidays } from './utils/rpHolidays';
 import {
@@ -2290,9 +2290,9 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
     return sent.includes(key) ? sent.filter((k) => k !== key) : sent;
   };
 
-  const handleRoutineDayComplete = (scheduleId: string) => {
+  const handleRoutineDayComplete = (scheduleId: string, forDate?: string) => {
     if (!currentUser) return;
-    const ymd = localISODate(new Date());
+    const ymd = forDate || localISODate(new Date());
     const rest = (appSettings.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd));
     const completions: RoutineDayCompletion[] = [
       ...rest,
@@ -2330,8 +2330,8 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
     });
   };
 
-  const handleRoutineDayUncomplete = (scheduleId: string) => {
-    const ymd = localISODate(new Date());
+  const handleRoutineDayUncomplete = (scheduleId: string, forDate?: string) => {
+    const ymd = forDate || localISODate(new Date());
     persistRoutineSettings({
       ...appSettings,
       routineDayCompletions: (appSettings.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd)),
@@ -3198,6 +3198,19 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       )) return false;
       // Manuell quittiert?
       if (t.routineScheduleId && acknowledged.includes(`${t.routineScheduleId}|${entryIso}`)) return false;
+      // Noch im Abklick-Zeitfenster (monatlich/jährlich: 7 Tage)? → noch nicht „vergessen"
+      if (t.routineScheduleId) {
+        const sched = (appSettings.routineSchedules as any[]).find((s: any) => s.id === t.routineScheduleId);
+        if (sched) {
+          const windowDays = getRoutineWindowDays(sched);
+          if (windowDays > 1) {
+            const windowEnd = new Date(entryIso);
+            windowEnd.setDate(windowEnd.getDate() + windowDays - 1);
+            const todayIso = localISODate(new Date());
+            if (todayIso <= localISODate(windowEnd)) return false;
+          }
+        }
+      }
       return true;
     });
     // Pro Schedule nur den neuesten Eintrag zeigen (verhindert Mehrfach-Einträge
