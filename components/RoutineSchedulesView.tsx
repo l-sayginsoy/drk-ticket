@@ -431,7 +431,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
               <div key={group.label} className="rs-group">
                 <div className="rs-group-hd">
                   <span className="rs-group-label">{group.label}</span>
-                  <span className="rs-group-pill">{group.items.length}</span>
+                  <span className="rs-group-pill">{group.items.length} {group.items.length === 1 ? 'Auftrag' : 'Aufträge'}</span>
                   <span className="rs-group-rule" />
                 </div>
                 <div className="rs-card-list">
