@@ -713,7 +713,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
               {canAct && (
                 <div style={{ padding: '0 18px 16px', borderTop: '1px solid var(--border)' }}>
                   <label style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', margin: '12px 0 5px' }}>
-                    Kommentar zur Abschluss-Mail <span style={{ fontStyle: 'italic' }}>(optional)</span>
+                    Kommentar
                   </label>
                   <textarea
                     value={subPopComment}
@@ -744,7 +744,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
               </div>
               <div style={{ padding: '14px 18px' }}>
                 <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>
-                  Kommentar <span style={{ fontStyle: 'italic' }}>(optional)</span>
+                  Kommentar
                 </label>
                 <textarea
                   value={completeComment}
