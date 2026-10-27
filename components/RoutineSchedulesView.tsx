@@ -69,22 +69,25 @@ function formatInterval(schedule: RoutineSchedule & { recurrence?: any }): strin
   return '—';
 }
 
-/** Rhythmus-Gruppe für die gruppierte Anzeige: Sortier-Reihenfolge + Überschrift. */
+/** Rhythmus-Gruppe für die gruppierte Anzeige: Sortier-Reihenfolge + Überschrift.
+ *  Order = ungefähre Anzahl Tage zwischen Terminen → häufigste Aufträge oben. */
 function cadenceGroupOf(schedule: RoutineSchedule & { recurrence?: any }): { order: number; label: string } {
   const rec = (schedule as any).recurrence;
-  if (!rec || rec.type === 'daily') return { order: 0, label: 'Täglich' };
+  if (!rec || rec.type === 'daily') return { order: 1, label: 'Täglich' };
   if (rec.type === 'weekly' || rec.type === 'weekdays') {
     const n = Math.max(1, Number(rec.intervalWeeks || 1));
-    if (n === 1) return { order: 1, label: 'Wöchentlich' };
-    if (n === 2) return { order: 2, label: 'Alle 2 Wochen' };
-    return { order: 3, label: `Alle ${n} Wochen` };
+    const days = n * 7;
+    const label = n === 1 ? 'Wöchentlich' : `Alle ${n} Wochen`;
+    return { order: days, label };
   }
   if (rec.type === 'monthly') {
     const n = Math.max(1, Number(rec.intervalMonths || 1));
-    return { order: 4, label: n === 1 ? 'Monatlich' : n === 3 ? 'Vierteljährlich' : `Alle ${n} Monate` };
+    const days = n * 30;
+    const label = n === 1 ? 'Monatlich' : n === 3 ? 'Alle 3 Monate (Vierteljährlich)' : `Alle ${n} Monate`;
+    return { order: days, label };
   }
-  if (rec.type === 'yearly') return { order: 5, label: 'Jährlich' };
-  return { order: 9, label: 'Sonstige' };
+  if (rec.type === 'yearly') return { order: 365, label: 'Jährlich' };
+  return { order: 999, label: 'Sonstige' };
 }
 
 /** Leerer Entwurf für einen neuen Serienauftrag (gleiche Defaults wie in den Einstellungen). */
