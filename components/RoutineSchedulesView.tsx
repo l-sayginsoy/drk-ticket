@@ -83,7 +83,7 @@ function cadenceGroupOf(schedule: RoutineSchedule & { recurrence?: any }): { ord
   if (rec.type === 'monthly') {
     const n = Math.max(1, Number(rec.intervalMonths || 1));
     const days = n * 30;
-    const label = n === 1 ? 'Monatlich' : n === 3 ? 'Alle 3 Monate (Vierteljährlich)' : `Alle ${n} Monate`;
+    const label = n === 1 ? 'Monatlich' : `Alle ${n} Monate`;
     return { order: days, label };
   }
   if (rec.type === 'yearly') return { order: 365, label: 'Jährlich' };
