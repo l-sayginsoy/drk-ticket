@@ -162,16 +162,18 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
   const [myTasksOnly, setMyTasksOnly] = useState(isTechRole);
 
   const visible = useMemo(() => {
-    const all = schedules.filter(s => s.enabled);
+    // Admins sehen auch deaktivierte Aufträge (ausgegraut), damit sie reaktiviert werden können
+    const all = canEdit ? schedules : schedules.filter(s => s.enabled);
     if (myTasksOnly && isTechRole) {
       return all.filter(s => {
+        if (!s.enabled) return false;
         const pool = getRoutinePool(s, users);
         const current = getRoutineAssigneeDisplayName(s, pool, todayYmd);
         return current === userName;
       });
     }
     return all;
-  }, [schedules, myTasksOnly, isTechRole, users, todayYmd, userName]);
+  }, [schedules, myTasksOnly, isTechRole, canEdit, users, todayYmd, userName]);
 
   // Nach Rhythmus gruppieren: Täglich → Wöchentlich → Alle 2 Wochen → … → Monatlich → Jährlich.
   const groups = useMemo(() => {
@@ -451,12 +453,12 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                     const isExpanded = expandedId === s.id;
                     const hasDetails = (s.description && String(s.description).trim()) || subtasks.length > 0;
                     return (
-                      <div key={s.id} style={{ borderLeft: `3px solid ${accentColor}` }}>
+                      <div key={s.id} style={{ borderLeft: `3px solid ${accentColor}`, opacity: s.enabled ? 1 : 0.45 }}>
                       <div
                         className={`rs-card${canEdit ? ' rs-card--clickable' : ''}`}
                         style={{ borderLeft: 'none' }}
                         onClick={canEdit ? () => setEditing({ schedule: s, isNew: false }) : undefined}
-                        title={canEdit ? 'Zum Bearbeiten klicken' : undefined}
+                        title={canEdit ? (s.enabled ? 'Zum Bearbeiten klicken' : 'Deaktiviert – klicken zum Reaktivieren') : undefined}
                       >
                         {/* Aufgabe */}
                         <div className="rs-cell">
