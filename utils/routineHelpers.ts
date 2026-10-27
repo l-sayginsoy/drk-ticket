@@ -1,5 +1,15 @@
 import { Role, RoutineDayCompletion, RoutineSchedule, User, WeekdayKey } from '../types';
 
+/** ISO-Kalenderwochennummer (1–53) für ein YYYY-MM-DD-Datum. */
+export function isoWeekNumber(ymd: string): number {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  const dayNum = date.getUTCDay() || 7; // Mo=1 … So=7
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+}
+
 export function weekdayKeyForDate(d: Date): WeekdayKey {
   const day = d.getDay();
   switch (day) {
@@ -257,13 +267,18 @@ export function getRoutinePool(schedule: RoutineSchedule, users: User[]): string
 export function getRoutineAssigneeDisplayName(
   schedule: RoutineSchedule,
   pool: string[],
-  _todayYmd: string
+  dateYmd: string
 ): string {
   if (schedule.assignment?.type === 'fixed') {
     const name = schedule.assignment.userName;
     return pool.includes(name) ? name : '—';
   }
   if (pool.length === 0) return '—';
+  if ((schedule.assignment as any)?.type === 'calendar-week') {
+    const offset = Number((schedule.assignment as any).weekOffset ?? 0);
+    const week = isoWeekNumber(dateYmd || localISODate(new Date()));
+    return pool[((week + offset) % pool.length + pool.length) % pool.length];
+  }
   const c = Math.max(0, Number(schedule.rotationCursor || 0));
   return pool[c % pool.length];
 }

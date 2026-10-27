@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Role, RoutineSchedule, User, WeekdayKey } from '../types';
+import { isoWeekNumber } from '../utils/routineHelpers';
 
 const WEEKDAYS: { key: WeekdayKey; label: string }[] = [
   { key: 'mo', label: 'Mo' }, { key: 'di', label: 'Di' }, { key: 'mi', label: 'Mi' },
@@ -160,7 +161,7 @@ export default function RoutineEditorModal({ schedule, isNew, users, onSave, onD
           {/* ── Zuweisung ─────────────────────────────────────────────────────── */}
           <label style={label}>Zuweisung</label>
           <div style={{ display: 'flex', gap: 0, borderRadius: 9, overflow: 'hidden', border: '1px solid var(--border)' }}>
-            {(['fixed', 'rotate'] as const).map(t => {
+            {(['fixed', 'calendar-week', 'rotate'] as const).map(t => {
               const active = (draft.assignment?.type || 'rotate') === t;
               return (
                 <button
@@ -168,18 +169,20 @@ export default function RoutineEditorModal({ schedule, isNew, users, onSave, onD
                   type="button"
                   onClick={() => {
                     if (t === 'fixed') {
-                      // Vorauswahl: zuletzt in der Rotation genutzter Name (Cursor), sonst erster
                       const pool = draft.assignees || [];
                       const cursor = draft.rotationCursor ?? 0;
                       const preselect = pool[cursor] || eligible[0] || '';
                       patch({ assignment: { type: 'fixed', userName: preselect }, assignees: preselect ? [preselect] : [] });
+                    } else if (t === 'calendar-week') {
+                      const pool = draft.assignees && draft.assignees.length > 0 ? draft.assignees : eligible.slice(0, 2);
+                      patch({ assignment: { type: 'calendar-week', weekOffset: 0 }, assignees: pool });
                     } else {
                       patch({ assignment: { type: 'rotate' }, rotationCursor: 0 });
                     }
                   }}
-                  style={{ flex: 1, padding: '8px 0', border: 'none', background: active ? 'var(--accent-primary)' : 'var(--bg-primary)', color: active ? '#fff' : 'var(--text-secondary)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+                  style={{ flex: 1, padding: '8px 0', border: 'none', background: active ? 'var(--accent-primary)' : 'var(--bg-primary)', color: active ? '#fff' : 'var(--text-secondary)', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
                 >
-                  {t === 'fixed' ? 'Immer dieselbe Person' : 'Rotation (abwechselnd)'}
+                  {t === 'fixed' ? 'Immer dieselbe' : t === 'calendar-week' ? 'KW-Wechsel' : 'Rotation'}
                 </button>
               );
             })}
@@ -201,6 +204,77 @@ export default function RoutineEditorModal({ schedule, isNew, users, onSave, onD
               </select>
             </div>
           )}
+
+          {/* KW-WECHSEL ─────────────────── */}
+          {(draft.assignment as any)?.type === 'calendar-week' && (() => {
+            const pool = draft.assignees || [];
+            const offset = Number((draft.assignment as any).weekOffset ?? 0);
+            const todayYmd = new Date().toISOString().slice(0, 10);
+            const thisWeek = isoWeekNumber(todayYmd);
+            const nextWeek = thisWeek + 1;
+            const thisIdx = ((thisWeek + offset) % pool.length + pool.length) % pool.length;
+            const nextIdx = ((nextWeek + offset) % pool.length + pool.length) % pool.length;
+            const notInPool = eligible.filter(n => !pool.includes(n));
+            return (
+              <div style={{ marginTop: 8 }}>
+                {/* KW-Info */}
+                {pool.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10, padding: '9px 12px', borderRadius: 8, background: 'rgba(179,0,12,0.07)', border: '1px solid rgba(179,0,12,0.2)', fontSize: 13 }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <span style={{ fontWeight: 700, color: 'var(--accent-primary)', minWidth: 80 }}>KW {thisWeek} (jetzt):</span>
+                      <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{pool[thisIdx] || '—'}</span>
+                      <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+                        {pool.map((n, i) => (
+                          <button
+                            key={n}
+                            type="button"
+                            title={`Diese Woche: ${n}`}
+                            onClick={() => {
+                              // weekOffset so setzen dass n in der aktuellen Woche erscheint
+                              const newOffset = ((i - thisWeek) % pool.length + pool.length) % pool.length;
+                              patch({ assignment: { type: 'calendar-week', weekOffset: newOffset } });
+                            }}
+                            style={{ padding: '3px 8px', borderRadius: 6, border: `1px solid ${i === thisIdx ? 'var(--accent-primary)' : 'var(--border)'}`, background: i === thisIdx ? 'var(--accent-primary)' : 'var(--bg-primary)', color: i === thisIdx ? '#fff' : 'var(--text-secondary)', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <span style={{ fontWeight: 600, color: 'var(--text-muted)', minWidth: 80 }}>KW {nextWeek}:</span>
+                      <span style={{ color: 'var(--text-secondary)' }}>{pool[nextIdx] || '—'}</span>
+                    </div>
+                  </div>
+                )}
+                <label style={{ ...label, marginTop: 0 }}>Reihenfolge (Woche 1 → Woche 2 → …)</label>
+                {pool.length === 0 && (
+                  <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Noch niemand im Pool — Person hinzufügen.</div>
+                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
+                  {pool.map((name, idx) => (
+                    <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', borderRadius: 8, background: idx === thisIdx ? 'rgba(179,0,12,0.06)' : 'var(--bg-primary)', border: `1px solid ${idx === thisIdx ? 'rgba(179,0,12,0.25)' : 'var(--border)'}` }}>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, minWidth: 18, textAlign: 'right' }}>{idx + 1}.</span>
+                      <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{name}</span>
+                      {idx === thisIdx && <span style={{ fontSize: 11, color: 'var(--accent-primary)', fontWeight: 700 }}>Diese Woche</span>}
+                      <button type="button" title="Nach oben" disabled={idx === 0} onClick={() => { const next = [...pool]; [next[idx-1], next[idx]] = [next[idx], next[idx-1]]; patch({ assignees: next }); }} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 5, padding: '2px 6px', cursor: idx === 0 ? 'not-allowed' : 'pointer', color: 'var(--text-muted)', opacity: idx === 0 ? 0.3 : 1, fontSize: 13 }}>↑</button>
+                      <button type="button" title="Nach unten" disabled={idx === pool.length - 1} onClick={() => { const next = [...pool]; [next[idx], next[idx+1]] = [next[idx+1], next[idx]]; patch({ assignees: next }); }} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 5, padding: '2px 6px', cursor: idx === pool.length - 1 ? 'not-allowed' : 'pointer', color: 'var(--text-muted)', opacity: idx === pool.length - 1 ? 0.3 : 1, fontSize: 13 }}>↓</button>
+                      <button type="button" title="Entfernen" onClick={() => { patch({ assignees: pool.filter(n => n !== name) }); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: 16, lineHeight: 1, padding: '0 2px' }}>×</button>
+                    </div>
+                  ))}
+                </div>
+                {notInPool.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {notInPool.map(n => (
+                      <button key={n} type="button" onClick={() => patch({ assignees: [...pool, n] })} style={{ padding: '5px 10px', borderRadius: 8, border: '1px dashed var(--border-active)', background: 'var(--bg-primary)', color: 'var(--text-secondary)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                        + {n}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* ROTATION ───────────────────── */}
           {(draft.assignment?.type === 'rotate' || !draft.assignment) && (() => {

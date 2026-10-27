@@ -30,7 +30,7 @@ import CompleteOrderDialog from './components/CompleteOrderDialog';
 import ToastContainer, { type Toast } from './components/ToastContainer';
 import DashboardRoutineLinkBar from './components/DashboardRoutineLinkBar';
 import ZurückgestelltView from './components/ZurückgestelltView';
-import { localISODate, isRoutineDueOnCalendarDay, routineDayStatus } from './utils/routineHelpers';
+import { localISODate, isRoutineDueOnCalendarDay, routineDayStatus, isoWeekNumber } from './utils/routineHelpers';
 import { getStaffChatState, hasUnreadReporterNote } from './utils/staffChat';
 import { fetchRpHolidays } from './utils/rpHolidays';
 import {
@@ -2017,6 +2017,14 @@ const App: React.FC = () => {
       if (schedule.assignment?.type === 'fixed') {
         const name = schedule.assignment.userName;
         assigned = pool.includes(name) ? name : 'N/A';
+      } else if ((schedule.assignment as any)?.type === 'calendar-week') {
+        // Starrer KW-Wechsel: Person nach ISO-Wochennummer des Fälligkeitstags bestimmen
+        if (pool.length > 0) {
+          const offset = Number((schedule.assignment as any).weekOffset ?? 0);
+          const week = isoWeekNumber(localISODate(new Date()));
+          assigned = pool[((week + offset) % pool.length + pool.length) % pool.length];
+          // Kein Cursor-Advance — KW bestimmt die Person
+        }
       } else {
         // rotate
         if (pool.length > 0) {

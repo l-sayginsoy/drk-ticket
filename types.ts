@@ -77,7 +77,8 @@ export type RoutineRecurrence =
 
 export type RoutineAssignment =
   | { type: 'rotate' }
-  | { type: 'fixed'; userName: string };
+  | { type: 'fixed'; userName: string }
+  | { type: 'calendar-week'; weekOffset: number }; // starrer KW-Wechsel: Person = pool[(KW + weekOffset) % pool.length]
 
 export interface RoutineSchedule {
   id: string;
