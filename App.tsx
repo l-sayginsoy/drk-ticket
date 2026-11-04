@@ -2450,14 +2450,20 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
   };
 
   // Nächster-Tag-Mail: Wenn ein Serienauftrag gestern fällig war, weder vollständig abgehakt
-  // noch mit Kommentar versehen → Mail am nächsten Tag (einmalig nach erstem Daten-Load).
+  // noch mit Kommentar versehen → Mail am nächsten Tag (einmalig pro Tag, localStorage-gesichert).
   useEffect(() => {
     if (dayAfterCheckRef.current) return;
     const schedules = appSettings.routineSchedules;
     if (!schedules || schedules.length === 0) return; // warten bis Daten geladen
-    dayAfterCheckRef.current = true;
 
     const yesterday = localISODate(new Date(Date.now() - 24 * 60 * 60 * 1000));
+    // localStorage-Sperre: verhindert Mehrfach-Versand bei jedem Seitenaufruf am selben Tag
+    const localKey = `drk_dayafter_sent_${yesterday}`;
+    if (localStorage.getItem(localKey)) { dayAfterCheckRef.current = true; return; }
+
+    dayAfterCheckRef.current = true;
+    localStorage.setItem(localKey, '1');
+
     const sent = [...(appSettings.routineNotifySent || [])];
     let changed = false;
 
