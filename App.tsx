@@ -2457,12 +2457,7 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
     if (!schedules || schedules.length === 0) return; // warten bis Daten geladen
 
     const yesterday = localISODate(new Date(Date.now() - 24 * 60 * 60 * 1000));
-    // localStorage-Sperre: verhindert Mehrfach-Versand bei jedem Seitenaufruf am selben Tag
-    const localKey = `drk_dayafter_sent_${yesterday}`;
-    if (localStorage.getItem(localKey)) { dayAfterCheckRef.current = true; return; }
-
     dayAfterCheckRef.current = true;
-    localStorage.setItem(localKey, '1');
 
     const sent = [...(appSettings.routineNotifySent || [])];
     let changed = false;
@@ -2475,7 +2470,10 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
       const completeKey = `${schedule.id}|${yesterday}`;
       const partialKey = `${schedule.id}|${yesterday}|partial`;
       const dayAfterKey = `${schedule.id}|${yesterday}|dayafter`;
-      if (sent.includes(completeKey) || sent.includes(partialKey) || sent.includes(dayAfterKey)) continue;
+      // Doppelt gesichert: Firestore-Key UND localStorage pro Auftrag+Datum (bleibt dauerhaft)
+      const localKey = `drk_dayafter_${schedule.id}_${yesterday}`;
+      if (sent.includes(completeKey) || sent.includes(partialKey) || sent.includes(dayAfterKey) || localStorage.getItem(localKey)) continue;
+      localStorage.setItem(localKey, '1');
 
       const assigneeName = (schedule.assignees || [])[0] || 'Team';
       const subject = `[Serienauftrag] ${schedule.title} – Zusammenfassung (${yesterday})`;
