@@ -5,7 +5,10 @@ import {
   getRoutineAssigneeDisplayName,
   getRoutinePool,
   isRoutineDueOnCalendarDay,
+  lastDueDateUpTo,
   localISODate,
+  nextDueDateFrom,
+  parseYmdLocal,
   routineDayStatus,
   workWeekRefDate,
   ymdForWeekdayInWeekContaining,
@@ -128,6 +131,57 @@ function getCadenceAccent(schedule: RoutineSchedule & { recurrence?: any }): str
   return '#6B7280';
 }
 
+function formatDe(ymd: string): string {
+  if (!ymd) return '—';
+  const [y, m, d] = ymd.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  const dow = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][date.getDay()];
+  const mon = ['Jan.', 'Feb.', 'Mär.', 'Apr.', 'Mai', 'Jun.', 'Jul.', 'Aug.', 'Sep.', 'Okt.', 'Nov.', 'Dez.'][m - 1];
+  const thisYear = new Date().getFullYear();
+  const yearPart = y !== thisYear ? ` ${y}` : '';
+  return `${dow}, ${d}. ${mon}${yearPart}`;
+}
+
+function daysRelLabel(days: number): string {
+  if (days === 0) return 'Heute';
+  if (days === 1) return 'Morgen';
+  if (days === -1) return 'Gestern';
+  if (days < 0) return `Vor ${-days} Tagen`;
+  if (days <= 13) return `In ${days} Tagen`;
+  if (days <= 20) return 'In 2 Wochen';
+  const w = Math.round(days / 7);
+  return w <= 52 ? `In ${w} Wochen` : `In ${Math.round(days / 30)} Monaten`;
+}
+
+function compactRhythm(s: RoutineSchedule & { recurrence?: any }): string {
+  const rec = (s as any).recurrence;
+  if (!rec || rec.type === 'daily') return 'Täglich';
+  if (rec.type === 'weekdays') {
+    const ORDER: WeekdayKey[] = ['mo', 'di', 'mi', 'do', 'fr', 'sa', 'so'];
+    const SHORT: Record<WeekdayKey, string> = { mo: 'Mo', di: 'Di', mi: 'Mi', do: 'Do', fr: 'Fr', sa: 'Sa', so: 'So' };
+    const days: WeekdayKey[] = (Array.isArray(rec.weekdays) ? rec.weekdays : []).slice().sort((a: WeekdayKey, b: WeekdayKey) => ORDER.indexOf(a) - ORDER.indexOf(b));
+    const n = Math.max(1, Number(rec.intervalWeeks || 1));
+    const prefix = n > 1 ? `Alle ${n} Wo · ` : '';
+    return prefix + (days.length ? days.map((d: WeekdayKey) => SHORT[d]).join(', ') : '—');
+  }
+  if (rec.type === 'weekly') {
+    const n = Math.max(1, Number(rec.intervalWeeks || 1));
+    return n === 1 ? 'Wöchentlich' : `Alle ${n} Wochen`;
+  }
+  if (rec.type === 'monthly') {
+    const n = Math.max(1, Number(rec.intervalMonths || 1));
+    const dom = Math.max(1, Math.min(31, Number(rec.dayOfMonth || 1)));
+    return n === 1 ? `Monatlich · ${dom}.` : `Alle ${n} Mo. · ${dom}.`;
+  }
+  if (rec.type === 'yearly') {
+    const mo = Math.max(1, Math.min(12, Number(rec.month || 1)));
+    const dom = Math.max(1, Math.min(31, Number(rec.day || 1)));
+    const mon = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'][mo - 1];
+    return `Jährlich · ${dom}. ${mon}`;
+  }
+  return formatInterval(s);
+}
+
 export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
   const { userRole, userName, schedules, users, rpHolidayYmdList = [], onReorder, completions, onComplete, onUncomplete, onSaveSchedule, onDeleteSchedule, onToggleSubtask } = props;
   const [dragId, setDragId] = useState<string | null>(null);
@@ -178,199 +232,149 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
     return all;
   }, [schedules, myTasksOnly, isTechRole, canEdit, users, todayYmd, userName]);
 
-  // Nach Rhythmus gruppieren: Täglich → Wöchentlich → Alle 2 Wochen → … → Monatlich → Jährlich.
-  const groups = useMemo(() => {
-    const map = new Map<string, { order: number; label: string; items: Array<RoutineSchedule & { recurrence?: any }> }>();
-    const seen: string[] = [];
-    for (const s of visible) {
-      const g = cadenceGroupOf(s);
-      if (!map.has(g.label)) { map.set(g.label, { order: g.order, label: g.label, items: [] }); seen.push(g.label); }
-      map.get(g.label)!.items.push(s);
-    }
-    return seen.map(l => map.get(l)!).sort((a, b) => a.order - b.order || a.label.localeCompare(b.label, 'de'));
-  }, [visible]);
+  type RowStatus = 'overdue' | 'today' | 'window' | 'done' | 'upcoming' | 'disabled';
+  interface RoutineRow {
+    schedule: RoutineSchedule & { recurrence?: any };
+    pool: string[];
+    assigneeName: string;
+    subtasks: { id: string; label: string }[];
+    status: RowStatus;
+    activeDueDate: string | null;
+    isDone: boolean;
+    nextDate: string | null;
+    daysUntil: number;
+    currentDue: string | null;
+    windowDate: string | null;
+    dueToday: boolean;
+    sortKey: number;
+  }
 
-  const renderInterval = (s: RoutineSchedule & { recurrence?: any }) => {
-    const rec = (s as any).recurrence;
-    if (!rec || rec.type === 'daily') {
-      return (
-        <span className="routine-chip">Täglich</span>
-      );
-    }
-    if (rec.type === 'weekly') {
-      const n = Math.max(1, Number(rec.intervalWeeks || 1));
-      return (
-        <>
-          <div className="routine-interval-label">Wöchentlich</div>
-          {n !== 1 && <div className="routine-sub">{`alle ${n} Wochen`}</div>}
-        </>
-      );
-    }
-    if (rec.type === 'weekdays') {
-      const n = Math.max(1, Number(rec.intervalWeeks || 1));
-      const WEEKDAY_ORDER: WeekdayKey[] = ['mo', 'di', 'mi', 'do', 'fr', 'sa', 'so'];
-      const days: WeekdayKey[] = (Array.isArray(rec.weekdays) ? rec.weekdays : []).slice().sort((a, b) => WEEKDAY_ORDER.indexOf(a) - WEEKDAY_ORDER.indexOf(b));
-      return (
-        <>
-          <div className="routine-interval-label">
-            {n === 1 ? 'Wöchentlich' : `Alle ${n} Wochen`}
-          </div>
-          <div className="routine-chips">
-            {days.length === 0 ? (
-              <span style={{ color: 'var(--text-muted)' }}>—</span>
-            ) : (
-              days.map((d: WeekdayKey) => {
-                const chipYmd = ymdForWeekdayInWeekContaining(d, workWeekRefDate(new Date()));
-                const doneThisDay = (completions || []).some(
-                  (c) => c.scheduleId === s.id && c.date === chipYmd
-                );
-                return (
-                  <span key={d} className={`routine-chip${doneThisDay ? ' routine-chip-past' : ''}`}>
-                    {weekdayLabel[d] || d}
-                  </span>
-                );
-              })
-            )}
-          </div>
-        </>
-      );
-    }
-    if (rec.type === 'monthly' || rec.type === 'yearly') {
-      return (
-        <>
-          <div className="routine-interval-label">{rec.type === 'monthly' ? 'Monatlich' : 'Jährlich'}</div>
-          <div className="routine-sub">{formatInterval(s)}</div>
-        </>
-      );
-    }
-    return <span>{formatInterval(s)}</span>;
+  const rows = useMemo((): RoutineRow[] => {
+    const today = parseYmdLocal(todayYmd);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    return visible.map((s): RoutineRow => {
+      const subtasks = (s.subtasks as { id: string; label: string }[] | undefined) || [];
+      const pool = getRoutinePool(s, users);
+      const assigneeName = getRoutineAssigneeDisplayName(s, pool, todayYmd);
+
+      if (!s.enabled) {
+        const nxt = nextDueDateFrom(s, today, rpHolidaySet);
+        const days = nxt ? Math.round((parseYmdLocal(nxt).getTime() - today.getTime()) / 86400000) : 9999;
+        return { schedule: s, pool, assigneeName, subtasks, status: 'disabled', activeDueDate: null, isDone: false, nextDate: nxt, daysUntil: days, currentDue: null, windowDate: null, dueToday: false, sortKey: 9999 };
+      }
+
+      const dueToday = isRoutineDueOnCalendarDay(s, today, rpHolidaySet);
+      const windowDate = !dueToday ? findWindowDueDate(s, todayYmd, completions, rpHolidaySet) : null;
+      const activeDueDate = dueToday ? todayYmd : (windowDate ?? null);
+      const currentDue = lastDueDateUpTo(s, today, rpHolidaySet);
+
+      const isDone = activeDueDate
+        ? subtasks.length > 0
+          ? routineDayStatus(s, activeDueDate, completions).complete
+          : completions.some(c => c.scheduleId === s.id && c.date === activeDueDate && !c.subtaskId)
+        : false;
+
+      let nextDate: string | null;
+      if (isDone) {
+        nextDate = nextDueDateFrom(s, tomorrow, rpHolidaySet);
+      } else if (dueToday) {
+        nextDate = todayYmd;
+      } else if (windowDate) {
+        nextDate = windowDate;
+      } else {
+        nextDate = nextDueDateFrom(s, today, rpHolidaySet);
+      }
+
+      const daysUntil = nextDate
+        ? Math.round((parseYmdLocal(nextDate).getTime() - today.getTime()) / 86400000)
+        : 9999;
+
+      let status: RowStatus;
+      let sortKey: number;
+
+      const isOverdue = !dueToday && !windowDate && !!currentDue && currentDue < todayYmd && !isDone;
+      if (isOverdue) {
+        status = 'overdue';
+        const daysAgo = Math.round((today.getTime() - parseYmdLocal(currentDue!).getTime()) / 86400000);
+        sortKey = -1000 + daysAgo;
+      } else if ((dueToday || windowDate) && !isDone) {
+        status = dueToday ? 'today' : 'window';
+        sortKey = dueToday ? 0 : 1;
+      } else if (isDone) {
+        status = 'done';
+        sortKey = 500 + Math.min(daysUntil, 500);
+      } else {
+        status = 'upcoming';
+        sortKey = 100 + Math.min(daysUntil, 500);
+      }
+
+      return { schedule: s, pool, assigneeName, subtasks, status, activeDueDate, isDone, nextDate, daysUntil, currentDue, windowDate: windowDate ?? null, dueToday, sortKey };
+    }).sort((a, b) => a.sortKey - b.sortKey);
+  }, [visible, completions, todayYmd, rpHolidaySet, users]);
+
+  const statusMeta: Record<RowStatus, { color: string; label: string; bg: string }> = {
+    overdue:  { color: '#DC2626', label: 'VERGESSEN',    bg: '#FEF2F2' },
+    today:    { color: '#EA580C', label: 'HEUTE FÄLLIG', bg: '#FFF7ED' },
+    window:   { color: '#D97706', label: 'NOCH OFFEN',   bg: '#FFFBEB' },
+    done:     { color: '#059669', label: 'ERLEDIGT',     bg: '#F0FDF4' },
+    upcoming: { color: '#6366F1', label: '',             bg: 'transparent' },
+    disabled: { color: '#9CA3AF', label: 'INAKTIV',      bg: 'transparent' },
   };
+
+  const overdueCount = rows.filter(r => r.status === 'overdue').length;
+  const todayCount   = rows.filter(r => r.status === 'today').length;
+  const windowCount  = rows.filter(r => r.status === 'window').length;
+  const doneCount    = rows.filter(r => r.status === 'done').length;
 
   return (
     <div style={{ maxWidth: 1800 }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, marginTop: '1.5rem', flexWrap: 'wrap' }}>
-        {isTechRole && (
-          <button
-            type="button"
-            onClick={() => setMyTasksOnly(v => !v)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 8, border: `1.5px solid ${myTasksOnly ? '#DC2626' : 'var(--border)'}`, background: myTasksOnly ? '#DC2626' : 'var(--bg-secondary)', color: myTasksOnly ? '#fff' : 'var(--text-secondary)', fontWeight: 700, fontSize: '0.83rem', cursor: 'pointer', transition: 'all 0.15s' }}
-          >
-            <i className="ti ti-user" aria-hidden />
-            {myTasksOnly ? 'Alle anzeigen' : 'Meine Aufgaben'}
-          </button>
-        )}
-        {canEdit && (
-          <button
-            type="button"
-            onClick={() => setEditing({ schedule: newRoutineDraft(), isNew: true })}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 15px', borderRadius: 8, border: 'none', background: 'var(--accent-primary)', color: '#fff', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}
-          >
-            <span style={{ fontSize: 17, lineHeight: 1, marginTop: -1 }}>+</span> Neuer Serienauftrag
-          </button>
-        )}
-      </div>
       <style>{`
-        .rs-col-hd {
+        .rs2-topbar { display: flex; align-items: center; gap: 10; margin-top: 1.5rem; flex-wrap: wrap; }
+        .rs2-stats  { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 1; }
+        .rs2-stat-chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; border-radius: 20px; font-size: 12px; font-weight: 700; border: 1.5px solid; white-space: nowrap; }
+        .rs2-thead {
           display: grid;
-          grid-template-columns: 1fr 200px 220px 90px;
-          padding: 0 0 6px;
-          margin-top: 1.25rem;
+          grid-template-columns: 1fr 120px 185px 148px 72px 40px;
+          padding: 0 0 5px; margin-top: 1.1rem;
+          border-bottom: 2px solid var(--border);
         }
-        .rs-col-hd > span {
-          padding: 0 20px;
-          font-size: 10.5px; font-weight: 700;
-          color: var(--text-muted);
-          text-transform: uppercase; letter-spacing: 0.07em;
+        .rs2-thead > span {
+          padding: 0 14px; font-size: 10px; font-weight: 800; color: var(--text-muted);
+          text-transform: uppercase; letter-spacing: 0.08em;
         }
-        .rs-col-hd > span:last-child { text-align: center; }
-        .rs-group { display: flex; flex-direction: column; }
-        .rs-group-hd {
-          display: flex; align-items: center; gap: 10px;
-          padding: 18px 0 8px;
-        }
-        .rs-group-label {
-          font-size: 11px; font-weight: 800; letter-spacing: 0.1em;
-          text-transform: uppercase; color: var(--text-secondary); white-space: nowrap;
-        }
-        .rs-group-pill {
-          font-size: 11px; font-weight: 700; color: var(--text-secondary); white-space: nowrap;
-        }
-        .rs-group-rule { flex: 1; height: 1px; background: var(--border); }
-        .rs-card-list {
-          border: 1px solid var(--border); border-radius: 12px;
-          overflow: hidden; background: var(--bg-secondary);
-          box-shadow: 0 1px 4px rgba(0,0,0,0.07);
-        }
-        .rs-card {
+        .rs2-list { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-secondary); box-shadow: 0 1px 4px rgba(0,0,0,0.07); margin-top: 8px; }
+        .rs2-row {
           display: grid;
-          grid-template-columns: 1fr 200px 220px 90px;
-          align-items: center;
-          min-height: 64px;
+          grid-template-columns: 1fr 120px 185px 148px 72px 40px;
+          align-items: center; min-height: 68px;
           border-bottom: 1px solid var(--border);
           border-left: 4px solid transparent;
-          transition: background 0.12s;
+          transition: background 0.1s;
         }
-        .rs-card:last-child { border-bottom: none; }
-        .rs-card:hover { background: var(--bg-tertiary); }
-        .rs-card--clickable { cursor: pointer; }
-        .rs-cell { padding: 13px 20px; min-width: 0; }
-        .rs-title {
-          font-size: 14px; font-weight: 700; color: var(--text-primary);
-          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.35;
-        }
-        .rs-area {
-          display: inline-flex; align-items: center; gap: 4px;
-          margin-top: 4px; font-size: 11.5px; color: var(--text-muted);
-        }
-        .rs-chip {
-          display: inline-flex; align-items: center; justify-content: center;
-          min-width: 28px; height: 24px; border-radius: 6px;
-          border: 1.5px solid var(--border); background: var(--bg-tertiary);
-          font-size: 11px; font-weight: 700; color: var(--text-secondary); padding: 0 5px;
-        }
-        .rs-chip--done {
-          background: ${ROUTINE_TEAL.bg}; color: ${ROUTINE_TEAL.dark}; border-color: ${ROUTINE_TEAL.border};
-        }
-        .rs-badge {
-          display: inline-flex; align-items: center;
-          font-size: 12px; font-weight: 600; color: var(--text-secondary);
-          background: var(--bg-tertiary); border: 1px solid var(--border);
-          border-radius: 20px; padding: 4px 12px; white-space: nowrap;
-        }
-        .rs-avatar {
-          width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
-          display: inline-flex; align-items: center; justify-content: center;
-          font-size: 12px; font-weight: 800; color: #fff;
-        }
-        .rs-person-name {
-          font-size: 13.5px; font-weight: 600; color: var(--text-primary);
-          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
-        .rs-pool-hint {
-          font-size: 11px; color: var(--text-muted); margin-top: 2px;
-          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
-        .rs-today-cell {
-          padding: 13px 20px; display: flex; align-items: center; justify-content: center;
-        }
-        .rs-circle {
-          width: 34px; height: 34px; border-radius: 50%;
-          display: inline-flex; align-items: center; justify-content: center;
-          padding: 0; flex-shrink: 0; border: 2px solid var(--border);
-          background: var(--bg-tertiary); font-family: inherit; line-height: 0;
-          cursor: pointer; box-sizing: border-box; transition: all 0.15s;
-        }
-        .rs-circle--off:hover { border-color: ${ROUTINE_TEAL.accent}; background: ${ROUTINE_TEAL.bg}; }
-        .rs-circle--on { background: ${ROUTINE_TEAL.accent}; border-color: ${ROUTINE_TEAL.accent}; color: #fff; }
-        button.rs-circle--on:hover { filter: brightness(0.88); }
-        .rs-by { font-size: 10px; font-weight: 600; color: var(--text-muted); margin-top: 3px; }
-        .rs-sub-btn {
-          display: inline-flex; align-items: center; gap: 6px;
-          padding: 6px 13px; border-radius: 20px; cursor: pointer;
-          font-size: 12.5px; font-weight: 700; font-family: inherit;
-          border: 1.5px solid var(--border); background: var(--bg-tertiary); transition: all 0.12s;
-        }
-        .rs-sub-btn:hover { background: var(--bg-secondary); }
+        .rs2-row:last-child { border-bottom: none; }
+        .rs2-row:hover { background: var(--bg-tertiary); }
+        .rs2-cell { padding: 12px 14px; min-width: 0; }
+        .rs2-title { font-size: 14px; font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rs2-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 3px; display: flex; align-items: center; gap: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rs2-status-badge { display: inline-flex; align-items: center; font-size: 10px; font-weight: 800; letter-spacing: 0.06em; padding: 2px 7px; border-radius: 4px; margin-top: 4px; }
+        .rs2-next-main { font-size: 13px; font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rs2-next-sub  { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+        .rs2-next-warn { font-size: 11.5px; color: #DC2626; font-weight: 600; margin-bottom: 2px; }
+        .rs2-avatar { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #fff; }
+        .rs2-person-name { font-size: 13px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rs2-pool-hint { font-size: 10.5px; color: var(--text-muted); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rs2-action-cell { padding: 12px 0; display: flex; align-items: center; justify-content: center; }
+        .rs2-circle { width: 36px; height: 36px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0; border: 2px solid var(--border); background: var(--bg-tertiary); font-family: inherit; line-height: 0; cursor: pointer; box-sizing: border-box; transition: all 0.15s; }
+        .rs2-circle--off:hover { border-color: ${ROUTINE_TEAL.accent}; background: ${ROUTINE_TEAL.bg}; }
+        .rs2-circle--on { background: ${ROUTINE_TEAL.accent}; border-color: ${ROUTINE_TEAL.accent}; color: #fff; }
+        button.rs2-circle--on:hover { filter: brightness(0.88); }
+        .rs2-by { font-size: 10px; font-weight: 600; color: var(--text-muted); margin-top: 3px; }
+        .rs2-sub-btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: 700; font-family: inherit; border: 1.5px solid var(--border); background: var(--bg-tertiary); transition: all 0.12s; }
+        .rs2-sub-btn:hover { background: var(--bg-secondary); }
+        .rs2-edit-btn { width: 32px; height: 32px; border-radius: 7px; border: 1px solid var(--border); background: none; color: var(--text-muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.12s; font-size: 15px; }
+        .rs2-edit-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); }
         /* SubTask popup circles */
         .routine-today-circle { width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0; cursor: pointer; border: 2px solid transparent; background: var(--bg-secondary); color: var(--text-muted); font-family: inherit; line-height: 0; box-sizing: border-box; }
         .routine-today-circle--off { border-color: var(--border); background: var(--bg-tertiary); }
@@ -378,298 +382,191 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
         .routine-today-circle--on { border-color: ${ROUTINE_TEAL.accent}; background: ${ROUTINE_TEAL.accent}; color: #fff; }
         button.routine-today-circle--on:hover { filter: brightness(0.9); }
         span.routine-today-circle--on { cursor: default; }
-        @media (max-width: 960px) {
-          .rs-card, .rs-col-hd { grid-template-columns: 1fr 160px 180px 72px; }
+        @media (max-width: 1100px) {
+          .rs2-row, .rs2-thead { grid-template-columns: 1fr 185px 140px 72px 40px; }
+          .rs2-row .rs2-cell:nth-child(2), .rs2-thead > span:nth-child(2) { display: none; }
         }
-        @media (max-width: 660px) {
-          .rs-card { grid-template-columns: 1fr 64px; min-height: 60px; }
-          .rs-col-hd { display: none; }
-          .rs-card .rs-cell:nth-child(2), .rs-card .rs-cell:nth-child(3) { display: none; }
-          .rs-title { white-space: normal; line-height: 1.3; font-size: 13.5px; }
-          .rs-cell { padding: 10px 14px; }
-          .rs-today-cell { padding: 10px 0; min-height: 60px; }
-          .rs-circle { width: 40px; height: 40px; }
-          .rs-group-hd { padding: 14px 0 6px; }
+        @media (max-width: 700px) {
+          .rs2-row, .rs2-thead { grid-template-columns: 1fr 72px 36px; }
+          .rs2-row .rs2-cell:nth-child(3), .rs2-row .rs2-cell:nth-child(4), .rs2-thead > span:nth-child(3), .rs2-thead > span:nth-child(4) { display: none; }
+          .rs2-row .rs2-cell:nth-child(6) { display: none; }
+          .rs2-cell { padding: 10px 12px; }
+          .rs2-title { font-size: 13.5px; white-space: normal; }
         }
-        /* Expand-Panel (Nachweis-Stil) */
-        .rs-expand-body {
-          border-top: 1px solid var(--border);
-          padding: 20px 22px 22px;
-          background: var(--bg-primary);
-        }
-        .rs-expand-info { font-size: 13px; color: var(--text-muted); margin-bottom: 14px; }
-        .rs-expand-info strong { color: var(--text-primary); font-weight: 700; }
-        .rs-expand-sub-block { margin-bottom: 0; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 10px; padding: 4px 14px; }
-        .rs-expand-sub-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
-        .rs-expand-sub-row:last-child { border-bottom: none; }
-        .rs-expand-circle {
-          width: 28px; height: 28px; border-radius: 50%;
-          display: inline-flex; align-items: center; justify-content: center;
-          padding: 0; flex-shrink: 0; cursor: pointer;
-          border: 2px solid var(--border); background: var(--bg-tertiary);
-          font-family: inherit; line-height: 0; box-sizing: border-box; transition: all 0.15s;
-        }
-        .rs-expand-circle--on { background: ${ROUTINE_TEAL.accent}; border-color: ${ROUTINE_TEAL.accent}; color: #fff; }
-        .rs-expand-circle:disabled { cursor: default; opacity: 0.5; }
-        .rs-expand-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 14px; }
       `}</style>
 
-      {visible.length === 0 ? (
+      {/* Top bar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: '1.5rem', flexWrap: 'wrap' }}>
+        {/* Stats */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', flex: 1 }}>
+          {overdueCount > 0 && (
+            <span className="rs2-stat-chip" style={{ color: '#DC2626', borderColor: '#FECACA', background: '#FEF2F2' }}>
+              <i className="ti ti-alert-triangle" style={{ fontSize: 12 }} /> {overdueCount} Vergessen
+            </span>
+          )}
+          {todayCount > 0 && (
+            <span className="rs2-stat-chip" style={{ color: '#EA580C', borderColor: '#FED7AA', background: '#FFF7ED' }}>
+              <i className="ti ti-clock" style={{ fontSize: 12 }} /> {todayCount} Heute fällig
+            </span>
+          )}
+          {windowCount > 0 && (
+            <span className="rs2-stat-chip" style={{ color: '#D97706', borderColor: '#FDE68A', background: '#FFFBEB' }}>
+              <i className="ti ti-hourglass" style={{ fontSize: 12 }} /> {windowCount} Noch offen
+            </span>
+          )}
+          {doneCount > 0 && (
+            <span className="rs2-stat-chip" style={{ color: '#059669', borderColor: '#A7F3D0', background: '#F0FDF4' }}>
+              <i className="ti ti-check" style={{ fontSize: 12 }} /> {doneCount} Erledigt
+            </span>
+          )}
+        </div>
+        {isTechRole && (
+          <button type="button" onClick={() => setMyTasksOnly(v => !v)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 8, border: `1.5px solid ${myTasksOnly ? '#DC2626' : 'var(--border)'}`, background: myTasksOnly ? '#DC2626' : 'var(--bg-secondary)', color: myTasksOnly ? '#fff' : 'var(--text-secondary)', fontWeight: 700, fontSize: '0.83rem', cursor: 'pointer', transition: 'all 0.15s' }}>
+            <i className="ti ti-user" aria-hidden />{myTasksOnly ? 'Alle anzeigen' : 'Meine Aufgaben'}
+          </button>
+        )}
+        {canEdit && (
+          <button type="button" onClick={() => setEditing({ schedule: newRoutineDraft(), isNew: true })}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 15px', borderRadius: 8, border: 'none', background: 'var(--accent-primary)', color: '#fff', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}>
+            <span style={{ fontSize: 17, lineHeight: 1, marginTop: -1 }}>+</span> Neuer Serienauftrag
+          </button>
+        )}
+      </div>
+
+      {rows.length === 0 ? (
         <div style={{ marginTop: '1.5rem', padding: '3rem', textAlign: 'center', color: 'var(--text-muted)', background: 'var(--bg-secondary)', borderRadius: 12, border: '1px solid var(--border)' }}>
           Keine Serienaufträge vorhanden.
         </div>
       ) : (
         <>
-          <div className="rs-col-hd">
+          {/* Table header */}
+          <div className="rs2-thead">
             <span>Aufgabe</span>
-            <span>Fällig</span>
+            <span>Rhythmus</span>
+            <span>Nächster Termin</span>
             <span>Zuständig</span>
-            <span>Heute</span>
+            <span style={{ textAlign: 'center' }}>Abhaken</span>
+            <span />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-            {groups.map(group => (
-              <div key={group.label} className="rs-group">
-                <div className="rs-group-hd">
-                  <span className="rs-group-label">{group.label}</span>
-                  <span className="rs-group-pill">{group.items.length} {group.items.length === 1 ? 'Auftrag' : 'Aufträge'}</span>
-                  <span className="rs-group-rule" />
-                </div>
-                <div className="rs-card-list">
-                  {group.items.map(s => {
-                    const pool = getRoutinePool(s, users);
-                    const poolLabel = pool.length > 1 ? pool.map(n => displayNameShort(n)).join(' · ') : null;
-                    const current = getRoutineAssigneeDisplayName(s, pool, todayYmd);
-                    const avatarColor = nameToColor(current);
-                    const accentColor = getCadenceAccent(s);
-                    const dueToday = isRoutineDueOnCalendarDay(s, new Date(), rpHolidaySet);
-                    const windowDate = dueToday ? null : findWindowDueDate(s, todayYmd, completions, rpHolidaySet);
-                    const due = dueToday || !!windowDate;
-                    const activeDueDate = dueToday ? todayYmd : (windowDate ?? todayYmd);
-                    const subtasks = s.subtasks || [];
-                    const completed = (completions || []).some(c => c.scheduleId === s.id && c.date === activeDueDate && !c.subtaskId);
-                    const completion = (completions || []).find(c => c.scheduleId === s.id && c.date === activeDueDate);
-                    const canComplete = !completed && (userRole === Role.Admin || userRole === s.targetRole);
-                    const canUncomplete = completed && (userRole === Role.Admin || userRole === s.targetRole || completion?.completedBy === userName);
-                    const subtaskStatus = subtasks.length > 0 ? routineDayStatus(s, activeDueDate, completions) : null;
-                    const rec = (s as any).recurrence;
-                    const WEEKDAY_ORDER: WeekdayKey[] = ['mo', 'di', 'mi', 'do', 'fr', 'sa', 'so'];
-                    const isExpanded = expandedId === s.id;
-                    const hasDetails = (s.description && String(s.description).trim()) || subtasks.length > 0;
-                    return (
-                      <div key={s.id} style={{ borderLeft: `3px solid ${accentColor}`, opacity: s.enabled ? 1 : 0.45 }}>
-                      <div
-                        className={`rs-card${canEdit ? ' rs-card--clickable' : ''}`}
-                        style={{ borderLeft: 'none' }}
-                        onClick={canEdit ? () => setEditing({ schedule: s, isNew: false }) : undefined}
-                        title={canEdit ? (s.enabled ? 'Zum Bearbeiten klicken' : 'Deaktiviert – klicken zum Reaktivieren') : undefined}
-                      >
-                        {/* Aufgabe */}
-                        <div className="rs-cell">
-                          <div className="rs-title" style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); setExpandedId(isExpanded ? null : s.id); }}
-                              style={{
-                                background: 'none', border: 'none', padding: '0 6px 0 0', cursor: 'pointer',
-                                color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', flexShrink: 0,
-                              }}
-                              title={isExpanded ? 'Details einklappen' : 'Details anzeigen'}
-                              aria-label={isExpanded ? 'Details einklappen' : 'Details anzeigen'}
-                            >
-                              <i className={`ti ti-chevron-${isExpanded ? 'down' : 'right'}`} style={{ fontSize: 13 }} />
-                            </button>
-                            <span>{s.title || '—'}</span>
-                            {subtasks.length > 0 ? (
-                              <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>· {subtasks.length} Pkt.</span>
-                            ) : null}
-                          </div>
-                          {s.area && String(s.area).trim() ? (
-                            <div className="rs-area" style={{ paddingLeft: 19 }}>
-                              <i className="ti ti-map-pin" style={{ fontSize: 10 }} />
-                              {String(s.area).trim()}
-                            </div>
-                          ) : null}
-                        </div>
-                        {/* Fällig */}
-                        <div className="rs-cell">
-                          {(() => {
-                            if (!rec || rec.type === 'daily') return <span className="rs-badge">Täglich</span>;
-                            if (rec.type === 'weekdays') {
-                              const days: WeekdayKey[] = (Array.isArray(rec.weekdays) ? rec.weekdays : [])
-                                .slice().sort((a: WeekdayKey, b: WeekdayKey) => WEEKDAY_ORDER.indexOf(a) - WEEKDAY_ORDER.indexOf(b));
-                              return (
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                                  {days.map((d: WeekdayKey) => {
-                                    const chipYmd = ymdForWeekdayInWeekContaining(d, workWeekRefDate(new Date()));
-                                    const done = (completions || []).some(c => c.scheduleId === s.id && c.date === chipYmd);
-                                    return <span key={d} className={`rs-chip${done ? ' rs-chip--done' : ''}`}>{weekdayLabel[d]}</span>;
-                                  })}
-                                </div>
-                              );
-                            }
-                            return <span className="rs-badge">{formatInterval(s)}</span>;
-                          })()}
-                        </div>
-                        {/* Zuständig */}
-                        <div className="rs-cell" title={poolLabel ? `Rotation: ${pool.join(', ')}` : undefined}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                            <span className="rs-avatar" style={{ background: avatarColor }}>
-                              {current.trim().charAt(0).toUpperCase()}
-                            </span>
-                            <div style={{ minWidth: 0 }}>
-                              <div className="rs-person-name">{displayNameShort(current)}</div>
-                              {poolLabel && <div className="rs-pool-hint">{poolLabel}</div>}
-                            </div>
-                          </div>
-                        </div>
-                        {/* Heute */}
-                        <div className="rs-today-cell">
-                          {!due ? (
-                            <span style={{ color: 'var(--text-muted)', fontSize: 22, fontWeight: 200, lineHeight: 1 }}>—</span>
-                          ) : windowDate ? (
-                            // Im Zeitfenster (nicht heute fällig, aber noch offen)
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                              {subtasks.length > 0 ? (
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); setSubPop({ schedId: s.id, activeDate: activeDueDate }); }}
-                                  title="Unter-Aufgaben abhaken"
-                                  className="rs-sub-btn"
-                                  style={{
-                                    color: subtaskStatus!.complete ? ROUTINE_TEAL.dark : subtaskStatus!.anyDone ? '#854F0B' : 'var(--text-muted)',
-                                    borderColor: subtaskStatus!.complete ? ROUTINE_TEAL.border : 'var(--border)',
-                                    background: subtaskStatus!.complete ? ROUTINE_TEAL.bg : 'var(--bg-tertiary)',
-                                  }}
-                                >
-                                  {subtaskStatus!.complete ? <CheckIcon width={13} height={13} strokeWidth={2.5} aria-hidden /> : null}
-                                  {subtaskStatus!.done}/{subtaskStatus!.total}
-                                </button>
-                              ) : !completed && canComplete ? (
-                                <button type="button" className="rs-circle rs-circle--off"
-                                  title="Als erledigt markieren" aria-label="Als erledigt markieren"
-                                  onClick={(e) => { e.stopPropagation(); setCompleteModal({ schedId: s.id, forDate: activeDueDate }); setCompleteComment(''); }} />
-                              ) : completed && canUncomplete ? (
-                                <button type="button" className="rs-circle rs-circle--on"
-                                  title="Erledigt – Klick zum Zurücknehmen" aria-label="Erledigt"
-                                  onClick={(e) => { e.stopPropagation(); onUncomplete(s.id, activeDueDate); }}>
-                                  <CheckIcon width={15} height={15} strokeWidth={2.5} aria-hidden />
-                                </button>
-                              ) : completed ? (
-                                <span className="rs-circle rs-circle--on" style={{ cursor: 'default' }} title="Erledigt" aria-label="Erledigt">
-                                  <CheckIcon width={15} height={15} strokeWidth={2.5} aria-hidden />
-                                </span>
-                              ) : null}
-                              <div style={{ fontSize: 10, color: 'var(--text-muted)', lineHeight: 1 }}>seit {windowDate.split('-')[2]}.{windowDate.split('-')[1]}.</div>
-                            </div>
-                          ) : subtasks.length > 0 ? (
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); setSubPop({ schedId: s.id, activeDate: activeDueDate }); }}
-                              title="Unter-Aufgaben abhaken"
-                              className="rs-sub-btn"
-                              style={{
-                                color: subtaskStatus!.complete ? ROUTINE_TEAL.dark : subtaskStatus!.anyDone ? '#854F0B' : 'var(--text-muted)',
-                                borderColor: subtaskStatus!.complete ? ROUTINE_TEAL.border : 'var(--border)',
-                                background: subtaskStatus!.complete ? ROUTINE_TEAL.bg : 'var(--bg-tertiary)',
-                              }}
-                            >
-                              {subtaskStatus!.complete ? <CheckIcon width={13} height={13} strokeWidth={2.5} aria-hidden /> : null}
-                              {subtaskStatus!.done}/{subtaskStatus!.total}
-                            </button>
-                          ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                              {!completed && canComplete ? (
-                                <button type="button" className="rs-circle rs-circle--off"
-                                  title="Heute als erledigt markieren" aria-label="Heute als erledigt markieren"
-                                  onClick={(e) => { e.stopPropagation(); setCompleteModal({ schedId: s.id, forDate: activeDueDate }); setCompleteComment(''); }} />
-                              ) : !completed ? (
-                                <span style={{ color: 'var(--text-muted)', fontSize: 22, fontWeight: 200, lineHeight: 1 }}>—</span>
-                              ) : canUncomplete ? (
-                                <>
-                                  <button type="button" className="rs-circle rs-circle--on"
-                                    title="Erledigt – Klick zum Zurücknehmen" aria-label="Erledigt"
-                                    onClick={(e) => { e.stopPropagation(); onUncomplete(s.id, activeDueDate); }}>
-                                    <CheckIcon width={15} height={15} strokeWidth={2.5} aria-hidden />
-                                  </button>
-                                  {completion?.completedBy && <div className="rs-by">{displayNameShort(completion.completedBy)}</div>}
-                                </>
-                              ) : (
-                                <>
-                                  <span className="rs-circle rs-circle--on" style={{ cursor: 'default' }} title="Erledigt" aria-label="Erledigt">
-                                    <CheckIcon width={15} height={15} strokeWidth={2.5} aria-hidden />
-                                  </span>
-                                  {completion?.completedBy && <div className="rs-by">{displayNameShort(completion.completedBy)}</div>}
-                                </>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      {isExpanded && (
-                        <div className="rs-expand-body" onClick={e => e.stopPropagation()}>
-                          {/* Info-Zeile */}
-                          <div className="rs-expand-info">
-                            {dueToday
-                              ? <>Aktueller Termin: <strong>Heute</strong> · zuständig: <strong>{displayNameShort(current)}</strong></>
-                              : windowDate
-                                ? <>Zeitfenster offen seit <strong>{windowDate.split('-')[2]}.{windowDate.split('-')[1]}.</strong> · zuständig: <strong>{displayNameShort(current)}</strong></>
-                                : <>Nicht heute fällig · zuständig: <strong>{displayNameShort(current)}</strong></>
-                            }
-                          </div>
-                          {/* Beschreibung */}
-                          {s.description && String(s.description).trim() ? (
-                            <p className="rs-expand-desc">{String(s.description).trim()}</p>
-                          ) : null}
-                          {/* Unteraufgaben oder ganzer Auftrag */}
-                          {subtasks.length > 0 ? (
-                            <div className="rs-expand-sub-block">
-                              {subtasks.map((sub) => {
-                                const subDone = (completions || []).some(c => c.scheduleId === s.id && c.date === activeDueDate && c.subtaskId === sub.id);
-                                const subRec = (completions || []).find(c => c.scheduleId === s.id && c.date === activeDueDate && c.subtaskId === sub.id);
-                                const canAct = due && (userRole === Role.Admin || userRole === s.targetRole);
-                                return (
-                                  <div key={sub.id} className="rs-expand-sub-row">
-                                    <button
-                                      className={`rs-expand-circle${subDone ? ' rs-expand-circle--on' : ''}`}
-                                      disabled={!canAct}
-                                      onClick={() => onToggleSubtask?.(s.id, activeDueDate, sub.id, subDone ? null : userName)}
-                                      title={subDone ? 'Erledigt – zurücknehmen' : 'Als erledigt markieren'}
-                                    >
-                                      {subDone ? <CheckIcon width={12} height={12} strokeWidth={3} aria-hidden /> : null}
-                                    </button>
-                                    <span style={{ flex: 1, fontSize: 14, color: subDone ? 'var(--text-secondary)' : 'var(--text-primary)' }}>{sub.label || '—'}</span>
-                                    <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{subDone && subRec ? displayNameShort(subRec.completedBy) : 'offen'}</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            <div className="rs-expand-sub-block">
-                              <div className="rs-expand-sub-row">
-                                <button
-                                  className={`rs-expand-circle${completed ? ' rs-expand-circle--on' : ''}`}
-                                  disabled={!due || !(userRole === Role.Admin || userRole === s.targetRole)}
-                                  onClick={() => { if (completed) { onUncomplete(s.id, activeDueDate); } else { setCompleteModal({ schedId: s.id, forDate: activeDueDate }); setCompleteComment(''); } }}
-                                  title={completed ? 'Erledigt – zurücknehmen' : 'Als erledigt markieren'}
-                                >
-                                  {completed ? <CheckIcon width={12} height={12} strokeWidth={3} aria-hidden /> : null}
-                                </button>
-                                <span style={{ flex: 1, fontSize: 14 }}>Ganzen Auftrag als erledigt markieren</span>
-                                <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
-                                  {completed ? (completion?.completedBy ? displayNameShort(completion.completedBy) : 'erledigt') : 'offen'}
-                                </span>
-                              </div>
-                            </div>
-                          )}
+          <div className="rs2-list">
+            {rows.map(row => {
+              const { schedule: s, pool, assigneeName, subtasks, status, activeDueDate, isDone, nextDate, daysUntil, currentDue, windowDate, dueToday } = row;
+              const meta = statusMeta[status];
+              const avatarColor = nameToColor(assigneeName);
+              const poolLabel = pool.length > 1 ? pool.map(n => displayNameShort(n)).join(' · ') : null;
+              const canAct = !isDone && !!activeDueDate && (userRole === Role.Admin || userRole === s.targetRole);
+              const canUndo = isDone && !!activeDueDate && (userRole === Role.Admin || userRole === s.targetRole);
+              const completion = activeDueDate ? (completions || []).find(c => c.scheduleId === s.id && c.date === activeDueDate && !c.subtaskId) : undefined;
+              const subStatus = subtasks.length > 0 && activeDueDate ? routineDayStatus(s, activeDueDate, completions) : null;
 
-                        </div>
-                      )}
+              return (
+                <div key={s.id} className="rs2-row" style={{ borderLeftColor: meta.color, opacity: status === 'disabled' ? 0.5 : 1 }}>
+                  {/* Col 1: Aufgabe */}
+                  <div className="rs2-cell">
+                    <div className="rs2-title">{s.title || '—'}{subtasks.length > 0 ? <span style={{ fontWeight: 500, color: 'var(--text-muted)', fontSize: 12, marginLeft: 6 }}>· {subtasks.length} Pkt.</span> : null}</div>
+                    <div className="rs2-sub">
+                      {s.area && String(s.area).trim() ? <><i className="ti ti-map-pin" style={{ fontSize: 10, flexShrink: 0 }} /><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(s.area).trim()}</span></> : null}
+                    </div>
+                    {meta.label ? (
+                      <span className="rs2-status-badge" style={{ color: meta.color, background: meta.bg, border: `1px solid ${meta.color}30` }}>{meta.label}</span>
+                    ) : null}
+                  </div>
+
+                  {/* Col 2: Rhythmus */}
+                  <div className="rs2-cell" style={{ color: 'var(--text-secondary)', fontSize: 12.5, fontWeight: 500 }}>
+                    {compactRhythm(s)}
+                  </div>
+
+                  {/* Col 3: Nächster Termin */}
+                  <div className="rs2-cell">
+                    {status === 'overdue' && currentDue ? (
+                      <>
+                        <div className="rs2-next-warn"><i className="ti ti-alert-triangle" style={{ fontSize: 11 }} /> Vergessen: {formatDe(currentDue)}</div>
+                        {nextDate && nextDate !== currentDue ? (
+                          <div className="rs2-next-sub">Nächster: {formatDe(nextDate)} · {daysRelLabel(daysUntil)}</div>
+                        ) : null}
+                      </>
+                    ) : status === 'window' && windowDate ? (
+                      <>
+                        <div className="rs2-next-main" style={{ color: '#D97706' }}>Offen seit {formatDe(windowDate)}</div>
+                        {nextDate && nextDate !== windowDate ? (
+                          <div className="rs2-next-sub">Nächster: {formatDe(nextDate)}</div>
+                        ) : null}
+                      </>
+                    ) : status === 'today' ? (
+                      <div className="rs2-next-main" style={{ color: '#EA580C' }}>Heute fällig</div>
+                    ) : nextDate ? (
+                      <>
+                        <div className="rs2-next-main" style={{ color: status === 'done' ? 'var(--text-secondary)' : 'var(--text-primary)' }}>{formatDe(nextDate)}</div>
+                        <div className="rs2-next-sub" style={{ color: daysUntil <= 2 ? '#D97706' : 'var(--text-muted)' }}>{daysRelLabel(daysUntil)}</div>
+                      </>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>—</span>
+                    )}
+                  </div>
+
+                  {/* Col 4: Zuständig */}
+                  <div className="rs2-cell" title={poolLabel ? `Rotation: ${pool.join(', ')}` : undefined}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                      <span className="rs2-avatar" style={{ background: avatarColor }}>{assigneeName.trim().charAt(0).toUpperCase()}</span>
+                      <div style={{ minWidth: 0 }}>
+                        <div className="rs2-person-name">{displayNameShort(assigneeName)}</div>
+                        {poolLabel && <div className="rs2-pool-hint">{poolLabel}</div>}
                       </div>
-                    );
-                  })}
+                    </div>
+                  </div>
+
+                  {/* Col 5: Abhaken */}
+                  <div className="rs2-action-cell">
+                    {!activeDueDate ? (
+                      <span style={{ color: 'var(--text-muted)', fontSize: 20, fontWeight: 200, lineHeight: 1 }}>—</span>
+                    ) : subtasks.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                        <button type="button" className="rs2-sub-btn"
+                          onClick={() => setSubPop({ schedId: s.id, activeDate: activeDueDate })}
+                          style={{ color: subStatus?.complete ? ROUTINE_TEAL.dark : subStatus?.anyDone ? '#854F0B' : 'var(--text-muted)', borderColor: subStatus?.complete ? ROUTINE_TEAL.border : 'var(--border)', background: subStatus?.complete ? ROUTINE_TEAL.bg : 'var(--bg-tertiary)' }}>
+                          {subStatus?.complete ? <CheckIcon width={12} height={12} strokeWidth={2.5} aria-hidden /> : null}
+                          {subStatus?.done}/{subStatus?.total}
+                        </button>
+                      </div>
+                    ) : isDone ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                        {canUndo ? (
+                          <button type="button" className="rs2-circle rs2-circle--on"
+                            title="Erledigt – Klick zum Zurücknehmen"
+                            onClick={() => onUncomplete(s.id, activeDueDate)}>
+                            <CheckIcon width={15} height={15} strokeWidth={2.5} aria-hidden />
+                          </button>
+                        ) : (
+                          <span className="rs2-circle rs2-circle--on" style={{ cursor: 'default' }}>
+                            <CheckIcon width={15} height={15} strokeWidth={2.5} aria-hidden />
+                          </span>
+                        )}
+                        {completion?.completedBy && <div className="rs2-by">{displayNameShort(completion.completedBy)}</div>}
+                      </div>
+                    ) : canAct ? (
+                      <button type="button" className="rs2-circle rs2-circle--off"
+                        title="Als erledigt markieren" aria-label="Als erledigt markieren"
+                        onClick={() => { setCompleteModal({ schedId: s.id, forDate: activeDueDate }); setCompleteComment(''); }} />
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)', fontSize: 20, fontWeight: 200, lineHeight: 1 }}>—</span>
+                    )}
+                  </div>
+
+                  {/* Col 6: Edit */}
+                  <div style={{ padding: '12px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {canEdit && (
+                      <button type="button" className="rs2-edit-btn"
+                        title={s.enabled ? 'Bearbeiten' : 'Deaktiviert – zum Reaktivieren klicken'}
+                        onClick={() => setEditing({ schedule: s, isNew: false })}>
+                        <i className="ti ti-pencil" />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </>
       )}

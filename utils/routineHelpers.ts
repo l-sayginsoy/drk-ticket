@@ -302,6 +302,36 @@ export function isScheduleVisibleForUser(
 }
 
 /** Alle Kalendertage im Jahr, an denen die Serie (inkl. Feiertags-Verschiebung) fällig ist. */
+/** Nächster Fälligkeitstag ab (einschließlich) `fromDate`. Max 400 Tage Lookahead. */
+export function nextDueDateFrom(
+  schedule: RoutineSchedule & { recurrence?: any; startDate?: string | null },
+  fromDate: Date,
+  rpHolidays: Set<string> = new Set()
+): string | null {
+  const d = new Date(fromDate);
+  d.setHours(0, 0, 0, 0);
+  for (let i = 0; i < 400; i++) {
+    if (isRoutineDueOnCalendarDay(schedule, d, rpHolidays)) return localISODate(d);
+    d.setDate(d.getDate() + 1);
+  }
+  return null;
+}
+
+/** Letzter Fälligkeitstag bis (einschließlich) `toDate`. Max 400 Tage Lookback. */
+export function lastDueDateUpTo(
+  schedule: RoutineSchedule & { recurrence?: any; startDate?: string | null },
+  toDate: Date,
+  rpHolidays: Set<string> = new Set()
+): string | null {
+  const d = new Date(toDate);
+  d.setHours(0, 0, 0, 0);
+  for (let i = 0; i < 400; i++) {
+    if (isRoutineDueOnCalendarDay(schedule, d, rpHolidays)) return localISODate(d);
+    d.setDate(d.getDate() - 1);
+  }
+  return null;
+}
+
 export function getDueDatesInYear(
   schedule: RoutineSchedule & { recurrence?: any; startDate?: string | null },
   year: number,
