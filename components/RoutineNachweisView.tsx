@@ -1,28 +1,28 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Role, RoutineDayCompletion, RoutineSchedule, User } from '../types';
-import { getDueDatesInYear, getRoutineAssigneeDisplayName, getRoutinePool, localISODate, routineDayStatus } from '../utils/routineHelpers';
-import { ROUTINE_AMBER, ROUTINE_TEAL } from '../utils/routineUiPalette';
-import { displayNameShort } from '../utils/displayNames';
-import { CheckIcon } from './icons/CheckIcon';
+import { getDueDatesInYear, localISODate, parseYmdLocal } from '../utils/routineHelpers';
 
-const MONTHS_FULL = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+const MONTHS_DE = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+const DAYS_SHORT = ['So','Mo','Di','Mi','Do','Fr','Sa'];
 
-function nvNameColor(name: string): string {
-  const p = ['#DC2626','#2563EB','#059669','#D97706','#7C3AED','#0891B2','#DB2777','#65A30D'];
-  let h = 5381;
-  for (let i = 0; i < name.length; i++) h = ((h << 5) + h + name.charCodeAt(i)) | 0;
-  return p[Math.abs(h) % p.length];
+function fmtDate(ymd: string): string {
+  const [y, m, d] = ymd.split('-');
+  return `${d}.${m}.${y}`;
 }
-
-function nvAccent(sch: RoutineSchedule & { recurrence?: any }): string {
-  const rec = (sch as any).recurrence;
-  if (!rec || rec.type === 'daily') return '#0EA5E9';
-  if (rec.type === 'weekdays' || rec.type === 'weekly') {
-    return Math.max(1, Number(rec.intervalWeeks || 1)) === 1 ? '#8B5CF6' : '#EC4899';
-  }
-  if (rec.type === 'monthly') return '#F59E0B';
-  if (rec.type === 'yearly') return '#10B981';
-  return '#6B7280';
+function fmtTime(iso: string): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+}
+function fmtDateTime(iso: string): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) +
+    ' ' + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr';
+}
+function weekdayShort(ymd: string): string {
+  const d = parseYmdLocal(ymd);
+  return DAYS_SHORT[d.getDay()];
 }
 
 function cadenceLabel(sch: RoutineSchedule & { recurrence?: any }): string {
@@ -32,20 +32,37 @@ function cadenceLabel(sch: RoutineSchedule & { recurrence?: any }): string {
   if (rec.type === 'weekdays') {
     const n = Math.max(1, Number(rec.intervalWeeks || 1));
     const map: Record<string, string> = { mo: 'Mo', di: 'Di', mi: 'Mi', do: 'Do', fr: 'Fr', sa: 'Sa', so: 'So' };
-    const ORDER = ['mo', 'di', 'mi', 'do', 'fr', 'sa', 'so'];
+    const ORDER = ['mo','di','mi','do','fr','sa','so'];
     const days = (Array.isArray(rec.weekdays) ? rec.weekdays : []).slice().sort((a: string, b: string) => ORDER.indexOf(a) - ORDER.indexOf(b)).map((d: string) => map[d] || d).join(' · ');
     return (n === 1 ? '' : `Alle ${n} Wo · `) + (days || '—');
   }
-  if (rec.type === 'monthly') { const n = Math.max(1, Number(rec.intervalMonths || 1)); return n === 1 ? 'Monatlich' : n === 3 ? 'Vierteljährl.' : `Alle ${n} Monate`; }
+  if (rec.type === 'monthly') { const n = Math.max(1, Number(rec.intervalMonths || 1)); return n === 1 ? 'Monatlich' : `Alle ${n} Monate`; }
   if (rec.type === 'yearly') return 'Jährlich';
   return '—';
 }
 
-interface RetroModal {
+type RowStatus = 'done' | 'missed' | 'upcoming';
+
+interface DueRow {
+  ymd: string;
+  status: RowStatus;
+  completions: RoutineDayCompletion[];
+  isCorrected: boolean;
+}
+
+interface CorrectionState {
+  scheduleId: string;
+  originalDate: string;
+  currentCompletedBy: string;
+  currentCompletedAt: string;
+  currentComment: string;
+  users: string[];
+}
+
+interface RetroState {
   scheduleId: string;
   ymd: string;
-  sch: RoutineSchedule & { recurrence?: any; subtasks?: { id: string; label: string }[] };
-  isDone: boolean;
+  users: string[];
 }
 
 interface RoutineNachweisViewProps {
@@ -59,6 +76,11 @@ interface RoutineNachweisViewProps {
   onSetCompletion?: (scheduleId: string, ymd: string, completedBy: string | null) => void;
   onToggleSubtask?: (scheduleId: string, ymd: string, subtaskId: string, completedBy: string | null) => void;
   onAdminRetroSetDay?: (scheduleId: string, ymd: string, completedBy: string | null, subtaskIds?: string[]) => void;
+  onCorrectCompletion?: (
+    scheduleId: string,
+    originalDate: string,
+    patch: { completedBy?: string; newDate?: string; newTime?: string; comment?: string; deleteEntry?: boolean }
+  ) => void;
 }
 
 export default function RoutineNachweisView({
@@ -68,547 +90,426 @@ export default function RoutineNachweisView({
   userRole,
   userName,
   rpHolidayYmdList = [],
-  missedSinceYmd = '',
-  onSetCompletion,
-  onToggleSubtask,
   onAdminRetroSetDay,
+  onCorrectCompletion,
 }: RoutineNachweisViewProps) {
-  const [openRows, setOpenRows] = useState<Record<string, boolean>>({});
-  const currentYear = new Date().getFullYear();
-  const [year, setYear] = useState(currentYear);
-  const [scheduleFilter, setScheduleFilter] = useState<string>('alle');
-  const [retroModal, setRetroModal] = useState<RetroModal | null>(null);
-  const [retroPerson, setRetroPerson] = useState<string>('');
-  const [retroChecked, setRetroChecked] = useState<Set<string>>(new Set());
-  const retroModalRef = useRef<HTMLDivElement>(null);
+  const isAdmin = userRole === Role.Admin;
+  const today = localISODate(new Date());
+  const todayDate = new Date();
 
-  const todayYmd = useMemo(() => localISODate(new Date()), []);
-  const rpHolidaySet = useMemo(() => new Set(rpHolidayYmdList), [rpHolidayYmdList]);
+  const [month, setMonth] = useState(todayDate.getMonth() + 1); // 1-12
+  const [year, setYear] = useState(todayDate.getFullYear());
+  const [scheduleFilter, setScheduleFilter] = useState('alle');
+  const [areaFilter, setAreaFilter] = useState('alle');
+  const [bearbeiterFilter, setBearbeiterFilter] = useState('alle');
+  const [statusFilter, setStatusFilter] = useState('alle');
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
-  const visibleSchedules = useMemo(() => {
-    const list = (schedules || []).filter((s) => s.enabled);
-    if (scheduleFilter === 'alle') return list;
-    return list.filter((s) => s.id === scheduleFilter);
-  }, [schedules, scheduleFilter]);
+  // Correction modal
+  const [corrModal, setCorrModal] = useState<CorrectionState | null>(null);
+  const [corrPerson, setCorrPerson] = useState('');
+  const [corrDate, setCorrDate] = useState('');
+  const [corrTime, setCorrTime] = useState('');
+  const [corrComment, setCorrComment] = useState('');
 
-  const scheduleSelectOptions = useMemo(() => (schedules || []).filter((s) => s.enabled), [schedules]);
+  // Retro-add modal
+  const [retroModal, setRetroModal] = useState<RetroState | null>(null);
+  const [retroPerson, setRetroPerson] = useState('');
+  const [retroTime, setRetroTime] = useState('');
+  const [retroComment, setRetroComment] = useState('');
 
-  const yearOptions = useMemo(() => {
-    const ys = new Set<number>();
-    ys.add(currentYear); ys.add(currentYear - 1); ys.add(currentYear + 1);
-    (completions || []).forEach((c) => { const y = Number(c.date.slice(0, 4)); if (!Number.isNaN(y)) ys.add(y); });
-    return Array.from(ys).sort((a, b) => b - a);
-  }, [completions, currentYear]);
+  const rpHolidaySet = useMemo(() => new Set(rpHolidayYmdList || []), [rpHolidayYmdList]);
 
-  const dueByScheduleId = useMemo(() => {
-    const map = new Map<string, string[]>();
-    visibleSchedules.forEach((sch) => { map.set(sch.id, getDueDatesInYear(sch, year, rpHolidaySet)); });
-    return map;
-  }, [visibleSchedules, year, rpHolidaySet]);
+  const userNames = useMemo(() =>
+    users.filter(u => u.isActive).map(u => u.name).sort(),
+    [users]
+  );
 
-  const fmtYmd = (ymd: string) => { const [y, m, d] = ymd.split('-'); return `${d}.${m}.${y}`; };
+  // All areas
+  const areas = useMemo(() => {
+    const s = new Set(schedules.filter(s => s.enabled).map(s => s.area || s.location));
+    return ['alle', ...Array.from(s).sort()];
+  }, [schedules]);
+
+  // Compute due dates for each schedule in the selected month
+  const monthData = useMemo(() => {
+    const allDuesYear = schedules.filter(s => s.enabled).map(sch => {
+      const all = getDueDatesInYear(sch as any, year, rpHolidaySet);
+      const monthDues = all.filter(d => Number(d.split('-')[1]) === month);
+      return { schedule: sch, dues: monthDues };
+    }).filter(x => x.dues.length > 0);
+
+    return allDuesYear.map(({ schedule, dues }) => {
+      const rows: DueRow[] = dues.map(ymd => {
+        const dayComps = completions.filter(c => c.scheduleId === schedule.id && c.date === ymd);
+        const isDone = dayComps.length > 0;
+        const isPast = ymd < today;
+        const isCorrected = dayComps.some(c => !!c.correctedBy);
+        let status: RowStatus;
+        if (isDone) status = 'done';
+        else if (isPast) status = 'missed';
+        else status = 'upcoming';
+        return { ymd, status, completions: dayComps, isCorrected };
+      });
+      return { schedule, rows };
+    });
+  }, [schedules, year, month, completions, today, rpHolidaySet]);
+
+  const prevMonth = () => {
+    if (month === 1) { setMonth(12); setYear(y => y - 1); }
+    else setMonth(m => m - 1);
+  };
+  const nextMonth = () => {
+    if (month === 12) { setMonth(1); setYear(y => y + 1); }
+    else setMonth(m => m + 1);
+  };
+
+  // Filter
+  const filtered = useMemo(() => {
+    return monthData
+      .filter(({ schedule }) => scheduleFilter === 'alle' || schedule.id === scheduleFilter)
+      .filter(({ schedule }) => areaFilter === 'alle' || (schedule.area || schedule.location) === areaFilter)
+      .filter(({ rows }) => {
+        if (statusFilter === 'alle') return true;
+        return rows.some(r => r.status === statusFilter);
+      })
+      .filter(({ rows }) => {
+        if (bearbeiterFilter === 'alle') return true;
+        return rows.some(r => r.completions.some(c => c.completedBy === bearbeiterFilter));
+      })
+      .map(({ schedule, rows }) => {
+        const filteredRows = rows.filter(r => {
+          if (statusFilter !== 'alle' && r.status !== statusFilter) return false;
+          if (bearbeiterFilter !== 'alle' && !r.completions.some(c => c.completedBy === bearbeiterFilter)) return false;
+          return true;
+        });
+        return { schedule, rows: filteredRows };
+      })
+      .filter(x => x.rows.length > 0);
+  }, [monthData, scheduleFilter, areaFilter, statusFilter, bearbeiterFilter]);
+
+  // All bearbeiter found in the month
+  const bearbeiterList = useMemo(() => {
+    const s = new Set<string>();
+    monthData.forEach(({ rows }) => rows.forEach(r => r.completions.forEach(c => s.add(c.completedBy))));
+    return ['alle', ...Array.from(s).sort()];
+  }, [monthData]);
+
+  // Open correction modal
+  const openCorrection = (scheduleId: string, row: DueRow) => {
+    const main = row.completions[0];
+    setCorrModal({
+      scheduleId,
+      originalDate: row.ymd,
+      currentCompletedBy: main?.completedBy || '',
+      currentCompletedAt: main?.completedAt || '',
+      currentComment: main?.comment || '',
+      users: userNames,
+    });
+    setCorrPerson(main?.completedBy || '');
+    setCorrDate(row.ymd);
+    const t = main?.completedAt ? fmtTime(main.completedAt) : '';
+    setCorrTime(t === '—' ? '' : t);
+    setCorrComment(main?.comment || '');
+  };
+
+  const saveCorrection = () => {
+    if (!corrModal || !onCorrectCompletion) return;
+    onCorrectCompletion(corrModal.scheduleId, corrModal.originalDate, {
+      completedBy: corrPerson !== corrModal.currentCompletedBy ? corrPerson : undefined,
+      newDate: corrDate !== corrModal.originalDate ? corrDate : undefined,
+      newTime: corrTime || undefined,
+      comment: corrComment !== corrModal.currentComment ? corrComment : undefined,
+    });
+    setCorrModal(null);
+  };
+
+  const deleteEntry = () => {
+    if (!corrModal || !onCorrectCompletion) return;
+    if (!window.confirm('Diesen Eintrag wirklich löschen? Der Auftrag gilt danach als nicht erledigt.')) return;
+    onCorrectCompletion(corrModal.scheduleId, corrModal.originalDate, { deleteEntry: true });
+    setCorrModal(null);
+  };
+
+  const openRetro = (scheduleId: string, ymd: string) => {
+    setRetroModal({ scheduleId, ymd, users: userNames });
+    setRetroPerson(userName || userNames[0] || '');
+    setRetroTime('');
+    setRetroComment('');
+  };
+
+  const saveRetro = () => {
+    if (!retroModal || !onAdminRetroSetDay) return;
+    onAdminRetroSetDay(retroModal.scheduleId, retroModal.ymd, retroPerson || null);
+    setRetroModal(null);
+  };
+
+  const toggleCollapse = (id: string) => setCollapsed(c => ({ ...c, [id]: !c[id] }));
+
+  const statusBadge = (status: RowStatus) => {
+    if (status === 'done') return <span style={{ background: '#D1FAE5', color: '#065F46', borderRadius: 6, padding: '2px 8px', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>✓ Erledigt</span>;
+    if (status === 'missed') return <span style={{ background: '#FEE2E2', color: '#991B1B', borderRadius: 6, padding: '2px 8px', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>✗ Vergessen</span>;
+    return <span style={{ background: '#F3F4F6', color: '#6B7280', borderRadius: 6, padding: '2px 8px', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>Geplant</span>;
+  };
 
   return (
-    <div style={{ maxWidth: 1800 }}>
-      <style>{`
-        .nv-toolbar {
-          display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
-          background: var(--bg-secondary); border: 1px solid var(--border);
-          border-radius: 10px; padding: 14px 18px; margin-top: 1.25rem;
-        }
-        .nv-field label {
-          display: block; font-size: 10.5px; font-weight: 700;
-          color: var(--text-muted); margin-bottom: 4px;
-          text-transform: uppercase; letter-spacing: 0.05em;
-        }
-        .nv-field select {
-          min-width: 150px; padding: 8px 12px; border-radius: 8px;
-          border: 1px solid var(--border); background: var(--bg-tertiary);
-          color: var(--text-primary); font-size: 14px;
-        }
-        .nv-list { display: flex; flex-direction: column; gap: 8px; margin-top: 1.25rem; }
-        .nv-card {
-          border: 1px solid var(--border); border-radius: 12px;
-          overflow: hidden; background: var(--bg-secondary);
-          box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-        }
-        .nv-head {
-          display: grid;
-          grid-template-columns: 34px 1fr 170px 200px 140px;
-          align-items: center;
-          width: 100%; text-align: left; background: none; border: none;
-          border-left: 4px solid transparent;
-          cursor: pointer; padding: 0; font: inherit; color: inherit;
-          min-height: 68px; transition: background 0.12s; box-sizing: border-box;
-        }
-        .nv-head:hover { background: var(--bg-tertiary); }
-        .nv-head-chevron { display: flex; align-items: center; justify-content: center; }
-        .nv-head-title { padding: 14px 16px 14px 4px; min-width: 0; }
-        .nv-title {
-          font-size: 14px; font-weight: 700; color: var(--text-primary);
-          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.35;
-        }
-        .nv-sub-count { font-size: 11px; font-weight: 600; color: var(--text-muted); margin-left: 6px; }
-        .nv-area-tag { font-size: 11.5px; color: var(--text-muted); margin-top: 4px; display: flex; align-items: center; gap: 4px; }
-        .nv-head-cad { padding: 14px 16px; }
-        .nv-cad-badge {
-          display: inline-flex; align-items: center;
-          font-size: 12px; font-weight: 600; color: var(--text-secondary);
-          background: var(--bg-tertiary); border: 1px solid var(--border);
-          border-radius: 20px; padding: 4px 12px; white-space: nowrap;
-        }
-        .nv-head-prog { padding: 14px 16px; display: flex; flex-direction: column; gap: 5px; }
-        .nv-prog-bar { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
-        .nv-prog-fill { height: 100%; border-radius: 3px; background: ${ROUTINE_TEAL.accent}; transition: width 0.4s; }
-        .nv-prog-nums { font-size: 11.5px; font-weight: 600; color: var(--text-muted); }
-        .nv-head-status { padding: 14px 18px 14px 0; display: flex; align-items: center; justify-content: flex-end; }
-        .nv-pill {
-          display: inline-flex; align-items: center; gap: 5px;
-          font-size: 12px; font-weight: 700; border-radius: 7px;
-          padding: 4px 12px; white-space: nowrap;
-        }
-        .nv-pill--done { background: ${ROUTINE_TEAL.bg}; color: ${ROUTINE_TEAL.dark}; border: 1px solid ${ROUTINE_TEAL.border}; }
-        .nv-pill--open { background: ${ROUTINE_AMBER.bg}; color: ${ROUTINE_AMBER.dark}; border: 1px solid ${ROUTINE_AMBER.border}; }
-        .nv-pill--none { background: var(--bg-tertiary); color: var(--text-muted); border: 1px solid var(--border); }
-        /* Expanded */
-        .nv-body {
-          border-top: 1px solid var(--border);
-          padding: 20px 22px 22px;
-          background: var(--bg-primary);
-        }
-        .nv-current-info { font-size: 13px; color: var(--text-muted); margin-bottom: 14px; }
-        .nv-current-info strong { color: var(--text-primary); font-weight: 700; }
-        .nv-circle {
-          width: 28px; height: 28px; border-radius: 50%;
-          display: inline-flex; align-items: center; justify-content: center;
-          padding: 0; flex-shrink: 0; cursor: pointer;
-          border: 2px solid var(--border); background: var(--bg-tertiary);
-          font-family: inherit; line-height: 0; box-sizing: border-box; transition: all 0.15s;
-        }
-        .nv-circle--on { background: ${ROUTINE_TEAL.accent}; border-color: ${ROUTINE_TEAL.accent}; color: #fff; }
-        .nv-circle:disabled { cursor: default; opacity: 0.5; }
-        .nv-sub-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
-        .nv-sub-row:last-child { border-bottom: none; }
-        .nv-sub-block { margin-bottom: 16px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 10px; padding: 4px 14px 4px; }
-        .nv-legend {
-          display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
-          margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--border);
-        }
-        .nv-legend-year {
-          font-size: 11px; font-weight: 800; color: var(--text-secondary);
-          text-transform: uppercase; letter-spacing: 0.08em; margin-right: 4px;
-        }
-        .nv-legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
-        .nv-legend-dot { width: 12px; height: 12px; border-radius: 4px; flex-shrink: 0; }
-        .nv-month-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 10px;
-        }
-        @media (max-width: 900px) { .nv-month-grid { grid-template-columns: repeat(3, 1fr); } }
-        @media (max-width: 580px) { .nv-month-grid { grid-template-columns: repeat(2, 1fr); } }
-        .nv-month-card {
-          background: var(--bg-secondary); border: 1px solid var(--border);
-          border-radius: 9px; padding: 11px 13px;
-        }
-        .nv-month-name {
-          font-size: 12px; font-weight: 700; color: var(--text-secondary); margin-bottom: 9px;
-        }
-        .nv-days { display: flex; flex-wrap: wrap; gap: 4px; }
-        .nv-day {
-          width: 28px; height: 28px; border-radius: 7px;
-          display: inline-flex; align-items: center; justify-content: center;
-          font-size: 11px; font-weight: 700; cursor: default;
-          position: relative;
-        }
-        .nv-day--done { background: ${ROUTINE_TEAL.accent}; color: #fff; }
-        .nv-day--partial { background: ${ROUTINE_AMBER.accent}; color: #fff; }
-        .nv-day--missed { background: #DC2626; color: #fff; }
-        .nv-day--planned { background: var(--bg-tertiary); color: var(--text-muted); border: 1px solid var(--border); }
-        .nv-day--future { background: var(--bg-tertiary); color: var(--border-active); border: 1px solid var(--border); opacity: 0.4; }
-        .nv-day[data-tooltip]::after {
-          content: attr(data-tooltip);
-          position: absolute;
-          bottom: calc(100% + 6px);
-          left: 50%;
-          transform: translateX(-50%);
-          background: rgba(15,15,20,0.92);
-          color: #fff;
-          font-size: 11.5px;
-          font-weight: 500;
-          white-space: nowrap;
-          padding: 4px 9px;
-          border-radius: 6px;
-          pointer-events: none;
-          opacity: 0;
-          transition: opacity 0.08s;
-          z-index: 999;
-        }
-        .nv-day[data-tooltip]:hover::after { opacity: 1; }
-        @media (max-width: 860px) {
-          .nv-head { grid-template-columns: 34px 1fr 170px auto; }
-          .nv-head-cad { display: none; }
-        }
-        @media (max-width: 560px) {
-          .nv-head { grid-template-columns: 34px 1fr auto; min-height: 60px; }
-          .nv-head-cad, .nv-head-prog { display: none; }
-          .nv-head-status { padding: 12px 10px 12px 0; }
-          .nv-title { white-space: normal; line-height: 1.3; font-size: 13.5px; }
-          .nv-pill { font-size: 11px; padding: 3px 9px; }
-          .nv-toolbar { gap: 8px; padding: 10px 12px; }
-          .nv-month-grid { grid-template-columns: repeat(2, 1fr); }
-          .nv-circle { width: 36px; height: 36px; }
-        }
-      `}</style>
+    <div style={{ padding: '20px 24px', maxWidth: 1200 }}>
+      {/* Title row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
+        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--text-primary)' }}>Serien-Nachweis</h2>
 
-      {/* Toolbar */}
-      <div className="nv-toolbar no-print">
-        <div className="nv-field">
-          <label htmlFor="nv-jahr">Jahr</label>
-          <select id="nv-jahr" value={year} onChange={(e) => setYear(Number(e.target.value))}>
-            {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
+        {/* Month navigation */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto' }}>
+          <button onClick={prevMonth} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 7, padding: '5px 10px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 600 }}>‹</button>
+          <span style={{ fontWeight: 700, fontSize: 15, minWidth: 160, textAlign: 'center', color: 'var(--text-primary)' }}>{MONTHS_DE[month - 1]} {year}</span>
+          <button onClick={nextMonth} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 7, padding: '5px 10px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 600 }}>›</button>
+          <select value={year} onChange={e => setYear(Number(e.target.value))} style={{ marginLeft: 8, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 7, padding: '5px 8px', color: 'var(--text-primary)', fontSize: 13 }}>
+            {[year - 1, year, year + 1].map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
-        <div className="nv-field">
-          <label htmlFor="nv-aufgabe">Aufgabe</label>
-          <select id="nv-aufgabe" value={scheduleFilter} onChange={(e) => setScheduleFilter(e.target.value)}>
-            <option value="alle">Alle anzeigen</option>
-            {scheduleSelectOptions.map((s) => <option key={s.id} value={s.id}>{s.title || s.id}</option>)}
-          </select>
-        </div>
-        <button
-          type="button"
-          onClick={() => window.print()}
-          style={{ marginLeft: 'auto', alignSelf: 'flex-end', display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}
-        >
-          <i className="ti ti-printer" aria-hidden="true" /> Drucken / PDF
-        </button>
       </div>
 
-      {visibleSchedules.length === 0 ? (
-        <div style={{ marginTop: '1.25rem', padding: '3rem', textAlign: 'center', color: 'var(--text-muted)', background: 'var(--bg-secondary)', borderRadius: 12, border: '1px solid var(--border)' }}>
-          Keine Serienaufträge vorhanden.
+      {/* Filter row */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20, alignItems: 'center' }}>
+        <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>Filter:</span>
+        <select value={scheduleFilter} onChange={e => setScheduleFilter(e.target.value)} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 7, padding: '5px 10px', color: 'var(--text-primary)', fontSize: 13, maxWidth: 220 }}>
+          <option value="alle">Alle Aufträge</option>
+          {schedules.filter(s => s.enabled).map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
+        </select>
+        <select value={areaFilter} onChange={e => setAreaFilter(e.target.value)} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 7, padding: '5px 10px', color: 'var(--text-primary)', fontSize: 13 }}>
+          <option value="alle">Alle Bereiche</option>
+          {areas.slice(1).map(a => <option key={a} value={a}>{a}</option>)}
+        </select>
+        <select value={bearbeiterFilter} onChange={e => setBearbeiterFilter(e.target.value)} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 7, padding: '5px 10px', color: 'var(--text-primary)', fontSize: 13 }}>
+          <option value="alle">Alle Bearbeiter</option>
+          {bearbeiterList.slice(1).map(b => <option key={b} value={b}>{b}</option>)}
+        </select>
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 7, padding: '5px 10px', color: 'var(--text-primary)', fontSize: 13 }}>
+          <option value="alle">Alle Status</option>
+          <option value="done">Erledigt</option>
+          <option value="missed">Vergessen</option>
+          <option value="upcoming">Geplant</option>
+        </select>
+        {(scheduleFilter !== 'alle' || areaFilter !== 'alle' || bearbeiterFilter !== 'alle' || statusFilter !== 'alle') && (
+          <button onClick={() => { setScheduleFilter('alle'); setAreaFilter('alle'); setBearbeiterFilter('alle'); setStatusFilter('alle'); }}
+            style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 7, padding: '5px 10px', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 12 }}>
+            × Filter zurücksetzen
+          </button>
+        )}
+      </div>
+
+      {/* Content */}
+      {filtered.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-secondary)', fontSize: 15 }}>
+          {monthData.length === 0
+            ? `Keine Serienaufträge mit Terminen im ${MONTHS_DE[month - 1]} ${year}.`
+            : 'Keine Einträge mit diesen Filterkriterien.'}
         </div>
-      ) : (
-        <div className="nv-list">
-          {visibleSchedules.map((sch) => {
-            const dueList = dueByScheduleId.get(sch.id) || [];
-            const pool = getRoutinePool(sch, users);
-            const subtasks = sch.subtasks || [];
-            const pastDue = dueList.filter(d => d <= todayYmd);
-            const currentYmd = pastDue.length ? pastDue[pastDue.length - 1] : null;
-            const st = currentYmd ? routineDayStatus(sch, currentYmd, completions) : null;
-            const assignee = currentYmd ? getRoutineAssigneeDisplayName(sch, pool, currentYmd) : '—';
-            const canComplete = userRole === Role.Admin || userRole === sch.targetRole;
-            const expanded = !!openRows[sch.id];
-            const accentColor = nvAccent(sch);
+      ) : filtered.map(({ schedule, rows }) => {
+        const done = rows.filter(r => r.status === 'done').length;
+        const missed = rows.filter(r => r.status === 'missed').length;
+        const isOpen = !collapsed[schedule.id];
 
-            const completedCount = pastDue.filter(d => routineDayStatus(sch, d, completions).complete).length;
-            const totalPast = pastDue.length;
-            const pct = totalPast > 0 ? Math.round((completedCount / totalPast) * 100) : 0;
-
-            const wholeRec = currentYmd
-              ? (completions || []).find(c => c.scheduleId === sch.id && c.date === currentYmd && !c.subtaskId)
-              : undefined;
-
-            return (
-              <div key={sch.id} className="nv-card">
-                {/* Collapsed header */}
-                <button
-                  className="nv-head"
-                  style={{ borderLeftColor: accentColor }}
-                  onClick={() => setOpenRows(p => ({ ...p, [sch.id]: !p[sch.id] }))}
-                  aria-expanded={expanded}
-                >
-                  <div className="nv-head-chevron">
-                    <i className={`ti ti-chevron-${expanded ? 'down' : 'right'}`} style={{ color: 'var(--text-muted)', fontSize: 14 }} aria-hidden />
-                  </div>
-                  <div className="nv-head-title">
-                    <div className="nv-title">
-                      {sch.title || '—'}
-                      {subtasks.length > 0 ? <span className="nv-sub-count">· {subtasks.length} Punkte</span> : null}
-                    </div>
-                    {sch.area && String(sch.area).trim() ? (
-                      <div className="nv-area-tag">
-                        <i className="ti ti-map-pin" style={{ fontSize: 10 }} />
-                        {String(sch.area).trim()}
-                      </div>
-                    ) : null}
-                  </div>
-                  <div className="nv-head-cad">
-                    <span className="nv-cad-badge">{cadenceLabel(sch)}</span>
-                  </div>
-                  <div className="nv-head-prog">
-                    <div className="nv-prog-bar">
-                      <div className="nv-prog-fill" style={{ width: `${pct}%` }} />
-                    </div>
-                    <div className="nv-prog-nums">{completedCount}/{totalPast} in {year}</div>
-                  </div>
-                  <div className="nv-head-status">
-                    {!currentYmd ? (
-                      <span className="nv-pill nv-pill--none">—</span>
-                    ) : st!.complete ? (
-                      <span className="nv-pill nv-pill--done">
-                        <CheckIcon width={12} height={12} strokeWidth={3} aria-hidden /> erledigt
-                      </span>
-                    ) : (
-                      <span className="nv-pill nv-pill--open">offen</span>
-                    )}
-                  </div>
-                </button>
-
-                {/* Expanded body */}
-                {expanded ? (
-                  <div className="nv-body">
-                    {currentYmd ? (
-                      <div className="nv-current-info">
-                        Aktueller Termin: <strong>{fmtYmd(currentYmd)}</strong> · zuständig: <strong>{displayNameShort(assignee)}</strong>
-                      </div>
-                    ) : (
-                      <div className="nv-current-info">Noch kein fälliger Termin in {year}.</div>
-                    )}
-
-                    {currentYmd && subtasks.length > 0 ? (
-                      <div className="nv-sub-block">
-                        {subtasks.map((sub) => {
-                          const done = st!.doneSubtaskIds.has(sub.id);
-                          const rec = (completions || []).find(c => c.scheduleId === sch.id && c.date === currentYmd && c.subtaskId === sub.id);
-                          return (
-                            <div key={sub.id} className="nv-sub-row">
-                              <button
-                                className={`nv-circle${done ? ' nv-circle--on' : ''}`}
-                                disabled={!canComplete}
-                                onClick={() => onToggleSubtask && onToggleSubtask(sch.id, currentYmd, sub.id, done ? null : userName)}
-                                title={done ? 'Erledigt – zurücknehmen' : 'Als erledigt markieren'}
-                                aria-label={sub.label || 'Unter-Aufgabe'}
-                              >
-                                {done ? <CheckIcon width={12} height={12} strokeWidth={3} aria-hidden /> : null}
-                              </button>
-                              <span style={{ flex: 1, fontSize: 14, color: done ? 'var(--text-secondary)' : 'var(--text-primary)' }}>{sub.label || '—'}</span>
-                              <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{done && rec ? displayNameShort(rec.completedBy) : 'offen'}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : currentYmd && subtasks.length === 0 ? (
-                      <div className="nv-sub-block">
-                        <div className="nv-sub-row">
-                          <button
-                            className={`nv-circle${st!.complete ? ' nv-circle--on' : ''}`}
-                            disabled={!canComplete}
-                            onClick={() => onSetCompletion && onSetCompletion(sch.id, currentYmd, st!.complete ? null : userName)}
-                            title={st!.complete ? 'Erledigt – zurücknehmen' : 'Als erledigt markieren'}
-                            aria-label="Auftrag erledigt"
-                          >
-                            {st!.complete ? <CheckIcon width={12} height={12} strokeWidth={3} aria-hidden /> : null}
-                          </button>
-                          <span style={{ flex: 1, fontSize: 14 }}>Ganzen Auftrag als erledigt markieren</span>
-                          <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
-                            {st!.complete ? (wholeRec ? displayNameShort(wholeRec.completedBy) : 'erledigt') : 'offen'}
-                          </span>
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {/* Legend + year grid */}
-                    <div className="nv-legend">
-                      <span className="nv-legend-year">Jahresübersicht {year}</span>
-                      <div className="nv-legend-item"><div className="nv-legend-dot" style={{ background: ROUTINE_TEAL.accent }} />Erledigt</div>
-                      <div className="nv-legend-item"><div className="nv-legend-dot" style={{ background: ROUTINE_AMBER.accent }} />Teilweise</div>
-                      <div className="nv-legend-item"><div className="nv-legend-dot" style={{ background: '#DC2626' }} />Verpasst</div>
-                      <div className="nv-legend-item"><div className="nv-legend-dot" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }} />Geplant</div>
-                    </div>
-
-                    <div className="nv-month-grid">
-                      {MONTHS_FULL.map((mname, mi) => {
-                        const mdays = dueList.filter(d => Number(d.split('-')[1]) - 1 === mi).sort();
-                        return (
-                          <div key={mi} className="nv-month-card">
-                            <div className="nv-month-name">{mname}</div>
-                            {mdays.length === 0 ? (
-                              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>—</span>
-                            ) : (
-                              <div className="nv-days">
-                                {mdays.map(d => {
-                                  const s2 = routineDayStatus(sch, d, completions);
-                                  const past = d < todayYmd;
-                                  const counts = d >= missedSinceYmd;
-                                  const dn = Number(d.split('-')[2]);
-                                  const dayRecs = completions.filter(c => c.scheduleId === sch.id && c.date === d);
-                                  const completedByNames = [...new Set(dayRecs.map(c => c.completedBy).filter(Boolean))].join(', ');
-                                  let cls = 'nv-day nv-day--future';
-                                  let title = fmtYmd(d) + ': geplant';
-                                  if (s2.complete) { cls = 'nv-day nv-day--done'; title = fmtYmd(d) + ': erledigt' + (completedByNames ? ` von ${completedByNames}` : ''); }
-                                  else if (s2.anyDone) { cls = 'nv-day nv-day--partial'; title = `${fmtYmd(d)}: ${s2.done}/${s2.total} erledigt` + (completedByNames ? ` (${completedByNames})` : ''); }
-                                  else if (past && counts) { cls = 'nv-day nv-day--missed'; title = fmtYmd(d) + ': verpasst'; }
-                                  else if (past) { cls = 'nv-day nv-day--planned'; title = fmtYmd(d) + ': nicht erfasst'; }
-                                  const isAdminClickable = userRole === Role.Admin && past && !!onAdminRetroSetDay;
-                                  if (isAdminClickable) {
-                                    return (
-                                      <button
-                                        key={d}
-                                        className={cls}
-                                        data-tooltip={title + ' – klicken zum Nachtragen'}
-                                        style={{ cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
-                                        onClick={() => {
-                                          const assignee = getRoutineAssigneeDisplayName(sch, pool, d);
-                                          const targetUsers = users.filter(u => u.isActive && u.role === sch.targetRole);
-                                          const defaultPerson = targetUsers.find(u => u.name === assignee)?.name || targetUsers[0]?.name || userName;
-                                          setRetroPerson(defaultPerson);
-                                          setRetroChecked(new Set(s2.doneSubtaskIds));
-                                          setRetroModal({ scheduleId: sch.id, ymd: d, sch, isDone: s2.complete });
-                                        }}
-                                      >{dn}</button>
-                                    );
-                                  }
-                                  return <span key={d} className={cls} data-tooltip={title}>{dn}</span>;
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Admin-Nachtragen-Modal */}
-      {retroModal && (() => {
-        const subtasks = retroModal.sch.subtasks || [];
-        const hasSubtasks = subtasks.length > 0;
-        const allChecked = hasSubtasks && subtasks.every(s => retroChecked.has(s.id));
-        const noneChecked = hasSubtasks && subtasks.every(s => !retroChecked.has(s.id));
-        const toggleSub = (id: string) => setRetroChecked(prev => {
-          const next = new Set(prev);
-          next.has(id) ? next.delete(id) : next.add(id);
-          return next;
-        });
-        const handleSave = () => {
-          if (hasSubtasks) {
-            onAdminRetroSetDay!(retroModal.scheduleId, retroModal.ymd, retroChecked.size > 0 ? retroPerson : null, Array.from(retroChecked));
-          } else {
-            onAdminRetroSetDay!(retroModal.scheduleId, retroModal.ymd, retroPerson);
-          }
-          setRetroModal(null);
-        };
         return (
-          <div
-            onClick={() => setRetroModal(null)}
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
-          >
+          <div key={schedule.id} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 10, marginBottom: 14, overflow: 'hidden' }}>
+            {/* Section header */}
             <div
-              ref={retroModalRef}
-              onClick={e => e.stopPropagation()}
-              style={{ background: 'var(--bg-secondary)', borderRadius: 14, boxShadow: '0 12px 40px rgba(0,0,0,0.25)', width: '100%', maxWidth: 440, overflow: 'hidden' }}
+              onClick={() => toggleCollapse(schedule.id)}
+              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', cursor: 'pointer', borderBottom: isOpen ? '1px solid var(--border)' : 'none', background: 'var(--bg-secondary)' }}
             >
-              {/* Header */}
-              <div style={{ padding: '13px 18px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-primary)' }}>
-                <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>
-                  <i className="ti ti-calendar-check" style={{ marginRight: 7 }} />
-                  Eintrag nachtragen
-                </span>
-                <button onClick={() => setRetroModal(null)} style={{ background: 'none', border: 'none', fontSize: 22, lineHeight: 1, color: 'var(--text-muted)', cursor: 'pointer' }}>×</button>
+              <span style={{ fontSize: 13, color: 'var(--text-secondary)', userSelect: 'none' }}>{isOpen ? '▾' : '▸'}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>{schedule.title}</span>
+                <span style={{ marginLeft: 10, fontSize: 12, color: 'var(--text-secondary)' }}>{schedule.area || schedule.location} · {cadenceLabel(schedule as any)}</span>
               </div>
-
-              {/* Body */}
-              <div style={{ padding: '1rem 1.2rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                {/* Titel + Datum */}
-                <div style={{ background: 'var(--bg-tertiary)', borderRadius: 8, padding: '10px 14px', fontSize: 13 }}>
-                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 3 }}>{retroModal.sch.title}</div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>{fmtYmd(retroModal.ymd)}</div>
-                </div>
-
-                {/* Person */}
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Erledigt von</label>
-                  <select
-                    value={retroPerson}
-                    onChange={e => setRetroPerson(e.target.value)}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: 13.5, fontFamily: 'inherit' }}
-                  >
-                    {users.filter(u => u.isActive && u.role === retroModal.sch.targetRole).map(u => (
-                      <option key={u.name} value={u.name}>{u.name}</option>
-                    ))}
-                    {users.filter(u => u.isActive && u.role === Role.Admin).map(u => (
-                      <option key={u.name + '-admin'} value={u.name}>{u.name} (Admin)</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Subtasks */}
-                {hasSubtasks && (
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                      <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>Erledigte Punkte</label>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button
-                          type="button"
-                          onClick={() => setRetroChecked(new Set(subtasks.map(s => s.id)))}
-                          style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 600 }}
-                        >Alle</button>
-                        <button
-                          type="button"
-                          onClick={() => setRetroChecked(new Set())}
-                          style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 600 }}
-                        >Keine</button>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {subtasks.map(sub => {
-                        const checked = retroChecked.has(sub.id);
-                        return (
-                          <label
-                            key={sub.id}
-                            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, background: checked ? 'color-mix(in srgb, var(--accent-primary) 10%, transparent)' : 'var(--bg-primary)', border: `1px solid ${checked ? 'var(--accent-primary)' : 'var(--border)'}`, cursor: 'pointer', transition: 'all 0.12s' }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleSub(sub.id)}
-                              style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--accent-primary)', flexShrink: 0 }}
-                            />
-                            <span style={{ fontSize: 13.5, color: 'var(--text-primary)', flex: 1 }}>{sub.label || '—'}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+                {done > 0 && <span style={{ background: '#D1FAE5', color: '#065F46', borderRadius: 6, padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>✓ {done} erledigt</span>}
+                {missed > 0 && <span style={{ background: '#FEE2E2', color: '#991B1B', borderRadius: 6, padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>✗ {missed} vergessen</span>}
+                {done === 0 && missed === 0 && <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{rows.length} geplant</span>}
               </div>
+            </div>
 
-              {/* Footer */}
-              <div style={{ padding: '0.85rem 1.2rem', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', gap: 8, background: 'var(--bg-primary)' }}>
-                <div>
-                  {(retroModal.isDone || (!noneChecked && hasSubtasks)) && (
-                    <button
-                      onClick={() => { onAdminRetroSetDay!(retroModal.scheduleId, retroModal.ymd, null, []); setRetroModal(null); }}
-                      style={{ background: 'none', border: '1px solid #dc2626', color: '#dc2626', borderRadius: 7, padding: '6px 12px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
-                    >
-                      Alle entfernen
-                    </button>
-                  )}
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={() => setRetroModal(null)} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 16px', cursor: 'pointer', fontSize: 13, color: 'var(--text-secondary)' }}>Abbrechen</button>
-                  <button
-                    disabled={!retroPerson || (hasSubtasks && retroChecked.size === 0)}
-                    onClick={handleSave}
-                    style={{ background: 'var(--accent-primary)', border: 'none', borderRadius: 8, padding: '7px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#fff', opacity: (!retroPerson || (hasSubtasks && retroChecked.size === 0)) ? 0.5 : 1 }}
-                  >
-                    <i className="ti ti-check" style={{ marginRight: 5 }} />
-                    Speichern
-                  </button>
-                </div>
+            {/* Table */}
+            {isOpen && (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', fontSize: 12 }}>
+                      <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>Tag</th>
+                      <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>Datum</th>
+                      <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600 }}>Status</th>
+                      <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600 }}>Erledigt von</th>
+                      <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>Uhrzeit</th>
+                      <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600 }}>Kommentar</th>
+                      {isAdmin && <th style={{ padding: '7px 14px', textAlign: 'center', fontWeight: 600, width: 50 }}></th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map(row => {
+                      const main = row.completions[0];
+                      const bg = row.status === 'missed' ? '#FFF5F5' : row.status === 'done' ? undefined : undefined;
+                      return (
+                        <tr key={row.ymd} style={{ borderTop: '1px solid var(--border)', background: bg || undefined }}>
+                          <td style={{ padding: '8px 14px', color: 'var(--text-secondary)', fontWeight: 500, whiteSpace: 'nowrap' }}>{weekdayShort(row.ymd)}</td>
+                          <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', color: 'var(--text-primary)', fontWeight: row.ymd === today ? 700 : 400 }}>{fmtDate(row.ymd)}</td>
+                          <td style={{ padding: '8px 14px' }}>{statusBadge(row.status)}</td>
+                          <td style={{ padding: '8px 14px', color: 'var(--text-primary)' }}>
+                            {row.status === 'done' ? (
+                              <span>
+                                {row.completions.map((c, i) => (
+                                  <span key={i}>
+                                    {i > 0 && <span style={{ color: 'var(--text-secondary)' }}>, </span>}
+                                    {c.completedBy}
+                                    {c.subtaskId && <span style={{ color: 'var(--text-secondary)', fontSize: 11 }}> (Teilaufg.)</span>}
+                                  </span>
+                                ))}
+                                {row.isCorrected && (
+                                  <span
+                                    title={main?.correctedBy ? `Korrigiert von ${main.correctedBy} am ${fmtDateTime(main.correctedAt || '')}: ${main.correctionNote || ''}` : 'Korrigiert'}
+                                    style={{ marginLeft: 6, background: '#FEF3C7', color: '#92400E', borderRadius: 4, padding: '1px 5px', fontSize: 11, cursor: 'help', fontWeight: 600 }}>
+                                    korr.
+                                  </span>
+                                )}
+                              </span>
+                            ) : '—'}
+                          </td>
+                          <td style={{ padding: '8px 14px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                            {row.status === 'done' && main?.completedAt ? fmtTime(main.completedAt) : '—'}
+                          </td>
+                          <td style={{ padding: '8px 14px', color: 'var(--text-secondary)', maxWidth: 240 }}>
+                            {row.status === 'done' && main?.comment ? (
+                              <span style={{ fontStyle: 'italic' }}>„{main.comment}"</span>
+                            ) : '—'}
+                          </td>
+                          {isAdmin && (
+                            <td style={{ padding: '8px 14px', textAlign: 'center' }}>
+                              {row.status === 'done' ? (
+                                <button
+                                  onClick={() => openCorrection(schedule.id, row)}
+                                  title="Eintrag korrigieren"
+                                  style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 13 }}>
+                                  ✎
+                                </button>
+                              ) : row.status === 'missed' ? (
+                                <button
+                                  onClick={() => openRetro(schedule.id, row.ymd)}
+                                  title="Erledigung nachtragen"
+                                  style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', color: '#059669', fontSize: 13, fontWeight: 700 }}>
+                                  +
+                                </button>
+                              ) : null}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Correction Modal */}
+      {corrModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'var(--bg-primary)', borderRadius: 12, padding: 28, minWidth: 380, maxWidth: 480, width: '90vw', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Eintrag korrigieren</h3>
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text-secondary)' }}>
+              {schedules.find(s => s.id === corrModal.scheduleId)?.title} · {fmtDate(corrModal.originalDate)}
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                Erledigt von
+                <select value={corrPerson} onChange={e => setCorrPerson(e.target.value)}
+                  style={{ display: 'block', width: '100%', marginTop: 4, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 7, padding: '7px 10px', color: 'var(--text-primary)', fontSize: 14 }}>
+                  {corrModal.users.map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </label>
+              <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                Datum
+                <input type="date" value={corrDate} onChange={e => setCorrDate(e.target.value)}
+                  style={{ display: 'block', width: '100%', marginTop: 4, boxSizing: 'border-box', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 7, padding: '7px 10px', color: 'var(--text-primary)', fontSize: 14 }} />
+              </label>
+              <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                Uhrzeit (optional)
+                <input type="time" value={corrTime} onChange={e => setCorrTime(e.target.value)}
+                  style={{ display: 'block', width: '100%', marginTop: 4, boxSizing: 'border-box', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 7, padding: '7px 10px', color: 'var(--text-primary)', fontSize: 14 }} />
+              </label>
+              <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                Kommentar
+                <textarea value={corrComment} onChange={e => setCorrComment(e.target.value)} rows={2}
+                  style={{ display: 'block', width: '100%', marginTop: 4, boxSizing: 'border-box', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 7, padding: '7px 10px', color: 'var(--text-primary)', fontSize: 14, resize: 'vertical' }} />
+              </label>
+              <p style={{ margin: 0, fontSize: 11, color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', borderRadius: 6, padding: '7px 10px' }}>
+                Die Korrektur wird mit Ihrem Namen ({userName}) und Zeitstempel gespeichert. Der ursprüngliche Eintrag bleibt im Audit-Trail sichtbar.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 22 }}>
+              <button onClick={deleteEntry}
+                style={{ background: '#FEE2E2', border: 'none', borderRadius: 7, padding: '8px 14px', cursor: 'pointer', color: '#991B1B', fontWeight: 600, fontSize: 13 }}>
+                🗑 Löschen
+              </button>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => setCorrModal(null)}
+                  style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 7, padding: '8px 16px', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 13 }}>
+                  Abbrechen
+                </button>
+                <button onClick={saveCorrection} disabled={!corrPerson}
+                  style={{ background: '#2563EB', border: 'none', borderRadius: 7, padding: '8px 18px', cursor: 'pointer', color: '#fff', fontWeight: 600, fontSize: 13, opacity: !corrPerson ? 0.5 : 1 }}>
+                  Speichern
+                </button>
               </div>
             </div>
           </div>
-        );
-      })()}
+        </div>
+      )}
+
+      {/* Retro-Add Modal */}
+      {retroModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'var(--bg-primary)', borderRadius: 12, padding: 28, minWidth: 360, maxWidth: 460, width: '90vw', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Erledigung nachtragen</h3>
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text-secondary)' }}>
+              {schedules.find(s => s.id === retroModal.scheduleId)?.title} · {fmtDate(retroModal.ymd)}
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                Erledigt von
+                <select value={retroPerson} onChange={e => setRetroPerson(e.target.value)}
+                  style={{ display: 'block', width: '100%', marginTop: 4, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 7, padding: '7px 10px', color: 'var(--text-primary)', fontSize: 14 }}>
+                  {retroModal.users.map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </label>
+              <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                Uhrzeit (optional)
+                <input type="time" value={retroTime} onChange={e => setRetroTime(e.target.value)}
+                  style={{ display: 'block', width: '100%', marginTop: 4, boxSizing: 'border-box', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 7, padding: '7px 10px', color: 'var(--text-primary)', fontSize: 14 }} />
+              </label>
+              <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                Kommentar (optional)
+                <textarea value={retroComment} onChange={e => setRetroComment(e.target.value)} rows={2}
+                  style={{ display: 'block', width: '100%', marginTop: 4, boxSizing: 'border-box', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 7, padding: '7px 10px', color: 'var(--text-primary)', fontSize: 14, resize: 'vertical' }} />
+              </label>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22 }}>
+              <button onClick={() => setRetroModal(null)}
+                style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 7, padding: '8px 16px', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 13 }}>
+                Abbrechen
+              </button>
+              <button onClick={saveRetro} disabled={!retroPerson}
+                style={{ background: '#059669', border: 'none', borderRadius: 7, padding: '8px 18px', cursor: 'pointer', color: '#fff', fontWeight: 600, fontSize: 13, opacity: !retroPerson ? 0.5 : 1 }}>
+                Nachtragen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

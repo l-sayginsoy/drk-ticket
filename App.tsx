@@ -2426,6 +2426,55 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
     });
   };
 
+  /** Korrigiert oder löscht einen bestehenden Erledigt-Eintrag. Audit-Trail wird gesetzt. */
+  const handleCorrectCompletion = (
+    scheduleId: string,
+    originalDate: string,
+    patch: { completedBy?: string; newDate?: string; newTime?: string; comment?: string; deleteEntry?: boolean },
+  ) => {
+    const correctorName = currentUser.name;
+    const correctedAt = new Date().toISOString();
+    setAppSettings(prev => {
+      const completions = prev.routineDayCompletions || [];
+      if (patch.deleteEntry) {
+        const updated = completions.filter(c => !(c.scheduleId === scheduleId && c.date === originalDate));
+        const next: AppSettings = { ...prev, routineDayCompletions: updated };
+        void setDoc(doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS), { value: JSON.parse(JSON.stringify(next)), updated_at: new Date().toISOString() });
+        return next;
+      }
+      const newDate = patch.newDate || originalDate;
+      const updated = completions.map(c => {
+        if (!(c.scheduleId === scheduleId && c.date === originalDate)) return c;
+        const changes: string[] = [];
+        if (patch.completedBy && patch.completedBy !== c.completedBy) changes.push(`Person: ${c.completedBy} → ${patch.completedBy}`);
+        if (patch.newDate && patch.newDate !== c.date) changes.push(`Datum: ${c.date} → ${patch.newDate}`);
+        if (patch.newTime) changes.push('Uhrzeit geändert');
+        if (patch.comment !== undefined && patch.comment !== c.comment) changes.push('Kommentar geändert');
+        const patchedCompletedAt = patch.newTime
+          ? (() => {
+              const [h, m] = patch.newTime!.split(':').map(Number);
+              const d = new Date(c.completedAt || new Date().toISOString());
+              d.setHours(h, m, 0, 0);
+              return d.toISOString();
+            })()
+          : c.completedAt;
+        return {
+          ...c,
+          date: newDate,
+          completedBy: patch.completedBy ?? c.completedBy,
+          completedAt: patchedCompletedAt,
+          comment: patch.comment !== undefined ? patch.comment : c.comment,
+          correctedBy: correctorName,
+          correctedAt,
+          correctionNote: changes.join('; ') || 'Korrektur',
+        };
+      });
+      const next: AppSettings = { ...prev, routineDayCompletions: updated };
+      void setDoc(doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS), { value: JSON.parse(JSON.stringify(next)), updated_at: new Date().toISOString() });
+      return next;
+    });
+  };
+
   /** Hakt eine EINZELNE Unter-Aufgabe für einen Tag ab bzw. wieder zurück (completedBy=null → entfernen). */
   const handleToggleRoutineSubtask = (scheduleId: string, ymd: string, subtaskId: string, completedBy: string | null, comment?: string) => {
     const rest = (appSettings.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd && c.subtaskId === subtaskId));
@@ -3952,6 +4001,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
               onSetCompletion={handleSetRoutineCompletion}
               onToggleSubtask={handleToggleRoutineSubtask}
               onAdminRetroSetDay={handleAdminRetroSetDay}
+              onCorrectCompletion={handleCorrectCompletion}
             />
           );
         case 'erledigt': return <ErledigtTableView

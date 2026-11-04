@@ -111,6 +111,11 @@ export interface RoutineDayCompletion {
   subtaskId?: string;
   /** Optionaler Freitext-Kommentar zur Erledigung (wird in die Abschluss-Mail aufgenommen). */
   comment?: string;
+  /** Audit-Trail: Wer hat diesen Eintrag nachträglich korrigiert? */
+  correctedBy?: string;
+  correctedAt?: string; // ISO
+  /** Lesbare Beschreibung was geändert wurde (z.B. "Person: Ali → Torsten") */
+  correctionNote?: string;
 }
 
 export interface AppSettings {
