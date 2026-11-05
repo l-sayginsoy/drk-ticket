@@ -314,8 +314,10 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
         const daysAgo = Math.round((today.getTime() - parseYmdLocal(currentDue!).getTime()) / 86400000);
         sortKey = -1000 + daysAgo;
       } else if (currentDueDone && !dueToday && !windowDate) {
-        status = 'done';
-        sortKey = 500 + Math.min(daysUntil, 500);
+        // Letzter Fälligkeitstag war erledigt, aber heute kein Fälligkeitstag:
+        // kein ERLEDIGT-Badge zeigen (wäre missverständlich), einfach nächsten Termin anzeigen.
+        status = 'upcoming';
+        sortKey = 100 + Math.min(daysUntil, 500);
       } else if ((dueToday || windowDate) && !isDone) {
         status = dueToday ? 'today' : 'window';
         sortKey = dueToday ? 0 : 1;
