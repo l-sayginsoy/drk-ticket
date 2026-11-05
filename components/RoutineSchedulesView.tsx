@@ -504,38 +504,41 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                       const SHORT: Record<WeekdayKey, string> = { mo:'Mo', di:'Di', mi:'Mi', do:'Do', fr:'Fr', sa:'Sa', so:'So' };
                       const weekdays: WeekdayKey[] = rec?.type === 'weekdays'
                         ? (Array.isArray(rec.weekdays) ? rec.weekdays : []).slice().sort((a: WeekdayKey, b: WeekdayKey) => ORDER.indexOf(a) - ORDER.indexOf(b))
-                        : ['mo','di','mi','do','fr'] as WeekdayKey[]; // daily = all workdays
+                        : ['mo','di','mi','do','fr'] as WeekdayKey[];
                       const intervalLabel = rec?.type === 'weekdays' && Number(rec.intervalWeeks || 1) > 1
-                        ? `Alle ${rec.intervalWeeks} Wo` : null;
+                        ? `${rec.intervalWeeks}W` : null;
                       return (
-                        <div>
-                          {intervalLabel && <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4, letterSpacing: '0.05em' }}>{intervalLabel}</div>}
-                          <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-                            {weekdays.map(dayKey => {
-                              const chipYmd = ymdForWeekdayInWeekContaining(dayKey, parseYmdLocal(todayYmd));
-                              const done = s.enabled && completions.some(c => c.scheduleId === s.id && c.date === chipYmd);
-                              const isToday = chipYmd === todayYmd;
-                              const isPast = chipYmd < todayYmd;
-                              let bg: string, color: string, border: string, fontW = 600;
-                              if (done && isToday) {
-                                bg = '#059669'; color = '#fff'; border = '#059669';
-                              } else if (done) {
-                                bg = '#D1FAE5'; color = '#065F46'; border = '#6EE7B7';
-                              } else if (isToday && status !== 'done' && status !== 'upcoming') {
-                                bg = '#FFF7ED'; color = '#EA580C'; border = '#FED7AA';
-                              } else if (isPast) {
-                                bg = 'transparent'; color = '#D1D5DB'; border = 'transparent'; fontW = 500;
-                              } else {
-                                bg = 'var(--bg-tertiary)'; color = 'var(--text-secondary)'; border = 'var(--border)';
-                              }
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'nowrap' }}>
+                          {intervalLabel && (
+                            <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, marginRight: 2, flexShrink: 0, whiteSpace: 'nowrap' }}>{intervalLabel} ·</span>
+                          )}
+                          {weekdays.map(dayKey => {
+                            const chipYmd = ymdForWeekdayInWeekContaining(dayKey, parseYmdLocal(todayYmd));
+                            const isToday = chipYmd === todayYmd;
+                            const doneToday = isToday && s.enabled && completions.some(c => c.scheduleId === s.id && c.date === chipYmd);
+                            const dueTodayOpen = isToday && !doneToday && (status === 'today');
+
+                            if (doneToday) {
                               return (
-                                <span key={dayKey} style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: '3px 7px', borderRadius: 5, fontSize: 11, fontWeight: fontW, background: bg, color, border: `1.5px solid ${border}`, transition: 'all 0.15s' }}>
-                                  {done && isToday && <span style={{ fontSize: 10 }}>✓</span>}
+                                <span key={dayKey} style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: '3px 8px', borderRadius: 5, fontSize: 11, fontWeight: 700, background: '#059669', color: '#fff', flexShrink: 0 }}>
+                                  <span style={{ fontSize: 9 }}>✓</span>{SHORT[dayKey]}
+                                </span>
+                              );
+                            } else if (dueTodayOpen) {
+                              return (
+                                <span key={dayKey} style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 5, fontSize: 11, fontWeight: 700, background: '#FFF7ED', color: '#EA580C', border: '1.5px solid #FED7AA', flexShrink: 0 }}>
                                   {SHORT[dayKey]}
                                 </span>
                               );
-                            })}
-                          </div>
+                            } else {
+                              // Alle anderen Tage (vergangen, zukünftig): neutral grau
+                              return (
+                                <span key={dayKey} style={{ fontSize: 11, fontWeight: 500, color: '#9CA3AF', padding: '0 2px', flexShrink: 0 }}>
+                                  {SHORT[dayKey]}
+                                </span>
+                              );
+                            }
+                          })}
                         </div>
                       );
                     })()}
