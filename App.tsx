@@ -3975,6 +3975,8 @@ const deleteTicketFromFirebase = (ticketId: string) => {
             onSaveSchedule={handleSaveRoutineSchedule}
             onDeleteSchedule={handleDeleteRoutineSchedule}
             onToggleSubtask={handleToggleRoutineSubtask}
+            acknowledgedMissedRoutines={appSettings.acknowledgedMissedRoutines || []}
+            onAcknowledgeMissed={handleAcknowledgeMissedRoutine}
             onReorder={(fromId, toId) => {
               setAppSettings(prev => {
                 const list = [...(prev.routineSchedules || [])] as any[];

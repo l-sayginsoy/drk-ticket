@@ -32,6 +32,10 @@ interface RoutineSchedulesViewProps {
   onSaveSchedule: (schedule: RoutineSchedule) => void;
   onDeleteSchedule: (id: string) => void;
   onToggleSubtask?: (scheduleId: string, ymd: string, subtaskId: string, completedBy: string | null, comment?: string) => void;
+  /** Bereits quittierte vergessene Termine (Keys: `${scheduleId}|${ymd}`) */
+  acknowledgedMissedRoutines?: string[];
+  /** Verpassten Termin quittieren (Meldung zur Kenntnis nehmen) */
+  onAcknowledgeMissed?: (scheduleId: string, ymd: string) => void;
 }
 
 const weekdayLabel: Record<WeekdayKey, string> = {
@@ -183,7 +187,8 @@ function compactRhythm(s: RoutineSchedule & { recurrence?: any }): string {
 }
 
 export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
-  const { userRole, userName, schedules, users, rpHolidayYmdList = [], onReorder, completions, onComplete, onUncomplete, onSaveSchedule, onDeleteSchedule, onToggleSubtask } = props;
+  const { userRole, userName, schedules, users, rpHolidayYmdList = [], onReorder, completions, onComplete, onUncomplete, onSaveSchedule, onDeleteSchedule, onToggleSubtask, acknowledgedMissedRoutines = [], onAcknowledgeMissed } = props;
+  const acknowledgedSet = useMemo(() => new Set(acknowledgedMissedRoutines), [acknowledgedMissedRoutines]);
   const [dragId, setDragId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ schedule: RoutineSchedule & { recurrence?: any }; isNew: boolean } | null>(null);
   const [subPop, setSubPop] = useState<{ schedId: string; activeDate: string } | null>(null);
@@ -302,7 +307,8 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
           : completions.some(c => c.scheduleId === s.id && c.date === currentDue && !c.subtaskId)
         : false;
 
-      const isOverdue = !dueToday && !windowDate && !!currentDue && currentDue < todayYmd && !isDone && !currentDueDone;
+      const isAcknowledged = !!currentDue && acknowledgedSet.has(`${s.id}|${currentDue}`);
+      const isOverdue = !dueToday && !windowDate && !!currentDue && currentDue < todayYmd && !isDone && !currentDueDone && !isAcknowledged;
       if (isOverdue) {
         status = 'overdue';
         const daysAgo = Math.round((today.getTime() - parseYmdLocal(currentDue!).getTime()) / 86400000);
@@ -497,6 +503,15 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                         {nextDate && nextDate !== currentDue ? (
                           <div className="rs2-next-sub">Nächster: {formatDe(nextDate)} · {daysRelLabel(daysUntil)}</div>
                         ) : null}
+                        {onAcknowledgeMissed && canEdit && (
+                          <button
+                            type="button"
+                            onClick={() => onAcknowledgeMissed(s.id, currentDue)}
+                            style={{ marginTop: 4, background: 'none', border: '1px solid #FCA5A5', borderRadius: 5, padding: '2px 8px', cursor: 'pointer', color: '#DC2626', fontSize: 11, fontWeight: 600, fontFamily: 'inherit' }}
+                            title="Zur Kenntnis genommen – verschwindet aus der Vergessen-Liste">
+                            Zur Kenntnis nehmen
+                          </button>
+                        )}
                       </>
                     ) : status === 'window' && windowDate ? (
                       <>
