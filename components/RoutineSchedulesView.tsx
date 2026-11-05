@@ -355,7 +355,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
         .rs2-stat-chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; border-radius: 20px; font-size: 12px; font-weight: 700; border: 1.5px solid; white-space: nowrap; }
         .rs2-thead {
           display: grid;
-          grid-template-columns: 1fr 175px 185px 148px 72px 40px;
+          grid-template-columns: 1fr 220px 185px 148px 72px 40px;
           padding: 0 0 5px; margin-top: 1.1rem;
           border-bottom: 2px solid var(--border);
         }
@@ -366,7 +366,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
         .rs2-list { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-secondary); box-shadow: 0 1px 4px rgba(0,0,0,0.07); margin-top: 8px; }
         .rs2-row {
           display: grid;
-          grid-template-columns: 1fr 175px 185px 148px 72px 40px;
+          grid-template-columns: 1fr 220px 185px 148px 72px 40px;
           align-items: center; min-height: 68px;
           border-bottom: 1px solid var(--border);
           border-left: 4px solid transparent;
@@ -402,7 +402,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
         button.routine-today-circle--on:hover { filter: brightness(0.9); }
         span.routine-today-circle--on { cursor: default; }
         @media (max-width: 1100px) {
-          .rs2-row, .rs2-thead { grid-template-columns: 1fr 175px 140px 72px 40px; }
+          .rs2-row, .rs2-thead { grid-template-columns: 1fr 220px 140px 72px 40px; }
           .rs2-row .rs2-cell:nth-child(2), .rs2-thead > span:nth-child(2) { display: none; }
         }
         @media (max-width: 700px) {
@@ -508,9 +508,9 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                       const intervalLabel = rec?.type === 'weekdays' && Number(rec.intervalWeeks || 1) > 1
                         ? `${rec.intervalWeeks}W` : null;
                       return (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'nowrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'nowrap' }}>
                           {intervalLabel && (
-                            <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, marginRight: 2, flexShrink: 0, whiteSpace: 'nowrap' }}>{intervalLabel} ·</span>
+                            <span style={{ fontSize: 10.5, color: 'var(--text-muted)', fontWeight: 600, marginRight: 1, flexShrink: 0, whiteSpace: 'nowrap' }}>{intervalLabel} ·</span>
                           )}
                           {weekdays.map(dayKey => {
                             const chipYmd = ymdForWeekdayInWeekContaining(dayKey, parseYmdLocal(todayYmd));
@@ -519,21 +519,23 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                             const dueTodayOpen = isToday && !doneToday && (status === 'today');
 
                             if (doneToday) {
+                              // Helles Grün mit ✓ — gut sichtbar, klar erledigt
                               return (
-                                <span key={dayKey} style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: '3px 8px', borderRadius: 5, fontSize: 11, fontWeight: 700, background: '#059669', color: '#fff', flexShrink: 0 }}>
-                                  <span style={{ fontSize: 9 }}>✓</span>{SHORT[dayKey]}
+                                <span key={dayKey} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '4px 9px', borderRadius: 6, fontSize: 12, fontWeight: 700, background: '#D1FAE5', color: '#065F46', border: '1.5px solid #6EE7B7', flexShrink: 0, lineHeight: 1 }}>
+                                  <span style={{ fontSize: 11 }}>✓</span>{SHORT[dayKey]}
                                 </span>
                               );
                             } else if (dueTodayOpen) {
+                              // Orange — heute fällig, noch offen
                               return (
-                                <span key={dayKey} style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 5, fontSize: 11, fontWeight: 700, background: '#FFF7ED', color: '#EA580C', border: '1.5px solid #FED7AA', flexShrink: 0 }}>
+                                <span key={dayKey} style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 9px', borderRadius: 6, fontSize: 12, fontWeight: 700, background: '#FFF7ED', color: '#C2410C', border: '1.5px solid #FDBA74', flexShrink: 0, lineHeight: 1 }}>
                                   {SHORT[dayKey]}
                                 </span>
                               );
                             } else {
-                              // Alle anderen Tage (vergangen, zukünftig): neutral grau
+                              // Alle anderen Tage: gedimmte Box (sichtbar, aber klar inaktiv)
                               return (
-                                <span key={dayKey} style={{ fontSize: 11, fontWeight: 500, color: '#9CA3AF', padding: '0 2px', flexShrink: 0 }}>
+                                <span key={dayKey} style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 7px', borderRadius: 6, fontSize: 12, fontWeight: 500, background: 'var(--bg-secondary)', color: '#9CA3AF', border: '1px solid var(--border)', flexShrink: 0, lineHeight: 1 }}>
                                   {SHORT[dayKey]}
                                 </span>
                               );
