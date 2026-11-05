@@ -294,11 +294,22 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
       let status: RowStatus;
       let sortKey: number;
 
-      const isOverdue = !dueToday && !windowDate && !!currentDue && currentDue < todayYmd && !isDone;
+      // Letzter Fälligkeitstag war erledigt, auch wenn er nicht mehr das activeDueDate ist
+      // (z. B. wöchentlich: gestern fällig + erledigt → activeDueDate=null, isDone=false → falsches "Vergessen")
+      const currentDueDone = !isDone && !!currentDue
+        ? subtasks.length > 0
+          ? routineDayStatus(s, currentDue!, completions).complete
+          : completions.some(c => c.scheduleId === s.id && c.date === currentDue && !c.subtaskId)
+        : false;
+
+      const isOverdue = !dueToday && !windowDate && !!currentDue && currentDue < todayYmd && !isDone && !currentDueDone;
       if (isOverdue) {
         status = 'overdue';
         const daysAgo = Math.round((today.getTime() - parseYmdLocal(currentDue!).getTime()) / 86400000);
         sortKey = -1000 + daysAgo;
+      } else if (currentDueDone && !dueToday && !windowDate) {
+        status = 'done';
+        sortKey = 500 + Math.min(daysUntil, 500);
       } else if ((dueToday || windowDate) && !isDone) {
         status = dueToday ? 'today' : 'window';
         sortKey = dueToday ? 0 : 1;
