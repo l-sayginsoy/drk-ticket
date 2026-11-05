@@ -497,20 +497,47 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                     {(() => {
                       const rec = (s as any).recurrence;
                       const isWeekdays = rec?.type === 'weekdays' || rec?.type === 'daily' || !rec;
+
+                      // Lesbares Format für nicht-wöchentliche Rhythmen
                       if (!isWeekdays) {
-                        return <span style={{ color: 'var(--text-secondary)', fontSize: 12.5, fontWeight: 500 }}>{formatInterval(s)}</span>;
+                        let label = '—';
+                        if (!rec || rec.type === 'daily') label = 'Täglich';
+                        else if (rec.type === 'weekly') {
+                          const n = Math.max(1, Number(rec.intervalWeeks || 1));
+                          label = n === 1 ? 'Wöchentlich' : `Alle ${n} Wochen`;
+                        } else if (rec.type === 'monthly') {
+                          const n = Math.max(1, Number(rec.intervalMonths || 1));
+                          const dom = Math.max(1, Math.min(31, Number(rec.dayOfMonth || 1)));
+                          label = n === 1 ? `Monatlich · ${dom}.` : `Alle ${n} Monate · ${dom}.`;
+                        } else if (rec.type === 'yearly') {
+                          const mo = Math.max(1, Math.min(12, Number(rec.month || 1)));
+                          const d = Math.max(1, Math.min(31, Number(rec.day || 1)));
+                          const mn = ['Jan.','Feb.','Mär.','Apr.','Mai','Jun.','Jul.','Aug.','Sep.','Okt.','Nov.','Dez.'][mo - 1];
+                          label = `Jährlich · ${d}. ${mn}`;
+                        }
+                        return <span style={{ color: 'var(--text-secondary)', fontSize: 12.5, fontWeight: 500 }}>{label}</span>;
                       }
+
                       const ORDER: WeekdayKey[] = ['mo','di','mi','do','fr','sa','so'];
                       const SHORT: Record<WeekdayKey, string> = { mo:'Mo', di:'Di', mi:'Mi', do:'Do', fr:'Fr', sa:'Sa', so:'So' };
                       const weekdays: WeekdayKey[] = rec?.type === 'weekdays'
                         ? (Array.isArray(rec.weekdays) ? rec.weekdays : []).slice().sort((a: WeekdayKey, b: WeekdayKey) => ORDER.indexOf(a) - ORDER.indexOf(b))
                         : ['mo','di','mi','do','fr'] as WeekdayKey[];
-                      const intervalLabel = rec?.type === 'weekdays' && Number(rec.intervalWeeks || 1) > 1
-                        ? `${rec.intervalWeeks}W` : null;
+                      const itvWeeks = Number(rec?.intervalWeeks || 1);
+                      const intervalLabel = rec?.type === 'weekdays' && itvWeeks > 1
+                        ? (itvWeeks === 2 ? 'Alle 2 Wo' : `Alle ${itvWeeks} Wo`) : null;
+
+                      // Einheitliche Chip-Breite: alle gleich breit (38px), Inhalt zentriert
+                      const chipBase: React.CSSProperties = {
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        width: 38, height: 26, borderRadius: 6, fontSize: 11.5, fontWeight: 700,
+                        flexShrink: 0, lineHeight: 1, boxSizing: 'border-box',
+                      };
+
                       return (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'nowrap' }}>
                           {intervalLabel && (
-                            <span style={{ fontSize: 10.5, color: 'var(--text-muted)', fontWeight: 600, marginRight: 1, flexShrink: 0, whiteSpace: 'nowrap' }}>{intervalLabel} ·</span>
+                            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, flexShrink: 0, whiteSpace: 'nowrap' }}>{intervalLabel} ·</span>
                           )}
                           {weekdays.map(dayKey => {
                             const chipYmd = ymdForWeekdayInWeekContaining(dayKey, parseYmdLocal(todayYmd));
@@ -519,23 +546,20 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                             const dueTodayOpen = isToday && !doneToday && (status === 'today');
 
                             if (doneToday) {
-                              // Helles Grün mit ✓ — gut sichtbar, klar erledigt
                               return (
-                                <span key={dayKey} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '4px 9px', borderRadius: 6, fontSize: 12, fontWeight: 700, background: '#D1FAE5', color: '#065F46', border: '1.5px solid #6EE7B7', flexShrink: 0, lineHeight: 1 }}>
-                                  {SHORT[dayKey]}<span style={{ fontSize: 11 }}>✓</span>
+                                <span key={dayKey} style={{ ...chipBase, background: '#D1FAE5', color: '#065F46', border: '1.5px solid #6EE7B7', gap: 2 }}>
+                                  {SHORT[dayKey]}<span style={{ fontSize: 10 }}>✓</span>
                                 </span>
                               );
                             } else if (dueTodayOpen) {
-                              // Orange — heute fällig, noch offen
                               return (
-                                <span key={dayKey} style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 9px', borderRadius: 6, fontSize: 12, fontWeight: 700, background: '#FFF7ED', color: '#C2410C', border: '1.5px solid #FDBA74', flexShrink: 0, lineHeight: 1 }}>
+                                <span key={dayKey} style={{ ...chipBase, background: '#FFF7ED', color: '#C2410C', border: '1.5px solid #FDBA74' }}>
                                   {SHORT[dayKey]}
                                 </span>
                               );
                             } else {
-                              // Alle anderen Tage: gedimmte Box (sichtbar, aber klar inaktiv)
                               return (
-                                <span key={dayKey} style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 7px', borderRadius: 6, fontSize: 12, fontWeight: 500, background: 'var(--bg-secondary)', color: '#9CA3AF', border: '1px solid var(--border)', flexShrink: 0, lineHeight: 1 }}>
+                                <span key={dayKey} style={{ ...chipBase, background: 'var(--bg-secondary)', color: '#9CA3AF', border: '1px solid var(--border)' }}>
                                   {SHORT[dayKey]}
                                 </span>
                               );
