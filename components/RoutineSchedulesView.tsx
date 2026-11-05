@@ -355,7 +355,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
         .rs2-stat-chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; border-radius: 20px; font-size: 12px; font-weight: 700; border: 1.5px solid; white-space: nowrap; }
         .rs2-thead {
           display: grid;
-          grid-template-columns: 1fr 120px 185px 148px 72px 40px;
+          grid-template-columns: 1fr 175px 185px 148px 72px 40px;
           padding: 0 0 5px; margin-top: 1.1rem;
           border-bottom: 2px solid var(--border);
         }
@@ -366,7 +366,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
         .rs2-list { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-secondary); box-shadow: 0 1px 4px rgba(0,0,0,0.07); margin-top: 8px; }
         .rs2-row {
           display: grid;
-          grid-template-columns: 1fr 120px 185px 148px 72px 40px;
+          grid-template-columns: 1fr 175px 185px 148px 72px 40px;
           align-items: center; min-height: 68px;
           border-bottom: 1px solid var(--border);
           border-left: 4px solid transparent;
@@ -402,7 +402,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
         button.routine-today-circle--on:hover { filter: brightness(0.9); }
         span.routine-today-circle--on { cursor: default; }
         @media (max-width: 1100px) {
-          .rs2-row, .rs2-thead { grid-template-columns: 1fr 185px 140px 72px 40px; }
+          .rs2-row, .rs2-thead { grid-template-columns: 1fr 175px 140px 72px 40px; }
           .rs2-row .rs2-cell:nth-child(2), .rs2-thead > span:nth-child(2) { display: none; }
         }
         @media (max-width: 700px) {
@@ -492,9 +492,53 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                     ) : null}
                   </div>
 
-                  {/* Col 2: Rhythmus */}
-                  <div className="rs2-cell" style={{ color: 'var(--text-secondary)', fontSize: 12.5, fontWeight: 500 }}>
-                    {compactRhythm(s)}
+                  {/* Col 2: Rhythmus / Wochentag-Chips */}
+                  <div className="rs2-cell">
+                    {(() => {
+                      const rec = (s as any).recurrence;
+                      const isWeekdays = rec?.type === 'weekdays' || rec?.type === 'daily' || !rec;
+                      if (!isWeekdays) {
+                        return <span style={{ color: 'var(--text-secondary)', fontSize: 12.5, fontWeight: 500 }}>{compactRhythm(s)}</span>;
+                      }
+                      const ORDER: WeekdayKey[] = ['mo','di','mi','do','fr','sa','so'];
+                      const SHORT: Record<WeekdayKey, string> = { mo:'Mo', di:'Di', mi:'Mi', do:'Do', fr:'Fr', sa:'Sa', so:'So' };
+                      const weekdays: WeekdayKey[] = rec?.type === 'weekdays'
+                        ? (Array.isArray(rec.weekdays) ? rec.weekdays : []).slice().sort((a: WeekdayKey, b: WeekdayKey) => ORDER.indexOf(a) - ORDER.indexOf(b))
+                        : ['mo','di','mi','do','fr'] as WeekdayKey[]; // daily = all workdays
+                      const intervalLabel = rec?.type === 'weekdays' && Number(rec.intervalWeeks || 1) > 1
+                        ? `Alle ${rec.intervalWeeks} Wo` : null;
+                      return (
+                        <div>
+                          {intervalLabel && <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4, letterSpacing: '0.05em' }}>{intervalLabel}</div>}
+                          <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                            {weekdays.map(dayKey => {
+                              const chipYmd = ymdForWeekdayInWeekContaining(dayKey, parseYmdLocal(todayYmd));
+                              const done = s.enabled && completions.some(c => c.scheduleId === s.id && c.date === chipYmd);
+                              const isToday = chipYmd === todayYmd;
+                              const isPast = chipYmd < todayYmd;
+                              let bg: string, color: string, border: string, fontW = 600;
+                              if (done && isToday) {
+                                bg = '#059669'; color = '#fff'; border = '#059669';
+                              } else if (done) {
+                                bg = '#D1FAE5'; color = '#065F46'; border = '#6EE7B7';
+                              } else if (isToday && status !== 'done' && status !== 'upcoming') {
+                                bg = '#FFF7ED'; color = '#EA580C'; border = '#FED7AA';
+                              } else if (isPast) {
+                                bg = 'transparent'; color = '#D1D5DB'; border = 'transparent'; fontW = 500;
+                              } else {
+                                bg = 'var(--bg-tertiary)'; color = 'var(--text-secondary)'; border = 'var(--border)';
+                              }
+                              return (
+                                <span key={dayKey} style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: '3px 7px', borderRadius: 5, fontSize: 11, fontWeight: fontW, background: bg, color, border: `1.5px solid ${border}`, transition: 'all 0.15s' }}>
+                                  {done && isToday && <span style={{ fontSize: 10 }}>✓</span>}
+                                  {SHORT[dayKey]}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Col 3: Nächster Termin */}
