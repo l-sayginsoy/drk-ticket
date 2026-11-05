@@ -498,7 +498,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                       const rec = (s as any).recurrence;
                       const isWeekdays = rec?.type === 'weekdays' || rec?.type === 'daily' || !rec;
                       if (!isWeekdays) {
-                        return <span style={{ color: 'var(--text-secondary)', fontSize: 12.5, fontWeight: 500 }}>{compactRhythm(s)}</span>;
+                        return <span style={{ color: 'var(--text-secondary)', fontSize: 12.5, fontWeight: 500 }}>{formatInterval(s)}</span>;
                       }
                       const ORDER: WeekdayKey[] = ['mo','di','mi','do','fr','sa','so'];
                       const SHORT: Record<WeekdayKey, string> = { mo:'Mo', di:'Di', mi:'Mi', do:'Do', fr:'Fr', sa:'Sa', so:'So' };
@@ -522,7 +522,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                               // Helles Grün mit ✓ — gut sichtbar, klar erledigt
                               return (
                                 <span key={dayKey} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '4px 9px', borderRadius: 6, fontSize: 12, fontWeight: 700, background: '#D1FAE5', color: '#065F46', border: '1.5px solid #6EE7B7', flexShrink: 0, lineHeight: 1 }}>
-                                  <span style={{ fontSize: 11 }}>✓</span>{SHORT[dayKey]}
+                                  {SHORT[dayKey]}<span style={{ fontSize: 11 }}>✓</span>
                                 </span>
                               );
                             } else if (dueTodayOpen) {
