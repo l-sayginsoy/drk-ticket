@@ -77,18 +77,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     // Badge Veranstaltungen: bevorstehende Events mit noch offenen Aufgaben
     const eventPendingCount = useMemo(() => {
         const todayYmd = new Date().toISOString().slice(0, 10);
-        const allTickets = [...eventTickets, ...completedEventTickets];
-        return drkEvents.filter(ev => {
-            if (ev.archivedAt) return false;
-            if (ev.date < todayYmd) return false; // nur bevorstehende
-            return ev.tasks.some(task => {
-                if (!task.ticketId) return true; // Aufgabe ohne Ticket = offen
-                const t = allTickets.find(t => t.id === task.ticketId);
-                if (!t) return true;
-                return t.status !== Status.Abgeschlossen;
-            });
-        }).length;
-    }, [drkEvents, eventTickets, completedEventTickets]);
+        return drkEvents.filter(ev => !ev.archivedAt && ev.date >= todayYmd).length;
+    }, [drkEvents]);
 
     const parkedCount = useMemo(() => {
         return tickets.filter(t => t.status === Status.Zurueckgestellt).length;
