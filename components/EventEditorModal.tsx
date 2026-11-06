@@ -64,7 +64,7 @@ const EventTaskEditor: React.FC<EventTaskEditorProps> = ({ task, index, users, t
                 <input type="date" value={task.dueDate || eventDate} onChange={e => onPatchTask(task.id, { dueDate: e.target.value })} style={{ ...inputStyle, margin: 0, fontSize: 12 }} />
               </div>
             </div>
-            <input value={task.label === task.assignee ? '' : task.label} onChange={e => onPatchTask(task.id, { label: e.target.value.trim() || task.assignee })} placeholder="Kurzbeschreibung (optional, z. B. Saal vorbereiten)" style={{ ...inputStyle, margin: 0, fontSize: 12, color: 'var(--text-secondary)' }} />
+            <input value={task.label === task.assignee ? '' : task.label} onChange={e => onPatchTask(task.id, { label: e.target.value || task.assignee })} onBlur={e => onPatchTask(task.id, { label: e.target.value.trim() || task.assignee })} placeholder="Kurzbeschreibung (optional, z. B. Saal vorbereiten)" style={{ ...inputStyle, margin: 0, fontSize: 12, color: 'var(--text-secondary)' }} />
           </div>
           <button onClick={() => onRemoveTask(task.id)} title="Entfernen" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: 16, lineHeight: 1, padding: '0 4px', marginTop: 18 }}>×</button>
         </div>
