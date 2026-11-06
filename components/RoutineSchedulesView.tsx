@@ -221,9 +221,9 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
   }, [users]);
 
   const isTechRole = userRole === Role.Technician || userRole === Role.Housekeeping;
-  const [myTasksOnly, setMyTasksOnly] = useState(isTechRole);
-  // Wenn ein anderer Nutzer einloggt → Filter zurücksetzen
-  useEffect(() => { setMyTasksOnly(isTechRole); }, [userName, isTechRole]);
+  const [myTasksOnly, setMyTasksOnly] = useState(false);
+  // Bei Nutzerwechsel immer alle anzeigen (kein Carry-over vom letzten User)
+  useEffect(() => { setMyTasksOnly(false); }, [userName]);
 
   const visible = useMemo(() => {
     // Admins sehen auch deaktivierte Aufträge (ausgegraut), damit sie reaktiviert werden können
@@ -444,7 +444,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
         {isTechRole && (
           <button type="button" onClick={() => setMyTasksOnly(v => !v)}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 8, border: `1.5px solid ${myTasksOnly ? '#DC2626' : 'var(--border)'}`, background: myTasksOnly ? '#DC2626' : 'var(--bg-secondary)', color: myTasksOnly ? '#fff' : 'var(--text-secondary)', fontWeight: 700, fontSize: '0.83rem', cursor: 'pointer', transition: 'all 0.15s' }}>
-            <i className="ti ti-user" aria-hidden />{myTasksOnly ? 'Alle anzeigen' : 'Meine Aufgaben'}
+            <i className="ti ti-user" aria-hidden />{myTasksOnly ? 'Alle anzeigen' : 'Nur meine'}
           </button>
         )}
         {canEdit && (
