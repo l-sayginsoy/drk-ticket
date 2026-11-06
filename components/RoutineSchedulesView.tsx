@@ -222,6 +222,8 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
 
   const isTechRole = userRole === Role.Technician || userRole === Role.Housekeeping;
   const [myTasksOnly, setMyTasksOnly] = useState(isTechRole);
+  // Wenn ein anderer Nutzer einloggt → Filter zurücksetzen
+  useEffect(() => { setMyTasksOnly(isTechRole); }, [userName, isTechRole]);
 
   const visible = useMemo(() => {
     // Admins sehen auch deaktivierte Aufträge (ausgegraut), damit sie reaktiviert werden können
