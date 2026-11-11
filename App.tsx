@@ -7,7 +7,8 @@ import {
 } from './types';
 import { MOCK_TICKETS, MOCK_USERS, MOCK_LOCATIONS, STATUSES, DEFAULT_APP_SETTINGS, MOCK_ASSETS, MOCK_MAINTENANCE_PLANS } from './constants';
 import { db, functions } from './firebase';
-import { collection, doc, setDoc, onSnapshot, getDocs, getDoc, deleteDoc, arrayUnion, query, where, updateDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, onSnapshot, getDocs, getDoc, deleteDoc, arrayUnion, query, where, updateDoc, runTransaction } from 'firebase/firestore';
+import { ROUTINE_COMPLETIONS_DOC_PREFIX, ROUTINE_COMPLETIONS_MIGRATION_DOC, completionKey, flattenCompletionDocs, removeCompletions, writeCompletions } from './utils/routineCompletionStore';
 import { httpsCallable } from 'firebase/functions';
 
 import Sidebar from './components/Sidebar';
@@ -30,7 +31,7 @@ import CompleteOrderDialog from './components/CompleteOrderDialog';
 import ToastContainer, { type Toast } from './components/ToastContainer';
 import DashboardRoutineLinkBar from './components/DashboardRoutineLinkBar';
 import ZurückgestelltView from './components/ZurückgestelltView';
-import { localISODate, parseYmdLocal, isRoutineDueOnCalendarDay, routineDayStatus, isoWeekNumber, getRoutineWindowDays } from './utils/routineHelpers';
+import { localISODate, parseYmdLocal, isRoutineDueOnCalendarDay, routineDayStatus, getMissedDueDate, getRoutinePool, getRoutineAssigneeDisplayName, rotationOffsetFor, relevantDueDate } from './utils/routineHelpers';
 import { getStaffChatState, hasUnreadReporterNote } from './utils/staffChat';
 import { fetchRpHolidays } from './utils/rpHolidays';
 import {
@@ -935,6 +936,10 @@ const App: React.FC = () => {
   const [assets, setAssets] = useState<Asset[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_ASSETS, []));
   const [maintenancePlans, setMaintenancePlans] = useState<MaintenancePlan[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_PLANS, []));
   const [appSettings, setAppSettings] = useState<AppSettings>(() => ({ ...DEFAULT_APP_SETTINGS, ...safeJSONParse(LOCAL_STORAGE_KEY_SETTINGS, {}) }));
+  const [completionDocs, setCompletionDocs] = useState<Record<string, Record<string, RoutineDayCompletion>>>({});
+  const routineCompletions = useMemo(() => flattenCompletionDocs(completionDocs), [completionDocs]);
+  /** undefined = noch nicht geladen, null = Haken noch nicht in den neuen Speicher übertragen */
+  const [completionsMigratedAt, setCompletionsMigratedAt] = useState<string | null | undefined>(undefined);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
@@ -1283,6 +1288,13 @@ const App: React.FC = () => {
         // (Flag liegt selbst im app_data-Snapshot — kein zusätzlicher Lesezugriff nötig.)
         const migFlagDoc = querySnapshot.docs.find((d) => d.id === APP_DATA_KEY_MIGRATIONS_DONE);
         migrationsDoneRef.current = migFlagDoc?.data()?.value?.done === true;
+        const migDoc = querySnapshot.docs.find((d) => d.id === ROUTINE_COMPLETIONS_MIGRATION_DOC);
+        setCompletionsMigratedAt(migDoc?.data()?.value?.migratedAt ?? null);
+        const loadedCompletionDocs: Record<string, Record<string, RoutineDayCompletion>> = {};
+        querySnapshot.docs.forEach((d) => {
+          if (d.id.startsWith(ROUTINE_COMPLETIONS_DOC_PREFIX)) loadedCompletionDocs[d.id] = d.data().value || {};
+        });
+        setCompletionDocs((prev) => ({ ...loadedCompletionDocs, ...prev }));
         if (!querySnapshot.empty) {
           isRemoteUpdate.current = true;
           querySnapshot.forEach((d) => {
@@ -1452,7 +1464,16 @@ const App: React.FC = () => {
     const unsubscribeAppData = onSnapshot(collection(db, 'app_data'), (snapshot) => {
       isRemoteUpdate.current = true;
       let hasChanges = false;
+      const completionChanges: Record<string, Record<string, RoutineDayCompletion> | null> = {};
       snapshot.docChanges().forEach((change) => {
+        if (change.doc.id.startsWith(ROUTINE_COMPLETIONS_DOC_PREFIX)) {
+          completionChanges[change.doc.id] = change.type === 'removed' ? null : (change.doc.data().value || {});
+          return;
+        }
+        if (change.doc.id === ROUTINE_COMPLETIONS_MIGRATION_DOC && change.type !== 'removed') {
+          setCompletionsMigratedAt(change.doc.data().value?.migratedAt ?? null);
+          return;
+        }
         if (change.type === 'added' || change.type === 'modified') {
           const key = change.doc.id;
           const value = change.doc.data().value;
@@ -1488,6 +1509,13 @@ const App: React.FC = () => {
           }
         }
       });
+      if (Object.keys(completionChanges).length > 0) {
+        setCompletionDocs((prev) => {
+          const next = { ...prev };
+          Object.entries(completionChanges).forEach(([id, v]) => { if (v === null) delete next[id]; else next[id] = v; });
+          return next;
+        });
+      }
       if (hasChanges) {
         setLastSyncTime(new Date());
         setTimeout(() => { isRemoteUpdate.current = false; }, 100);
@@ -1980,6 +2008,8 @@ const App: React.FC = () => {
 
     const schedules = (appSettings.routineSchedules || []) as Array<RoutineSchedule & { recurrence?: any }>;
     if (schedules.length === 0) return;
+    // Erst erzeugen, wenn alle Rotationen fest verankert sind (siehe Rotations-Umstellung unten).
+    if (schedules.some(s => s.enabled && (s.assignment?.type ?? 'rotate') === 'rotate' && s.rotationOffset === undefined)) return;
 
     const rpSet = new Set(rpHolidayYmdList);
 
@@ -2002,42 +2032,10 @@ const App: React.FC = () => {
       );
       if (alreadyCreatedToday) continue;
 
-      const eligibleUsers = users
-        .filter(u => u.isActive && u.role === schedule.targetRole)
-        .map(u => u.name)
-        .sort((a, b) => a.localeCompare(b, 'de'));
-
-      const scheduleAssignees: string[] = Array.isArray((schedule as any).assignees) ? (schedule as any).assignees : [];
-      const pool =
-        scheduleAssignees.length > 0
-          // Reihenfolge aus schedule.assignees beibehalten (nicht alphabetisch umsortieren)
-          ? scheduleAssignees.filter(n => eligibleUsers.includes(n))
-          : eligibleUsers;
-
-      let assigned = 'N/A';
-      if (schedule.assignment?.type === 'fixed') {
-        const name = schedule.assignment.userName;
-        assigned = pool.includes(name) ? name : 'N/A';
-      } else if ((schedule.assignment as any)?.type === 'calendar-week') {
-        // Starrer KW-Wechsel: Person nach ISO-Wochennummer des Fälligkeitstags bestimmen
-        if (pool.length > 0) {
-          const offset = Number((schedule.assignment as any).weekOffset ?? 0);
-          const week = isoWeekNumber(localISODate(new Date()));
-          assigned = pool[((week + offset) % pool.length + pool.length) % pool.length];
-          // Kein Cursor-Advance — KW bestimmt die Person
-        }
-      } else {
-        // rotate
-        if (pool.length > 0) {
-          const cursor = Math.max(0, Number(schedule.rotationCursor || 0));
-          assigned = pool[cursor % pool.length];
-          updatedSchedules[idx] = {
-            ...updatedSchedules[idx],
-            rotationCursor: (cursor + 1) % pool.length,
-          } as any;
-          changed = true;
-        }
-      }
+      // Feste Rotation: Person ergibt sich aus dem Datum (auf allen Geräten gleich, kein Zähler).
+      const pool = getRoutinePool(schedule, users);
+      const picked = getRoutineAssigneeDisplayName(schedule, pool, todayStr, rpSet);
+      const assigned = picked === '—' ? 'N/A' : picked;
 
       const newTicket: Omit<Ticket, 'id' | 'entryDate' | 'status' | 'priority'> & { priority?: Priority } = {
         ticketType: 'preventive',
@@ -2223,23 +2221,73 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
 };
 
   // Serienauftrag anlegen/bearbeiten bzw. löschen – direkt aus der Serienaufträge-Ansicht.
+  /**
+   * Ändert die Einstellungen per Transaktion auf dem AKTUELLEN Server-Stand. `mutate` muss rein sein
+   * (keine Mails o. Ä.), da es bei Konflikten erneut läuft. Verhindert, dass ein Gerät mit
+   * veraltetem Stand fremde Änderungen überschreibt.
+   */
+  const patchSettings = (mutate: (s: AppSettings) => AppSettings) => {
+    setAppSettings((prev) => mutate(prev));
+    const ref = doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS);
+    void runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists()) return;
+      const remote = mergeAppSettingsRemote(snap.data().value, DEFAULT_APP_SETTINGS);
+      tx.set(ref, { value: JSON.parse(JSON.stringify(mutate(remote))), updated_at: new Date().toISOString() });
+    })
+      .then(() => setLastSyncTime(new Date()))
+      .catch((err) => console.error('Einstellungen konnten nicht gespeichert werden:', err));
+  };
+
+  const reportRoutineSaveError = (err: unknown) => {
+    console.error('Serienauftrag-Haken konnte nicht gespeichert werden:', err);
+    addToast({ type: 'assigned', title: 'Haken nicht gespeichert', message: 'Verbindung prüfen und erneut abhaken.' });
+  };
+
+  /** Bis die alten Haken übertragen sind, zählen alter und neuer Speicher gemeinsam. */
+  const effectiveCompletions = useMemo(() => {
+    if (completionsMigratedAt) return routineCompletions;
+    const map = new Map<string, RoutineDayCompletion>();
+    (appSettings.routineDayCompletions || []).forEach((c) => map.set(completionKey(c), c));
+    routineCompletions.forEach((c) => map.set(completionKey(c), c));
+    return [...map.values()];
+  }, [completionsMigratedAt, routineCompletions, appSettings.routineDayCompletions]);
+
+  const addNotifyKeys = (keys: string[]) => {
+    if (keys.length === 0) return;
+    patchSettings((s) => ({ ...s, routineNotifySent: [...new Set([...(s.routineNotifySent || []), ...keys])].slice(-ROUTINE_NOTIFY_MAX) }));
+  };
+  const removeNotifyKey = (scheduleId: string, ymd: string) => {
+    const key = `${scheduleId}|${ymd}`;
+    if (!(appSettings.routineNotifySent || []).includes(key)) return;
+    patchSettings((s) => ({ ...s, routineNotifySent: (s.routineNotifySent || []).filter((k) => k !== key) }));
+  };
+
   const handleSaveRoutineSchedule = (sched: RoutineSchedule) => {
-    handleAppSettingsChange((prev) => {
+    let next = sched;
+    if ((sched.assignment?.type ?? 'rotate') === 'rotate') {
+      // Editor-„Nächster Einsatz" (Index in assignees) → feste Rotation verankern
+      const rpSet = new Set(rpHolidayYmdList);
+      const pool = getRoutinePool(sched, users);
+      const nextName = (sched.assignees || [])[sched.rotationCursor ?? 0];
+      const due = relevantDueDate(sched as any, localISODate(new Date()), effectiveCompletions, rpSet);
+      next = {
+        ...sched,
+        rotationOffset: due && pool.length > 0 ? rotationOffsetFor(sched, Math.max(0, pool.indexOf(nextName)), pool.length, due, rpSet) : 0,
+      };
+    }
+    patchSettings((prev) => {
       const list = [...(((prev.routineSchedules as any[]) || []))];
-      const idx = list.findIndex((x) => x.id === sched.id);
-      if (idx >= 0) list[idx] = sched; else list.push(sched);
+      const idx = list.findIndex((x) => x.id === next.id);
+      if (idx >= 0) list[idx] = next; else list.push(next);
       return { ...prev, routineSchedules: list as any };
     });
   };
   const handleDeleteRoutineSchedule = (id: string) => {
-    handleAppSettingsChange((prev) => ({
+    patchSettings((prev) => ({
       ...prev,
       routineSchedules: (((prev.routineSchedules as any[]) || []).filter((x) => x.id !== id)) as any,
     }));
-  };
-  const persistRoutineSettings = (next: AppSettings) => {
-    setAppSettings(next);
-    void setDoc(doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS), { value: JSON.parse(JSON.stringify(next)), updated_at: new Date().toISOString() });
   };
 
   /**
@@ -2257,7 +2305,7 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
     completions: RoutineDayCompletion[],
     completedBy: string,
     comment?: string,
-  ): string[] | null => {
+  ): string | null => {
     const schedule = (base.routineSchedules || []).find((s) => s.id === scheduleId);
     const emails = (schedule?.notifyEmail || '').trim();
     if (!schedule || !emails) return null;
@@ -2283,7 +2331,7 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
       .map((e) => e.trim())
       .filter(Boolean)
       .forEach((addr) => void sendDrkBrevoMailAsync(addr, subject, { kind: 'custom', subject, bodyHtml, bodyText }, { silent: true }));
-    return [...sent, key].slice(-ROUTINE_NOTIFY_MAX);
+    return key;
   };
 
   /** Sofort-Mail wenn Kommentar hinterlegt, aber Auftrag noch nicht vollständig abgehakt.
@@ -2295,7 +2343,7 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
     completions: RoutineDayCompletion[],
     completedBy: string,
     comment: string,
-  ): string[] | null => {
+  ): string | null => {
     const schedule = (base.routineSchedules || []).find((s) => s.id === scheduleId);
     const emails = (schedule?.notifyEmail || '').trim();
     if (!schedule || !emails || !comment) return null;
@@ -2321,78 +2369,37 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
       `<p style="margin:14px 0 0;font-size:14px;color:#333;background:#f5f5f5;padding:10px 14px;border-radius:6px;border-left:3px solid #ccc;"><strong>Kommentar von ${escapeHtml(completedBy)}:</strong><br>${escapeHtml(comment).replace(/\n/g, '<br>')}</p>`;
     emails.split(',').map((e) => e.trim()).filter(Boolean)
       .forEach((addr) => void sendDrkBrevoMailAsync(addr, subject, { kind: 'custom', subject, bodyHtml, bodyText }, { silent: true }));
-    return [...sent, key].slice(-ROUTINE_NOTIFY_MAX);
+    return key;
   };
 
-  /** Entfernt den Dedupe-Marker, damit eine erneute Erledigung am selben Tag wieder benachrichtigt. */
-  const clearRoutineNotifyMarker = (base: AppSettings, scheduleId: string, ymd: string): string[] | undefined => {
-    const sent = base.routineNotifySent;
-    if (!sent || !sent.length) return sent;
-    const key = `${scheduleId}|${ymd}`;
-    return sent.includes(key) ? sent.filter((k) => k !== key) : sent;
-  };
+  const sameDay = (scheduleId: string, ymd: string) =>
+    effectiveCompletions.filter((c) => c.scheduleId === scheduleId && c.date === ymd);
 
   const handleRoutineDayComplete = (scheduleId: string, forDate?: string, comment?: string) => {
     if (!currentUser) return;
     const ymd = forDate || localISODate(new Date());
-    const rest = (appSettings.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd));
-    const completions: RoutineDayCompletion[] = [
-      ...rest,
-      { scheduleId, date: ymd, completedBy: currentUser.name, completedAt: new Date().toISOString(), ...(comment ? { comment } : {}) },
-    ];
-    const notifySent = maybeBuildRoutineDoneNotify(appSettings, scheduleId, ymd, completions, currentUser.name, comment);
-    const partialSent = comment ? maybeSendPartialWithComment(appSettings, scheduleId, ymd, completions, currentUser.name, comment) : null;
-    const finalNotifySent = notifySent ?? partialSent;
-
-    // Cursor weiterrücken, damit die Zuständig-Spalte nach dem Abhaken die nächste Person zeigt.
-    // Nur wenn heute noch kein Ticket generiert wurde (lastGenerated !== heute) — sonst wurde
-    // der Cursor beim Ticket-Erzeugen bereits vorgerückt und wir würden doppelt zählen.
-    const scheduleIdx = (appSettings.routineSchedules as any[])?.findIndex((s: any) => s.id === scheduleId) ?? -1;
-    let updatedSchedules = appSettings.routineSchedules as any[];
-    if (scheduleIdx >= 0) {
-      const sched = updatedSchedules[scheduleIdx] as any;
-      if (sched.assignment?.type === 'rotate' && sched.lastGenerated !== ymd) {
-        const eligibleNames = new Set(
-          users.filter(u => u.isActive && u.role === sched.targetRole).map(u => u.name)
-        );
-        const pool: string[] = Array.isArray(sched.assignees) && sched.assignees.length > 0
-          ? sched.assignees.filter((n: string) => eligibleNames.has(n))
-          : [...eligibleNames].sort((a, b) => a.localeCompare(b, 'de'));
-        if (pool.length > 1) {
-          const cursor = Math.max(0, Number(sched.rotationCursor || 0));
-          updatedSchedules = [...updatedSchedules];
-          updatedSchedules[scheduleIdx] = { ...sched, rotationCursor: (cursor + 1) % pool.length };
-        }
-      }
-    }
-
-    persistRoutineSettings({
-      ...appSettings,
-      routineSchedules: updatedSchedules as any,
-      routineDayCompletions: completions,
-      ...(finalNotifySent ? { routineNotifySent: finalNotifySent } : {}),
-    });
+    const entry: RoutineDayCompletion = { scheduleId, date: ymd, completedBy: currentUser.name, completedAt: new Date().toISOString(), ...(comment ? { comment } : {}) };
+    const completions = [...effectiveCompletions.filter((c) => !(c.scheduleId === scheduleId && c.date === ymd)), entry];
+    const doneKey = maybeBuildRoutineDoneNotify(appSettings, scheduleId, ymd, completions, currentUser.name, comment);
+    const partialKey = comment ? maybeSendPartialWithComment(appSettings, scheduleId, ymd, completions, currentUser.name, comment) : null;
+    const replaced = sameDay(scheduleId, ymd).filter((c) => completionKey(c) !== completionKey(entry));
+    if (replaced.length) void removeCompletions(db, replaced);
+    void writeCompletions(db, [entry]).catch(reportRoutineSaveError);
+    addNotifyKeys([doneKey ?? partialKey].filter(Boolean) as string[]);
   };
 
   const handleRoutineDayUncomplete = (scheduleId: string, forDate?: string) => {
     const ymd = forDate || localISODate(new Date());
-    persistRoutineSettings({
-      ...appSettings,
-      routineDayCompletions: (appSettings.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd)),
-      routineNotifySent: clearRoutineNotifyMarker(appSettings, scheduleId, ymd),
-    });
+    void removeCompletions(db, sameDay(scheduleId, ymd));
+    removeNotifyKey(scheduleId, ymd);
   };
 
   /** Setzt/entfernt eine Erledigung für einen BELIEBIGEN Tag (Nachtragen/Korrigieren im Serien-Nachweis). */
   const handleSetRoutineCompletion = (scheduleId: string, ymd: string, completedBy: string | null) => {
-    setAppSettings(prev => {
-      const rest = (prev.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd));
-      const next: AppSettings = completedBy
-        ? { ...prev, routineDayCompletions: [...rest, { scheduleId, date: ymd, completedBy, completedAt: new Date().toISOString() }] }
-        : { ...prev, routineDayCompletions: rest };
-      void setDoc(doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS), { value: JSON.parse(JSON.stringify(next)), updated_at: new Date().toISOString() });
-      return next;
-    });
+    const entry: RoutineDayCompletion | null = completedBy ? { scheduleId, date: ymd, completedBy, completedAt: new Date().toISOString() } : null;
+    const replaced = sameDay(scheduleId, ymd).filter((c) => !entry || completionKey(c) !== completionKey(entry));
+    if (replaced.length) void removeCompletions(db, replaced);
+    if (entry) void writeCompletions(db, [entry]).catch(reportRoutineSaveError);
   };
 
   /** Admin-Nachtrag: setzt Erledigung für einen beliebigen vergangenen Tag. Keine E-Mail.
@@ -2401,29 +2408,18 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
   const handleAdminRetroSetDay = (scheduleId: string, ymd: string, completedBy: string | null, subtaskIds?: string[]) => {
     const sch = (appSettings.routineSchedules as any[]).find((s: any) => s.id === scheduleId);
     const allSubtasks: { id: string; label: string }[] = sch?.subtasks || [];
-    setAppSettings(prev => {
-      const rest = (prev.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd));
-      let next: AppSettings;
-      if (!completedBy || (subtaskIds !== undefined && subtaskIds.length === 0)) {
-        next = { ...prev, routineDayCompletions: rest };
-      } else if (subtaskIds !== undefined) {
-        // Nur die explizit übergebenen Subtask-IDs setzen
-        const entries: RoutineDayCompletion[] = subtaskIds.map(id => ({
-          scheduleId, date: ymd, subtaskId: id, completedBy: completedBy!, completedAt: new Date().toISOString(),
-        }));
-        next = { ...prev, routineDayCompletions: [...rest, ...entries] };
-      } else if (allSubtasks.length > 0) {
-        // Fallback: alle Subtasks setzen
-        const entries: RoutineDayCompletion[] = allSubtasks.map(sub => ({
-          scheduleId, date: ymd, subtaskId: sub.id, completedBy: completedBy!, completedAt: new Date().toISOString(),
-        }));
-        next = { ...prev, routineDayCompletions: [...rest, ...entries] };
-      } else {
-        next = { ...prev, routineDayCompletions: [...rest, { scheduleId, date: ymd, completedBy: completedBy!, completedAt: new Date().toISOString() }] };
-      }
-      void setDoc(doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS), { value: JSON.parse(JSON.stringify(next)), updated_at: new Date().toISOString() });
-      return next;
-    });
+    const now = new Date().toISOString();
+    let entries: RoutineDayCompletion[] = [];
+    if (completedBy && !(subtaskIds !== undefined && subtaskIds.length === 0)) {
+      const ids = subtaskIds !== undefined ? subtaskIds : allSubtasks.map((s) => s.id);
+      entries = ids.length > 0
+        ? ids.map((id) => ({ scheduleId, date: ymd, subtaskId: id, completedBy, completedAt: now }))
+        : [{ scheduleId, date: ymd, completedBy, completedAt: now }];
+    }
+    const keep = new Set(entries.map(completionKey));
+    const replaced = sameDay(scheduleId, ymd).filter((c) => !keep.has(completionKey(c)));
+    if (replaced.length) void removeCompletions(db, replaced);
+    if (entries.length) void writeCompletions(db, entries).catch(reportRoutineSaveError);
   };
 
   /** Korrigiert oder löscht einen bestehenden Erledigt-Eintrag. Audit-Trail wird gesetzt. */
@@ -2432,84 +2428,74 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
     originalDate: string,
     patch: { completedBy?: string; newDate?: string; newTime?: string; comment?: string; deleteEntry?: boolean },
   ) => {
-    const correctorName = currentUser.name;
+    const originals = sameDay(scheduleId, originalDate);
+    if (patch.deleteEntry) {
+      void removeCompletions(db, originals);
+      return;
+    }
     const correctedAt = new Date().toISOString();
-    setAppSettings(prev => {
-      const completions = prev.routineDayCompletions || [];
-      if (patch.deleteEntry) {
-        const updated = completions.filter(c => !(c.scheduleId === scheduleId && c.date === originalDate));
-        const next: AppSettings = { ...prev, routineDayCompletions: updated };
-        void setDoc(doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS), { value: JSON.parse(JSON.stringify(next)), updated_at: new Date().toISOString() });
-        return next;
+    const newDate = patch.newDate || originalDate;
+    const updated = originals.map((c) => {
+      const changes: string[] = [];
+      if (patch.completedBy && patch.completedBy !== c.completedBy) changes.push(`Person: ${c.completedBy} → ${patch.completedBy}`);
+      if (patch.newDate && patch.newDate !== c.date) changes.push(`Datum: ${c.date} → ${patch.newDate}`);
+      if (patch.newTime) changes.push('Uhrzeit geändert');
+      if (patch.comment !== undefined && patch.comment !== c.comment) changes.push('Kommentar geändert');
+      let completedAt = c.completedAt;
+      if (patch.newTime) {
+        const [h, m] = patch.newTime.split(':').map(Number);
+        const d = new Date(c.completedAt || correctedAt);
+        d.setHours(h, m, 0, 0);
+        completedAt = d.toISOString();
       }
-      const newDate = patch.newDate || originalDate;
-      const updated = completions.map(c => {
-        if (!(c.scheduleId === scheduleId && c.date === originalDate)) return c;
-        const changes: string[] = [];
-        if (patch.completedBy && patch.completedBy !== c.completedBy) changes.push(`Person: ${c.completedBy} → ${patch.completedBy}`);
-        if (patch.newDate && patch.newDate !== c.date) changes.push(`Datum: ${c.date} → ${patch.newDate}`);
-        if (patch.newTime) changes.push('Uhrzeit geändert');
-        if (patch.comment !== undefined && patch.comment !== c.comment) changes.push('Kommentar geändert');
-        const patchedCompletedAt = patch.newTime
-          ? (() => {
-              const [h, m] = patch.newTime!.split(':').map(Number);
-              const d = new Date(c.completedAt || new Date().toISOString());
-              d.setHours(h, m, 0, 0);
-              return d.toISOString();
-            })()
-          : c.completedAt;
-        return {
-          ...c,
-          date: newDate,
-          completedBy: patch.completedBy ?? c.completedBy,
-          completedAt: patchedCompletedAt,
-          comment: patch.comment !== undefined ? patch.comment : c.comment,
-          correctedBy: correctorName,
-          correctedAt,
-          correctionNote: changes.join('; ') || 'Korrektur',
-        };
-      });
-      const next: AppSettings = { ...prev, routineDayCompletions: updated };
-      void setDoc(doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS), { value: JSON.parse(JSON.stringify(next)), updated_at: new Date().toISOString() });
-      return next;
+      return {
+        ...c,
+        date: newDate,
+        completedBy: patch.completedBy ?? c.completedBy,
+        completedAt,
+        comment: patch.comment !== undefined ? patch.comment : c.comment,
+        correctedBy: currentUser.name,
+        correctedAt,
+        correctionNote: changes.join('; ') || 'Korrektur',
+      };
     });
+    const newKeys = new Set(updated.map(completionKey));
+    const moved = originals.filter((c) => !newKeys.has(completionKey(c)));
+    if (moved.length) void removeCompletions(db, moved);
+    if (updated.length) void writeCompletions(db, updated).catch(reportRoutineSaveError);
   };
 
   /** Hakt eine EINZELNE Unter-Aufgabe für einen Tag ab bzw. wieder zurück (completedBy=null → entfernen). */
   const handleToggleRoutineSubtask = (scheduleId: string, ymd: string, subtaskId: string, completedBy: string | null, comment?: string) => {
-    const rest = (appSettings.routineDayCompletions || []).filter((c) => !(c.scheduleId === scheduleId && c.date === ymd && c.subtaskId === subtaskId));
-    if (completedBy) {
-      const completions: RoutineDayCompletion[] = [...rest, { scheduleId, date: ymd, subtaskId, completedBy, completedAt: new Date().toISOString() }];
-      // Info-Mail wenn vollständig; Kommentar-Mail wenn Kommentar aber noch nicht fertig
-      const notifySent = maybeBuildRoutineDoneNotify(appSettings, scheduleId, ymd, completions, completedBy, comment);
-      const partialSent = comment ? maybeSendPartialWithComment(appSettings, scheduleId, ymd, completions, completedBy, comment) : null;
-      const finalNotifySent = notifySent ?? partialSent;
-      persistRoutineSettings({
-        ...appSettings,
-        routineDayCompletions: completions,
-        ...(finalNotifySent ? { routineNotifySent: finalNotifySent } : {}),
-      });
-    } else {
-      persistRoutineSettings({
-        ...appSettings,
-        routineDayCompletions: rest,
-        routineNotifySent: clearRoutineNotifyMarker(appSettings, scheduleId, ymd),
-      });
+    if (!completedBy) {
+      void removeCompletions(db, [{ scheduleId, date: ymd, subtaskId }]);
+      removeNotifyKey(scheduleId, ymd);
+      return;
     }
+    const entry: RoutineDayCompletion = { scheduleId, date: ymd, subtaskId, completedBy, completedAt: new Date().toISOString() };
+    const completions = [...effectiveCompletions.filter((c) => completionKey(c) !== completionKey(entry)), entry];
+    const doneKey = maybeBuildRoutineDoneNotify(appSettings, scheduleId, ymd, completions, completedBy, comment);
+    const partialKey = comment ? maybeSendPartialWithComment(appSettings, scheduleId, ymd, completions, completedBy, comment) : null;
+    void writeCompletions(db, [entry]).catch(reportRoutineSaveError);
+    addNotifyKeys([doneKey ?? partialKey].filter(Boolean) as string[]);
   };
 
   // Nächster-Tag-Mail: Wenn ein Serienauftrag gestern fällig war, weder vollständig abgehakt
   // noch mit Kommentar versehen → Mail am nächsten Tag (einmalig pro Tag, localStorage-gesichert).
   useEffect(() => {
     if (dayAfterCheckRef.current) return;
+    // Erst nach dem echten Laden aus Firestore (nicht auf dem lokalen Browser-Stand) und erst,
+    // wenn die Haken im neuen Speicher liegen — sonst falsche „nicht abgehakt"-Mails.
+    if (!isInitialized || !completionsMigratedAt) return;
     const schedules = appSettings.routineSchedules;
-    if (!schedules || schedules.length === 0) return; // warten bis Daten geladen
+    if (!schedules || schedules.length === 0) return;
+    const rpSet = new Set(rpHolidayYmdList);
 
     const yesterday = localISODate(new Date(Date.now() - 24 * 60 * 60 * 1000));
     dayAfterCheckRef.current = true;
 
     const sent = [...(appSettings.routineNotifySent || [])];
-    let changed = false;
+    const newKeys: string[] = [];
 
     for (const schedule of schedules) {
       const emails = ((schedule.notifyEmail || '') as string).trim();
@@ -2522,9 +2508,10 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
       // Doppelt gesichert: Firestore-Key UND localStorage pro Auftrag+Datum (bleibt dauerhaft)
       const localKey = `drk_dayafter_${schedule.id}_${yesterday}`;
       if (sent.includes(completeKey) || sent.includes(partialKey) || sent.includes(dayAfterKey) || localStorage.getItem(localKey)) continue;
+      if (routineDayStatus(schedule, yesterday, effectiveCompletions).complete) continue;
       localStorage.setItem(localKey, '1');
 
-      const assigneeName = (schedule.assignees || [])[0] || 'Team';
+      const assigneeName = displayNameShort(getRoutineAssigneeDisplayName(schedule, getRoutinePool(schedule, users), yesterday, rpSet)) || 'Team';
       const subject = `[Serienauftrag] ${schedule.title} – Zusammenfassung (${yesterday})`;
       const bodyText = `Serienauftrag: ${schedule.title}\nStandort: ${schedule.location}\nZuständig: ${assigneeName}\nTermin: ${yesterday}\n\nDieser Auftrag wurde gestern weder vollständig abgehakt noch kommentiert.`;
       const bodyHtml = `<p><strong>Serienauftrag:</strong> ${schedule.title}<br><strong>Standort:</strong> ${schedule.location}<br><strong>Zuständig:</strong> ${assigneeName}<br><strong>Termin:</strong> ${yesterday}</p><p>Dieser Auftrag wurde gestern weder vollständig abgehakt noch kommentiert.</p>`;
@@ -2533,16 +2520,13 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
         void sendDrkBrevoMailAsync(email, subject, { kind: 'custom', subject, bodyHtml, bodyText }, { silent: true });
       });
 
-      sent.push(dayAfterKey);
-      changed = true;
+      newKeys.push(dayAfterKey);
     }
 
-    if (changed) {
-      persistRoutineSettings({ ...appSettings, routineNotifySent: sent.slice(-ROUTINE_NOTIFY_MAX) });
-    }
-  // appSettings als Dep: läuft erneut wenn Daten laden; Ref-Guard stellt sicher: nur einmal wirklich ausgeführt
+    addNotifyKeys(newKeys);
+  // Ref-Guard stellt sicher: nur einmal wirklich ausgeführt
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appSettings.routineSchedules]);
+  }, [appSettings.routineSchedules, isInitialized, completionsMigratedAt]);
 
 const persistDeletedIds = () => {
   localStorage.setItem(
@@ -3299,75 +3283,95 @@ const deleteTicketFromFirebase = (ticketId: string) => {
   // Banner für vergessene Serienaufträge — nur ab Montag 16.06.2026
   const ROUTINE_WARN_START = '2026-06-16';
   const handleAcknowledgeMissedRoutine = (scheduleId: string, entryIso: string) => {
+    if (currentUser?.role !== Role.Admin) return;
     const key = `${scheduleId}|${entryIso}`;
-    setAppSettings(prev => {
+    patchSettings((prev) => {
       const existing = prev.acknowledgedMissedRoutines || [];
-      if (existing.includes(key)) return prev;
-      const next = { ...prev, acknowledgedMissedRoutines: [...existing, key] };
-      void setDoc(doc(db, 'app_data', LOCAL_STORAGE_KEY_SETTINGS), { value: JSON.parse(JSON.stringify(next)), updated_at: new Date().toISOString() });
-      return next;
+      return existing.includes(key) ? prev : { ...prev, acknowledgedMissedRoutines: [...existing, key] };
     });
   };
 
-  const missedRoutinesSinceStart = useMemo(() => {
-    const completions = appSettings.routineDayCompletions || [];
-    const acknowledged = appSettings.acknowledgedMissedRoutines || [];
-    const filtered = routineTickets.filter(t => {
-      if (t.status !== Status.Ueberfaellig) return false;
-      if (!t.dueDate) return false;
-      const parts = t.dueDate.split('.');
-      if (parts.length !== 3) return false;
-      const iso = `${parts[2].length === 2 ? '20' + parts[2] : parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
-      if (iso < ROUTINE_WARN_START) return false;
-      // Im Serienaufträge-Board abgehakt? Dann NICHT „vergessen". Der Haken im Board
-      // schreibt einen routineDayCompletion-Eintrag am Tag des Abhakens (App.tsx
-      // ~Z.2217: localISODate(new Date())), ändert aber den Ticket-Status nicht.
-      //
-      // WICHTIG: Verglichen wird gegen den PLANTAG des Tickets (entryDate = der Tag, für
-      // den die Routine erzeugt wurde), NICHT gegen das `dueDate`. Grund: Routine-Tickets
-      // bekommen ihr `dueDate` per SLA-Regel ab Erstelltag (App.tsx ~Z.2700) — meist 1 Tag
-      // SPÄTER als der Plantag. Würde man gegen `dueDate` prüfen, wäre ein am Plantag
-      // (z. B. Fr 19.06) gesetzter Haken `19.06 >= dueDate(20.06)` = false → der erledigte
-      // Auftrag würde fälschlich als „vergessen" gezählt (Tageswechsel-Bug). Der Abgleich
-      // gegen entryDate (oder später = verspätet abgehakt) deckt den Haken korrekt ab und
-      // blendet zugleich keine fremde Vorwochen-Erledigung ein (date < entryDate zählt nicht).
-      const ep = (t.entryDate || '').split('.');
-      const entryIso = ep.length === 3
-        ? `${ep[2].length === 2 ? '20' + ep[2] : ep[2]}-${ep[1].padStart(2,'0')}-${ep[0].padStart(2,'0')}`
-        : iso; // Fallback: kein/kaputtes entryDate → wie bisher gegen dueDate
-      if (t.routineScheduleId && completions.some(
-        c => c.scheduleId === t.routineScheduleId && c.date >= entryIso
-      )) return false;
-      // Manuell quittiert?
-      if (t.routineScheduleId && acknowledged.includes(`${t.routineScheduleId}|${entryIso}`)) return false;
-      // Noch im Abklick-Zeitfenster (monatlich/jährlich: 7 Tage)? → noch nicht „vergessen"
-      if (t.routineScheduleId) {
-        const sched = (appSettings.routineSchedules as any[]).find((s: any) => s.id === t.routineScheduleId);
-        if (sched) {
-          const windowDays = getRoutineWindowDays(sched);
-          if (windowDays > 1) {
-            const windowEnd = new Date(entryIso);
-            windowEnd.setDate(windowEnd.getDate() + windowDays - 1);
-            const todayIso = localISODate(new Date());
-            if (todayIso <= localISODate(windowEnd)) return false;
-          }
-        }
-      }
-      return true;
-    });
-    // Pro Schedule nur den neuesten Eintrag zeigen (verhindert Mehrfach-Einträge
-    // wenn ältere Termine noch auf Überfällig stehen)
-    const seen = new Map<string, typeof filtered[0]>();
-    for (const t of filtered) {
-      const key = t.routineScheduleId || t.id;
-      const existing = seen.get(key);
-      if (!existing) { seen.set(key, t); continue; }
-      const entryA = existing.entryDate || existing.dueDate || '';
-      const entryB = t.entryDate || t.dueDate || '';
-      if (entryB > entryA) seen.set(key, t);
+  // Einmalig: alte Haken aus dem Einstellungs-Dokument in den neuen Speicher übertragen.
+  // 14 Tage lang werden zusätzlich Haken übernommen, die alte (noch nicht neu geladene) Geräte setzen.
+  const completionsMigrationRunning = useRef(false);
+  useEffect(() => {
+    if (!isInitialized || completionsMigratedAt === undefined || completionsMigrationRunning.current) return;
+    const legacy = appSettings.routineDayCompletions || [];
+    let candidates = legacy;
+    if (completionsMigratedAt) {
+      if (Date.now() > new Date(completionsMigratedAt).getTime() + 14 * 86400000) return;
+      candidates = legacy.filter((c) => (c.completedAt || '') > completionsMigratedAt);
     }
-    return [...seen.values()];
-  }, [routineTickets, appSettings.routineDayCompletions, appSettings.acknowledgedMissedRoutines]);
+    const have = new Set(routineCompletions.map(completionKey));
+    const missing = candidates.filter((c) => c && c.scheduleId && c.date && !have.has(completionKey(c)));
+    if (missing.length === 0 && completionsMigratedAt) return;
+    completionsMigrationRunning.current = true;
+    void (async () => {
+      try {
+        if (missing.length) await writeCompletions(db, missing);
+        if (!completionsMigratedAt) {
+          await setDoc(doc(db, 'app_data', ROUTINE_COMPLETIONS_MIGRATION_DOC), { value: { migratedAt: new Date().toISOString() }, updated_at: new Date().toISOString() });
+        }
+      } catch (err) {
+        console.error('Übertragung der Serienauftrag-Haken fehlgeschlagen:', err);
+      } finally {
+        completionsMigrationRunning.current = false;
+      }
+    })();
+  }, [isInitialized, completionsMigratedAt, appSettings.routineDayCompletions, routineCompletions]);
+
+  // Einmalig je Auftrag: feste Rotation verankern. Die Person des jüngsten erzeugten Tickets bleibt
+  // für ihren Termin zuständig, alle weiteren Termine folgen der Reihenfolge im Editor.
+  useEffect(() => {
+    if (!isInitialized) return;
+    const pending = (appSettings.routineSchedules || []).filter(
+      (s) => (s.assignment?.type ?? 'rotate') === 'rotate' && s.rotationOffset === undefined,
+    );
+    if (pending.length === 0) return;
+    const rpSet = new Set(rpHolidayYmdList);
+    const todayYmd = localISODate(new Date());
+    const offsets: Record<string, number> = {};
+    pending.forEach((s) => {
+      const pool = getRoutinePool(s, users);
+      if (pool.length === 0) { offsets[s.id] = 0; return; }
+      const latest = routineTickets
+        .filter((t) => t.routineScheduleId === s.id && pool.includes(t.technician))
+        .map((t) => ({ t, iso: germanDateToIso(t.entryDate) }))
+        .filter((x): x is { t: Ticket; iso: string } => !!x.iso)
+        .sort((a, b) => (a.iso < b.iso ? 1 : -1))[0];
+      if (latest) {
+        offsets[s.id] = rotationOffsetFor(s, pool.indexOf(latest.t.technician), pool.length, latest.iso, rpSet);
+        return;
+      }
+      const due = relevantDueDate(s as any, todayYmd, [], rpSet);
+      const cursor = Math.max(0, Number(s.rotationCursor || 0)) % pool.length;
+      offsets[s.id] = due ? rotationOffsetFor(s, cursor, pool.length, due, rpSet) : 0;
+    });
+    patchSettings((st) => ({
+      ...st,
+      routineSchedules: (st.routineSchedules || []).map((s) =>
+        s.id in offsets && s.rotationOffset === undefined ? { ...s, rotationOffset: offsets[s.id] } : s,
+      ) as any,
+    }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInitialized, appSettings.routineSchedules, users, routineTickets, rpHolidayYmdList]);
+
+  /** Vergessene Serienaufträge – gleiche Regel wie in der Serienaufträge-Liste (getMissedDueDate). */
+  const missedRoutines = useMemo(() => {
+    if (!isInitialized || completionsMigratedAt === undefined) return [];
+    const ack = new Set(appSettings.acknowledgedMissedRoutines || []);
+    const rpSet = new Set(rpHolidayYmdList);
+    const todayYmd = localISODate(new Date());
+    return (appSettings.routineSchedules || [])
+      .map((schedule) => {
+        const ymd = getMissedDueDate(schedule as any, todayYmd, effectiveCompletions, rpSet, ack, ROUTINE_WARN_START);
+        if (!ymd) return null;
+        const assignee = getRoutineAssigneeDisplayName(schedule, getRoutinePool(schedule, users), ymd, rpSet);
+        return { schedule, ymd, assignee };
+      })
+      .filter((x): x is { schedule: RoutineSchedule; ymd: string; assignee: string } => x !== null)
+      .sort((a, b) => (a.ymd < b.ymd ? -1 : 1));
+  }, [isInitialized, completionsMigratedAt, appSettings.routineSchedules, appSettings.acknowledgedMissedRoutines, effectiveCompletions, rpHolidayYmdList, users]);
 
   const filteredTickets = useMemo(() => {
     const source = currentView === 'erledigt' ? completedTickets : [...tickets, ...routineTickets];
@@ -3969,7 +3973,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
             schedules={appSettings.routineSchedules as any}
             users={users}
             rpHolidayYmdList={rpHolidayYmdList}
-            completions={appSettings.routineDayCompletions || []}
+            completions={effectiveCompletions}
             onComplete={handleRoutineDayComplete}
             onUncomplete={handleRoutineDayUncomplete}
             onSaveSchedule={handleSaveRoutineSchedule}
@@ -3994,7 +3998,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
           return (
             <RoutineNachweisView
               schedules={appSettings.routineSchedules as any}
-              completions={appSettings.routineDayCompletions || []}
+              completions={effectiveCompletions}
               users={users}
               userRole={currentUser.role}
               userName={currentUser.name}
@@ -4021,7 +4025,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
           loadError={completedLoadError}
         />;
         case 'reports': {
-          return <ReportsView activeTickets={tickets} completedTickets={completedTickets} completedMonth={completedMonth} completedYear={completedYear} onLoadMonth={(m, y) => { setCompletedMonth(m); setCompletedYear(y); setReportYearTickets([]); setReportLoadedYear(null); void loadCompletedTicketsForMonth(m, y); }} users={users} appSettings={appSettings} routineSchedules={appSettings.routineSchedules as any} routineCompletions={appSettings.routineDayCompletions || []} rpHolidayYmdList={rpHolidayYmdList} reportYearTickets={reportYearTickets} reportLoadedYear={reportLoadedYear} isLoadingReportYear={isLoadingReportYear} onLoadYearForStats={loadYearForReports} />;
+          return <ReportsView activeTickets={tickets} completedTickets={completedTickets} completedMonth={completedMonth} completedYear={completedYear} onLoadMonth={(m, y) => { setCompletedMonth(m); setCompletedYear(y); setReportYearTickets([]); setReportLoadedYear(null); void loadCompletedTicketsForMonth(m, y); }} users={users} appSettings={appSettings} routineSchedules={appSettings.routineSchedules as any} routineCompletions={effectiveCompletions} rpHolidayYmdList={rpHolidayYmdList} reportYearTickets={reportYearTickets} reportLoadedYear={reportLoadedYear} isLoadingReportYear={isLoadingReportYear} onLoadYearForStats={loadYearForReports} />;
         }
         case 'techniker': return <TechnicianView tickets={listenBenchTickets} technicians={users.filter(u => (u.role === Role.Technician || u.role === Role.Housekeeping) && u.isActive)} onTechnicianSelect={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} onFilter={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} />;
         case 'settings': return <SettingsView users={users} setUsers={setUsers} locations={locations} setLocations={setLocations} assets={assets} setAssets={setAssets} maintenancePlans={maintenancePlans} setMaintenancePlans={setMaintenancePlans} appSettings={appSettings} setAppSettings={handleAppSettingsChange} onResendConfirmationMailsForEntryDate={handleResendConfirmationMailsForEntryDate} onSendTestEmail={handleSendTestEmail} />;
@@ -4090,7 +4094,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
         lastSyncTime={lastSyncTime}
         brevoMailOk={currentUser.role === Role.Admin ? brevoMailOk : null}
         brevoMailLastChecked={currentUser.role === Role.Admin ? brevoMailLastChecked : null}
-        missedRoutinesCount={missedRoutinesSinceStart.length}
+        missedRoutinesCount={missedRoutines.length}
         drkEvents={drkEvents}
         eventTickets={tickets.filter(t => t.origin === 'event')}
         completedEventTickets={completedTickets.filter(t => t.origin === 'event')}
@@ -4191,7 +4195,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
         )}
         {/* Nachrichten-Badge: wird in der FilterBar rechts angezeigt (messageActivityCount-Prop) */}
         {/* Vergessene Serienaufträge – prominenter Warnblock (bleibt stehen bis erledigt) */}
-        {missedRoutinesSinceStart.length > 0 && currentView !== 'dashboard' && currentView !== 'tech-dashboard' && (
+        {missedRoutines.length > 0 && currentView !== 'dashboard' && currentView !== 'tech-dashboard' && (
           <div
             role="alert"
             style={{
@@ -4220,9 +4224,9 @@ const deleteTicketFromFirebase = (ticketId: string) => {
               </span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 800, fontSize: 16, color: '#9B1C1C', letterSpacing: '0.01em' }}>
-                  {missedRoutinesSinceStart.length === 1
+                  {missedRoutines.length === 1
                     ? '1 Serienauftrag wurde vergessen'
-                    : `${missedRoutinesSinceStart.length} Serienaufträge wurden vergessen`}
+                    : `${missedRoutines.length} Serienaufträge wurden vergessen`}
                 </div>
                 <div style={{ fontWeight: 500, fontSize: 12.5, color: '#7A2020' }}>
                   Nicht rechtzeitig erledigt – bitte nachholen oder prüfen.
@@ -4238,47 +4242,43 @@ const deleteTicketFromFirebase = (ticketId: string) => {
             </div>
             {/* Liste der vergessenen Aufträge */}
             <div>
-              {missedRoutinesSinceStart.slice(0, 6).map((t, i) => {
-                const ep = (t.entryDate || '').split('.');
-                const entryIso = ep.length === 3
-                  ? `${ep[2].length === 2 ? '20' + ep[2] : ep[2]}-${ep[1].padStart(2,'0')}-${ep[0].padStart(2,'0')}`
-                  : '';
-                return (
+              {missedRoutines.slice(0, 6).map(({ schedule, ymd, assignee }, i) => (
                 <div
-                  key={t.id}
+                  key={schedule.id}
                   className="missed-routine-row"
                   style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderTop: i === 0 ? 'none' : '1px solid rgba(220,38,38,0.10)' }}
                 >
                   <i className="ti ti-repeat" style={{ fontSize: 16, color: '#B91C1C', flexShrink: 0 }} aria-hidden="true" />
-                  <span onClick={() => setSelectedTicket(t)} style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, minWidth: 0, cursor: 'pointer' }}>
-                    {t.title}
+                  <span onClick={() => changeView('routines')} style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, minWidth: 0, cursor: 'pointer' }}>
+                    {schedule.title}
                   </span>
-                  {t.area ? <span style={{ fontSize: 12.5, color: 'var(--text-muted)', flexShrink: 0, whiteSpace: 'nowrap' }}>{t.area}</span> : null}
+                  {schedule.area ? <span style={{ fontSize: 12.5, color: 'var(--text-muted)', flexShrink: 0, whiteSpace: 'nowrap' }}>{schedule.area}</span> : null}
                   <span style={{ fontSize: 12.5, fontWeight: 700, color: '#B91C1C', flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
                     <i className="ti ti-calendar" style={{ fontSize: 14 }} aria-hidden="true" />
-                    fällig war {t.entryDate || t.dueDate}
+                    fällig war {ymd.split('-').reverse().join('.')}
                   </span>
-                  {t.technician && t.technician !== 'N/A' ? (
-                    <span style={{ fontSize: 12.5, color: 'var(--text-secondary)', flexShrink: 0, whiteSpace: 'nowrap' }}>· {displayNameShort(t.technician)}</span>
+                  {assignee && assignee !== '—' ? (
+                    <span style={{ fontSize: 12.5, color: 'var(--text-secondary)', flexShrink: 0, whiteSpace: 'nowrap' }}>· {displayNameShort(assignee)}</span>
                   ) : null}
-                  <button
-                    title="Zur Kenntnis genommen – aus Liste entfernen"
-                    onClick={() => t.routineScheduleId && entryIso && handleAcknowledgeMissedRoutine(t.routineScheduleId, entryIso)}
-                    style={{ flexShrink: 0, background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.25)', borderRadius: 6, padding: '3px 8px', fontSize: 12, color: '#B91C1C', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}
-                  >
-                    <i className="ti ti-check" style={{ fontSize: 13 }} aria-hidden="true" />
-                    Quittieren
-                  </button>
+                  {currentUser.role === Role.Admin && (
+                    <button
+                      title="Zur Kenntnis genommen – aus Liste entfernen"
+                      onClick={() => handleAcknowledgeMissedRoutine(schedule.id, ymd)}
+                      style={{ flexShrink: 0, background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.25)', borderRadius: 6, padding: '3px 8px', fontSize: 12, color: '#B91C1C', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}
+                    >
+                      <i className="ti ti-check" style={{ fontSize: 13 }} aria-hidden="true" />
+                      Quittieren
+                    </button>
+                  )}
                 </div>
-                );
-              })}
-              {missedRoutinesSinceStart.length > 6 && (
+              ))}
+              {missedRoutines.length > 6 && (
                 <div
                   className="missed-routine-row"
                   onClick={() => changeView('routines')}
                   style={{ padding: '10px 16px', borderTop: '1px solid rgba(220,38,38,0.10)', fontSize: 13, fontWeight: 700, color: '#9B1C1C', cursor: 'pointer' }}
                 >
-                  und {missedRoutinesSinceStart.length - 6} weitere … alle ansehen
+                  und {missedRoutines.length - 6} weitere … alle ansehen
                 </div>
               )}
             </div>
@@ -4351,12 +4351,12 @@ const deleteTicketFromFirebase = (ticketId: string) => {
             )}
             {/* Rechte Karte: Serientermine */}
             <DashboardRoutineLinkBar
-              overdueTitles={missedRoutinesSinceStart.map(ticket => ticket.title)}
+              overdueTitles={missedRoutines.map(m => m.schedule.title)}
               schedules={appSettings.routineSchedules as any}
               users={users}
               userRole={currentUser.role}
               userName={currentUser.name}
-              completions={appSettings.routineDayCompletions || []}
+              completions={effectiveCompletions}
               rpHolidayYmdList={rpHolidayYmdList}
               onOpenRoutines={() => changeView('routines')}
               inline

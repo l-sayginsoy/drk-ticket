@@ -35,6 +35,18 @@ Serienaufträge (Routinen) · Brevo-E-Mails · Stale-Erinnerungen · **Interner 
 
 ## Zuletzt abgeschlossen
 
+### Session 11.11.2026 – Serienaufträge grundsaniert: verlorene Haken + feste Rotation
+- **Ursache:** Haken lagen im gemeinsamen Einstellungs-Dokument; Geräte schrieben es komplett mit ihrem
+  (teils veralteten, aus localStorage geladenen) Stand zurück → fremde Haken gelöscht (seit ~20.10. weg,
+  nicht wiederherstellbar). Rotation hing an `rotationCursor`, der pro Gerät lokal weiterzählte.
+- **Jetzt:** Haken in `app_data/routine-completions-YYYY-MM` (ein Feld pro Haken, `utils/routineCompletionStore.ts`).
+  Einstellungen nur per Transaktion (`patchSettings` in `App.tsx`). Feste Rotation:
+  `getRoutineAssigneeDisplayName(schedule, pool, datum)` = pool[(Terminnummer + rotationOffset) % n].
+  „Vergessen" überall über `getMissedDueDate`. Quittieren nur Admin.
+  > **NICHT wieder einbauen:** Haken in `appSettings.routineDayCompletions` schreiben, ganze Einstellungen
+  > mit `setDoc` aus lokalem Stand überschreiben, Rotations-Zähler beim Erzeugen/Abhaken weiterzählen.
+
+
 ### Session 08.09.2026 – Melder-Autocomplete im Portal (committed & deployed)
 - **Problem:** Auf gemeinsam genutzten PCs an den Stützpunkten müssen bis zu 100 verschiedene Mitarbeiter
   bei jedem Ticket ihren Namen und ihre E-Mail-Adresse neu eintippen.

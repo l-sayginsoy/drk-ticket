@@ -260,27 +260,135 @@ export function getRoutinePool(schedule: RoutineSchedule, users: User[]): string
   return [...eligibleNames].sort((a, b) => a.localeCompare(b, 'de'));
 }
 
+const mod = (a: number, n: number) => ((a % n) + n) % n;
+
+function weeksBetweenMondays(a: Date, b: Date): number {
+  return Math.round((mondayOfDate(b).getTime() - mondayOfDate(a).getTime()) / (7 * 86400000));
+}
+
+/** Nominaler Termin, der (nach Wochenend-/Feiertags-Verschiebung) auf `ymd` fällt. */
+function nominalDayFor(schedule: RoutineSchedule & { recurrence?: any }, ymd: string, rpHolidays: Set<string>): Date | null {
+  const day = parseYmdLocal(ymd);
+  for (let i = 0; i <= 21; i++) {
+    const nd = new Date(day);
+    nd.setDate(nd.getDate() - i);
+    if (!isNominalRoutineDay(schedule, nd)) continue;
+    if (effectiveYmdAfterHolidays(schedule, localISODate(nd), rpHolidays) === ymd) return nd;
+  }
+  return null;
+}
+
 /**
- * Anzeige-Logik: Bei Rotation wurde nach dem Erzeugen des Tickets der Cursor bereits erhöht —
- * wer „heute dran“ ist, steckt dann in der vorherigen Pool-Position.
+ * Laufende Nummer eines Termins (rein aus dem Datum berechnet). Grundlage der festen Rotation:
+ * jeder Termin hat genau eine Nummer → Person = pool[(Nummer + rotationOffset) % Pool-Größe].
+ * Dadurch sehen alle Geräte dieselbe Person, und wer tatsächlich abhakt, verschiebt nichts.
  */
+export function routineOccurrenceIndex(
+  schedule: RoutineSchedule & { recurrence?: any; startDate?: string | null },
+  ymd: string,
+  rpHolidays: Set<string> = new Set()
+): number {
+  const nominal = nominalDayFor(schedule, ymd, rpHolidays) ?? parseYmdLocal(ymd);
+  const rec = (schedule as any).recurrence;
+  const startYmd = scheduleStartYmd(schedule);
+  const epoch = new Date(1970, 0, 5);
+  const anchor = startYmd ? parseYmdLocal(startYmd) : epoch;
+  if (!rec || rec.type === 'daily') {
+    return weeksBetweenMondays(epoch, nominal) * 5 + Math.min(mondayBasedWeekdayIndex(nominal), 4);
+  }
+  if (rec.type === 'weekly') {
+    return Math.floor(weeksBetweenMondays(anchor, nominal) / Math.max(1, Number(rec.intervalWeeks || 1)));
+  }
+  if (rec.type === 'weekdays') {
+    const order: WeekdayKey[] = ['mo', 'di', 'mi', 'do', 'fr', 'sa', 'so'];
+    const days = (Array.isArray(rec.weekdays) ? (rec.weekdays as WeekdayKey[]) : [])
+      .slice()
+      .sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    const per = Math.max(1, days.length);
+    const cycle = Math.floor(weeksBetweenMondays(anchor, nominal) / Math.max(1, Number(rec.intervalWeeks || 1)));
+    return cycle * per + Math.max(0, days.indexOf(weekdayKeyForDate(nominal)));
+  }
+  if (rec.type === 'monthly') {
+    const months = (nominal.getFullYear() - anchor.getFullYear()) * 12 + (nominal.getMonth() - anchor.getMonth());
+    return Math.floor(months / Math.max(1, Number(rec.intervalMonths || 1)));
+  }
+  if (rec.type === 'yearly') return nominal.getFullYear() - anchor.getFullYear();
+  return 0;
+}
+
+/** Wer ist für den Termin am `dateYmd` zuständig? Auf allen Geräten identisch. */
 export function getRoutineAssigneeDisplayName(
   schedule: RoutineSchedule,
   pool: string[],
-  dateYmd: string
+  dateYmd: string,
+  rpHolidays: Set<string> = new Set()
 ): string {
   if (schedule.assignment?.type === 'fixed') {
     const name = schedule.assignment.userName;
     return pool.includes(name) ? name : '—';
   }
   if (pool.length === 0) return '—';
+  const ymd = dateYmd || localISODate(new Date());
   if ((schedule.assignment as any)?.type === 'calendar-week') {
     const offset = Number((schedule.assignment as any).weekOffset ?? 0);
-    const week = isoWeekNumber(dateYmd || localISODate(new Date()));
-    return pool[((week + offset) % pool.length + pool.length) % pool.length];
+    return pool[mod(isoWeekNumber(ymd) + offset, pool.length)];
   }
-  const c = Math.max(0, Number(schedule.rotationCursor || 0));
-  return pool[c % pool.length];
+  const offset = Number(schedule.rotationOffset ?? 0);
+  return pool[mod(routineOccurrenceIndex(schedule, ymd, rpHolidays) + offset, pool.length)];
+}
+
+/** Offset so wählen, dass der Termin am `ymd` an pool[poolIndex] geht. */
+export function rotationOffsetFor(
+  schedule: RoutineSchedule,
+  poolIndex: number,
+  poolSize: number,
+  ymd: string,
+  rpHolidays: Set<string> = new Set()
+): number {
+  if (poolSize <= 0) return 0;
+  return mod(poolIndex - routineOccurrenceIndex(schedule, ymd, rpHolidays), poolSize);
+}
+
+/** Termin, für den die Zuständig-Spalte gilt: heute fällig/offenes Fenster, sonst nächster Termin. */
+export function relevantDueDate(
+  schedule: RoutineSchedule & { recurrence?: any; startDate?: string | null },
+  todayYmd: string,
+  completions: RoutineDayCompletion[],
+  rpHolidays: Set<string> = new Set()
+): string | null {
+  const today = parseYmdLocal(todayYmd);
+  if (isRoutineDueOnCalendarDay(schedule, today, rpHolidays)) return todayYmd;
+  return findWindowDueDate(schedule, todayYmd, completions, rpHolidays) ?? nextDueDateFrom(schedule, today, rpHolidays);
+}
+
+/**
+ * EINZIGE Regel für „vergessen" (Warnblock, Sidebar-Zähler und Liste nutzen dieselbe Funktion):
+ * der letzte Termin VOR heute, dessen Abhak-Fenster abgelaufen ist, ohne Erledigung und ohne Quittierung.
+ * Ein verspäteter Haken zwischen Termin und heute zählt als erledigt.
+ */
+export function getMissedDueDate(
+  schedule: RoutineSchedule & { recurrence?: any; startDate?: string | null },
+  todayYmd: string,
+  completions: RoutineDayCompletion[],
+  rpHolidays: Set<string>,
+  acknowledged: Set<string>,
+  warnStartYmd?: string
+): string | null {
+  if (!schedule.enabled) return null;
+  const yesterday = parseYmdLocal(todayYmd);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const prev = lastDueDateUpTo(schedule, yesterday, rpHolidays);
+  if (!prev) return null;
+  if (warnStartYmd && prev < warnStartYmd) return null;
+  const windowEnd = parseYmdLocal(prev);
+  windowEnd.setDate(windowEnd.getDate() + getRoutineWindowDays(schedule) - 1);
+  if (todayYmd <= localISODate(windowEnd)) return null;
+  if (acknowledged.has(`${schedule.id}|${prev}`)) return null;
+  const relevant = completions
+    .filter((c) => c.scheduleId === schedule.id && c.date >= prev && c.date < todayYmd)
+    .map((c) => ({ ...c, date: prev }));
+  if (routineDayStatus(schedule, prev, relevant).complete) return null;
+  return prev;
 }
 
 export function isScheduleVisibleForUser(

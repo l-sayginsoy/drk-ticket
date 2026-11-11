@@ -4,6 +4,8 @@ import {
   findWindowDueDate,
   getRoutineAssigneeDisplayName,
   getRoutinePool,
+  getMissedDueDate,
+  relevantDueDate,
   isRoutineDueOnCalendarDay,
   lastDueDateUpTo,
   localISODate,
@@ -225,19 +227,18 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
   // Bei Nutzerwechsel immer alle anzeigen (kein Carry-over vom letzten User)
   useEffect(() => { setMyTasksOnly(false); }, [userName]);
 
-  const visible = useMemo(() => {
+  const visible = useMemo(
     // Admins sehen auch deaktivierte Aufträge (ausgegraut), damit sie reaktiviert werden können
-    const all = canEdit ? schedules : schedules.filter(s => s.enabled);
-    if (myTasksOnly && isTechRole) {
-      return all.filter(s => {
-        if (!s.enabled) return false;
-        const pool = getRoutinePool(s, users);
-        const current = getRoutineAssigneeDisplayName(s, pool, todayYmd);
-        return current === userName;
-      });
-    }
-    return all;
-  }, [schedules, myTasksOnly, isTechRole, canEdit, users, todayYmd, userName]);
+    () => (canEdit ? schedules : schedules.filter(s => s.enabled)),
+    [schedules, canEdit],
+  );
+
+  /** Editor-„Nächster Einsatz" = Person des Bezugstermins (gleiches Datum wie beim Speichern in App.tsx). */
+  const withEditorCursor = (s: RoutineSchedule & { recurrence?: any }) => {
+    const due = relevantDueDate(s, todayYmd, completions, rpHolidaySet) ?? todayYmd;
+    const name = getRoutineAssigneeDisplayName(s, getRoutinePool(s, users), due, rpHolidaySet);
+    return { ...s, rotationCursor: Math.max(0, (s.assignees || []).indexOf(name)) };
+  };
 
   type RowStatus = 'overdue' | 'today' | 'window' | 'done' | 'upcoming' | 'disabled';
   interface RoutineRow {
@@ -246,81 +247,55 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
     assigneeName: string;
     subtasks: { id: string; label: string }[];
     status: RowStatus;
+    /** Termin, der in dieser Zeile abgehakt wird (heute, offenes Fenster oder vergessener Termin) */
     activeDueDate: string | null;
     isDone: boolean;
     nextDate: string | null;
     daysUntil: number;
     currentDue: string | null;
+    /** Vergessener Termin (gleiche Regel wie der rote Warnblock) */
+    missedDue: string | null;
     windowDate: string | null;
     dueToday: boolean;
     sortKey: number;
   }
 
-  const rows = useMemo((): RoutineRow[] => {
+  const allRows = useMemo((): RoutineRow[] => {
     const today = parseYmdLocal(todayYmd);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
+    const daysFromToday = (ymd: string | null) =>
+      ymd ? Math.round((parseYmdLocal(ymd).getTime() - today.getTime()) / 86400000) : 9999;
 
     return visible.map((s): RoutineRow => {
       const subtasks = (s.subtasks as { id: string; label: string }[] | undefined) || [];
       const pool = getRoutinePool(s, users);
-      const assigneeName = getRoutineAssigneeDisplayName(s, pool, todayYmd);
 
       if (!s.enabled) {
         const nxt = nextDueDateFrom(s, today, rpHolidaySet);
-        const days = nxt ? Math.round((parseYmdLocal(nxt).getTime() - today.getTime()) / 86400000) : 9999;
-        return { schedule: s, pool, assigneeName, subtasks, status: 'disabled', activeDueDate: null, isDone: false, nextDate: nxt, daysUntil: days, currentDue: null, windowDate: null, dueToday: false, sortKey: 9999 };
+        const assigneeName = getRoutineAssigneeDisplayName(s, pool, nxt || todayYmd, rpHolidaySet);
+        return { schedule: s, pool, assigneeName, subtasks, status: 'disabled', activeDueDate: null, isDone: false, nextDate: nxt, daysUntil: daysFromToday(nxt), currentDue: null, missedDue: null, windowDate: null, dueToday: false, sortKey: 9999 };
       }
 
       const dueToday = isRoutineDueOnCalendarDay(s, today, rpHolidaySet);
       const windowDate = !dueToday ? findWindowDueDate(s, todayYmd, completions, rpHolidaySet) : null;
-      const activeDueDate = dueToday ? todayYmd : (windowDate ?? null);
-      const currentDue = lastDueDateUpTo(s, today, rpHolidaySet);
+      const missedDue = getMissedDueDate(s, todayYmd, completions, rpHolidaySet, acknowledgedSet);
+      const openDue = dueToday ? todayYmd : windowDate;
+      const isDone = openDue ? routineDayStatus(s, openDue, completions).complete : false;
+      const isOverdue = !openDue && !!missedDue;
+      const activeDueDate = openDue ?? (isOverdue ? missedDue : null);
 
-      const isDone = activeDueDate
-        ? subtasks.length > 0
-          ? routineDayStatus(s, activeDueDate, completions).complete
-          : completions.some(c => c.scheduleId === s.id && c.date === activeDueDate && !c.subtaskId)
-        : false;
-
-      let nextDate: string | null;
-      if (isDone) {
-        nextDate = nextDueDateFrom(s, tomorrow, rpHolidaySet);
-      } else if (dueToday) {
-        nextDate = todayYmd;
-      } else if (windowDate) {
-        nextDate = windowDate;
-      } else {
-        nextDate = nextDueDateFrom(s, today, rpHolidaySet);
-      }
-
-      const daysUntil = nextDate
-        ? Math.round((parseYmdLocal(nextDate).getTime() - today.getTime()) / 86400000)
-        : 9999;
+      const nextDate = isDone
+        ? nextDueDateFrom(s, tomorrow, rpHolidaySet)
+        : (openDue ?? nextDueDateFrom(s, today, rpHolidaySet));
+      const daysUntil = daysFromToday(nextDate);
 
       let status: RowStatus;
       let sortKey: number;
-
-      // Letzter Fälligkeitstag war erledigt, auch wenn er nicht mehr das activeDueDate ist
-      // (z. B. wöchentlich: gestern fällig + erledigt → activeDueDate=null, isDone=false → falsches "Vergessen")
-      const currentDueDone = !isDone && !!currentDue
-        ? subtasks.length > 0
-          ? routineDayStatus(s, currentDue!, completions).complete
-          : completions.some(c => c.scheduleId === s.id && c.date === currentDue && !c.subtaskId)
-        : false;
-
-      const isAcknowledged = !!currentDue && acknowledgedSet.has(`${s.id}|${currentDue}`);
-      const isOverdue = !dueToday && !windowDate && !!currentDue && currentDue < todayYmd && !isDone && !currentDueDone && !isAcknowledged;
       if (isOverdue) {
         status = 'overdue';
-        const daysAgo = Math.round((today.getTime() - parseYmdLocal(currentDue!).getTime()) / 86400000);
-        sortKey = -1000 + daysAgo;
-      } else if (currentDueDone && !dueToday && !windowDate) {
-        // Letzter Fälligkeitstag war erledigt, aber heute kein Fälligkeitstag:
-        // kein ERLEDIGT-Badge zeigen (wäre missverständlich), einfach nächsten Termin anzeigen.
-        status = 'upcoming';
-        sortKey = 100 + Math.min(daysUntil, 500);
-      } else if ((dueToday || windowDate) && !isDone) {
+        sortKey = -1000 - daysFromToday(missedDue);
+      } else if (openDue && !isDone) {
         status = dueToday ? 'today' : 'window';
         sortKey = dueToday ? 0 : 1;
       } else if (isDone) {
@@ -331,9 +306,19 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
         sortKey = 100 + Math.min(daysUntil, 500);
       }
 
-      return { schedule: s, pool, assigneeName, subtasks, status, activeDueDate, isDone, nextDate, daysUntil, currentDue, windowDate: windowDate ?? null, dueToday, sortKey };
+      // Zuständig = Person des Termins, um den es in der Zeile geht (feste Rotation, auf allen Geräten gleich)
+      const assigneeDate = activeDueDate ?? nextDate ?? todayYmd;
+      const assigneeName = getRoutineAssigneeDisplayName(s, pool, assigneeDate, rpHolidaySet);
+      const currentDue = missedDue ?? lastDueDateUpTo(s, today, rpHolidaySet);
+
+      return { schedule: s, pool, assigneeName, subtasks, status, activeDueDate, isDone, nextDate, daysUntil, currentDue, missedDue, windowDate: windowDate ?? null, dueToday, sortKey };
     }).sort((a, b) => a.sortKey - b.sortKey);
-  }, [visible, completions, todayYmd, rpHolidaySet, users]);
+  }, [visible, completions, todayYmd, rpHolidaySet, users, acknowledgedSet]);
+
+  const rows = useMemo(
+    () => (myTasksOnly && isTechRole ? allRows.filter(r => r.schedule.enabled && r.assigneeName === userName) : allRows),
+    [allRows, myTasksOnly, isTechRole, userName],
+  );
 
   const statusMeta: Record<RowStatus, { color: string; label: string; bg: string }> = {
     overdue:  { color: '#DC2626', label: 'VERGESSEN',    bg: '#FEF2F2' },
@@ -472,7 +457,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
           </div>
           <div className="rs2-list">
             {rows.map(row => {
-              const { schedule: s, pool, assigneeName, subtasks, status, activeDueDate, isDone, nextDate, daysUntil, currentDue, windowDate, dueToday } = row;
+              const { schedule: s, pool, assigneeName, subtasks, status, activeDueDate, isDone, nextDate, daysUntil, currentDue, missedDue, windowDate, dueToday } = row;
               const meta = statusMeta[status];
               const avatarColor = nameToColor(assigneeName);
               const poolLabel = pool.length > 1 ? pool.map(n => displayNameShort(n)).join(' · ') : null;
@@ -607,6 +592,17 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                     ) : (
                       <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>—</span>
                     )}
+                    {missedDue && status !== 'overdue' ? (
+                      <div className="rs2-next-warn" style={{ marginTop: 4 }}>
+                        <i className="ti ti-alert-triangle" style={{ fontSize: 11 }} /> Vergessen: {formatDe(missedDue)}
+                        {onAcknowledgeMissed && canEdit && (
+                          <button type="button" onClick={() => onAcknowledgeMissed(s.id, missedDue)} title="Zur Kenntnis genommen – verschwindet aus der Vergessen-Liste"
+                            style={{ marginLeft: 6, background: 'none', border: '1px solid #FCA5A5', borderRadius: 5, padding: '1px 6px', cursor: 'pointer', color: '#DC2626', fontSize: 10.5, fontWeight: 600, fontFamily: 'inherit' }}>
+                            Zur Kenntnis nehmen
+                          </button>
+                        )}
+                      </div>
+                    ) : null}
                   </div>
 
                   {/* Col 4: Zuständig */}
@@ -662,7 +658,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                     {canEdit && (
                       <button type="button" className="rs2-edit-btn"
                         title={s.enabled ? 'Bearbeiten' : 'Deaktiviert – zum Reaktivieren klicken'}
-                        onClick={() => setEditing({ schedule: s, isNew: false })}>
+                        onClick={() => setEditing({ schedule: withEditorCursor(s), isNew: false })}>
                         <i className="ti ti-pencil" />
                       </button>
                     )}

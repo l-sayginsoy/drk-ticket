@@ -98,7 +98,9 @@ export interface RoutineSchedule {
   notifyEmail?: string;
   enabled: boolean;
   lastGenerated: string | null; // YYYY-MM-DD
-  rotationCursor: number; // used when assignment.type === 'rotate'
+  rotationCursor: number; // nur noch Editor-Hilfe („Nächster Einsatz"); maßgeblich ist rotationOffset
+  /** Feste Rotation: Person eines Termins = pool[(Terminnummer + rotationOffset) % Pool-Größe] */
+  rotationOffset?: number;
 }
 
 /** Tagesabschluss eines Serienauftrags (Dashboard „Erledigt”) */
