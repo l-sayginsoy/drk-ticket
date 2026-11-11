@@ -34,6 +34,8 @@ interface RoutineSchedulesViewProps {
   onSaveSchedule: (schedule: RoutineSchedule) => void;
   onDeleteSchedule: (id: string) => void;
   onToggleSubtask?: (scheduleId: string, ymd: string, subtaskId: string, completedBy: string | null, comment?: string) => void;
+  /** Kommentar zu einem Termin speichern + Info-Mail (z. B. „nicht ganz fertig geworden, weil …") */
+  onComment?: (scheduleId: string, ymd: string, comment: string) => void;
   /** Bereits quittierte vergessene Termine (Keys: `${scheduleId}|${ymd}`) */
   acknowledgedMissedRoutines?: string[];
   /** Verpassten Termin quittieren (Meldung zur Kenntnis nehmen) */
@@ -189,7 +191,7 @@ function compactRhythm(s: RoutineSchedule & { recurrence?: any }): string {
 }
 
 export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
-  const { userRole, userName, schedules, users, rpHolidayYmdList = [], onReorder, completions, onComplete, onUncomplete, onSaveSchedule, onDeleteSchedule, onToggleSubtask, acknowledgedMissedRoutines = [], onAcknowledgeMissed } = props;
+  const { userRole, userName, schedules, users, rpHolidayYmdList = [], onReorder, completions, onComplete, onUncomplete, onSaveSchedule, onDeleteSchedule, onToggleSubtask, onComment, acknowledgedMissedRoutines = [], onAcknowledgeMissed } = props;
   const acknowledgedSet = useMemo(() => new Set(acknowledgedMissedRoutines), [acknowledgedMissedRoutines]);
   const [dragId, setDragId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ schedule: RoutineSchedule & { recurrence?: any }; isNew: boolean } | null>(null);
@@ -673,7 +675,6 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
         const sched = visible.find((x) => x.id === subPop.schedId);
         if (!sched) return null;
         const subs = sched.subtasks || [];
-        const assignee = getRoutineAssigneeDisplayName(sched, getRoutinePool(sched, users), todayYmd);
         const canAct = userRole === Role.Admin || userRole === sched.targetRole;
         const popDate = subPop.activeDate;
         const status = routineDayStatus(sched, popDate, completions);
@@ -700,7 +701,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                         className={`routine-today-circle ${done ? 'routine-today-circle--on' : 'routine-today-circle--off'}`}
                         title={done ? 'Erledigt – zurücknehmen' : 'Als erledigt markieren'}
                         aria-label={sub.label || 'Unter-Aufgabe'}
-                        onClick={() => onToggleSubtask && onToggleSubtask(sched.id, popDate, sub.id, done ? null : userName, subPopComment.trim() || undefined)}
+                        onClick={() => onToggleSubtask && onToggleSubtask(sched.id, popDate, sub.id, done ? null : userName)}
                       >
                         {done ? <CheckIcon width={14} height={14} strokeWidth={2.5} aria-hidden /> : null}
                       </button>
@@ -723,7 +724,26 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                     rows={2}
                     style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontSize: 13, padding: '7px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontFamily: 'inherit' }}
                   />
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Wird beim Abklicken der letzten Aufgabe mit der Info-Mail versendet (nur wenn E-Mail hinterlegt).</div>
+                  {(() => {
+                    const saved = (completions || []).find((c) => c.scheduleId === sched.id && c.date === popDate && (c.comment || '').trim());
+                    return saved ? (
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 6, background: 'var(--bg-tertiary)', borderRadius: 6, padding: '6px 9px' }}>
+                        Gespeicherter Kommentar: <span style={{ fontStyle: 'italic' }}>„{saved.comment}"</span>
+                      </div>
+                    ) : null;
+                  })()}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+                    <div style={{ flex: 1, fontSize: 11, color: 'var(--text-muted)' }}>
+                      Z. B. wenn nicht alles geschafft wurde. {sched.notifyEmail ? 'Die Info-Mail mit offenen Punkten geht sofort raus.' : 'Keine Info-E-Mail hinterlegt – Kommentar wird nur gespeichert.'}
+                    </div>
+                    <button
+                      type="button"
+                      disabled={!subPopComment.trim() || !onComment}
+                      onClick={() => { onComment?.(sched.id, popDate, subPopComment); setSubPopComment(''); }}
+                      style={{ flexShrink: 0, padding: '7px 14px', borderRadius: 8, border: 'none', background: subPopComment.trim() ? ROUTINE_TEAL.accent : 'var(--border)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: subPopComment.trim() ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
+                      Kommentar senden
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

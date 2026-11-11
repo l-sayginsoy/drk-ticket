@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Role, RoutineDayCompletion, RoutineSchedule, User } from '../types';
-import { getDueDatesInYear, localISODate, parseYmdLocal } from '../utils/routineHelpers';
+import { getDueDatesInYear, localISODate, parseYmdLocal, routineDayStatus } from '../utils/routineHelpers';
 
 const MONTHS_DE = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 const DAYS_SHORT = ['So','Mo','Di','Mi','Do','Fr','Sa'];
@@ -246,7 +246,13 @@ export default function RoutineNachweisView({
 
   const toggleCollapse = (id: string) => setCollapsed(c => ({ ...c, [id]: !c[id] }));
 
-  const statusBadge = (status: RowStatus) => {
+  const statusBadge = (status: RowStatus, schedule?: RoutineSchedule, row?: DueRow) => {
+    if (status === 'done' && schedule && row && (schedule.subtasks || []).length > 0) {
+      const st = routineDayStatus(schedule, row.ymd, row.completions);
+      if (!st.complete) {
+        return <span title={st.done === 0 ? 'Nur Kommentar' : undefined} style={{ background: '#FEF3C7', color: '#92400E', borderRadius: 6, padding: '2px 8px', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>◐ Teilweise {st.done}/{st.total}</span>;
+      }
+    }
     if (status === 'done') return <span style={{ background: '#D1FAE5', color: '#065F46', borderRadius: 6, padding: '2px 8px', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>✓ Erledigt</span>;
     if (status === 'missed') return <span style={{ background: '#FEE2E2', color: '#991B1B', borderRadius: 6, padding: '2px 8px', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>✗ Vergessen</span>;
     return <span style={{ background: '#F3F4F6', color: '#6B7280', borderRadius: 6, padding: '2px 8px', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>Geplant</span>;
@@ -352,7 +358,7 @@ export default function RoutineNachweisView({
                         <tr key={row.ymd} style={{ borderTop: '1px solid var(--border)', background: bg || undefined }}>
                           <td style={{ padding: '8px 14px', color: 'var(--text-secondary)', fontWeight: 500, whiteSpace: 'nowrap' }}>{weekdayShort(row.ymd)}</td>
                           <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', color: 'var(--text-primary)', fontWeight: row.ymd === today ? 700 : 400 }}>{fmtDate(row.ymd)}</td>
-                          <td style={{ padding: '8px 14px' }}>{statusBadge(row.status)}</td>
+                          <td style={{ padding: '8px 14px' }}>{statusBadge(row.status, schedule, row)}</td>
                           <td style={{ padding: '8px 14px', color: 'var(--text-primary)' }}>
                             {row.status === 'done' ? (
                               <span>

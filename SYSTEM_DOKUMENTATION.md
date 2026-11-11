@@ -1051,3 +1051,9 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 - **Feste Rotation:** Wer an einem Termin dran ist, ergibt sich aus der Terminnummer (`routineOccurrenceIndex`) plus `rotationOffset` – auf allen Geräten identisch, unabhängig davon, wer abhakt. Der frühere Zähler `rotationCursor`, der auf jedem Gerät lokal weiterzählte (Ursache für „jeder sieht einen anderen Namen"), ist nur noch Editor-Hilfe für „Nächster Einsatz". Beim Umstieg behält die Person des jüngsten Tickets ihren Termin, danach folgt die Reihenfolge aus dem Editor.
 - **Eine Regel für „vergessen":** Warnblock, Seitenleisten-Zähler und Serienaufträge-Liste nutzen dieselbe Funktion `getMissedDueDate` (letzter Termin vor heute, Abhak-Fenster abgelaufen, ohne Haken und ohne Quittierung). Vergessene Termine lassen sich in der Liste nachträglich abhaken.
 - **Quittieren nur noch für Admins** (Warnblock und Liste).
+
+### 11.11.2026 – Serienaufträge: Kommentar bei nicht vollständig erledigtem Auftrag
+
+- **Fehler:** Im Abhak-Fenster mit Unterpunkten wurde der Kommentar nur mitgeschickt, wenn danach noch ein Punkt angeklickt wurde. Wer zuerst abhakte und dann kommentierte, hatte keinen Absende-Knopf – Kommentar und Info-Mail gingen verloren.
+- **Neu:** Knopf „Kommentar senden" im Abhak-Fenster (`handleRoutineComment` in `App.tsx`). Der Kommentar wird beim Termin gespeichert (bei den Haken des Tages bzw. als reiner Kommentar-Eintrag `subtaskId: '__comment'`, der nicht als Haken zählt). Ist eine Info-E-Mail hinterlegt, geht sofort eine Mail mit Stand, offenen und erledigten Punkten und dem Kommentar raus; die „nicht abgehakt"-Mail am Folgetag entfällt dann.
+- Ein nicht vollständig erledigter Termin **mit Kommentar** gilt nicht als „vergessen". Im Serien-Nachweis erscheint er als „◐ Teilweise x/y".

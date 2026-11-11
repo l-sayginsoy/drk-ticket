@@ -31,7 +31,7 @@ import CompleteOrderDialog from './components/CompleteOrderDialog';
 import ToastContainer, { type Toast } from './components/ToastContainer';
 import DashboardRoutineLinkBar from './components/DashboardRoutineLinkBar';
 import ZurückgestelltView from './components/ZurückgestelltView';
-import { localISODate, parseYmdLocal, isRoutineDueOnCalendarDay, routineDayStatus, getMissedDueDate, getRoutinePool, getRoutineAssigneeDisplayName, rotationOffsetFor, relevantDueDate } from './utils/routineHelpers';
+import { ROUTINE_COMMENT_SUBTASK, localISODate, parseYmdLocal, isRoutineDueOnCalendarDay, routineDayStatus, getMissedDueDate, getRoutinePool, getRoutineAssigneeDisplayName, rotationOffsetFor, relevantDueDate } from './utils/routineHelpers';
 import { getStaffChatState, hasUnreadReporterNote } from './utils/staffChat';
 import { fetchRpHolidays } from './utils/rpHolidays';
 import {
@@ -2480,6 +2480,60 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
     addNotifyKeys([doneKey ?? partialKey].filter(Boolean) as string[]);
   };
 
+  /**
+   * Kommentar zu einem Termin speichern + sofort Info-Mail (falls hinterlegt) mit erledigten/offenen Punkten.
+   * Gedacht für „nicht ganz fertig geworden": der Termin gilt dann nicht als vergessen.
+   */
+  const handleRoutineComment = (scheduleId: string, ymd: string, comment: string) => {
+    const text = comment.trim();
+    const schedule = (appSettings.routineSchedules || []).find((s) => s.id === scheduleId);
+    if (!currentUser || !schedule || !text) return;
+    const now = new Date().toISOString();
+    const dayRecs = sameDay(scheduleId, ymd);
+    const toWrite: RoutineDayCompletion[] = dayRecs.length > 0
+      ? dayRecs.map((c) => ({ ...c, comment: text }))
+      : [{ scheduleId, date: ymd, subtaskId: ROUTINE_COMMENT_SUBTASK, completedBy: currentUser.name, completedAt: now, comment: text }];
+    void writeCompletions(db, toWrite)
+      .then(() => addToast({ type: 'assigned', title: 'Kommentar gespeichert', message: schedule.notifyEmail ? 'Die Info-Mail wurde verschickt.' : 'Keine Info-E-Mail hinterlegt.' }))
+      .catch(reportRoutineSaveError);
+
+    const emails = (schedule.notifyEmail || '').trim();
+    if (!emails) return;
+    const status = routineDayStatus(schedule, ymd, effectiveCompletions);
+    const subs = schedule.subtasks || [];
+    const doneLabels = subs.filter((s) => status.doneSubtaskIds.has(s.id)).map((s) => s.label);
+    const openLabels = subs.filter((s) => !status.doneSubtaskIds.has(s.id)).map((s) => s.label);
+    const dateDE = ymd.split('-').reverse().join('.');
+    const whereLine = [schedule.area, schedule.location].filter(Boolean).join(' · ');
+    const stand = subs.length > 0
+      ? `${status.done} von ${status.total} Punkten erledigt`
+      : status.complete ? 'Erledigt' : 'Nicht abgehakt';
+    const subject = status.complete
+      ? `Serienauftrag – Kommentar: ${schedule.title}`
+      : `Serienauftrag nicht vollständig: ${schedule.title} (${dateDE})`;
+    const list = (title: string, items: string[]) => items.length
+      ? `<p style="margin:12px 0 4px;font-size:14px;color:#333;"><strong>${title}</strong></p><ul style="margin:0;padding-left:20px;font-size:14px;color:#444;">${items.map((i) => `<li>${escapeHtml(i)}</li>`).join('')}</ul>`
+      : '';
+    const bodyHtml =
+      `<p style="margin:0;font-size:15px;line-height:1.55;color:#333;">Zum Serienauftrag <strong>${escapeHtml(schedule.title)}</strong> vom <strong>${escapeHtml(dateDE)}</strong> wurde ein Kommentar hinterlegt.</p>` +
+      (whereLine ? `<p style="margin:10px 0 0;font-size:14px;color:#444;">Bereich: ${escapeHtml(whereLine)}</p>` : '') +
+      `<p style="margin:10px 0 0;font-size:14px;color:#444;">Stand: ${escapeHtml(stand)}</p>` +
+      list('Noch offen:', openLabels) +
+      list('Erledigt:', doneLabels) +
+      `<p style="margin:14px 0 0;font-size:14px;color:#333;background:#f5f5f5;padding:10px 14px;border-radius:6px;border-left:3px solid #ccc;"><strong>Kommentar von ${escapeHtml(currentUser.name)}:</strong><br>${escapeHtml(text).replace(/\n/g, '<br>')}</p>`;
+    const bodyText =
+      `Zum Serienauftrag „${schedule.title}" vom ${dateDE} wurde ein Kommentar hinterlegt.\n` +
+      (whereLine ? `Bereich: ${whereLine}\n` : '') +
+      `Stand: ${stand}\n` +
+      (openLabels.length ? `\nNoch offen:\n${openLabels.map((l) => `- ${l}`).join('\n')}\n` : '') +
+      (doneLabels.length ? `\nErledigt:\n${doneLabels.map((l) => `- ${l}`).join('\n')}\n` : '') +
+      `\nKommentar von ${currentUser.name}: ${text}`;
+    emails.split(',').map((e) => e.trim()).filter(Boolean)
+      .forEach((addr) => void sendDrkBrevoMailAsync(addr, subject, { kind: 'custom', subject, bodyHtml, bodyText }, { silent: true }));
+    // Merker: verhindert zusätzlich die „nicht abgehakt"-Mail am Folgetag
+    addNotifyKeys([`${scheduleId}|${ymd}|partial`]);
+  };
+
   // Nächster-Tag-Mail: Wenn ein Serienauftrag gestern fällig war, weder vollständig abgehakt
   // noch mit Kommentar versehen → Mail am nächsten Tag (einmalig pro Tag, localStorage-gesichert).
   useEffect(() => {
@@ -3979,6 +4033,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
             onSaveSchedule={handleSaveRoutineSchedule}
             onDeleteSchedule={handleDeleteRoutineSchedule}
             onToggleSubtask={handleToggleRoutineSubtask}
+            onComment={handleRoutineComment}
             acknowledgedMissedRoutines={appSettings.acknowledgedMissedRoutines || []}
             onAcknowledgeMissed={handleAcknowledgeMissedRoutine}
             onReorder={(fromId, toId) => {

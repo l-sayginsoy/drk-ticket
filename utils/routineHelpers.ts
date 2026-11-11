@@ -388,6 +388,8 @@ export function getMissedDueDate(
     .filter((c) => c.scheduleId === schedule.id && c.date >= prev && c.date < todayYmd)
     .map((c) => ({ ...c, date: prev }));
   if (routineDayStatus(schedule, prev, relevant).complete) return null;
+  // Nicht fertig geworden, aber begründet (Kommentar) → nicht „vergessen"
+  if (relevant.some((c) => (c.comment || '').trim())) return null;
   return prev;
 }
 
@@ -465,12 +467,15 @@ export function getDueDatesInYear(
  * - Ohne Subtasks: complete = es existiert mindestens ein Completion-Record für den Tag.
  * - Mit Subtasks: complete = ALLE Subtasks haben einen Record; partial = einige.
  */
+/** Eintrag, der nur einen Kommentar zu einem Termin trägt (z. B. „nicht fertig geworden, weil …"). Zählt nicht als Haken. */
+export const ROUTINE_COMMENT_SUBTASK = '__comment';
+
 export function routineDayStatus(
   schedule: RoutineSchedule & { subtasks?: { id: string; label: string }[] },
   dateYmd: string,
   completions: RoutineDayCompletion[]
 ): { done: number; total: number; complete: boolean; anyDone: boolean; doneSubtaskIds: Set<string> } {
-  const recs = (completions || []).filter((c) => c.scheduleId === schedule.id && c.date === dateYmd);
+  const recs = (completions || []).filter((c) => c.scheduleId === schedule.id && c.date === dateYmd && c.subtaskId !== ROUTINE_COMMENT_SUBTASK);
   const subtasks = schedule.subtasks || [];
   if (subtasks.length === 0) {
     const complete = recs.length > 0;
