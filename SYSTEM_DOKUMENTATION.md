@@ -1071,3 +1071,8 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 - `components/ModernDashboard.tsx` (Hauptmenü im Portal): Aufbau unverändert (weiße Karte · DRK-Logo · rotes Band · Kacheln „Meldung erfassen“/„Status prüfen“ · Anmelden), Optik modernisiert. Rotes Band als abgerundete Fläche mit Verlauf und dezentem Punktraster; ruhigere Kacheln mit Symbol-Plakette (lucide `ClipboardPlus`/`SearchCheck`) und rundem Pfeil; „Service-Team & Admin anmelden“ als dezenter Pillen-Knopf statt grauem Text.
 - Eine responsive Ansicht statt getrennter Desktop-/Mobil-Kopie. Unter 700px stehen die Kacheln untereinander. Die Seite scrollt selbst (`position: fixed; overflow-y: auto`), weil `html/body` nicht scrollen.
 - Funktionen unverändert: gleiche Props aus `Portal.tsx`, Wartungsmodus sperrt weiterhin „Meldung erfassen“ und zeigt den Hinweis im roten Band.
+
+### 12.11.2026 – Eingangsseite: alter Look zurück, nur Logo und Anmelden neu
+
+- Der modernisierte Entwurf vom selben Tag wurde auf Nutzerwunsch zurückgenommen. `components/ModernDashboard.tsx` ist wieder der alte Stand (eigene Symbole, Farben #990000/#f4f3ec, rotes Band über die volle Breite, getrennte Desktop-/Mobil-Ansicht).
+- Übernommen aus dem neuen Entwurf: DRK-Logo kleiner (Desktop 58px statt 75px, Handy max. 46px) und „Service-Team & Admin anmelden“ als runder Knopf mit `LogIn`-Symbol statt grauem Textlink.

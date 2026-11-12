@@ -35,10 +35,10 @@ Serienaufträge (Routinen) · Brevo-E-Mails · Stale-Erinnerungen · **Interner 
 
 ## Zuletzt abgeschlossen
 
-### Session 12.11.2026 (2) – Portal-Eingangsseite modernisiert
-- `components/ModernDashboard.tsx`: gleicher Aufbau (Logo · rotes Band · 2 Kacheln · Anmelden), moderner Look,
-  eine responsive Ansicht statt Desktop-/Mobil-Kopie. Nutzer wollte bewusst nur „leicht moderner“ und hell –
-  KEIN dunkles Design (ein dunkler Entwurf war ein Missverständnis und wurde verworfen).
+### Session 12.11.2026 (2) – Portal-Eingangsseite: alter Look bleibt
+- Ein modernisierter Entwurf (abgerundetes Band, lucide-Symbole, neue Farben) war kurz live und wurde auf
+  Nutzerwunsch zurückgenommen: **alte Symbole und Farben gefallen besser.** Geblieben sind nur das kleinere
+  Logo (58px / Handy 46px) und der runde Knopf „Service-Team & Admin anmelden“. Kein dunkles Design.
 
 ### Session 12.11.2026 – Serienaufträge: Mitarbeiter legen selbst an + Ein-Klick-Übertragen
 - Techniker/Hauswirtschaft dürfen Serienaufträge anlegen/bearbeiten (eigener Bereich); löschen nur Admin
