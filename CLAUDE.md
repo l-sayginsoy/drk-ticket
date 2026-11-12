@@ -35,6 +35,11 @@ Serienaufträge (Routinen) · Brevo-E-Mails · Stale-Erinnerungen · **Interner 
 
 ## Zuletzt abgeschlossen
 
+### Session 12.11.2026 (2) – Portal-Eingangsseite modernisiert
+- `components/ModernDashboard.tsx`: gleicher Aufbau (Logo · rotes Band · 2 Kacheln · Anmelden), moderner Look,
+  eine responsive Ansicht statt Desktop-/Mobil-Kopie. Nutzer wollte bewusst nur „leicht moderner“ und hell –
+  KEIN dunkles Design (ein dunkler Entwurf war ein Missverständnis und wurde verworfen).
+
 ### Session 12.11.2026 – Serienaufträge: Mitarbeiter legen selbst an + Ein-Klick-Übertragen
 - Techniker/Hauswirtschaft dürfen Serienaufträge anlegen/bearbeiten (eigener Bereich); löschen nur Admin
   oder Ersteller (`createdBy`). Quittieren bleibt Admin.

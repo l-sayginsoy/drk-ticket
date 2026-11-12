@@ -1065,3 +1065,9 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
   - **Feste Person:** Auftrag geht dauerhaft an die neue Person (`assignment.userName`).
   - **Rotation:** nur der angezeigte Termin geht an die neue Person (`RoutineSchedule.assigneeOverrides[YYYY-MM-DD]`), danach läuft die Rotation unverändert weiter. Override hat Vorrang in `getRoutineAssigneeDisplayName` → gilt für Anzeige, Ticket-Erzeugung und Mails. Einträge älter als 60 Tage werden beim nächsten Übertragen aufgeräumt.
   - Ein für den Termin bereits erzeugtes, offenes Ticket wird mit umgehängt. Speichern per Transaktion (`patchSettings`).
+
+### 12.11.2026 – Eingangsseite des Portals modernisiert
+
+- `components/ModernDashboard.tsx` (Hauptmenü im Portal): Aufbau unverändert (weiße Karte · DRK-Logo · rotes Band · Kacheln „Meldung erfassen“/„Status prüfen“ · Anmelden), Optik modernisiert. Rotes Band als abgerundete Fläche mit Verlauf und dezentem Punktraster; ruhigere Kacheln mit Symbol-Plakette (lucide `ClipboardPlus`/`SearchCheck`) und rundem Pfeil; „Service-Team & Admin anmelden“ als dezenter Pillen-Knopf statt grauem Text.
+- Eine responsive Ansicht statt getrennter Desktop-/Mobil-Kopie. Unter 700px stehen die Kacheln untereinander. Die Seite scrollt selbst (`position: fixed; overflow-y: auto`), weil `html/body` nicht scrollen.
+- Funktionen unverändert: gleiche Props aus `Portal.tsx`, Wartungsmodus sperrt weiterhin „Meldung erfassen“ und zeigt den Hinweis im roten Band.
