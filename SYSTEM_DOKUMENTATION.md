@@ -1076,3 +1076,7 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 
 - Der modernisierte Entwurf vom selben Tag wurde auf Nutzerwunsch zurückgenommen. `components/ModernDashboard.tsx` ist wieder der alte Stand (eigene Symbole, Farben #990000/#f4f3ec, rotes Band über die volle Breite, getrennte Desktop-/Mobil-Ansicht).
 - Übernommen aus dem neuen Entwurf: DRK-Logo kleiner (Desktop 58px statt 75px, Handy max. 46px) und „Service-Team & Admin anmelden“ als runder Knopf mit `LogIn`-Symbol statt grauem Textlink.
+
+### 12.11.2026 – Portal: Kopier-Knopf für Ticketnummer entfernt
+
+- Auf der Erfolgsseite nach dem Melden (`components/Portal.tsx`) wird die Ticketnummer weiter angezeigt, der Knopf „In Zwischenablage kopieren" ist entfernt (Nutzer-Wunsch: unnötig, die Nummer steht auch in der Bestätigungs-Mail).

@@ -11,8 +11,6 @@ import { XIcon } from './icons/XIcon';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
 import { KeyIcon } from './icons/KeyIcon';
 import { CheckBadgeIcon } from './icons/CheckBadgeIcon';
-import { ClipboardIcon } from './icons/ClipboardIcon';
-import { CheckIcon } from './icons/CheckIcon';
 import ModernDashboard from './ModernDashboard';
 
 const CalendarIcon = ({ size = 24 }: { size?: number }) => (
@@ -399,7 +397,6 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
   const [noteAdded, setNoteAdded] = useState(false);
   const [loginAttempt, setLoginAttempt] = useState({ name: '', password: '' });
   const [loginError, setLoginError] = useState('');
-  const [copied, setCopied] = useState(false);
   const isTicketDeepLink = useRef(false);
   const deepLinkStarted = useRef(false);
   const [deepLinkResolving, setDeepLinkResolving] = useState(false);
@@ -514,14 +511,6 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
       </div>
     );
   }
-
-  const handleCopy = (text: string | null) => {
-    if (!text) return;
-    navigator.clipboard.writeText(text).then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000); // Reset after 2 seconds
-    });
-  };
 
   const handleTicketPruefen = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -839,9 +828,6 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                         <p>Vielen Dank! Ihre Meldung wurde erfolgreich übermittelt. Sie erhalten in Kürze eine Bestätigungs-E-Mail.</p>
                         <div className="success-ticket-id-wrapper">
                             <span className="success-ticket-id">{newlyCreatedTicketId}</span>
-                            <button className="copy-btn" onClick={() => handleCopy(newlyCreatedTicketId)} title={copied ? 'Kopiert!' : 'In Zwischenablage kopieren'}>
-                                {copied ? <CheckIcon style={{color: 'var(--accent-success)'}} /> : <ClipboardIcon />}
-                            </button>
                         </div>
                     </div>
                 </div>
