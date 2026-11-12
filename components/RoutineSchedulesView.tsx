@@ -33,6 +33,8 @@ interface RoutineSchedulesViewProps {
   onUncomplete: (scheduleId: string, forDate?: string) => void;
   onSaveSchedule: (schedule: RoutineSchedule) => void;
   onDeleteSchedule: (id: string) => void;
+  /** Ein-Klick-Übertragen: Termin (Rotation) bzw. Auftrag (fest) an eine andere Person */
+  onTransfer?: (scheduleId: string, ymd: string, toName: string) => void;
   onToggleSubtask?: (scheduleId: string, ymd: string, subtaskId: string, completedBy: string | null, comment?: string) => void;
   /** Kommentar zu einem Termin speichern + Info-Mail (z. B. „nicht ganz fertig geworden, weil …") */
   onComment?: (scheduleId: string, ymd: string, comment: string) => void;
@@ -102,15 +104,16 @@ function cadenceGroupOf(schedule: RoutineSchedule & { recurrence?: any }): { ord
 }
 
 /** Leerer Entwurf für einen neuen Serienauftrag (gleiche Defaults wie in den Einstellungen). */
-function newRoutineDraft(): RoutineSchedule & { recurrence?: any } {
+function newRoutineDraft(role: Role, createdBy: string): RoutineSchedule & { recurrence?: any } {
   return {
     id: `routine-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
     title: '',
     description: '',
     area: '',
     location: '',
-    targetRole: Role.Technician,
+    targetRole: role === Role.Housekeeping ? Role.Housekeeping : Role.Technician,
     assignees: [],
+    createdBy,
     assignment: { type: 'rotate' },
     enabled: true,
     lastGenerated: null,
@@ -191,7 +194,7 @@ function compactRhythm(s: RoutineSchedule & { recurrence?: any }): string {
 }
 
 export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
-  const { userRole, userName, schedules, users, rpHolidayYmdList = [], onReorder, completions, onComplete, onUncomplete, onSaveSchedule, onDeleteSchedule, onToggleSubtask, onComment, acknowledgedMissedRoutines = [], onAcknowledgeMissed } = props;
+  const { userRole, userName, schedules, users, rpHolidayYmdList = [], onReorder, completions, onComplete, onUncomplete, onSaveSchedule, onDeleteSchedule, onTransfer, onToggleSubtask, onComment, acknowledgedMissedRoutines = [], onAcknowledgeMissed } = props;
   const acknowledgedSet = useMemo(() => new Set(acknowledgedMissedRoutines), [acknowledgedMissedRoutines]);
   const [dragId, setDragId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ schedule: RoutineSchedule & { recurrence?: any }; isNew: boolean } | null>(null);
@@ -201,6 +204,9 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
   const [completeComment, setCompleteComment] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const canEdit = userRole === Role.Admin;
+  // Haustechnik/Hauswirtschaft dürfen Serienaufträge selbst anlegen und bearbeiten
+  const canManage = canEdit || userRole === Role.Technician || userRole === Role.Housekeeping;
+  const [transferFor, setTransferFor] = useState<{ id: string; top: number; left: number } | null>(null);
   const [todayYmd, setTodayYmd] = useState(() => localISODate(new Date()));
   useEffect(() => {
     const tick = () => setTodayYmd(localISODate(new Date()));
@@ -255,6 +261,8 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
     nextDate: string | null;
     daysUntil: number;
     currentDue: string | null;
+    /** Termin, auf den sich „Zuständig" bezieht (wird beim Übertragen umgehängt) */
+    assigneeDate: string;
     /** Vergessener Termin (gleiche Regel wie der rote Warnblock) */
     missedDue: string | null;
     windowDate: string | null;
@@ -276,7 +284,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
       if (!s.enabled) {
         const nxt = nextDueDateFrom(s, today, rpHolidaySet);
         const assigneeName = getRoutineAssigneeDisplayName(s, pool, nxt || todayYmd, rpHolidaySet);
-        return { schedule: s, pool, assigneeName, subtasks, status: 'disabled', activeDueDate: null, isDone: false, nextDate: nxt, daysUntil: daysFromToday(nxt), currentDue: null, missedDue: null, windowDate: null, dueToday: false, sortKey: 9999 };
+        return { schedule: s, pool, assigneeName, assigneeDate: nxt || todayYmd, subtasks, status: 'disabled', activeDueDate: null, isDone: false, nextDate: nxt, daysUntil: daysFromToday(nxt), currentDue: null, missedDue: null, windowDate: null, dueToday: false, sortKey: 9999 };
       }
 
       const dueToday = isRoutineDueOnCalendarDay(s, today, rpHolidaySet);
@@ -313,7 +321,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
       const assigneeName = getRoutineAssigneeDisplayName(s, pool, assigneeDate, rpHolidaySet);
       const currentDue = missedDue ?? lastDueDateUpTo(s, today, rpHolidaySet);
 
-      return { schedule: s, pool, assigneeName, subtasks, status, activeDueDate, isDone, nextDate, daysUntil, currentDue, missedDue, windowDate: windowDate ?? null, dueToday, sortKey };
+      return { schedule: s, pool, assigneeName, assigneeDate, subtasks, status, activeDueDate, isDone, nextDate, daysUntil, currentDue, missedDue, windowDate: windowDate ?? null, dueToday, sortKey };
     }).sort((a, b) => a.sortKey - b.sortKey);
   }, [visible, completions, todayYmd, rpHolidaySet, users, acknowledgedSet]);
 
@@ -382,6 +390,12 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
         .rs2-sub-btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: 700; font-family: inherit; border: 1.5px solid var(--border); background: var(--bg-tertiary); transition: all 0.12s; }
         .rs2-sub-btn:hover { background: var(--bg-secondary); }
         .rs2-edit-btn { width: 32px; height: 32px; border-radius: 7px; border: 1px solid var(--border); background: none; color: var(--text-muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.12s; font-size: 15px; }
+        .rs2-person-btn { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; background: none; border: 1px solid transparent; border-radius: 8px; padding: 4px 6px; margin: -5px -7px; cursor: pointer; font-family: inherit; transition: all 0.12s; }
+        .rs2-person-btn:hover { background: var(--bg-tertiary); border-color: var(--border); }
+        .rs2-transfer-menu { position: fixed; z-index: 1001; min-width: 210px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.18); padding: 4px; }
+        .rs2-transfer-head { padding: 7px 10px 6px; font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+        .rs2-transfer-item { display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px 10px; border: none; background: none; border-radius: 7px; cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 600; color: var(--text-primary); text-align: left; }
+        .rs2-transfer-item:hover { background: var(--bg-tertiary); }
         .rs2-edit-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); }
         /* SubTask popup circles */
         .routine-today-circle { width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0; cursor: pointer; border: 2px solid transparent; background: var(--bg-secondary); color: var(--text-muted); font-family: inherit; line-height: 0; box-sizing: border-box; }
@@ -434,8 +448,8 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
             <i className="ti ti-user" aria-hidden />{myTasksOnly ? 'Alle anzeigen' : 'Nur meine'}
           </button>
         )}
-        {canEdit && (
-          <button type="button" onClick={() => setEditing({ schedule: newRoutineDraft(), isNew: true })}
+        {canManage && (
+          <button type="button" onClick={() => setEditing({ schedule: newRoutineDraft(userRole, userName), isNew: true })}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 15px', borderRadius: 8, border: 'none', background: 'var(--accent-primary)', color: '#fff', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}>
             <span style={{ fontSize: 17, lineHeight: 1, marginTop: -1 }}>+</span> Neuer Serienauftrag
           </button>
@@ -459,7 +473,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
           </div>
           <div className="rs2-list">
             {rows.map(row => {
-              const { schedule: s, pool, assigneeName, subtasks, status, activeDueDate, isDone, nextDate, daysUntil, currentDue, missedDue, windowDate, dueToday } = row;
+              const { schedule: s, pool, assigneeName, assigneeDate, subtasks, status, activeDueDate, isDone, nextDate, daysUntil, currentDue, missedDue, windowDate, dueToday } = row;
               const meta = statusMeta[status];
               const avatarColor = nameToColor(assigneeName);
               const poolLabel = pool.length > 1 ? pool.map(n => displayNameShort(n)).join(' · ') : null;
@@ -607,15 +621,56 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
                     ) : null}
                   </div>
 
-                  {/* Col 4: Zuständig */}
+                  {/* Col 4: Zuständig – Klick auf den Namen = an andere Person übertragen */}
                   <div className="rs2-cell" title={poolLabel ? `Rotation: ${pool.join(', ')}` : undefined}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                      <span className="rs2-avatar" style={{ background: avatarColor }}>{assigneeName.trim().charAt(0).toUpperCase()}</span>
-                      <div style={{ minWidth: 0 }}>
-                        <div className="rs2-person-name">{displayNameShort(assigneeName)}</div>
-                        {poolLabel && <div className="rs2-pool-hint">{poolLabel}</div>}
-                      </div>
-                    </div>
+                    {(() => {
+                      const canTransfer = !!onTransfer && s.enabled && (userRole === Role.Admin || userRole === s.targetRole);
+                      const inner = (
+                        <>
+                          <span className="rs2-avatar" style={{ background: avatarColor }}>{assigneeName.trim().charAt(0).toUpperCase()}</span>
+                          <div style={{ minWidth: 0, textAlign: 'left' }}>
+                            <div className="rs2-person-name">{displayNameShort(assigneeName)}{canTransfer ? <i className="ti ti-chevron-down" style={{ fontSize: 11, marginLeft: 3, color: 'var(--text-muted)' }} aria-hidden /> : null}</div>
+                            {poolLabel && <div className="rs2-pool-hint">{poolLabel}</div>}
+                          </div>
+                        </>
+                      );
+                      if (!canTransfer) return <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>{inner}</div>;
+                      const isFixed = s.assignment?.type === 'fixed';
+                      const candidates = (activeUsersByRole.get(s.targetRole) || []).filter(n => n !== assigneeName);
+                      return (
+                        <>
+                          <button type="button" className="rs2-person-btn" onClick={(e) => {
+                              if (transferFor?.id === s.id) { setTransferFor(null); return; }
+                              const r = e.currentTarget.getBoundingClientRect();
+                              const menuH = 44 + Math.max(1, candidates.length) * 38;
+                              const top = r.bottom + 4 + menuH > window.innerHeight ? Math.max(8, r.top - 4 - menuH) : r.bottom + 4;
+                              setTransferFor({ id: s.id, top, left: Math.min(r.left, window.innerWidth - 226) });
+                            }}
+                            title="An andere Person übertragen">
+                            {inner}
+                          </button>
+                          {transferFor?.id === s.id && (
+                            <>
+                              <div onClick={() => setTransferFor(null)} onWheel={() => setTransferFor(null)} style={{ position: 'fixed', inset: 0, zIndex: 1000 }} />
+                              <div className="rs2-transfer-menu" style={{ top: transferFor.top, left: transferFor.left }}>
+                                <div className="rs2-transfer-head">
+                                  {isFixed ? 'Auftrag übertragen an' : `Termin ${formatDe(assigneeDate)} übertragen an`}
+                                </div>
+                                {candidates.length === 0 ? (
+                                  <div style={{ padding: '8px 12px', fontSize: 12.5, color: 'var(--text-muted)' }}>Keine weitere Person verfügbar</div>
+                                ) : candidates.map(n => (
+                                  <button key={n} type="button" className="rs2-transfer-item"
+                                    onClick={() => { onTransfer!(s.id, assigneeDate, n); setTransferFor(null); }}>
+                                    <span className="rs2-avatar" style={{ background: nameToColor(n), width: 24, height: 24, fontSize: 10 }}>{n.trim().charAt(0).toUpperCase()}</span>
+                                    {displayNameShort(n)}
+                                  </button>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
 
                   {/* Col 5: Abhaken */}
@@ -657,7 +712,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
 
                   {/* Col 6: Edit */}
                   <div style={{ padding: '12px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {canEdit && (
+                    {(canEdit || (canManage && userRole === s.targetRole)) && (
                       <button type="button" className="rs2-edit-btn"
                         title={s.enabled ? 'Bearbeiten' : 'Deaktiviert – zum Reaktivieren klicken'}
                         onClick={() => setEditing({ schedule: withEditorCursor(s), isNew: false })}>
@@ -800,7 +855,7 @@ export default function RoutineSchedulesView(props: RoutineSchedulesViewProps) {
           isNew={editing.isNew}
           users={users}
           onSave={(s) => { onSaveSchedule(s); setEditing(null); }}
-          onDelete={(id) => { onDeleteSchedule(id); setEditing(null); }}
+          onDelete={canEdit || editing.schedule.createdBy === userName ? (id) => { onDeleteSchedule(id); setEditing(null); } : undefined}
           onClose={() => setEditing(null)}
         />
       )}

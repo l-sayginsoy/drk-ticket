@@ -13,7 +13,8 @@ interface Props {
   isNew: boolean;
   users: User[];
   onSave: (s: RoutineSchedule) => void;
-  onDelete: (id: string) => void;
+  /** Fehlt = kein Löschen-Knopf (z. B. Mitarbeiter bei fremden Aufträgen) */
+  onDelete?: (id: string) => void;
   onClose: () => void;
 }
 
@@ -372,7 +373,7 @@ export default function RoutineEditorModal({ schedule, isNew, users, onSave, onD
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 20px', borderTop: '1px solid var(--border)' }}>
-          {!isNew && (
+          {!isNew && onDelete && (
             <button onClick={() => { if (window.confirm('Diesen Serienauftrag wirklich löschen?')) onDelete(draft.id); }} style={{ padding: '9px 14px', borderRadius: 8, border: '1px solid var(--accent-danger, #dc3545)', background: 'var(--bg-secondary)', color: 'var(--accent-danger, #dc3545)', fontWeight: 600, cursor: 'pointer' }}>Löschen</button>
           )}
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>

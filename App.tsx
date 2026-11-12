@@ -2283,6 +2283,43 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
       return { ...prev, routineSchedules: list as any };
     });
   };
+  /**
+   * Ein-Klick-Übertragen (auch für Techniker): Fester Auftrag → dauerhaft neue Person.
+   * Rotation → nur dieser Termin geht an die neue Person (Rotation läuft danach normal weiter).
+   * Ein für den Tag schon erzeugtes Ticket wird mit umgehängt.
+   */
+  const handleTransferRoutine = (scheduleId: string, ymd: string, toName: string) => {
+    const sched = (appSettings.routineSchedules || []).find((s) => s.id === scheduleId) as RoutineSchedule | undefined;
+    if (!sched || !toName) return;
+    const isFixed = sched.assignment?.type === 'fixed';
+    patchSettings((prev) => ({
+      ...prev,
+      routineSchedules: (prev.routineSchedules || []).map((s: any) => {
+        if (s.id !== scheduleId) return s;
+        if (s.assignment?.type === 'fixed') {
+          const assignees = (s.assignees || []).includes(toName) ? s.assignees : [...(s.assignees || []), toName];
+          const overrides = { ...(s.assigneeOverrides || {}) };
+          Object.keys(overrides).forEach((k) => { if (k >= ymd) delete overrides[k]; });
+          return { ...s, assignment: { type: 'fixed', userName: toName }, assignees, assigneeOverrides: overrides };
+        }
+        // Alte Einträge (älter als 60 Tage) aufräumen, damit das Feld klein bleibt
+        const cutoff = localISODate(new Date(Date.now() - 60 * 86400000));
+        const overrides: Record<string, string> = {};
+        Object.entries(s.assigneeOverrides || {}).forEach(([k, v]) => { if (k >= cutoff) overrides[k] = v as string; });
+        overrides[ymd] = toName;
+        return { ...s, assigneeOverrides: overrides };
+      }) as any,
+    }));
+    // Schon erzeugtes Ticket (heute bzw. ab dem Termin) mitnehmen
+    const [y, m, d] = ymd.split('-');
+    const de = `${d}.${m}.${y}`;
+    routineTickets
+      .filter((t) => t.routineScheduleId === scheduleId && t.status !== Status.Abgeschlossen
+        && (isFixed ? (t.entryDate || '').split('.').reverse().join('-') >= ymd : t.entryDate === de))
+      .forEach((t) => { if (t.technician !== toName) void handleTicketUpdate({ ...t, technician: toName }, t); });
+    addToast({ type: 'assigned', title: 'Serienauftrag übertragen', message: `${sched.title} → ${displayNameShort(toName)}${isFixed ? '' : ` (Termin ${d}.${m}.)`}` });
+  };
+
   const handleDeleteRoutineSchedule = (id: string) => {
     patchSettings((prev) => ({
       ...prev,
@@ -4032,6 +4069,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
             onUncomplete={handleRoutineDayUncomplete}
             onSaveSchedule={handleSaveRoutineSchedule}
             onDeleteSchedule={handleDeleteRoutineSchedule}
+            onTransfer={handleTransferRoutine}
             onToggleSubtask={handleToggleRoutineSubtask}
             onComment={handleRoutineComment}
             acknowledgedMissedRoutines={appSettings.acknowledgedMissedRoutines || []}

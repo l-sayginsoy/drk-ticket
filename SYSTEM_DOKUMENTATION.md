@@ -1057,3 +1057,11 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 - **Fehler:** Im Abhak-Fenster mit Unterpunkten wurde der Kommentar nur mitgeschickt, wenn danach noch ein Punkt angeklickt wurde. Wer zuerst abhakte und dann kommentierte, hatte keinen Absende-Knopf – Kommentar und Info-Mail gingen verloren.
 - **Neu:** Knopf „Kommentar senden" im Abhak-Fenster (`handleRoutineComment` in `App.tsx`). Der Kommentar wird beim Termin gespeichert (bei den Haken des Tages bzw. als reiner Kommentar-Eintrag `subtaskId: '__comment'`, der nicht als Haken zählt). Ist eine Info-E-Mail hinterlegt, geht sofort eine Mail mit Stand, offenen und erledigten Punkten und dem Kommentar raus; die „nicht abgehakt"-Mail am Folgetag entfällt dann.
 - Ein nicht vollständig erledigter Termin **mit Kommentar** gilt nicht als „vergessen". Im Serien-Nachweis erscheint er als „◐ Teilweise x/y".
+
+### 12.11.2026 – Serienaufträge: Mitarbeiter legen selbst an + Ein-Klick-Übertragen
+
+- **Anlegen/Bearbeiten durch Mitarbeiter:** Haustechnik und Hauswirtschaft sehen jetzt „+ Neuer Serienauftrag" und den Stift bei Aufträgen ihres Bereichs (`canManage` in `RoutineSchedulesView.tsx`). Neue Aufträge bekommen `createdBy`; **Löschen** dürfen nur Admin oder wer den Auftrag selbst angelegt hat (Editor-Prop `onDelete` optional). Quittieren vergessener Termine bleibt Admin-only.
+- **Übertragen mit einem Klick:** Klick auf den Namen in der Spalte „Zuständig" öffnet eine Liste der Kollegen → Klick auf einen Namen (`handleTransferRoutine` in `App.tsx`).
+  - **Feste Person:** Auftrag geht dauerhaft an die neue Person (`assignment.userName`).
+  - **Rotation:** nur der angezeigte Termin geht an die neue Person (`RoutineSchedule.assigneeOverrides[YYYY-MM-DD]`), danach läuft die Rotation unverändert weiter. Override hat Vorrang in `getRoutineAssigneeDisplayName` → gilt für Anzeige, Ticket-Erzeugung und Mails. Einträge älter als 60 Tage werden beim nächsten Übertragen aufgeräumt.
+  - Ein für den Termin bereits erzeugtes, offenes Ticket wird mit umgehängt. Speichern per Transaktion (`patchSettings`).

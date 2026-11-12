@@ -35,6 +35,13 @@ Serienaufträge (Routinen) · Brevo-E-Mails · Stale-Erinnerungen · **Interner 
 
 ## Zuletzt abgeschlossen
 
+### Session 12.11.2026 – Serienaufträge: Mitarbeiter legen selbst an + Ein-Klick-Übertragen
+- Techniker/Hauswirtschaft dürfen Serienaufträge anlegen/bearbeiten (eigener Bereich); löschen nur Admin
+  oder Ersteller (`createdBy`). Quittieren bleibt Admin.
+- Klick auf Namen in „Zuständig" → Kollege wählen (`handleTransferRoutine`): fest = dauerhaft umgestellt,
+  Rotation = nur dieser Termin (`assigneeOverrides[ymd]`, Vorrang in `getRoutineAssigneeDisplayName`).
+  Offenes Ticket des Termins wird mit umgehängt.
+
 ### Session 11.11.2026 – Serienaufträge grundsaniert: verlorene Haken + feste Rotation
 - **Ursache:** Haken lagen im gemeinsamen Einstellungs-Dokument; Geräte schrieben es komplett mit ihrem
   (teils veralteten, aus localStorage geladenen) Stand zurück → fremde Haken gelöscht (seit ~20.10. weg,

@@ -101,6 +101,10 @@ export interface RoutineSchedule {
   rotationCursor: number; // nur noch Editor-Hilfe („Nächster Einsatz"); maßgeblich ist rotationOffset
   /** Feste Rotation: Person eines Termins = pool[(Terminnummer + rotationOffset) % Pool-Größe] */
   rotationOffset?: number;
+  /** Übertragene Einzeltermine (Rotation): YYYY-MM-DD → Name. Hat Vorrang vor der Rotation. */
+  assigneeOverrides?: Record<string, string>;
+  /** Wer den Auftrag angelegt hat (Mitarbeiter dürfen nur eigene löschen). */
+  createdBy?: string;
 }
 
 /** Tagesabschluss eines Serienauftrags (Dashboard „Erledigt”) */

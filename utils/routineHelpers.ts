@@ -323,6 +323,9 @@ export function getRoutineAssigneeDisplayName(
   dateYmd: string,
   rpHolidays: Set<string> = new Set()
 ): string {
+  // Einzeln übertragener Termin („Übertragen an …") hat Vorrang – gilt für Anzeige, Ticket und Mails.
+  const override = dateYmd ? schedule.assigneeOverrides?.[dateYmd] : undefined;
+  if (override) return override;
   if (schedule.assignment?.type === 'fixed') {
     const name = schedule.assignment.userName;
     return pool.includes(name) ? name : '—';
