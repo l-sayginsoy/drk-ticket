@@ -1080,3 +1080,9 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 ### 12.11.2026 – Portal: Kopier-Knopf für Ticketnummer entfernt
 
 - Auf der Erfolgsseite nach dem Melden (`components/Portal.tsx`) wird die Ticketnummer weiter angezeigt, der Knopf „In Zwischenablage kopieren" ist entfernt (Nutzer-Wunsch: unnötig, die Nummer steht auch in der Bestätigungs-Mail).
+
+### 12.11.2026 – Neues App-Icon (Haus + Schraubenschlüssel)
+
+- Statt des DRK-Logos hat das Serviceportal jetzt ein eigenes Icon im Stil der anderen DRK-Apps (Kassenabgleich, Gutschein, HeimVergleich): dunkles Quadrat `#19343b`, weißes Haus mit Schraubenschlüssel, kleines rotes Kreuz oben rechts.
+- Dateien in `public/`: `icon.svg` (Quelle, auch Browser-Tab), `favicon-32.png`, `icon-192/512.png` (abgerundet), `icon-maskable-192/512.png` (randlos, Inhalt auf 80 % für Android), `apple-touch-icon.png` (180 px, randlos – iOS rundet selbst). `manifest.json` und `index.html` verweisen darauf.
+- Das DRK-Logo in Sidebar/Kopfzeile bleibt unverändert. Bereits installierte Apps (Startbildschirm) übernehmen das neue Icon erst nach Neu-Installation bzw. wenn das System das Manifest neu liest.
