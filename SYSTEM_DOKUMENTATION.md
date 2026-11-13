@@ -1086,3 +1086,7 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 - Statt des DRK-Logos hat das Serviceportal jetzt ein eigenes Icon im Stil der anderen DRK-Apps (Kassenabgleich, Gutschein, HeimVergleich): dunkles Quadrat `#19343b`, weißes Haus mit Schraubenschlüssel. Das rote Kreuz wurde auf Nutzer-Wunsch wieder entfernt, damit das Symbol größer wirkt (Symbol um 22 % vergrößert).
 - Dateien in `public/`: `icon.svg` (Quelle, auch Browser-Tab), `favicon-32.png`, `icon-192/512.png` (abgerundet), `icon-maskable-192/512.png` (randlos, Inhalt auf 80 % für Android), `apple-touch-icon.png` (180 px, randlos – iOS rundet selbst). `manifest.json` und `index.html` verweisen darauf.
 - Das DRK-Logo in Sidebar/Kopfzeile bleibt unverändert. Bereits installierte Apps (Startbildschirm) übernehmen das neue Icon erst nach Neu-Installation bzw. wenn das System das Manifest neu liest.
+
+### 13.11.2026 – Neues App-Symbol (App-Portal-Familie)
+
+- `public/icon.svg`, `favicon-32.png`, `icon-192/512.png`, `icon-maskable-192/512.png`, `apple-touch-icon.png`: neues Symbol aus der gemeinsamen Symbol-Familie des DRK App-Portals – Haus mit gelbem Schraubenschlüssel auf Schiefergrau, ohne Kreuz. Erzeugt mit `DRK App-Portal/symbole/erzeugen.cjs` aus `DRK App-Portal/dist/icons/serviceportal.svg` (eckige Variante für Apple, maskable mit Sicherheitsrand für Android).
