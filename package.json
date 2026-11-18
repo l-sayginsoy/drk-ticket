@@ -9,7 +9,8 @@
     "lint": "tsc --noEmit",
     "build": "vite build",
     "preview": "vite preview",
-    "test:ticket-persistence": "node scripts/test-ticket-persistence.mjs"
+    "test:ticket-persistence": "node scripts/test-ticket-persistence.mjs",
+    "test:rules": "firebase emulators:exec --only firestore --config firebase.test.sicher.json --project demo-drk-rules \"node scripts/test-rules.mjs\""
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0",
@@ -28,6 +29,7 @@
     "vite": "^5.0.8"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
     "puppeteer": "^24.43.1"
   }
 }

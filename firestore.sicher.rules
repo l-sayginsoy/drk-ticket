@@ -1,0 +1,221 @@
+rules_version = '2';
+
+// ===================================================================
+// NEUE Regeln für die Umstellung auf echte Firebase-Anmeldung.
+// NICHT aktiv: firebase.json verweist weiter auf firestore.rules.
+// Ausrollen nur nach SICHERHEIT_UMBAU.md (Schritt „Regeln schließen").
+//
+// Modell
+//  - Mitarbeitende melden sich mit Firebase Auth an. Ihre Rolle steht in
+//    users/{uid}.role (admin | techniker | hauswirtschaft), nur Admins dürfen
+//    diese Dokumente schreiben. Die Benutzerliste in app_data ist nur noch Anzeige
+//    (Name, Farbe, Abwesenheit) und gibt KEINE Rechte.
+//  - Das Melder-Portal ist anonym und darf nur: ein Ticket anlegen, ein einzelnes
+//    Ticket per Nummer lesen (get, nie list), eine eigene Nachricht anhängen,
+//    ein Ticket wiedereröffnen und das öffentliche Dokument app_data/portal-public lesen.
+// ===================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------------------------------------------------------------
+    // Hilfsfunktionen: Anmeldung und Rolle
+    // ---------------------------------------------------------------
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profilePath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    // Ein angemeldetes Konto ohne Profildokument (z. B. selbst über die öffentliche
+    // Anmelde-Schnittstelle angelegt) hat KEINE Rechte.
+    function activeProfile() {
+      return signedIn() && exists(profilePath()) && get(profilePath()).data.get('active', true) == true;
+    }
+
+    function isAdmin() {
+      return activeProfile() && get(profilePath()).data.get('role', '') == 'admin';
+    }
+
+    function isStaff() {
+      return activeProfile() && get(profilePath()).data.get('role', '') in ['admin', 'techniker', 'hauswirtschaft'];
+    }
+
+    // ---------------------------------------------------------------
+    // Ticket-Lebenszyklus (unverändert aus der bisherigen Fassung)
+    // ---------------------------------------------------------------
+    function isValidTicket(ticketId) {
+      return request.resource.data.id == ticketId
+        && request.resource.data.status in ['Offen', 'In Arbeit', 'Überfällig', 'Abgeschlossen', 'Zurückgestellt'];
+    }
+
+    function canWriteActiveTicket(ticketId) {
+      // Eine Abschluss-Schreibung darf immer durch; veraltete OFFEN/ÜBERFÄLLIG-Schreibungen
+      // dürfen ein Archiv nie wiederbeleben.
+      return isValidTicket(ticketId) &&
+        (request.resource.data.status == 'Abgeschlossen' ||
+         !existsAfter(/databases/$(database)/documents/completed_tickets/$(ticketId)));
+    }
+
+    function isReopenedAt(collectionName, ticketId) {
+      let path = /databases/$(database)/documents/$(collectionName)/$(ticketId);
+      return existsAfter(path) && getAfter(path).data.status != 'Abgeschlossen'
+        && getAfter(path).data.get('is_reopened', false) == true;
+    }
+
+    function inDeletedList(ticketId) {
+      let deleted = /databases/$(database)/documents/app_data/deleted-ticket-ids;
+      return existsAfter(deleted) && ticketId in getAfter(deleted).data.value;
+    }
+
+    // Archiv darf nur verschwinden, wenn das Ticket gezielt wiedereröffnet wurde
+    // (Melder ODER Mitarbeiter) oder bewusst über die Löschliste gelöscht wird (nur Personal).
+    function canRemoveCompletedTicket(ticketId) {
+      return isReopenedAt('tickets', ticketId) || isReopenedAt('routine_tickets', ticketId)
+        || (isStaff() && inDeletedList(ticketId));
+    }
+
+    // Aktive Tickets löschen: Admin immer; Personal nur als Teil eines Abschlusses/Umzugs
+    // (Ticket existiert danach im Archiv oder in der anderen aktiven Sammlung) oder wenn es gar nicht existiert.
+    function canDeleteActiveTicket(ticketId, otherCollection) {
+      // resource == null: das Dokument gibt es nicht, Löschen ist ein Nichts (kommt beim Umzug vor).
+      return resource == null || isAdmin() || (isStaff() && (
+        existsAfter(/databases/$(database)/documents/completed_tickets/$(ticketId))
+        || existsAfter(/databases/$(database)/documents/$(otherCollection)/$(ticketId))));
+    }
+
+    // ---------------------------------------------------------------
+    // Melder-Portal (anonym): eng begrenzte Schreibrechte
+    // ---------------------------------------------------------------
+    function portalTicketKeys() {
+      return ['id', 'title', 'area', 'location', 'reporter', 'reporter_email', 'dueDate', 'technician',
+              'description', 'categoryId', 'wunschTermin', 'photos', 'notes', 'ticketType', 'entryDate',
+              'entryTime', 'status', 'priority', 'hasNewNoteFromReporter', 'is_emergency', 'autoAssigned',
+              'isNew', 'portalIntakePending', 'origin'];
+    }
+
+    // Neues Ticket aus dem Portal: nur diese Felder, Status Offen, noch keine Zuweisung
+    // (die Zuweisung übernimmt ein Mitarbeiter-Browser, siehe portalIntakePending).
+    function isPortalNewTicket(ticketId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(portalTicketKeys())
+        && d.id == ticketId
+        && d.status == 'Offen'
+        && d.technician == 'N/A'
+        && d.get('portalIntakePending', false) == true
+        && d.title is string && d.title.size() >= 1 && d.title.size() <= 300
+        && d.get('description', '') is string && d.get('description', '').size() <= 10000
+        && d.get('reporter', '') is string && d.get('reporter', '').size() <= 200
+        && d.get('reporter_email', '') is string && d.get('reporter_email', '').size() <= 200
+        && d.get('notes', []) is list && d.get('notes', []).size() == 0
+        && d.get('photos', []) is list && d.get('photos', []).size() <= 3
+        && !exists(/databases/$(database)/documents/completed_tickets/$(ticketId))
+        && !exists(/databases/$(database)/documents/routine_tickets/$(ticketId));
+    }
+
+    function portalNoteAppended() {
+      let oldNotes = resource.data.get('notes', []);
+      let newNotes = request.resource.data.get('notes', []);
+      return newNotes is list
+        && newNotes.size() == oldNotes.size() + 1
+        && newNotes[0:oldNotes.size()] == oldNotes
+        && newNotes[oldNotes.size()] is string
+        && newNotes[oldNotes.size()].size() <= 3000
+        && request.resource.data.get('hasNewNoteFromReporter', false) == true;
+    }
+
+    // Nachricht des Melders an ein offenes Ticket: nur Notizen + Hinweis-Felder ändern sich
+    function isPortalNote() {
+      return resource.data.status != 'Abgeschlossen'
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['notes', 'hasNewNoteFromReporter', 'reporterNoteReadBy'])
+        && portalNoteAppended();
+    }
+
+    // Wiedereröffnung durch den Melder: neues aktives Dokument = Archivkopie + wenige geänderte Felder
+    function isPortalReopen(ticketId) {
+      let archive = get(/databases/$(database)/documents/completed_tickets/$(ticketId));
+      let d = request.resource.data;
+      return exists(/databases/$(database)/documents/completed_tickets/$(ticketId))
+        && archive.data.status == 'Abgeschlossen'
+        && d.status == 'In Arbeit'
+        && d.get('is_reopened', false) == true
+        && d.diff(archive.data).affectedKeys().hasOnly(
+             ['status', 'notes', 'hasNewNoteFromReporter', 'reporterNoteReadBy', 'is_reopened',
+              'lifecycleRevision', 'closedAt', 'completionDate', 'completionTime'])
+        && d.get('notes', []).size() == archive.data.get('notes', []).size() + 1
+        && d.get('notes', [])[0:archive.data.get('notes', []).size()] == archive.data.get('notes', []);
+    }
+
+    // ===============================================================
+    // Sammlungen
+    // ===============================================================
+
+    // Rollenprofile: jede Person liest ihr eigenes Profil, Admins lesen/schreiben alle.
+    match /users/{userId} {
+      allow get: if signedIn() && request.auth.uid == userId;
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /locations/{locationId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // Aktive Tickets: Melder dürfen ein einzelnes Ticket lesen (get), anlegen, eine Nachricht anhängen.
+    match /tickets/{ticketId} {
+      allow get: if true;
+      allow list: if isStaff();
+      allow create: if canWriteActiveTicket(ticketId)
+        && (isStaff() || isPortalNewTicket(ticketId) || isPortalReopen(ticketId));
+      allow update: if canWriteActiveTicket(ticketId) && (isStaff() || isPortalNote());
+      allow delete: if canDeleteActiveTicket(ticketId, 'routine_tickets');
+    }
+
+    match /completed_tickets/{ticketId} {
+      allow get: if true;
+      allow list: if isStaff();
+      allow create, update: if isStaff() && isValidTicket(ticketId) && request.resource.data.status == 'Abgeschlossen';
+      allow delete: if canRemoveCompletedTicket(ticketId);
+    }
+
+    // Serienaufträge: nur Personal (Melder haben hier nichts zu suchen)
+    match /routine_tickets/{ticketId} {
+      allow get: if true;
+      allow list: if isStaff();
+      allow create, update: if isStaff() && canWriteActiveTicket(ticketId);
+      allow delete: if canDeleteActiveTicket(ticketId, 'tickets');
+    }
+
+    match /assets/{assetId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    match /maintenancePlans/{planId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // Einstellungen und Betriebsdaten. Öffentlich lesbar (get) sind NUR zwei Dokumente:
+    //  - portal-public: Name, Kategorien, Standorte, Wartungsmodus, Namen fürs Anmeldeformular
+    //  - deleted-ticket-ids: reine Liste gesperrter Ticketnummern (das Portal prüft sie beim Anlegen)
+    // Benutzerliste, Standorte und portal-public dürfen nur Admins ändern; der Rest alle Mitarbeitenden.
+    match /app_data/{docId} {
+      allow get: if docId in ['portal-public', 'deleted-ticket-ids'];
+      allow read: if isStaff();
+      allow write: if isAdmin()
+        || (isStaff() && !(docId in ['facility-management-users', 'facility-management-locations', 'portal-public']));
+    }
+
+    match /events/{eventId} {
+      allow read, write: if isStaff();
+    }
+
+    // Alles andere bleibt zu.
+  }
+}

@@ -260,6 +260,8 @@ export interface Ticket {
   parkReminderNextDate?: string; // YYYY-MM-DD of next reminder
   parkedAt?: string; // YYYY-MM-DD when it was parked
   isNew?: boolean; // true until first viewed by staff
+  /** Vom anonymen Melder-Portal angelegt, Zuweisung/Priorität/Admin-Mail stehen noch aus (übernimmt ein Mitarbeiter-Browser). */
+  portalIntakePending?: boolean;
   eventChecklistItems?: { id: string; label: string }[]; // Checklisten-Punkte (für event-Tickets, aus EventTask.items)
   eventChecklistDone?: string[]; // IDs der abgehakten Checklisten-Punkte (für event-Tickets)
 }
