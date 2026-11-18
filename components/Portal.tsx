@@ -30,12 +30,13 @@ type PortalView = 'menu' | 'erfassen' | 'pruefen' | 'status-result' | 'success' 
 
 interface PortalProps {
   appSettings: AppSettings;
-  onLogin: (user: User) => void;
-  tickets: Ticket[];
+  /** Anmeldung per Firebase Auth; liefert eine Fehlermeldung oder null bei Erfolg */
+  onLogin: (name: string, password: string, kind: 'staff' | 'admin') => Promise<string | null>;
   locations: string[];
   onAddTicket: (newTicket: Omit<Ticket, 'id' | 'entryDate' | 'status' | 'priority'> & { priority?: Priority }) => Promise<string>;
   onUpdateTicket: (ticket: Ticket, original?: Ticket) => Promise<Ticket | null>;
-  users: User[];
+  /** Namen der aktiven Service-Team-Mitglieder für die Auswahlliste (aus dem öffentlichen Dokument) */
+  staffLoginNames: string[];
   /** true, wenn Firebase/Init abgeschlossen – für Deep-Link ?ticket= aus E-Mail */
   dataReady: boolean;
 }
@@ -381,7 +382,7 @@ const NewTicketForm: React.FC<{
 };
 
 
-const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, locations, onAddTicket, onUpdateTicket, users, dataReady }) => {
+const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, locations, onAddTicket, onUpdateTicket, staffLoginNames, dataReady }) => {
   const [view, setView] = useState<PortalView>(() => {
     try {
       return new URLSearchParams(window.location.search).has('ticket') ? 'status-result' : 'menu';
@@ -418,8 +419,6 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
   const resolveTicketById = async (rawId: string): Promise<Ticket | null> => {
     const id = normalizeTicketId(rawId);
     if (!id) return null;
-    const inMem = tickets.find((t) => t.id.toUpperCase() === id);
-    if (inMem) return inMem;
     for (const coll of ['tickets', 'routine_tickets', 'completed_tickets']) {
       try {
         const snap = await getDoc(doc(db, coll, id));
@@ -535,33 +534,22 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
     setDeepLinkResolving(false);
   };
 
-  const handleTechnicianLogin = (e: React.FormEvent) => {
-      e.preventDefault();
+  const [loginBusy, setLoginBusy] = useState(false);
+  // Anmeldung läuft über Firebase Auth (App.tsx handleLogin). Das Passwort verlässt dieses Formular nur Richtung Firebase.
+  const doLogin = async (kind: 'staff' | 'admin') => {
+      if (loginBusy) return;
       setLoginError('');
-      const user = users.find(
-        u =>
-          u.name.toLowerCase() === loginAttempt.name.toLowerCase() &&
-          u.password === loginAttempt.password &&
-          (u.role === Role.Technician || u.role === Role.Housekeeping) &&
-          u.isActive
-      );
-      if (user) {
-          onLogin(user);
-      } else {
-          setLoginError('Anmeldedaten sind ungültig oder Konto inaktiv.');
+      setLoginBusy(true);
+      try {
+          const error = await onLogin(loginAttempt.name, loginAttempt.password, kind);
+          if (error) setLoginError(error);
+          else setLoginAttempt({ name: '', password: '' });
+      } finally {
+          setLoginBusy(false);
       }
   };
-
-  const handleAdminLogin = (e: React.FormEvent) => {
-      e.preventDefault();
-      setLoginError('');
-      const user = users.find(u => u.name.toLowerCase() === loginAttempt.name.toLowerCase() && u.password === loginAttempt.password && u.role === Role.Admin);
-      if (user) {
-          onLogin(user);
-      } else {
-          setLoginError('Anmeldedaten sind ungültig.');
-      }
-  };
+  const handleTechnicianLogin = (e: React.FormEvent) => { e.preventDefault(); void doLogin('staff'); };
+  const handleAdminLogin = (e: React.FormEvent) => { e.preventDefault(); void doLogin('admin'); };
   
   const handleAddNewNote = async () => {
     if (!newNote.trim() || !foundTicket) return;
@@ -650,15 +638,9 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                         <label>Mitarbeiter</label>
                         <select value={loginAttempt.name} onChange={e => { setLoginAttempt(p => ({...p, name: e.target.value})); setLoginError(''); }}>
                             <option value="" disabled>Namen auswählen</option>
-                            {users
-                              .filter(
-                                t =>
-                                  t.isActive &&
-                                  (t.role === Role.Technician || t.role === Role.Housekeeping)
-                              )
-                              .map(tech => (
-                                <option key={tech.id} value={tech.name}>
-                                    {tech.name}
+                            {staffLoginNames.map(name => (
+                                <option key={name} value={name}>
+                                    {name}
                                 </option>
                             ))}
                         </select>
@@ -670,7 +652,7 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                     {loginError && <p className="error-text" style={{textAlign: 'center'}}>{loginError}</p>}
                 </div>
                 <div className="portal-actions">
-                   <button type="submit" className="portal-btn btn-primary">Anmelden</button>
+                   <button type="submit" className="portal-btn btn-primary" disabled={loginBusy}>Anmelden</button>
                 </div>
             </form>
         );
@@ -694,7 +676,7 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                      {loginError && <p className="error-text" style={{textAlign: 'center'}}>{loginError}</p>}
                 </div>
                 <div className="portal-actions">
-                    <button type="submit" className="portal-btn btn-primary">Anmelden</button>
+                    <button type="submit" className="portal-btn btn-primary" disabled={loginBusy}>Anmelden</button>
                 </div>
             </form>
         );

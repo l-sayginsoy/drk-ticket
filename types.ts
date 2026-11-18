@@ -260,6 +260,8 @@ export interface Ticket {
   parkReminderNextDate?: string; // YYYY-MM-DD of next reminder
   parkedAt?: string; // YYYY-MM-DD when it was parked
   isNew?: boolean; // true until first viewed by staff
+  /** Vom anonymen Melder-Portal angelegt, Zuweisung/Priorität/Admin-Mail stehen noch aus (übernimmt ein Mitarbeiter-Browser). */
+  portalIntakePending?: boolean;
   eventChecklistItems?: { id: string; label: string }[]; // Checklisten-Punkte (für event-Tickets, aus EventTask.items)
   eventChecklistDone?: string[]; // IDs der abgehakten Checklisten-Punkte (für event-Tickets)
 }
@@ -290,3 +292,6 @@ export interface DrkEvent {
   archivedAt?: string;  // gesetzt = archiviert (Soft-Delete), nie wirklich gelöscht
   completionMailSent?: boolean; // true wenn Abschluss-Mail bereits verschickt
 }
+
+/** Ergebnis der Benutzerverwaltung über die Cloud Function adminManageUser */
+export interface ManageUserResult { ok: boolean; code: string; message: string }

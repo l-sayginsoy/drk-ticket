@@ -397,6 +397,8 @@ Melder sie aufschließt). Durchgesetzt über die **einzige** zentrale Funktion `
 - **Selbst zurückgestellte Aufträge** bleiben beim Mitarbeiter (durch `canRedistribute` geschützt),
   werden bei Abwesenheit nie verteilt und bleiben bei Rückkehr geparkt.
 
+> **Vorbereitet, noch NICHT live (18.11.2026):** Umstellung auf Firebase-Anmeldung ohne Klartext-Passwörter, Branch `sicherheit-anmeldung`, Details und Ausroll-Plan in [SICHERHEIT_UMBAU.md](SICHERHEIT_UMBAU.md). Bis zum Ausrollen gilt die folgende Regel unverändert.
+
 ## ⚠️ Harte Regel: Login & Passwörter (fest angelegte Konten)
 Login prüft **Klartext-Passwörter** im `users`-Doc (`facility-management-users`); Name case-insensitive,
 Passwort exakt (`components/Portal.tsx`). Der Init-Effekt in `App.tsx` (~Z.1578) **normalisiert die Namen**

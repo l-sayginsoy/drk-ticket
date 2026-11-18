@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Role, AvailabilityStatus } from '../types';
 import { DEFAULT_USER_COLORS } from '../constants';
+import { MIN_PASSWORD_LENGTH } from '../utils/loginName';
 
 interface UserModalProps {
   user: Partial<User> | null;
@@ -57,6 +58,10 @@ const UserModal: React.FC<UserModalProps> = ({ user, allSkills, onClose, onSave 
       alert("Name ist ein Pflichtfeld.");
       return;
     }
+    if (isNewUser && (formData.password || '').length < MIN_PASSWORD_LENGTH) {
+      alert(`Bitte ein Passwort mit mindestens ${MIN_PASSWORD_LENGTH} Zeichen vergeben.`);
+      return;
+    }
     
     // Ensure availability is set; wenn Verfügbar → leaveUntil immer null
     const rawAvailability = formData.availability || { status: AvailabilityStatus.Available, leaveUntil: null };
@@ -68,7 +73,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, allSkills, onClose, onSave 
     const finalSkills = skills.split(',').map(s => s.trim()).filter(Boolean);
     const userToSave = { ...formData, skills: finalSkills, availability: finalAvailability, color: colorValue } as User;
     
-    console.log("UserModal saving:", userToSave);
+    
     onSave(userToSave);
   };
 
@@ -141,7 +146,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, allSkills, onClose, onSave 
           </div>
            <div className="form-group">
             <label htmlFor="password">Passwort</label>
-            <input id="password" name="password" type="password" value={formData.password || ''} onChange={handleChange} placeholder={isNewUser ? '' : 'Leer lassen, um nicht zu ändern'} />
+            <input id="password" name="password" type="password" value={formData.password || ''} onChange={handleChange} placeholder={isNewUser ? 'Mindestens 6 Zeichen' : 'Leer lassen, um nicht zu ändern'} autoComplete="new-password" minLength={isNewUser ? MIN_PASSWORD_LENGTH : undefined} />
           </div>
           <div className="form-group full-width">
             <label htmlFor="email">E-Mail (für Ticket-Erinnerungen)</label>

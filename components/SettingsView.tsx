@@ -1,8 +1,9 @@
 
 // FIX: Import useMemo hook from React.
 import React, { useState, useMemo } from 'react';
-import { User, Location, Role, AppSettings, Priority, TicketCategory, SLARule, RoutingRule, Asset, MaintenancePlan, AvailabilityStatus } from '../types';
+import { User, Location, Role, AppSettings, Priority, TicketCategory, SLARule, RoutingRule, Asset, MaintenancePlan, AvailabilityStatus, ManageUserResult } from '../types';
 import { DEFAULT_APP_SETTINGS } from '../constants';
+import { MIN_PASSWORD_LENGTH } from '../utils/loginName';
 import { PlusIcon } from './icons/PlusIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import UserModal from './UserModal';
@@ -275,6 +276,8 @@ const DOCUMENTATION_HTML = `
 interface SettingsViewProps {
     users: User[];
     setUsers: React.Dispatch<React.SetStateAction<User[]>>;
+    /** Benutzerverwaltung über die Cloud Function (Firebase-Konto, Passwort, Rolle) */
+    onManageUser: (p: { action: 'create' | 'setPassword' | 'update' | 'delete'; userId: string; name?: string; role?: Role; password?: string; active?: boolean }) => Promise<ManageUserResult>;
     locations: Location[];
     setLocations: React.Dispatch<React.SetStateAction<Location[]>>;
     assets: Asset[];
@@ -293,6 +296,7 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
     const {
         users,
         setUsers,
+        onManageUser,
         locations,
         setLocations,
         assets,
@@ -346,27 +350,60 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
         setUserModalOpen(true);
     };
 
-    const handleSaveUser = (userToSave: User) => {
-        let savedUser = userToSave;
-        if (userToSave.id) {
-            setUsers(current => current.map(u => (u.id === userToSave.id ? { ...u, ...userToSave, password: userToSave.password ? userToSave.password : u.password } : u)));
-        } else {
-            const newUser: User = { ...userToSave, id: `user-${Date.now()}` };
-            savedUser = newUser;
-            setUsers(current => [...current, newUser]);
+    const [userBusy, setUserBusy] = useState(false);
+
+    // Passwörter werden NIE in der Benutzerliste gespeichert – sie gehen nur an Firebase Auth (über die Cloud Function).
+    const handleSaveUser = async (userToSave: User) => {
+        if (userBusy) return;
+        const { password, ...profile } = userToSave;
+        const pw = (password || '').trim() === (password || '') ? (password || '') : '';
+        setUserBusy(true);
+        try {
+            if (!userToSave.id) {
+                if (pw.length < MIN_PASSWORD_LENGTH) { alert(`Bitte ein Passwort mit mindestens ${MIN_PASSWORD_LENGTH} Zeichen vergeben (ohne Leerzeichen am Rand).`); return; }
+                const newId = `user-${Date.now()}`;
+                const res = await onManageUser({ action: 'create', userId: newId, name: profile.name, role: profile.role, password: pw });
+                if (!res.ok) { alert(`Benutzer nicht angelegt: ${res.message}`); return; }
+                setUsers(current => [...current, { ...profile, id: newId } as User]);
+            } else {
+                const old = users.find(u => u.id === userToSave.id);
+                const accountChanged = !!old && (old.name !== profile.name || old.role !== profile.role || old.isActive !== profile.isActive);
+                if (password && pw.length < MIN_PASSWORD_LENGTH) { alert(`Das neue Passwort muss mindestens ${MIN_PASSWORD_LENGTH} Zeichen lang sein (ohne Leerzeichen am Rand).`); return; }
+                let res: ManageUserResult = { ok: true, code: '', message: '' };
+                let noAccount = false;
+                if (accountChanged) res = await onManageUser({ action: 'update', userId: userToSave.id, name: profile.name, role: profile.role, active: profile.isActive });
+                if (!res.ok && res.code === 'not-found') { noAccount = true; res = { ok: true, code: '', message: '' }; }
+                if (res.ok && password) {
+                    res = noAccount
+                        ? await onManageUser({ action: 'create', userId: userToSave.id, name: profile.name, role: profile.role, password: pw })
+                        : await onManageUser({ action: 'setPassword', userId: userToSave.id, password: pw });
+                    if (!res.ok && res.code === 'not-found') res = await onManageUser({ action: 'create', userId: userToSave.id, name: profile.name, role: profile.role, password: pw });
+                    noAccount = false;
+                }
+                if (!res.ok) { alert(`Änderung nicht gespeichert: ${res.message}`); return; }
+                if (noAccount) alert('Hinweis: Für diese Person gibt es noch kein Anmelde-Konto. Bitte ein Passwort vergeben, damit sie sich anmelden kann.');
+                setUsers(current => current.map(u => (u.id === userToSave.id ? { ...u, ...profile } as User : u)));
+            }
+            setUserModalOpen(false);
+            setEditingUser(null);
+        } finally {
+            setUserBusy(false);
         }
-        setUserModalOpen(false);
-        setEditingUser(null);
     };
     
-    const handleDeleteUser = (id: string) => {
-        if (window.confirm('Sind Sie sicher, dass Sie diesen Benutzer löschen möchten?')) {
-            setUsers(current => current.filter(user => user.id !== id));
-        }
+    const handleDeleteUser = async (id: string) => {
+        if (!window.confirm('Sind Sie sicher, dass Sie diesen Benutzer löschen möchten? Das Anmelde-Konto wird ebenfalls gelöscht.')) return;
+        const res = await onManageUser({ action: 'delete', userId: id });
+        if (!res.ok && res.code !== 'not-found') { alert(`Nicht gelöscht: ${res.message}`); return; }
+        setUsers(current => current.filter(user => user.id !== id));
     };
 
-    const handleToggleUserStatus = (userId: string) => {
-        setUsers(current => current.map(u => u.id === userId ? { ...u, isActive: !u.isActive } : u));
+    const handleToggleUserStatus = async (userId: string) => {
+        const u = users.find(x => x.id === userId);
+        if (!u) return;
+        const res = await onManageUser({ action: 'update', userId, active: !u.isActive });
+        if (!res.ok && res.code !== 'not-found') { alert(`Nicht geändert: ${res.message}`); return; }
+        setUsers(current => current.map(x => x.id === userId ? { ...x, isActive: !x.isActive } : x));
     };
     
     // --- Location Management ---

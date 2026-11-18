@@ -1,0 +1,4 @@
+{
+  "firestore": { "database": "ai-studio-e01f0d33-f3e7-4c71-8027-b8f472b6f9ef", "rules": "firestore.rules", "edition": "enterprise" },
+  "emulators": { "firestore": { "host": "127.0.0.1", "port": 8081, "edition": "enterprise" }, "ui": { "enabled": false }, "hub": { "port": 4404 }, "singleProjectMode": true }
+}

@@ -87,3 +87,6 @@ exports.checkBrevoHealth = onCall(
     }
   }
 );
+
+// Benutzerverwaltung (Firebase-Anmeldung, nur für Admins)
+exports.adminManageUser = require('./userAdmin').adminManageUser;
