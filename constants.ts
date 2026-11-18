@@ -250,10 +250,10 @@ export const MOCK_TICKETS: Ticket[] = [
 ];
 
 export const MOCK_USERS: User[] = [
-    { id: 'user-1', name: 'admin', role: Role.Admin, password: 'admin', isActive: true, skills: ['all'], availability: { status: AvailabilityStatus.Available, leaveUntil: null } },
-    { id: 'user-2', name: 'Heiko Saupert', role: Role.Technician, password: 'Heiko1', isActive: true, skills: ['Sanitär', 'Allgemein', 'Schließanlagen'], availability: { status: AvailabilityStatus.Available, leaveUntil: null } },
-    { id: 'user-3', name: 'Ali Najafi', role: Role.Technician, password: 'Ali1', isActive: true, skills: ['HLK', 'Klima'], availability: { status: AvailabilityStatus.Available, leaveUntil: null } },
-    { id: 'user-4', name: 'Torsten Isselhard', role: Role.Technician, password: 'Torsten1', isActive: true, skills: ['Elektrik', 'IT', 'Schwesternruf'], availability: { status: AvailabilityStatus.Available, leaveUntil: null } },
+    { id: 'user-1', name: 'admin', role: Role.Admin, isActive: true, skills: ['all'], availability: { status: AvailabilityStatus.Available, leaveUntil: null } },
+    { id: 'user-2', name: 'Heiko Saupert', role: Role.Technician, isActive: true, skills: ['Sanitär', 'Allgemein', 'Schließanlagen'], availability: { status: AvailabilityStatus.Available, leaveUntil: null } },
+    { id: 'user-3', name: 'Ali Najafi', role: Role.Technician, isActive: true, skills: ['HLK', 'Klima'], availability: { status: AvailabilityStatus.Available, leaveUntil: null } },
+    { id: 'user-4', name: 'Torsten Isselhard', role: Role.Technician, isActive: true, skills: ['Elektrik', 'IT', 'Schwesternruf'], availability: { status: AvailabilityStatus.Available, leaveUntil: null } },
 ];
 
 export const TECHNICIANS_DATA: User[] = MOCK_USERS.filter(

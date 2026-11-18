@@ -3,11 +3,15 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import {
-  Ticket, Status, Priority, Role, GroupableKey, User, Location, AppSettings, Asset, MaintenancePlan, AvailabilityStatus, RoutingRule, RoutineSchedule, RoutineDayCompletion, SLARule, DrkEvent, EventTask
+  Ticket, Status, Priority, Role, GroupableKey, User, Location, AppSettings, Asset, MaintenancePlan, AvailabilityStatus, RoutingRule, RoutineSchedule, RoutineDayCompletion, SLARule, DrkEvent, EventTask, ManageUserResult
 } from './types';
 import { MOCK_TICKETS, MOCK_USERS, MOCK_LOCATIONS, STATUSES, DEFAULT_APP_SETTINGS, MOCK_ASSETS, MOCK_MAINTENANCE_PLANS } from './constants';
-import { db, functions } from './firebase';
-import { collection, doc, setDoc, onSnapshot, getDocs, getDoc, deleteDoc, arrayUnion, query, where, updateDoc, runTransaction } from 'firebase/firestore';
+import { db, functions, auth } from './firebase';
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { loginEmailFor, isAlwaysAdmin } from './utils/loginName';
+import { buildPortalPublic, type PortalPublic } from './utils/portalPublic';
+import { buildPortalTicket } from './utils/portalTicket';
+import { collection, doc, setDoc, onSnapshot, getDocs, getDoc, deleteDoc, arrayUnion, query, where, updateDoc, runTransaction, deleteField } from 'firebase/firestore';
 import { ROUTINE_COMPLETIONS_DOC_PREFIX, ROUTINE_COMPLETIONS_MIGRATION_DOC, completionKey, flattenCompletionDocs, removeCompletions, writeCompletions } from './utils/routineCompletionStore';
 import { httpsCallable } from 'firebase/functions';
 
@@ -797,7 +801,17 @@ const safeJSONParse = <T,>(key: string, fallback: T): T => {
 };
 
 /** Firestore liefert manchmal kein Array — verhindert .map/.filter-Crashes in der UI */
-const asUserArray = (value: unknown): User[] => (Array.isArray(value) ? (value as User[]) : MOCK_USERS);
+/** Passwörter gehören nicht (mehr) in die Benutzerliste: beim Laden immer entfernen (auch aus alten Zwischenspeichern). */
+const stripPassword = (u: User): User => { if (!u || !('password' in u)) return u; const { password: _pw, ...rest } = u as User & { password?: string }; return rest as User; };
+/** Rollenprofil aus users/{uid} (nur Admins dürfen es schreiben). Fehlt es oder ist active=false → keine Rechte. */
+interface StaffProfile { uid: string; role: Role; name: string; userId: string }
+const loadStaffProfile = async (uid: string): Promise<StaffProfile | null> => {
+  const snap = await getDoc(doc(db, 'users', uid));
+  const d = snap.exists() ? snap.data() : null;
+  if (!d || d.active === false || !Object.values(Role).includes(d.role as Role)) return null;
+  return { uid, role: d.role as Role, name: String(d.name || ''), userId: String(d.userId || '') };
+};
+const asUserArray = (value: unknown): User[] => (Array.isArray(value) ? (value as User[]).map(stripPassword) : MOCK_USERS);
 const completionStampNow = () => {
   const d = new Date();
   const hh = String(d.getHours()).padStart(2, '0');
@@ -914,7 +928,6 @@ const mergeAppSettingsRemote = (value: unknown, prev: AppSettings): AppSettings 
 
 const App: React.FC = () => {
   const isServiceTeamRole = (role: Role) => role === Role.Technician || role === Role.Housekeeping;
-  const [currentUser, setCurrentUser] = useState<User | null>(() => safeJSONParse('currentUser', null));
   const [showPortalOverlay, setShowPortalOverlay] = useState<boolean>(() => {
     try {
       return new URLSearchParams(window.location.search).has('ticket');
@@ -931,7 +944,54 @@ const App: React.FC = () => {
   const [routineTickets, setRoutineTickets] = useState<Ticket[]>(() =>
     safeJSONParse<Ticket[]>(LOCAL_STORAGE_KEY_ROUTINE_TICKETS, []).map(normalizeTicket)
   );
-  const [users, setUsers] = useState<User[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_USERS, []));
+  const [users, setUsers] = useState<User[]>(() => asUserArray(safeJSONParse(LOCAL_STORAGE_KEY_USERS, [])));
+
+  // --- Anmeldung (Firebase Auth) ---
+  // 'loading'   : Anmeldestatus wird noch ermittelt (kurzer Ladebildschirm)
+  // 'anonymous' : Melder-Portal – darf NUR das öffentliche Dokument lesen, Tickets anlegen/ergänzen
+  // 'staff'     : angemeldete Mitarbeitende – alle Daten-Listener laufen, Rolle kommt aus users/{uid}
+  const [authState, setAuthState] = useState<'loading' | 'anonymous' | 'staff'>('loading');
+  const [staffProfile, setStaffProfile] = useState<StaffProfile | null>(null);
+  const loginInFlightRef = useRef(false);
+  const authStateRef = useRef<'loading' | 'anonymous' | 'staff'>('loading');
+  authStateRef.current = authState;
+  const staffRoleRef = useRef<Role | null>(null);
+  staffRoleRef.current = staffProfile?.role ?? null;
+  const [portalPublic, setPortalPublic] = useState<PortalPublic | null>(null);
+  const [publicReady, setPublicReady] = useState(false);
+
+  const currentUserRef = useRef<User | null>(null);
+  /** Aktuelle Person: Rolle/Name aus dem Rollenprofil (maßgeblich), Rest aus der Benutzerliste. Bleibt identisch, solange sich Id/Name/Rolle nicht ändern. */
+  const currentUser = useMemo<User | null>(() => {
+    if (!staffProfile) { currentUserRef.current = null; return null; }
+    const listed = users.find((u) => u.id === staffProfile.userId);
+    const next: User = {
+      ...(listed ?? { id: staffProfile.userId || staffProfile.uid, skills: [], isActive: true, availability: { status: AvailabilityStatus.Available, leaveUntil: null } }),
+      name: listed?.name ?? staffProfile.name,
+      role: staffProfile.role,
+    } as User;
+    const prev = currentUserRef.current;
+    if (prev && prev.id === next.id && prev.name === next.name && prev.role === next.role) return prev;
+    currentUserRef.current = next;
+    return next;
+  }, [staffProfile, users]);
+
+  useEffect(() => {
+    // Altlast entfernen: früher lag die angemeldete Person samt Klartext-Passwort im localStorage.
+    try { localStorage.removeItem('currentUser'); } catch { /* ignore */ }
+    return onAuthStateChanged(auth, async (fbUser) => {
+      if (loginInFlightRef.current) return; // handleLogin erledigt das selbst
+      if (!fbUser) { setStaffProfile(null); setAuthState('anonymous'); return; }
+      try {
+        const profile = await loadStaffProfile(fbUser.uid);
+        if (profile) { setStaffProfile(profile); setAuthState('staff'); }
+        else { await signOut(auth); setStaffProfile(null); setAuthState('anonymous'); } // Konto ohne (aktives) Rollenprofil
+      } catch (err) {
+        console.error('Anmeldestatus konnte nicht geprüft werden:', err);
+        setStaffProfile(null); setAuthState('anonymous'); // z. B. offline – Portal zeigen, Sitzung nicht beenden
+      }
+    });
+  }, []);
   const [locations, setLocations] = useState<Location[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_LOCATIONS, []));
   const [assets, setAssets] = useState<Asset[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_ASSETS, []));
   const [maintenancePlans, setMaintenancePlans] = useState<MaintenancePlan[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_PLANS, []));
@@ -1272,7 +1332,14 @@ const App: React.FC = () => {
   }, [isInitialized]);
 
   // --- Firebase Sync Logic ---
+  // Läuft NUR für angemeldete Mitarbeitende. Beim Abmelden werden die Listener beendet und alle
+  // personenbezogenen/betrieblichen Daten aus dem Speicher und dem Zwischenspeicher des Browsers entfernt.
   useEffect(() => {
+    if (authState !== 'staff') return;
+    appDataReadyRef.current = false;
+    ticketsSnapshotReadyRef.current = false;
+    completedSnapshotReadyRef.current = false;
+    routineSnapshotReadyRef.current = false;
     const tryMarkInitialized = () => {
       if (appDataReadyRef.current && ticketsSnapshotReadyRef.current && completedSnapshotReadyRef.current && routineSnapshotReadyRef.current) {
         setIsInitialized(true);
@@ -1319,6 +1386,9 @@ const App: React.FC = () => {
               case 'deleted-ticket-ids':
                 (Array.isArray(value) ? value as string[] : []).forEach((id: string) => deletedTicketIdsRef.current.add(id));
                 persistDeletedIds();
+                break;
+              case 'portal-public':
+                portalPublicRemoteRef.current = stableStringify(value);
                 break;
             }
           });
@@ -1498,6 +1568,9 @@ const App: React.FC = () => {
               hasChanges = true;
               setAppSettings((prev) => mergeAppSettingsRemote(value, prev));
               break;
+            case 'portal-public':
+              portalPublicRemoteRef.current = stableStringify(value);
+              break;
             case 'deleted-ticket-ids':
               hasChanges = true;
               (Array.isArray(value) ? value as string[] : []).forEach((id: string) => deletedTicketIdsRef.current.add(id));
@@ -1628,11 +1701,33 @@ const App: React.FC = () => {
       unsubscribeCompleted();
       unsubscribeRoutine();
       unsubscribeEvents();
+      // Abmeldung: Daten aus dem Speicher nehmen (gemeinsam genutzte PCs)
+      setIsInitialized(false);
+      setTickets([]); setCompletedTickets([]); setRoutineTickets([]);
+      setUsers([]); setLocations([]); setAssets([]); setMaintenancePlans([]);
+      setAppSettings({ ...DEFAULT_APP_SETTINGS });
+      setCompletionDocs({}); setDrkEvents([]); setSelectedTicket(null);
+      clearLocalDataCaches();
     };
-  }, []);
+  }, [authState]);
+
+  // Melder-Portal (nicht angemeldet): ein einziges öffentliches Dokument, sonst nichts.
+  useEffect(() => {
+    if (authState !== 'anonymous') return;
+    clearLocalDataCaches();
+    return onSnapshot(doc(db, 'app_data', 'portal-public'), (snap) => {
+      setPortalPublic((snap.exists() ? (snap.data().value as PortalPublic) : null) ?? null);
+      setPublicReady(true);
+    }, (error) => {
+      console.error('portal-public konnte nicht geladen werden:', error);
+      setPublicReady(true);
+    });
+  }, [authState]);
 
   const syncToFirebase = async (key: string, value: any) => {
-    if (isRemoteUpdate.current || !isInitialized) return;
+    if (isRemoteUpdate.current || !isInitialized || authStateRef.current !== 'staff') return;
+    // Benutzerliste und Standorte dürfen nur Admins schreiben (Regeln); andere Rollen gar nicht erst versuchen.
+    if ((key === LOCAL_STORAGE_KEY_USERS || key === LOCAL_STORAGE_KEY_LOCATIONS) && staffRoleRef.current !== Role.Admin) return;
     try {
       const sanitizedValue = JSON.parse(JSON.stringify(value));
       await setDoc(doc(db, 'app_data', key), { value: sanitizedValue, updated_at: new Date().toISOString() });
@@ -1717,24 +1812,22 @@ const App: React.FC = () => {
   }, [isInitialized]);
 
   useEffect(() => {
-    if (isInitialized) {
-      setUsers(prev => {
+    // Nur Admins halten die Benutzerliste instand (nur sie dürfen sie schreiben).
+    if (isInitialized && authState === 'staff') {
+      if (staffProfile?.role === Role.Admin) setUsers(prev => {
           let changed = false;
-          // Fest angelegte Konten konsistent halten: Name normalisieren (Tickets referenzieren ihn),
-          // Passwort aber NUR setzen, wenn keines vorhanden ist – selbst vergebene Passwörter bleiben erhalten.
-          const fixUser = (u: User, wantName: string, defaultPw: string, nameAliases?: string[]): User => {
-            const fix: Partial<User> = {};
+          // Fest angelegte Konten konsistent halten: Namen normalisieren (Tickets referenzieren sie).
+          // Passwörter gibt es hier nicht mehr – die Anmeldung läuft über Firebase Auth.
+          const fixUser = (u: User, wantName: string, nameAliases?: string[]): User => {
             const okNames = nameAliases || [wantName];
-            if (!okNames.includes(u.name)) fix.name = wantName;
-            if (!u.password) fix.password = defaultPw;
-            if (Object.keys(fix).length > 0) { changed = true; return { ...u, ...fix }; }
+            if (!okNames.includes(u.name)) { changed = true; return { ...u, name: wantName }; }
             return u;
           };
           const updated = prev.filter(u => u.id !== 'user-5').map(u => {
-            if (u.id === 'user-2') return fixUser(u, 'Heiko Saupert', 'Heiko1');
-            if (u.id === 'user-3') return fixUser(u, 'Ali Najafi', 'Ali1');
-            if (u.id === 'user-4') return fixUser(u, 'Torsten Isselhard', 'Torsten1');
-            if (u.id === 'user-1') return fixUser(u, 'admin', 'admin', ['admin', 'Admin']);
+            if (u.id === 'user-2') return fixUser(u, 'Heiko Saupert');
+            if (u.id === 'user-3') return fixUser(u, 'Ali Najafi');
+            if (u.id === 'user-4') return fixUser(u, 'Torsten Isselhard');
+            if (u.id === 'user-1') return fixUser(u, 'admin', ['admin', 'Admin']);
             return u;
           });
           return (changed || updated.length !== prev.length) ? updated : prev;
@@ -1762,10 +1855,8 @@ const App: React.FC = () => {
           return changed ? updated : prev;
         });
       }
-    }, [isInitialized]);
+    }, [isInitialized, authState, staffProfile?.role]);
 
-  useEffect(() => { localStorage.setItem('currentUser', JSON.stringify(currentUser)); }, [currentUser]);
-  
   useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_KEY_TICKETS, JSON.stringify(tickets));
     // syncToFirebase(LOCAL_STORAGE_KEY_TICKETS, tickets);
@@ -2619,6 +2710,19 @@ const handleAppSettingsChange = (updater: React.SetStateAction<AppSettings>) => 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appSettings.routineSchedules, isInitialized, completionsMigratedAt]);
 
+/** Betriebsdaten aus dem Zwischenspeicher des Browsers entfernen (nach Abmeldung / für das Melder-Portal). */
+const clearLocalDataCaches = () => {
+  try {
+    [LOCAL_STORAGE_KEY_TICKETS, LOCAL_STORAGE_KEY_USERS, LOCAL_STORAGE_KEY_LOCATIONS, LOCAL_STORAGE_KEY_ASSETS, LOCAL_STORAGE_KEY_PLANS,
+     LOCAL_STORAGE_KEY_SETTINGS, LOCAL_STORAGE_KEY_DELETED_IDS, LOCAL_STORAGE_KEY_COMPLETED_TICKETS, LOCAL_STORAGE_KEY_ROUTINE_TICKETS, 'currentUser']
+      .forEach((k) => localStorage.removeItem(k));
+  } catch { /* ignore */ }
+};
+
+const stableStringify = (v: unknown): string =>
+  JSON.stringify(v, (_k, val) => (val && typeof val === 'object' && !Array.isArray(val)
+    ? Object.fromEntries(Object.entries(val as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b))) : val));
+
 const persistDeletedIds = () => {
   localStorage.setItem(
     LOCAL_STORAGE_KEY_DELETED_IDS,
@@ -2991,7 +3095,122 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     return { ok, fail };
   }, [tickets]);
 
+  /**
+   * Melder-Portal (nicht angemeldet): legt nur das nackte Ticket an. Zuweisung, Priorität nach Routing-Regeln und
+   * Admin-Mail übernimmt der erste angemeldete Mitarbeiter-Browser (`processPortalIntake`), weil das Portal
+   * weder Benutzer noch andere Tickets noch Regeln lesen darf.
+   */
+  const createPortalTicket = async (data: Omit<Ticket, 'id' | 'entryDate' | 'status' | 'priority'> & { priority?: Priority }): Promise<string> => {
+    const entryDateStr = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const entryTimeStr = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    const cats = portalPublic?.ticketCategories ?? [];
+    const catPriority = cats.find((c) => c.id === data.categoryId)?.default_priority as Priority | undefined;
+    const wunsch = data.wunschTermin ? String(data.wunschTermin).trim() : '';
+    const dueDate = wunsch || reactiveDueDateAfterCalendarDaysFromEntry(entryDateStr, REACTIVE_DEFAULT_LEAD_DAYS)
+      .toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const reporterEmail = typeof data.reporter_email === 'string' ? data.reporter_email.trim() : '';
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const ticket = buildPortalTicket(data, {
+        id: `${Math.floor(Math.random() * 10000) + 30000}`, entryDate: entryDateStr, entryTime: entryTimeStr,
+        dueDate, priority: catPriority ?? Priority.Niedrig,
+      });
+      try {
+        await persistTicket(db, ticket, 'create');
+        if (reporterEmail) {
+          sendDrkBrevoMail(reporterEmail, `Ihre Meldung wurde erfasst – Ticket ${ticket.id}`, { kind: 'ticket_created', ticketId: ticket.id, title: ticket.title });
+        }
+        return ticket.id;
+      } catch (error) {
+        if (error instanceof TicketConflictError) continue; // Nummer schon vergeben → neue ziehen
+        console.error('Meldung konnte nicht gespeichert werden:', error);
+        return '';
+      }
+    }
+    return '';
+  };
+
+  /** Melder: Nachricht anhängen / Ticket wiedereröffnen – nur die Felder, die die Regeln erlauben, ohne Zusatzlogik. */
+  const handlePortalTicketUpdate = async (updated: Ticket, original?: Ticket): Promise<Ticket | null> => {
+    if (!original) return null;
+    const reopening = original.status === Status.Abgeschlossen && updated.status !== Status.Abgeschlossen;
+    try {
+      return await persistTicket(db, updated, reopening ? 'reopen' : 'update', original);
+    } catch (error) {
+      console.error('Änderung des Melders nicht gespeichert:', error);
+      return null;
+    }
+  };
+
+  /**
+   * Mitarbeiter-Browser: übernimmt Meldungen aus dem Portal (portalIntakePending). Genau EIN Browser gewinnt die
+   * Transaktion (Flag wird gelöscht) und verschickt die Admin-Mail; alle anderen sehen das Flag nicht mehr.
+   */
+  const processPortalIntake = async (t: Ticket): Promise<void> => {
+    const text = `${t.title || ''} ${t.description || ''}`;
+    const categoryId = t.categoryId || inferCategoryFromText(text, appSettings.routingRules, '');
+    const category = appSettings.ticketCategories.find((c) => c.id === categoryId);
+    const lower = text.toLowerCase();
+    const matchedRule = appSettings.routingRules.find((r) => r.keyword.split(',').some((kw) => kw.trim() && lower.includes(kw.trim().toLowerCase())));
+    const priority = matchedRule?.priority || category?.default_priority || Priority.Niedrig;
+    const technician = assignTicket({ title: t.title, description: t.description }, users, tickets, appSettings.routingRules, appSettings.learnedRouting);
+    const patch: Record<string, unknown> = { categoryId, priority, technician, autoAssigned: technician !== 'N/A' };
+    const assignee = technician !== 'N/A' ? users.find((u) => u.name === technician) : undefined;
+    if (assignee && assignee.availability.status === AvailabilityStatus.OnLeave) {
+      patch.status = Status.Zurueckgestellt;
+      patch.parkedForReturnOf = assignee.name;
+      patch.parkedAt = new Date().toISOString().slice(0, 10);
+    }
+    const ref = doc(db, 'tickets', t.id);
+    const claimed = await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists() || snap.data().portalIntakePending !== true) return null;
+      const cur = snap.data() as Ticket;
+      const notes = patch.parkedForReturnOf
+        ? { notes: [...(cur.notes || []), `GEPARKT: an abwesenden ${assignee!.name} zugewiesen – wartet auf Rückkehr.`] }
+        : {};
+      tx.update(ref, { ...patch, ...notes, portalIntakePending: deleteField() });
+      return { ...cur, ...patch } as Ticket;
+    });
+    if (!claimed) return;
+    const adminEmail = appSettings.adminNotificationEmail?.trim();
+    if (adminEmail) {
+      sendDrkBrevoMail(adminEmail, `Neue Meldung – Ticket ${claimed.id}: ${claimed.title}`, {
+        kind: 'admin_new_ticket', ticketId: claimed.id, title: claimed.title, area: claimed.area, location: claimed.location,
+        categoryName: category?.name || 'N/A', priority: String(claimed.priority), reporter: claimed.reporter,
+        description: claimed.description || '', entryDate: claimed.entryDate, entryTime: claimed.entryTime,
+      }, { silent: true });
+    }
+    if (claimed.technician === 'N/A') {
+      addToast({ type: 'new-ticket', title: '⚠ Kein Bearbeiter gefunden', message: `Ticket ${claimed.id}: „${claimed.title}" – bitte Bearbeiter manuell zuweisen` });
+    }
+  };
+
+  const intakeSeenRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!isInitialized || authState !== 'staff' || users.length === 0) return;
+    tickets.filter((t) => t.portalIntakePending === true && !intakeSeenRef.current.has(t.id)).forEach((t) => {
+      intakeSeenRef.current.add(t.id);
+      processPortalIntake(t).catch((err) => { console.error('Übernahme der Meldung fehlgeschlagen:', err); intakeSeenRef.current.delete(t.id); });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tickets, isInitialized, authState, users]);
+
+  // Admin: öffentliches Dokument fürs Melder-Portal aktuell halten (Name, Kategorien, Standorte, Namen fürs Anmeldeformular)
+  const portalPublicRemoteRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isInitialized || authState !== 'staff' || staffProfile?.role !== Role.Admin) return;
+    const next = buildPortalPublic(appSettings, locations, users);
+    const json = stableStringify(next);
+    if (portalPublicRemoteRef.current === json) return;
+    const previous = portalPublicRemoteRef.current;
+    portalPublicRemoteRef.current = json;
+    void setDoc(doc(db, 'app_data', 'portal-public'), { value: JSON.parse(json), updated_at: new Date().toISOString() })
+      .catch((err) => { console.error('portal-public nicht gespeichert:', err); portalPublicRemoteRef.current = previous; });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInitialized, authState, staffProfile?.role, appSettings.appName, appSettings.portalSubtitle, appSettings.portalMaintenance, appSettings.ticketCategories, locations, users]);
+
   const handleAddNewTicket = async (newTicketData: Omit<Ticket, 'id' | 'entryDate' | 'status' | 'priority'> & { priority?: Priority }, silent = false): Promise<string> => {
+    if (authStateRef.current !== 'staff') return createPortalTicket(newTicketData);
     // --- INTELLIGENT AUTOMATION LOGIC ---
     const reporterEmail =
       typeof newTicketData.reporter_email === 'string' ? newTicketData.reporter_email.trim() : '';
@@ -3999,12 +4218,36 @@ const deleteTicketFromFirebase = (ticketId: string) => {
       }
   };
 
-  const handleLogin = (user: User) => {
-    setCurrentUser(user);
-    if (user.role === Role.Admin) setCurrentView('dashboard');
-    else if (isServiceTeamRole(user.role)) setCurrentView('tech-dashboard');
+  /** Anmeldung mit Firebase Auth. kind 'admin' = Admin-Formular, 'staff' = Service-Team-Formular. Gibt eine Fehlermeldung zurück oder null. */
+  const handleLogin = async (name: string, password: string, kind: 'staff' | 'admin'): Promise<string | null> => {
+    const trimmed = name.trim();
+    if (!trimmed || !password) return 'Bitte Name und Passwort eingeben.';
+    loginInFlightRef.current = true;
+    try {
+      let uid: string;
+      try {
+        uid = (await signInWithEmailAndPassword(auth, loginEmailFor(trimmed), password)).user.uid;
+      } catch (err) {
+        const code = (err as { code?: string }).code;
+        if (code === 'auth/too-many-requests') return 'Zu viele Anmeldeversuche. Bitte einige Minuten warten und erneut versuchen.';
+        if (code === 'auth/network-request-failed') return 'Keine Verbindung. Bitte Internetverbindung prüfen.';
+        return kind === 'admin' ? 'Anmeldedaten sind ungültig.' : 'Anmeldedaten sind ungültig oder Konto inaktiv.';
+      }
+      const profile = await loadStaffProfile(uid).catch(() => null);
+      const passt = !!profile && (kind === 'admin' ? profile.role === Role.Admin : profile.role !== Role.Admin);
+      if (!profile || !passt) {
+        await signOut(auth);
+        return kind === 'admin' ? 'Anmeldedaten sind ungültig.' : 'Anmeldedaten sind ungültig oder Konto inaktiv.';
+      }
+      setStaffProfile(profile);
+      setAuthState('staff');
+      setCurrentView(profile.role === Role.Admin ? 'dashboard' : 'tech-dashboard');
+      return null;
+    } finally {
+      loginInFlightRef.current = false;
+    }
   };
-  const handleLogout = () => { setCurrentUser(null); setCurrentView('dashboard'); };
+  const handleLogout = () => { setCurrentView('dashboard'); void signOut(auth); };
 
   // Dezenter Auto-Hide-Scrollbalken im Hauptbereich: `is-scrolling` nur während
   // des Scrollens setzen, ~0,9 s danach wieder entfernen (CSS faded den Thumb).
@@ -4024,19 +4267,48 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     };
   }, [currentUser, currentView]);
 
+  /** Einstellungen fürs Melder-Portal: nur die öffentlichen Felder (Name, Kategorien, Wartungsmodus) */
+  const portalAppSettings = useMemo<AppSettings>(() => authState === 'staff' ? appSettings : ({
+    ...DEFAULT_APP_SETTINGS,
+    ...(portalPublic ? {
+      appName: portalPublic.appName || DEFAULT_APP_SETTINGS.appName,
+      portalSubtitle: portalPublic.portalSubtitle ?? DEFAULT_APP_SETTINGS.portalSubtitle,
+      portalMaintenance: portalPublic.portalMaintenance ?? DEFAULT_APP_SETTINGS.portalMaintenance,
+      ticketCategories: portalPublic.ticketCategories as AppSettings['ticketCategories'],
+    } : { ticketCategories: [] }),
+  }), [portalPublic, authState, appSettings]);
+
+  /** Benutzerverwaltung (nur Admins): Konto/Passwort/Rolle über die Cloud Function – ein Browser darf fremde Passwörter nicht setzen. */
+  const manageUser = async (payload: { action: 'create' | 'setPassword' | 'update' | 'delete'; userId: string; name?: string; role?: Role; password?: string; active?: boolean }): Promise<ManageUserResult> => {
+    try {
+      await httpsCallable(functions, 'adminManageUser')(payload);
+      return { ok: true, code: '', message: '' };
+    } catch (err) {
+      const e = err as { code?: string; message?: string };
+      const code = String(e.code || '').replace('functions/', '');
+      return { ok: false, code, message: code === 'internal' || code === 'unavailable' || code === 'not-found' && !e.message ? 'Der Dienst ist im Moment nicht erreichbar. Bitte später erneut versuchen.' : (e.message || 'Unbekannter Fehler.') };
+    }
+  };
+
   const portalElement = (
     <Portal
-      appSettings={appSettings}
+      appSettings={portalAppSettings}
       onLogin={handleLogin}
-      tickets={[...tickets, ...routineTickets, ...completedTickets]}
       onAddTicket={handleAddNewTicket}
-      onUpdateTicket={handleTicketUpdate}
-      locations={activeLocations.map((a) => a.name)}
-      users={users}
-      dataReady={isInitialized}
+      onUpdateTicket={handlePortalTicketUpdate}
+      locations={authState === 'staff' ? activeLocations.map((a) => a.name) : (portalPublic?.locations ?? [])}
+      staffLoginNames={portalPublic?.staffLoginNames ?? []}
+      dataReady={publicReady || authState === 'staff'}
     />
   );
-  
+
+  if (authState === 'loading') {
+    return (
+      <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f6f7f9', fontFamily: 'Inter, -apple-system, Segoe UI, Roboto, Arial, sans-serif', color: '#6b7280' }}>
+        Wird geladen…
+      </div>
+    );
+  }
   if (!currentUser) {
     return portalElement;
   }
@@ -4121,7 +4393,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
           return <ReportsView activeTickets={tickets} completedTickets={completedTickets} completedMonth={completedMonth} completedYear={completedYear} onLoadMonth={(m, y) => { setCompletedMonth(m); setCompletedYear(y); setReportYearTickets([]); setReportLoadedYear(null); void loadCompletedTicketsForMonth(m, y); }} users={users} appSettings={appSettings} routineSchedules={appSettings.routineSchedules as any} routineCompletions={effectiveCompletions} rpHolidayYmdList={rpHolidayYmdList} reportYearTickets={reportYearTickets} reportLoadedYear={reportLoadedYear} isLoadingReportYear={isLoadingReportYear} onLoadYearForStats={loadYearForReports} />;
         }
         case 'techniker': return <TechnicianView tickets={listenBenchTickets} technicians={users.filter(u => (u.role === Role.Technician || u.role === Role.Housekeeping) && u.isActive)} onTechnicianSelect={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} onFilter={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} />;
-        case 'settings': return <SettingsView users={users} setUsers={setUsers} locations={locations} setLocations={setLocations} assets={assets} setAssets={setAssets} maintenancePlans={maintenancePlans} setMaintenancePlans={setMaintenancePlans} appSettings={appSettings} setAppSettings={handleAppSettingsChange} onResendConfirmationMailsForEntryDate={handleResendConfirmationMailsForEntryDate} onSendTestEmail={handleSendTestEmail} />;
+        case 'settings': return <SettingsView users={users} setUsers={setUsers} onManageUser={manageUser} locations={locations} setLocations={setLocations} assets={assets} setAssets={setAssets} maintenancePlans={maintenancePlans} setMaintenancePlans={setMaintenancePlans} appSettings={appSettings} setAppSettings={handleAppSettingsChange} onResendConfirmationMailsForEntryDate={handleResendConfirmationMailsForEntryDate} onSendTestEmail={handleSendTestEmail} />;
         case 'veranstaltungen': return (
           <EventsView
             events={drkEvents}

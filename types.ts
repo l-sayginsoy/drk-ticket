@@ -292,3 +292,6 @@ export interface DrkEvent {
   archivedAt?: string;  // gesetzt = archiviert (Soft-Delete), nie wirklich gelöscht
   completionMailSent?: boolean; // true wenn Abschluss-Mail bereits verschickt
 }
+
+/** Ergebnis der Benutzerverwaltung über die Cloud Function adminManageUser */
+export interface ManageUserResult { ok: boolean; code: string; message: string }
