@@ -12,7 +12,7 @@ const q = (extra = '') => [extra, key].filter(Boolean).join('&');
 const url = (path, extra) => `${FS_BASE}/${path}${q(extra) ? '?' + q(extra) : ''}`;
 let abweichungen = 0;
 const check = (name, ok, detail) => { if (!ok) abweichungen++; console.log(`${ok ? '✔' : '✘'} ${name}${detail ? ' – ' + detail : ''}`); };
-const code = async r => { const t = await r.text(); try { return JSON.parse(t)?.error?.status || (r.ok ? 'OK' : `HTTP ${r.status}`); } catch { return r.ok ? 'OK' : `HTTP ${r.status}`; } };
+const code = async r => { const t = await r.text(); try { const j = JSON.parse(t); const e = Array.isArray(j) ? j[0]?.error : j?.error; return e?.status || (r.ok ? 'OK' : (r.status === 403 ? 'PERMISSION_DENIED' : `HTTP ${r.status}`)); } catch { return r.ok ? 'OK' : (r.status === 403 ? 'PERMISSION_DENIED' : `HTTP ${r.status}`); } };
 
 console.log(`Anonyme Prüfung (${EMULATOR ? 'Emulator' : 'LIVE'})\n`);
 
