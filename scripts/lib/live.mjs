@@ -19,6 +19,8 @@ export const AUTH_BASE = EMULATOR ? `http://${AUTH_EMU}/identitytoolkit.googleap
 export const normalizeLoginName = n => n.trim().toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss').replace(/\s+/g, '.').replace(/[^a-z0-9._-]/g, '');
 export const loginEmailFor = n => `${normalizeLoginName(n)}@haustechnik.local`;
 export const ALWAYS_ADMIN = ['carlo', 'levent'];
+// Siehe utils/loginName.ts: kürzere Passwörter werden mit # auf 6 Zeichen aufgefüllt.
+export const toAuthPassword = pw => (pw.length < 6 ? pw + '#'.repeat(6 - pw.length) : pw);
 
 let token = null;
 async function ownerToken() {

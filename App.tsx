@@ -8,7 +8,7 @@ import {
 import { MOCK_TICKETS, MOCK_USERS, MOCK_LOCATIONS, STATUSES, DEFAULT_APP_SETTINGS, MOCK_ASSETS, MOCK_MAINTENANCE_PLANS } from './constants';
 import { db, functions, auth } from './firebase';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { loginEmailFor, isAlwaysAdmin } from './utils/loginName';
+import { loginEmailFor, toAuthPassword } from './utils/loginName';
 import { buildPortalPublic, type PortalPublic } from './utils/portalPublic';
 import { buildPortalTicket } from './utils/portalTicket';
 import { collection, doc, setDoc, onSnapshot, getDocs, getDoc, deleteDoc, arrayUnion, query, where, updateDoc, runTransaction, deleteField } from 'firebase/firestore';
@@ -4226,7 +4226,7 @@ const deleteTicketFromFirebase = (ticketId: string) => {
     try {
       let uid: string;
       try {
-        uid = (await signInWithEmailAndPassword(auth, loginEmailFor(trimmed), password)).user.uid;
+        uid = (await signInWithEmailAndPassword(auth, loginEmailFor(trimmed), toAuthPassword(password))).user.uid;
       } catch (err) {
         const code = (err as { code?: string }).code;
         if (code === 'auth/too-many-requests') return 'Zu viele Anmeldeversuche. Bitte einige Minuten warten und erneut versuchen.';

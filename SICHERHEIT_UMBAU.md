@@ -148,6 +148,8 @@ node scripts/migrate-auth.mjs passwoerter-entfernen --ja
 
 ## 6. Risiken und bekannte Grenzen
 
+0. **Ausnahme Ali (4-Zeichen-Passwort):** Firebase verlangt mindestens 6 Zeichen. Auf Wunsch von Levent behält Ali sein kurzes Passwort. Der Client füllt Passwörter unter 6 Zeichen beim Anmelden mit `#` auf (`toAuthPassword` in `utils/loginName.ts`), sein Konto wurde mit dem aufgefüllten Passwort angelegt. Ein 4-Zeichen-Passwort ist schwach; Empfehlung: bei Gelegenheit verlängern. Die Verwaltung (Cloud Function) verlangt für neue Passwörter weiter mind. 6 Zeichen.
+
 1. **Ticketnummern sind erratbar** (5 Stellen, 30000–39999). Wer die Nummer kennt, kann das Ticket lesen (Titel, Beschreibung, Name, E-Mail, Fotos des Melders), eine Nachricht anhängen und ein abgeschlossenes Ticket wiedereröffnen. Das war schon bisher so, nur dass vorher *alle* Tickets für jeden lesbar waren. Besser wäre ein geheimes Token (siehe offene Frage 2).
 2. **`sendBrevoMail` ist ohne Anmeldung aufrufbar** (Melder-Bestätigung geht aus dem Browser). Jeder könnte darüber Mails mit DRK-Absender verschicken. Nicht Teil dieses Umbaus; Abhilfe: Melder-Bestätigung serverseitig aus einem Firestore-Trigger senden.
 3. **Zuweisung neuer Meldungen hängt an einem angemeldeten Browser** (siehe 2). Nachts/am Wochenende ohne offenes Board wartet die Meldung bis zur ersten Anmeldung. Alternative wäre ein Firestore-Trigger in Cloud Functions (größerer Umbau, die Zuweisungslogik liegt heute im Browser-Code).

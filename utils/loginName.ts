@@ -17,3 +17,10 @@ export const normalizeLoginName = (name: string): string =>
 export const loginEmailFor = (name: string): string => `${normalizeLoginName(name)}@${AUTH_EMAIL_DOMAIN}`;
 
 export const isAlwaysAdmin = (name: string): boolean => ALWAYS_ADMIN_NAMES.includes(name.trim().toLowerCase());
+
+/**
+ * Firebase Auth verlangt mindestens 6 Zeichen. Ein bisheriges kürzeres Passwort (Ali: 4 Zeichen, auf Wunsch von Levent
+ * unverändert) wird beim Anmelden mit „#“ auf 6 Zeichen aufgefüllt. Eingegeben wird weiter das kurze Passwort.
+ * Muss identisch sein mit scripts/lib/live.mjs (toAuthPassword). Neue Passwörter über die Verwaltung haben weiterhin mind. 6 Zeichen.
+ */
+export const toAuthPassword = (pw: string): string => (pw.length < MIN_PASSWORD_LENGTH ? pw + '#'.repeat(MIN_PASSWORD_LENGTH - pw.length) : pw);
