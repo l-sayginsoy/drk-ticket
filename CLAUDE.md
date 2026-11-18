@@ -397,7 +397,7 @@ Melder sie aufschließt). Durchgesetzt über die **einzige** zentrale Funktion `
 - **Selbst zurückgestellte Aufträge** bleiben beim Mitarbeiter (durch `canRedistribute` geschützt),
   werden bei Abwesenheit nie verteilt und bleiben bei Rückkehr geparkt.
 
-> **Vorbereitet, noch NICHT live (18.11.2026):** Umstellung auf Firebase-Anmeldung ohne Klartext-Passwörter, Branch `sicherheit-anmeldung`, Details und Ausroll-Plan in [SICHERHEIT_UMBAU.md](SICHERHEIT_UMBAU.md). Bis zum Ausrollen gilt die folgende Regel unverändert.
+> **SEIT 18.11.2026 LIVE: Anmeldung über Firebase Auth, Regeln geschlossen. Die folgende Beschreibung (Klartext-Passwörter, Recovery admin/admin, Passwort-Zwangs-Reset) ist ÜBERHOLT.** Gültig ist [SICHERHEIT_UMBAU.md](SICHERHEIT_UMBAU.md): Rollen in `users/{uid}`, Passwörter nur über Einstellungen → Benutzer (Cloud Function `adminManageUser`), kein Konto `admin`, Carlo und Levent immer Admin. NICHT wieder Passwörter in `app_data` speichern oder die Regeln öffnen.
 
 ## ⚠️ Harte Regel: Login & Passwörter (fest angelegte Konten)
 Login prüft **Klartext-Passwörter** im `users`-Doc (`facility-management-users`); Name case-insensitive,

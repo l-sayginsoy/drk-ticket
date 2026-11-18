@@ -681,8 +681,8 @@ Die App kann sich in seltenen Fällen aufhängen (veraltete Daten, hängender Li
 - **Recovery bei vergessenem Passwort:** Passwortfeld des Kontos in Firestore (`facility-management-users`) leeren → beim nächsten Laden greift wieder der Default. Es gibt **kein** eingebautes „Passwort vergessen?" (bewusste Entscheidung — kleines internes Tool).
 - **Empfehlung:** privates Admin-Passwort vergeben und sicher notieren, da `admin/admin` teamweit bekannt ist.
 
-### Umstellung auf Firebase-Anmeldung (Branch `sicherheit-anmeldung`, **noch nicht live**)
-Der Abschnitt „Login & Passwörter" oben beschreibt den **aktuellen Live-Stand**. Der vorbereitete Umbau (Firebase Auth, Rollen in `users/{uid}`, geschlossene Regeln, Melder-Portal nur mit eng begrenzten Rechten, Benutzerverwaltung über die Cloud Function `adminManageUser`) ist in **[SICHERHEIT_UMBAU.md](SICHERHEIT_UMBAU.md)** beschrieben – inklusive Rechte-Tabelle, Ausroll-Reihenfolge und Rückfallplan. Nach dem Ausrollen diesen Abschnitt, `CLAUDE.md` (Harte Regel Login) und die Passwort-Zeile in der Benutzerfeld-Tabelle ersetzen.
+### Umstellung auf Firebase-Anmeldung (**seit 18.11.2026 live**)
+Der Abschnitt „Login & Passwörter" oben beschreibt den **früheren Stand** und ist überholt. Der vorbereitete Umbau (Firebase Auth, Rollen in `users/{uid}`, geschlossene Regeln, Melder-Portal nur mit eng begrenzten Rechten, Benutzerverwaltung über die Cloud Function `adminManageUser`) ist in **[SICHERHEIT_UMBAU.md](SICHERHEIT_UMBAU.md)** beschrieben – inklusive Rechte-Tabelle, Ausroll-Reihenfolge und Rückfallplan. Nach dem Ausrollen diesen Abschnitt, `CLAUDE.md` (Harte Regel Login) und die Passwort-Zeile in der Benutzerfeld-Tabelle ersetzen.
 
 ---
 
@@ -1094,6 +1094,6 @@ Ein Ticket kann **zurückgestellt** werden (Status `Zurückgestellt`), wenn es v
 
 - `public/icon.svg`, `favicon-32.png`, `icon-192/512.png`, `icon-maskable-192/512.png`, `apple-touch-icon.png`: neues Symbol aus der gemeinsamen Symbol-Familie des DRK App-Portals – Haus mit gelbem Schraubenschlüssel auf Schiefergrau, ohne Kreuz. Erzeugt mit `DRK App-Portal/symbole/erzeugen.cjs` aus `DRK App-Portal/dist/icons/serviceportal.svg` (eckige Variante für Apple, maskable mit Sicherheitsrand für Android).
 
-### 18.11.2026 – Vorbereitung: echte Anmeldung statt Klartext-Passwörter (Branch `sicherheit-anmeldung`, nicht live)
+### 18.11.2026 – Vorbereitung: echte Anmeldung statt Klartext-Passwörter (seit 18.11.2026 live, Regeln geschlossen)
 
 - Befund: Benutzerliste mit Klartext-Passwörtern, alle Tickets und `app_data` ohne Anmeldung les-/schreibbar. Vorbereitet (nichts ausgerollt): Firebase-Auth-Anmeldung, neue Regeln `firestore.sicher.rules`, `app_data/portal-public` fürs Melder-Portal, Übernahme von Portal-Meldungen durch Mitarbeiter-Browser (`portalIntakePending`, `processPortalIntake` in `App.tsx`), Cloud Function `adminManageUser`, Migrations-/Backup-/Prüfskripte unter `scripts/`, 36 Regeltests (`npm run test:rules`). Alles Weitere, Ausrollen und offene Fragen: `SICHERHEIT_UMBAU.md`.

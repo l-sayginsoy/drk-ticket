@@ -1,6 +1,6 @@
 # Sicherheitsumbau: echte Anmeldung statt Klartext-Passwörter
 
-Stand: 18.11.2026 · Branch `sicherheit-anmeldung` · **nichts davon ist live** (kein Hosting-Deploy, keine Regeln, keine Functions, keine Live-Daten geändert).
+Stand: 18.11.2026 abends · **live**: Schritte 0 bis 7 erledigt (Backup, Anmeldung, Konten, Cloud Function `adminManageUser`, neuer Client, Regeln geschlossen, Passwortfelder entfernt). Konto `admin` bewusst nicht angelegt. Backup mit den alten Passwörtern: `~/Documents/haustechnik-backup-2026-11-18.json`.
 
 ## 1. Befund (Stand 18.11.2026, von Levent geprüft)
 
