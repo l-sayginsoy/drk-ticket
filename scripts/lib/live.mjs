@@ -11,7 +11,7 @@ export const EMULATOR = process.argv.includes('--emulator');
 const FS_EMU = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
 const AUTH_EMU = process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099';
 export const FS_BASE = EMULATOR
-  ? `http://${FS_EMU}/v1/projects/${PROJECT}/databases/(default)/documents`
+  ? `http://${FS_EMU}/v1/projects/${PROJECT}/databases/${DB}/documents`
   : `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/${DB}/documents`;
 export const AUTH_BASE = EMULATOR ? `http://${AUTH_EMU}/identitytoolkit.googleapis.com` : 'https://identitytoolkit.googleapis.com';
 
@@ -122,4 +122,30 @@ export function askLine(text) {
     process.stdin.resume(); process.stdin.setEncoding('utf8');
     process.stdin.once('data', d => { process.stdin.pause(); resolve(String(d).trim()); });
   });
+}
+
+/** Liest ein Dokument in einer Transaktion, lässt `fn` die Felder ändern und schreibt nur diese Felder zurück.
+ * Hat jemand das Dokument inzwischen geändert, bricht Firestore ab ('geaendert') – es wird nichts überschrieben. */
+export async function transactUpdate(path, fn) {
+  const h = await headers();
+  const begin = await fetch(`${FS_BASE}:beginTransaction`, { method: 'POST', headers: h, body: JSON.stringify({ options: { readWrite: {} } }) });
+  if (!begin.ok) throw new Error(`Transaktion: ${begin.status} ${(await begin.text()).slice(0, 200)}`);
+  const { transaction } = await begin.json();
+  const g = await fetch(`${FS_BASE}:batchGet`, { method: 'POST', headers: h, body: JSON.stringify({ transaction, documents: [`projects/${PROJECT}/databases/${DB}/documents/${path}`] }) });
+  if (!g.ok) throw new Error(`Lesen ${path}: ${g.status}`);
+  const found = (await g.json())[0]?.found;
+  if (!found) throw new Error(`${path} nicht gefunden.`);
+  const data = Object.fromEntries(Object.entries(found.fields || {}).map(([k, v]) => [k, fromFs(v)]));
+  const next = fn(data);
+  if (!next) {
+    await fetch(`${FS_BASE}:rollback`, { method: 'POST', headers: h, body: JSON.stringify({ transaction }) }).catch(() => {});
+    return 'unveraendert';
+  }
+  const r = await fetch(`${FS_BASE}:commit`, {
+    method: 'POST', headers: h,
+    body: JSON.stringify({ transaction, writes: [{ update: { name: `projects/${PROJECT}/databases/${DB}/documents/${path}`, fields: fieldsOf(next) }, updateMask: { fieldPaths: Object.keys(next) } }] }),
+  });
+  if (r.status === 409 || r.status === 400 || r.status === 412) return 'geaendert';
+  if (!r.ok) throw new Error(`Schreiben ${path}: ${r.status} ${(await r.text()).slice(0, 200)}`);
+  return 'geschrieben';
 }

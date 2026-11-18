@@ -7,7 +7,7 @@
 //
 // Zusatz: --emulator → alles gegen lokale Emulatoren (Firestore 8080, Auth 9099) statt Live.
 // Bestehende Konten/Profile werden NIE überschrieben. Passwörter nur verdeckt vom Terminal; leere Eingabe = Person überspringen.
-import { EMULATOR, PROJECT, AUTH_BASE, headers, getDocRaw, writeDoc, lookupByEmail, createAccount, askHidden, askLine, loginEmailFor, normalizeLoginName, ALWAYS_ADMIN } from './lib/live.mjs';
+import { EMULATOR, PROJECT, AUTH_BASE, headers, getDocRaw, writeDoc, transactUpdate, lookupByEmail, createAccount, askHidden, askLine, loginEmailFor, normalizeLoginName, ALWAYS_ADMIN } from './lib/live.mjs';
 
 const args = process.argv.slice(2).filter(a => !a.startsWith('--'));
 const flag = f => process.argv.includes(f);
@@ -53,7 +53,7 @@ async function plan() {
     const email = loginEmailFor(p.name);
     const konto = await lookupByEmail(email);
     const profil = konto ? await getDocRaw(`users/${konto.localId}`) : null;
-    log(`${p.name.padEnd(20)} ${email.padEnd(40)} Rolle ${rolleFuer(p).padEnd(14)} Konto: ${konto ? 'vorhanden' : 'wird angelegt'}  Profil: ${profil ? 'vorhanden' : 'wird angelegt'}  Passwortfeld in Liste: ${p.password ? 'ja (' + p.password.length + ' Zeichen)' : 'nein'}${p.password && p.password.length < 6 ? '  ⚠ zu kurz für Firebase (min. 6) → neues Passwort nötig' : ''}${p === LEVENT ? '  (wird in die Benutzerliste aufgenommen)' : ''}`);
+    log(`${p.name.padEnd(20)} ${email.padEnd(40)} Rolle ${rolleFuer(p).padEnd(14)} Konto: ${konto ? 'vorhanden, zuletzt angemeldet: ' + (konto.lastLoginAt ? new Date(Number(konto.lastLoginAt)).toLocaleString('de-DE') : 'noch nie') : 'wird angelegt'}  Profil: ${profil ? 'vorhanden' : 'wird angelegt'}  Passwortfeld in Liste: ${p.password ? 'ja (' + p.password.length + ' Zeichen)' : 'nein'}${p.password && p.password.length < 6 ? '  ⚠ zu kurz für Firebase (min. 6) → neues Passwort nötig' : ''}${p === LEVENT ? '  (wird in die Benutzerliste aufgenommen)' : ''}`);
   }
   const pub = await getDocRaw(PUBLIC_DOC);
   log(`\n${PUBLIC_DOC}: ${pub ? 'vorhanden' : 'wird angelegt (Name, Kategorien, Standorte, Namen fürs Anmeldeformular)'}`);
@@ -63,13 +63,19 @@ async function plan() {
 }
 
 async function anmeldungAktivieren() {
-  const r = await fetch(`${AUTH_BASE}/admin/v2/projects/${PROJECT}/config?updateMask=signIn.email,client.permissions.disabledUserSignup`, {
-    method: 'PATCH', headers: await headers(),
-    body: JSON.stringify({ signIn: { email: { enabled: true, passwordRequired: true } }, client: { permissions: { disabledUserSignup: true } } }),
-  });
-  const j = await r.json();
-  if (!r.ok) throw new Error(`Konfiguration: ${j.error?.message || r.status}`);
-  log(`E-Mail/Passwort-Anmeldung: ${j.signIn?.email?.enabled ? 'AN' : '?'}; Selbstregistrierung gesperrt: ${j.client?.permissions?.disabledUserSignup ? 'ja' : '?'}`);
+  if (EMULATOR) { log('Im Emulator nicht nötig (E-Mail-Anmeldung ist dort immer an).'); return; }
+  const patch = async (mask, body) => {
+    const r = await fetch(`${AUTH_BASE}/admin/v2/projects/${PROJECT}/config?updateMask=${mask}`, { method: 'PATCH', headers: await headers(), body: JSON.stringify(body) });
+    return { ok: r.ok, status: r.status, j: await r.json().catch(() => ({})) };
+  };
+  // 1) E-Mail/Passwort-Anmeldung einschalten + Selbstregistrierung sperren (Konten legen nur Admins an)
+  let r = await patch('signIn.email,client.permissions.disabledUserSignup', { signIn: { email: { enabled: true, passwordRequired: true } }, client: { permissions: { disabledUserSignup: true } } });
+  if (!r.ok) {
+    log(`Selbstregistrierung ließ sich nicht sperren (${r.j.error?.message || r.status}) – schalte nur die Anmeldung ein.`);
+    r = await patch('signIn.email', { signIn: { email: { enabled: true, passwordRequired: true } } });
+    if (!r.ok) throw new Error(`Konfiguration: ${r.j.error?.message || r.status}`);
+  }
+  log(`E-Mail/Passwort-Anmeldung: ${r.j.signIn?.email?.enabled ? 'AN' : '?'}; Selbstregistrierung gesperrt: ${r.j.client?.permissions?.disabledUserSignup ? 'ja' : 'nein/unbekannt'}`);
 }
 
 async function konten() {
@@ -101,12 +107,12 @@ async function konten() {
     ergebnis.push([p.name, `${neu ? 'Konto neu' : 'Konto vorhanden'}, Profil ${profil}`]);
   }
   if (neuInListe) {
-    const cur = await getDocRaw(USERS_DOC);
-    const l = Array.isArray(cur.data.value) ? cur.data.value : [];
-    if (!l.some(u => u.name.trim().toLowerCase() === 'levent')) {
-      const res = await writeDoc(USERS_DOC, { value: [...l, LEVENT], updated_at: jetzt() }, { updateTime: cur.updateTime }, ['value', 'updated_at']);
-      ergebnis.push(['Levent', `in Benutzerliste aufgenommen: ${res}`]);
-    }
+    const res = await transactUpdate(USERS_DOC, (d) => {
+      const l = Array.isArray(d.value) ? d.value : [];
+      if (l.some(u => u.name.trim().toLowerCase() === 'levent')) return null;
+      return { value: [...l, LEVENT], updated_at: jetzt() };
+    });
+    ergebnis.push(['Levent', `in Benutzerliste aufgenommen: ${res}`]);
   }
   const settings = (await getDocRaw(SETTINGS_DOC))?.data.value;
   const locs = (await getDocRaw(LOCATIONS_DOC))?.data.value;
@@ -118,12 +124,15 @@ async function konten() {
 
 async function passwoerterEntfernen() {
   if (!flag('--ja')) { log('Dieser Schritt löscht die Klartext-Passwörter aus der Benutzerliste. Nur nach dem Ausrollen (neuer Client + neue Regeln) und mit --ja.'); return; }
-  const { doc, list } = await lade();
-  const betroffen = list.filter(u => 'password' in u).length;
-  if (!betroffen) { log('Keine Passwortfelder mehr vorhanden.'); return; }
-  const neu = list.map(u => { const { password, ...rest } = u; return rest; });
-  const res = await writeDoc(USERS_DOC, { value: neu, updated_at: jetzt() }, { updateTime: doc.updateTime }, ['value', 'updated_at']);
-  log(res === 'geschrieben' ? `Passwortfelder entfernt bei ${betroffen} Personen.` : `Nicht geschrieben (${res}) – die Liste wurde inzwischen geändert, bitte erneut starten.`);
+  let betroffen = 0;
+  const res = await transactUpdate(USERS_DOC, (d) => {
+    const l = Array.isArray(d.value) ? d.value : [];
+    betroffen = l.filter(u => 'password' in u).length;
+    if (!betroffen) return null;
+    return { value: l.map(({ password, ...rest }) => rest), updated_at: jetzt() };
+  });
+  if (res === 'unveraendert') log('Keine Passwortfelder mehr vorhanden.');
+  else log(res === 'geschrieben' ? `Passwortfelder entfernt bei ${betroffen} Personen.` : 'Nicht geschrieben – die Liste wurde inzwischen geändert, bitte erneut starten.');
 }
 
 try {

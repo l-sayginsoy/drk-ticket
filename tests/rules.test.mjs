@@ -123,6 +123,11 @@ describe('anonym: Melder-Funktionen', () => {
     const saved = await assertSucceeds(persistTicket(db, { ...orig, notes: [...orig.notes, 'Hallo (Melder am 18.11.2026, 12:00)'], hasNewNoteFromReporter: true, reporterNoteReadBy: [] }, 'update', orig));
     assert_eq(saved.notes.length, 3);
   });
+  test('Nachricht an ein Ticket OHNE bisherige Notizen (Normalfall nach dem Anlegen)', async () => {
+    const db = anon();
+    const orig = (await getDoc(ref(db, 'tickets/30001'))).data();
+    await assertSucceeds(persistTicket(db, { ...orig, notes: ['Erste Nachricht (Melder am 18.11.2026, 12:00)'], hasNewNoteFromReporter: true, reporterNoteReadBy: [] }, 'update', orig));
+  });
   test('Nachricht: bestehende Notizen ändern/löschen, mehrere auf einmal, andere Felder → abgelehnt', async () => {
     const db = anon();
     const orig = (await getDoc(ref(db, 'tickets/30002'))).data();
@@ -142,6 +147,12 @@ describe('anonym: Melder-Funktionen', () => {
     assert_eq(saved.status, 'In Arbeit');
     await assert_exists('completed_tickets/C1', false);
     await assert_exists('tickets/C1', true);
+  });
+  test('Wiedereröffnen eines Archiv-Tickets ohne bisherige Notizen', async () => {
+    await env.withSecurityRulesDisabled(async ctx => { await setDoc(doc(ctx.firestore(), 'completed_tickets/C2'), done(T('C2', { notes: [] }))); });
+    const db = anon();
+    const archive = (await getDoc(ref(db, 'completed_tickets/C2'))).data();
+    await assertSucceeds(persistTicket(db, { ...archive, status: 'In Arbeit', notes: ['Ticket durch Melder wiedereröffnet (am 18.11.2026, 12:00)'], hasNewNoteFromReporter: true, reporterNoteReadBy: [], is_reopened: true }, 'reopen', archive));
   });
   test('Wiedereröffnen mit verändertem Titel/Techniker/ohne Notiz wird abgelehnt', async () => {
     const db = anon();

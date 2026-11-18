@@ -120,7 +120,7 @@ service cloud.firestore {
       let newNotes = request.resource.data.get('notes', []);
       return newNotes is list
         && newNotes.size() == oldNotes.size() + 1
-        && newNotes[0:oldNotes.size()] == oldNotes
+        && (oldNotes.size() == 0 || newNotes[0:oldNotes.size()] == oldNotes)
         && newNotes[oldNotes.size()] is string
         && newNotes[oldNotes.size()].size() <= 3000
         && request.resource.data.get('hasNewNoteFromReporter', false) == true;
@@ -147,7 +147,8 @@ service cloud.firestore {
              ['status', 'notes', 'hasNewNoteFromReporter', 'reporterNoteReadBy', 'is_reopened',
               'lifecycleRevision', 'closedAt', 'completionDate', 'completionTime'])
         && d.get('notes', []).size() == archive.data.get('notes', []).size() + 1
-        && d.get('notes', [])[0:archive.data.get('notes', []).size()] == archive.data.get('notes', []);
+        && (archive.data.get('notes', []).size() == 0
+            || d.get('notes', [])[0:archive.data.get('notes', []).size()] == archive.data.get('notes', []));
     }
 
     // ===============================================================
